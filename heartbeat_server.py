@@ -259,7 +259,11 @@ class ShopkeeperServer:
         except Exception as e:
             print(f"  [Server] Connection error: {e}")
         finally:
-            if visitor_id and visitor_id in self.connections:
+            # Only clean up if THIS writer owns the connection slot.
+            # A rejected duplicate has visitor_id set but never got added
+            # to self.connections, so this guard prevents it from tearing
+            # down the original active session.
+            if visitor_id and self.connections.get(visitor_id) is writer:
                 self.connections.pop(visitor_id, None)
                 self.heartbeat.unsubscribe_cycle_logs(visitor_id)
                 if self._active_visitor_id == visitor_id:
