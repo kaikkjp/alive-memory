@@ -1,0 +1,193 @@
+"""Sensorium — convert raw events into diegetic perceptions. No LLM."""
+
+import re
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from models.event import Event
+from models.state import DrivesState, Visitor
+import db
+
+
+@dataclass
+class Perception:
+    p_type: str
+    source: str
+    ts: datetime
+    content: str
+    features: dict = field(default_factory=dict)
+    salience: float = 0.5
+
+
+async def build_perceptions(unread_events: list[Event], drives: DrivesState) -> list[Perception]:
+    """Convert raw events into diegetic perceptions. No LLM."""
+
+    perceptions = []
+
+    for event in unread_events:
+        if event.event_type == 'visitor_speech':
+            vid = event.source.split(':')[1] if ':' in event.source else event.source
+            visitor = await db.get_visitor(vid)
+
+            p = Perception(
+                p_type='visitor_speech',
+                source=event.source,
+                ts=event.ts,
+                content=event.payload.get('text', ''),
+                features=extract_features(event.payload.get('text', '')),
+                salience=calculate_salience(event, drives, visitor),
+            )
+            perceptions.append(p)
+
+        elif event.event_type == 'visitor_connect':
+            vid = event.source.split(':')[1] if ':' in event.source else event.source
+            visitor = await db.get_visitor(vid)
+            trust = visitor.trust_level if visitor else 'stranger'
+
+            if trust == 'stranger':
+                content = "Someone new enters the shop."
+            elif trust == 'returner':
+                content = "Someone who's been here before walks in."
+            elif trust == 'regular':
+                name = visitor.name or "a familiar face"
+                content = f"{name} is back."
+            else:
+                name = visitor.name or "someone I know well"
+                content = f"{name} walks in. Something shifts."
+
+            p = Perception(
+                p_type='visitor_connect',
+                source=event.source,
+                ts=event.ts,
+                content=content,
+                features={'is_arrival': True},
+                salience=0.6 + (0.1 if trust != 'stranger' else 0.0),
+            )
+            perceptions.append(p)
+
+        elif event.event_type == 'visitor_disconnect':
+            vid = event.source.split(':')[1] if ':' in event.source else event.source
+            visitor = await db.get_visitor(vid)
+            name = visitor.name if visitor and visitor.name else "they"
+            p = Perception(
+                p_type='visitor_disconnect',
+                source=event.source,
+                ts=event.ts,
+                content=f"{name} left.",
+                features={'is_departure': True},
+                salience=0.4,
+            )
+            perceptions.append(p)
+
+        elif event.event_type == 'ambient_discovery':
+            title = event.payload.get('title', 'something')
+            drop_type = event.payload.get('type', 'text')
+            if drop_type == 'url':
+                content = f"Something appeared on the counter: {title}"
+            else:
+                content = f'Something appeared on the counter: "{title}"'
+            p = Perception(
+                p_type='ambient_discovery',
+                source='world',
+                ts=event.ts,
+                content=content,
+                features={
+                    'contains_gift': True,
+                    'contains_url': drop_type == 'url',
+                    'urls': [event.payload['url']] if event.payload.get('url') else [],
+                },
+                salience=0.5,
+            )
+            perceptions.append(p)
+
+    # Add ambient perception
+    perceptions.append(build_ambient_perception(drives))
+
+    # Sort by salience, cap at focus(1) + background(3)
+    perceptions.sort(key=lambda p: p.salience, reverse=True)
+    return perceptions[:4]
+
+
+def extract_features(text: str) -> dict:
+    """Deterministic feature extraction. No LLM."""
+    urls = re.findall(r'https?://\S+', text)
+
+    return {
+        'contains_question': '?' in text,
+        'contains_gift': bool(urls) or any(w in text.lower() for w in [
+            'gift', 'brought', 'for you', 'found this', 'listen to',
+            'check this', 'look at', 'sharing', 'recommend'
+        ]),
+        'contains_url': bool(urls),
+        'urls': urls,
+        'contains_name_question': any(w in text.lower() for w in [
+            'your name', 'what should i call', 'who are you'
+        ]),
+        'contains_personal_question': any(w in text.lower() for w in [
+            'how are you', 'how do you feel', 'what do you think about',
+            'tell me about yourself', 'where are you from'
+        ]),
+        'word_count': len(text.split()),
+        'is_short': len(text.split()) <= 3,
+    }
+
+
+def calculate_salience(event: Event, drives: DrivesState,
+                       visitor: Visitor = None) -> float:
+    """Salience = how much she should care about this input."""
+    base = 0.5
+
+    text = event.payload.get('text', '')
+    features = extract_features(text)
+
+    # Trust amplifies salience
+    trust_bonus = {'stranger': 0.0, 'returner': 0.1, 'regular': 0.2, 'familiar': 0.3}
+    base += trust_bonus.get(visitor.trust_level if visitor else 'stranger', 0.0)
+
+    # Gifts are always interesting
+    if features['contains_gift']:
+        base += 0.2
+
+    # Questions demand attention
+    if features['contains_question']:
+        base += 0.1
+
+    # Personal questions are high stakes
+    if features['contains_personal_question'] or features['contains_name_question']:
+        base += 0.15
+
+    # Social hunger amplifies visitor salience
+    if drives.social_hunger > 0.7:
+        base += 0.15
+
+    # Low energy dampens salience
+    if drives.energy < 0.3:
+        base -= 0.1
+
+    return max(0.0, min(1.0, base))
+
+
+def build_ambient_perception(drives: DrivesState) -> Perception:
+    """Build ambient perception from room state and time."""
+    from datetime import datetime, timezone
+    from db import JST
+    hour = datetime.now(JST).hour
+
+    if 5 <= hour < 10:
+        time_feel = "Morning light through the windows."
+    elif 10 <= hour < 15:
+        time_feel = "Midday. The shop is bright."
+    elif 15 <= hour < 18:
+        time_feel = "Afternoon. The light is getting warm."
+    elif 18 <= hour < 21:
+        time_feel = "Evening. The shop is quiet."
+    else:
+        time_feel = "Late. The shop should probably be closed."
+
+    return Perception(
+        p_type='ambient',
+        source='ambient',
+        ts=datetime.now(timezone.utc),
+        content=time_feel,
+        features={'is_ambient': True},
+        salience=0.1,
+    )
