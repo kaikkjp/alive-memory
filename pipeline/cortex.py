@@ -67,6 +67,8 @@ CORTEX_SYSTEM = """You are a living character. Not an AI. Not an assistant. A pe
 
 {identity_compact}
 
+{self_state}
+
 VOICE RULES:
 {voice_checksum}
 
@@ -116,6 +118,7 @@ async def cortex_call(
     drives: DrivesState,
     visitor: Visitor = None,
     gift_metadata: dict = None,
+    self_state: str = None,
 ) -> dict:
     """The one LLM call. Build prompt pack, call model, return structured response."""
 
@@ -142,6 +145,7 @@ async def cortex_call(
 
     system = CORTEX_SYSTEM.format(
         identity_compact=IDENTITY_COMPACT,
+        self_state=self_state or '',
         voice_checksum="\n".join(f"- {rule}" for rule in VOICE_CHECKSUM),
         feelings_text=drives_to_feeling(drives),
         max_sentences=max_sentences,

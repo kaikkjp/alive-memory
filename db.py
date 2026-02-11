@@ -260,8 +260,11 @@ CREATE TABLE IF NOT EXISTS cycle_log (
     internal_monologue TEXT,
     dialogue TEXT,
     expression TEXT,
+    body_state TEXT,
+    gaze TEXT,
     actions JSON,
     dropped JSON,
+    next_cycle_hints JSON,
     ts TIMESTAMP NOT NULL
 );
 """
@@ -286,6 +289,15 @@ async def init_db():
         "INSERT OR IGNORE INTO engagement_state (id) VALUES (1)"
     )
     await db.commit()
+
+    # Migrate cycle_log: add columns introduced in self-state continuity patch
+    for col, col_type in [('body_state', 'TEXT'), ('gaze', 'TEXT'),
+                          ('next_cycle_hints', 'JSON')]:
+        try:
+            await db.execute(f"ALTER TABLE cycle_log ADD COLUMN {col} {col_type}")
+            await db.commit()
+        except Exception:
+            pass  # column already exists
 
 
 # ─── Event Store ───
@@ -353,6 +365,29 @@ async def inbox_get_unread() -> list[Event]:
     )
     rows = await cursor.fetchall()
     return [_row_to_event(r) for r in rows]
+
+
+async def inbox_flush_stale_visitor_events():
+    """Mark all unread visitor events as read.
+
+    Called on visitor_connect to prevent stale disconnect/speech events
+    from a previous session leaking into the new session's perceptions.
+    """
+    now = datetime.now(timezone.utc).isoformat()
+    await _exec_write(
+        """UPDATE inbox SET read_at = ?
+           WHERE read_at IS NULL
+           AND event_id IN (
+               SELECT e.id FROM events e
+               JOIN inbox i ON i.event_id = e.id
+               WHERE i.read_at IS NULL
+               AND e.event_type IN (
+                   'visitor_connect', 'visitor_disconnect',
+                   'visitor_speech', 'visitor_silence'
+               )
+           )""",
+        (now,)
+    )
 
 
 async def inbox_mark_read(event_id: str):
@@ -763,16 +798,42 @@ async def log_cycle(log: dict):
         """INSERT INTO cycle_log
            (id, mode, drives, focus_salience, focus_type, routing_focus,
             token_budget, memory_count, internal_monologue, dialogue,
-            expression, actions, dropped, ts)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            expression, body_state, gaze, actions, dropped,
+            next_cycle_hints, ts)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (log['id'], log['mode'], json.dumps(log.get('drives', {})),
          log.get('focus_salience'), log.get('focus_type'),
          log.get('routing_focus'), log.get('token_budget'),
          log.get('memory_count'), log.get('internal_monologue'),
          log.get('dialogue'), log.get('expression'),
+         log.get('body_state', 'sitting'), log.get('gaze', 'at_visitor'),
          json.dumps(log.get('actions', [])), json.dumps(log.get('dropped', [])),
+         json.dumps(log.get('next_cycle_hints', [])),
          datetime.now(timezone.utc).isoformat())
     )
+
+
+async def get_last_cycle_log() -> dict | None:
+    """Fetch the most recent cycle_log entry for self_state assembly."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT body_state, gaze, expression, internal_monologue,
+                  actions, next_cycle_hints, dialogue, mode
+           FROM cycle_log ORDER BY ts DESC LIMIT 1"""
+    )
+    row = await cursor.fetchone()
+    if not row:
+        return None
+    return {
+        'body_state': row['body_state'] or 'sitting',
+        'gaze': row['gaze'] or 'at_visitor',
+        'expression': row['expression'] or 'neutral',
+        'internal_monologue': row['internal_monologue'] or '',
+        'actions': json.loads(row['actions']) if row['actions'] else [],
+        'next_cycle_hints': json.loads(row['next_cycle_hints']) if row['next_cycle_hints'] else [],
+        'dialogue': row['dialogue'],
+        'mode': row['mode'],
+    }
 
 
 # ─── Self Knowledge ───

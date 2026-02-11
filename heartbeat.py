@@ -36,6 +36,90 @@ FIDGET_BEHAVIORS = [
     ("examines_item", "She holds something up to the light, studying it."),
 ]
 
+# Diegetic mappings for self_state assembly
+_GAZE_MAP = {
+    'at_visitor': 'at the visitor',
+    'at_object': 'at something on the shelf',
+    'away_thinking': 'away, thinking',
+    'down': 'down',
+    'window': 'out the window',
+}
+
+_ACTION_MAP = {
+    'close_shop': 'closed the shop',
+    'write_journal': 'wrote in your journal',
+    'accept_gift': 'accepted a gift',
+    'decline_gift': 'declined a gift',
+    'show_item': 'showed an item',
+    'place_item': 'put something down',
+    'rearrange': 'rearranged something',
+    'post_x_draft': 'drafted a post',
+    'end_engagement': 'ended the conversation',
+}
+
+
+def _truncate_at_word(text: str, max_chars: int = 60) -> str:
+    """Truncate at word boundary, append '...' if shortened."""
+    if len(text) <= max_chars:
+        return text
+    truncated = text[:max_chars].rsplit(' ', 1)[0]
+    return truncated + '...'
+
+
+async def build_self_state(visitor, unread: list) -> str | None:
+    """Assemble diegetic self-state from last cycle_log + current room.
+
+    Returns a text block for the Cortex prompt, or None on first boot.
+    ~50-80 tokens. No LLM cost.
+    """
+    last = await db.get_last_cycle_log()
+    if not last:
+        return None  # first boot — no previous cycle
+
+    room = await db.get_room_state()
+
+    parts = ['RIGHT NOW:']
+
+    # Body position
+    parts.append(f'  You are {last["body_state"]}.')
+
+    # Expression (skip if neutral — it's the default)
+    if last['expression'] and last['expression'] != 'neutral':
+        parts.append(f'  Your expression is {last["expression"]}.')
+
+    # Gaze
+    gaze_text = _GAZE_MAP.get(last['gaze'], last['gaze'])
+    parts.append(f"  You're looking {gaze_text}.")
+
+    # Shop status (from live room_state, not stale cycle_log)
+    parts.append(f'  The shop is {room.shop_status}.')
+
+    # Hands
+    if visitor and visitor.hands_state:
+        parts.append(f"  You're holding {visitor.hands_state}.")
+
+    # Last action(s)
+    if last['actions']:
+        action_key = last['actions'][0]  # most significant
+        action_text = _ACTION_MAP.get(action_key, action_key.replace('_', ' '))
+        parts.append(f'  You just {action_text}.')
+
+    # Internal monologue (truncate at word boundary)
+    if last['internal_monologue']:
+        thought = _truncate_at_word(last['internal_monologue'])
+        parts.append(f'  You were thinking: "{thought}"')
+
+    # Next cycle hints — suppress if engagement just changed
+    has_new_visitor = any(
+        getattr(e, 'event_type', None) == 'visitor_connect'
+        for e in unread
+    )
+    if last['next_cycle_hints'] and not has_new_visitor:
+        hint = last['next_cycle_hints'][0]
+        parts.append(f'  You were about to {hint}.')
+
+    return '\n'.join(parts)
+
 
 class Heartbeat:
     """The shopkeeper's heartbeat. Drives all cycles."""
@@ -46,10 +130,22 @@ class Heartbeat:
         self._last_cycle_ts = datetime.now(timezone.utc)
         self._last_creative_cycle_ts: Optional[datetime] = None
         self._last_sleep_date: Optional[str] = None  # ISO date string
+        self._last_fidget_behavior: Optional[str] = None
         self._cycle_log_subscribers: dict[str, asyncio.Queue] = {}
         self._loop_task = None
         self._stage_callback: StageCallback = None
         self._error_backoff = 5
+
+    def _pick_fidget_behavior(self) -> tuple[str, str]:
+        """Pick a fidget behavior while avoiding immediate repetition."""
+        choices = FIDGET_BEHAVIORS
+        if self._last_fidget_behavior:
+            filtered = [b for b in FIDGET_BEHAVIORS if b[0] != self._last_fidget_behavior]
+            if filtered:
+                choices = filtered
+        behavior, description = random.choice(choices)
+        self._last_fidget_behavior = behavior
+        return behavior, description
 
     def set_stage_callback(self, cb: StageCallback):
         """Set a callback that fires after each pipeline stage."""
@@ -234,7 +330,7 @@ class Heartbeat:
                 else:
                     # Ambient idle — 50% body-only (zero LLM cost), 50% full cycle
                     if random.random() < 0.5:
-                        behavior, description = random.choice(FIDGET_BEHAVIORS)
+                        behavior, description = self._pick_fidget_behavior()
                         body_event = Event(
                             event_type='action_body',
                             source='self',
@@ -282,7 +378,7 @@ class Heartbeat:
             await self.run_cycle('ambient')
         else:
             # Body-only fidget (zero LLM cost)
-            behavior, description = random.choice(FIDGET_BEHAVIORS)
+            behavior, description = self._pick_fidget_behavior()
             body_event = Event(
                 event_type='action_body',
                 source='self',
@@ -412,6 +508,9 @@ class Heartbeat:
         if _gift_urls:
             gift_meta = await fetch_url_metadata(_gift_urls[0])
 
+        # 7b. Self-state: what she was just doing (deterministic, no LLM)
+        self_state = await build_self_state(visitor, unread)
+
         # 8. Cortex (THE LLM CALL)
         conversation = []
         if visitor_id:
@@ -419,6 +518,7 @@ class Heartbeat:
         cortex_output = await cortex_call(
             routing, perceptions, memory_chunks,
             conversation, drives, visitor, gift_meta,
+            self_state=self_state,
         )
 
         # 9. Validate
@@ -426,6 +526,7 @@ class Heartbeat:
             'hands_held_item': visitor.hands_state if visitor else None,
             'cycle_type': routing.cycle_type,
             'energy': drives.energy,
+            'turn_count': engagement.turn_count,
         }
         validated = validate(cortex_output, state)
 
@@ -467,8 +568,11 @@ class Heartbeat:
             'internal_monologue': validated.get('internal_monologue', ''),
             'dialogue': validated.get('dialogue'),
             'expression': validated.get('expression', 'neutral'),
+            'body_state': validated.get('body_state', 'sitting'),
+            'gaze': validated.get('gaze', 'at_visitor'),
             'actions': [a.get('type', '') for a in approved],
             'dropped': [{'reason': d['reason']} for d in dropped],
+            'next_cycle_hints': validated.get('next_cycle_hints', []),
             'resonance': validated.get('resonance', False),
             '_entropy_warning': validated.get('_entropy_warning'),
         }
