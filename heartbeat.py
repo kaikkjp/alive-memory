@@ -109,14 +109,16 @@ async def build_self_state(visitor, unread: list) -> str | None:
         thought = _truncate_at_word(last['internal_monologue'])
         parts.append(f'  You were thinking: "{thought}"')
 
-    # Next cycle hints — suppress if engagement just changed
-    has_new_visitor = any(
-        getattr(e, 'event_type', None) == 'visitor_connect'
+    # Next cycle hints — suppress if engagement boundary crossed
+    has_engagement_change = any(
+        getattr(e, 'event_type', None) in ('visitor_connect', 'visitor_disconnect')
         for e in unread
     )
-    if last['next_cycle_hints'] and not has_new_visitor:
-        hint = last['next_cycle_hints'][0]
-        parts.append(f'  You were about to {hint}.')
+    hints = last['next_cycle_hints']
+    if hints and isinstance(hints, list) and not has_engagement_change:
+        hint = hints[0]
+        if isinstance(hint, str) and hint:
+            parts.append(f'  You were about to {hint}.')
 
     return '\n'.join(parts)
 

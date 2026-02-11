@@ -296,8 +296,11 @@ async def init_db():
         try:
             await db.execute(f"ALTER TABLE cycle_log ADD COLUMN {col} {col_type}")
             await db.commit()
-        except Exception:
-            pass  # column already exists
+        except Exception as e:
+            if 'duplicate column' in str(e).lower():
+                pass  # column already exists, expected
+            else:
+                raise  # real failure — don't swallow
 
 
 # ─── Event Store ───
@@ -824,13 +827,14 @@ async def get_last_cycle_log() -> dict | None:
     row = await cursor.fetchone()
     if not row:
         return None
+    raw_hints = json.loads(row['next_cycle_hints']) if row['next_cycle_hints'] else []
     return {
         'body_state': row['body_state'] or 'sitting',
         'gaze': row['gaze'] or 'at_visitor',
         'expression': row['expression'] or 'neutral',
         'internal_monologue': row['internal_monologue'] or '',
         'actions': json.loads(row['actions']) if row['actions'] else [],
-        'next_cycle_hints': json.loads(row['next_cycle_hints']) if row['next_cycle_hints'] else [],
+        'next_cycle_hints': raw_hints if isinstance(raw_hints, list) else [],
         'dialogue': row['dialogue'],
         'mode': row['mode'],
     }
