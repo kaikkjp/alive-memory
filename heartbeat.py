@@ -325,12 +325,11 @@ class Heartbeat:
         # 1. Read inbox (mark read AFTER successful execution to prevent event loss)
         unread = await db.inbox_get_unread()
 
-        # 2. Load and update drives
+        # 2. Load and update drives (persist inside transaction below)
         drives = await db.get_drives_state()
         elapsed = (start_time - self._last_cycle_ts).total_seconds() / 3600.0
         self._last_cycle_ts = start_time
         drives, feelings = await update_drives(drives, elapsed, unread)
-        await db.save_drives_state(drives)
 
         # 3. Sensorium: events → perceptions
         perceptions = await build_perceptions(unread, drives)
@@ -475,6 +474,7 @@ class Heartbeat:
         }
 
         async with db.transaction():
+            await db.save_drives_state(drives)
             await execute(validated, visitor_id)
             for event in unread:
                 await db.inbox_mark_read(event.id)
