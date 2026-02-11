@@ -14,6 +14,7 @@ import re
 import sys
 import random
 
+from datetime import datetime, timezone, timedelta
 from colorama import Fore, Style, init as colorama_init
 
 from models.event import Event
@@ -136,6 +137,218 @@ def show_banner():
     print()
 
 
+# ─── Peek Commands (read-only, no engagement triggered) ───
+
+JST = timezone(timedelta(hours=9))
+
+PEEK_COMMANDS = ('journal', 'drives', 'collection', 'backroom', 'status', 'totems', 'events')
+
+
+def _fmt_time(dt) -> str:
+    """Format a datetime for peek display, converting to JST."""
+    if not dt:
+        return '?'
+    if isinstance(dt, str):
+        dt = datetime.fromisoformat(dt)
+    jst = dt.astimezone(JST)
+    return jst.strftime('%I:%M %p').lstrip('0').lower()
+
+
+def _fmt_date(dt) -> str:
+    """Format a date for peek display."""
+    if not dt:
+        return '?'
+    if isinstance(dt, str):
+        dt = datetime.fromisoformat(dt)
+    jst = dt.astimezone(JST)
+    return jst.strftime('%b %d')
+
+
+def _bar(value: float, width: int = 12) -> str:
+    """Render a 0-1 float as a small bar."""
+    filled = int(value * width)
+    return '█' * filled + '░' * (width - filled)
+
+
+_peek_db_ready = False
+
+
+async def handle_peek(cmd: str) -> bool:
+    """Handle read-only peek commands. Returns True if handled."""
+    global _peek_db_ready
+    cmd = cmd.strip().lower()
+
+    # Ensure DB is accessible (client mode doesn't call init_db)
+    if not _peek_db_ready:
+        await db.init_db()
+        _peek_db_ready = True
+
+    if cmd == 'journal':
+        await _peek_journal(last_n=3)
+    elif cmd == 'journal all':
+        await _peek_journal(all_entries=True)
+    elif cmd == 'drives':
+        await _peek_drives()
+    elif cmd == 'collection':
+        await _peek_collection('shelf')
+    elif cmd == 'backroom':
+        await _peek_collection('backroom')
+    elif cmd == 'status':
+        await _peek_status()
+    elif cmd == 'totems':
+        await _peek_totems()
+    elif cmd == 'events':
+        await _peek_events()
+    else:
+        return False
+    return True
+
+
+async def _peek_journal(last_n: int = 3, all_entries: bool = False):
+    if all_entries:
+        entries = await db.get_all_journal()
+    else:
+        entries = await db.get_recent_journal(limit=last_n)
+        entries = list(reversed(entries))  # chronological order
+
+    if not entries:
+        print(f"\n  {Fore.WHITE}(No journal entries yet.){Style.RESET_ALL}\n")
+        return
+
+    print()
+    for e in entries:
+        day = f"Day {e.day_alive}" if e.day_alive else "Day ?"
+        time = _fmt_time(e.created_at)
+        mood = e.mood or '...'
+        print(f"  {Fore.YELLOW}[{day} — {time} — mood: {mood}]{Style.RESET_ALL}")
+        for line in e.content.strip().split('\n'):
+            print(f"  {Fore.WHITE}{line}{Style.RESET_ALL}")
+        print()
+
+
+async def _peek_drives():
+    d = await db.get_drives_state()
+    print()
+    print(f"  {Fore.YELLOW}── Drives ──{Style.RESET_ALL}")
+    print(f"  social hunger  {_bar(d.social_hunger)} {d.social_hunger:.2f}")
+    print(f"  curiosity      {_bar(d.curiosity)} {d.curiosity:.2f}")
+    print(f"  expression     {_bar(d.expression_need)} {d.expression_need:.2f}")
+    print(f"  rest need      {_bar(d.rest_need)} {d.rest_need:.2f}")
+    print(f"  energy         {_bar(d.energy)} {d.energy:.2f}")
+    valence_label = "bright" if d.mood_valence > 0 else "dark" if d.mood_valence < 0 else "neutral"
+    print(f"  mood           {d.mood_valence:+.2f} ({valence_label})")
+    print(f"  arousal        {_bar(d.mood_arousal)} {d.mood_arousal:.2f}")
+    if d.updated_at:
+        print(f"  {Fore.CYAN}updated: {_fmt_time(d.updated_at)}{Style.RESET_ALL}")
+    print()
+
+
+async def _peek_collection(location: str):
+    items = await db.get_collection_by_location(location)
+    label = 'Shelf' if location == 'shelf' else 'Backroom'
+
+    if not items:
+        print(f"\n  {Fore.WHITE}({label} is empty.){Style.RESET_ALL}\n")
+        return
+
+    print()
+    print(f"  {Fore.YELLOW}── {label} ({len(items)} items) ──{Style.RESET_ALL}")
+    for item in items:
+        origin_tag = f" [{item.origin}]" if item.origin != 'appeared' else ''
+        print(f"  {Fore.WHITE}• {item.title}{origin_tag}{Style.RESET_ALL}")
+        if item.her_feeling:
+            print(f"    {Fore.CYAN}\"{item.her_feeling}\"{Style.RESET_ALL}")
+        if item.url:
+            print(f"    {Fore.BLUE}{item.url}{Style.RESET_ALL}")
+    print()
+
+
+async def _peek_status():
+    drives = await db.get_drives_state()
+    room = await db.get_room_state()
+    engagement = await db.get_engagement_state()
+    days = await db.get_days_alive()
+    visitors_today = await db.get_visitor_count_today()
+    creative = await db.get_last_creative_cycle()
+
+    valence_label = "bright" if drives.mood_valence > 0 else "dark" if drives.mood_valence < 0 else "neutral"
+
+    print()
+    print(f"  {Fore.YELLOW}── Status ──{Style.RESET_ALL}")
+    print(f"  days alive     {days}")
+    print(f"  shop           {room.shop_status}")
+    print(f"  time of day    {room.time_of_day}")
+    print(f"  weather        {room.weather}")
+    if room.ambient_music:
+        print(f"  music          {room.ambient_music}")
+    print()
+    print(f"  {Fore.YELLOW}── Drives ──{Style.RESET_ALL}")
+    print(f"  energy         {_bar(drives.energy)} {drives.energy:.2f}")
+    print(f"  mood           {drives.mood_valence:+.2f} ({valence_label})")
+    print(f"  social hunger  {_bar(drives.social_hunger)} {drives.social_hunger:.2f}")
+    print(f"  curiosity      {_bar(drives.curiosity)} {drives.curiosity:.2f}")
+    print()
+    print(f"  {Fore.YELLOW}── Engagement ──{Style.RESET_ALL}")
+    print(f"  status         {engagement.status}")
+    print(f"  visitors today {visitors_today}")
+    if engagement.visitor_id:
+        print(f"  current        {engagement.visitor_id}")
+        print(f"  turns          {engagement.turn_count}")
+    print()
+    if creative:
+        print(f"  {Fore.YELLOW}── Last Creative Cycle ──{Style.RESET_ALL}")
+        print(f"  time           {_fmt_time(creative['ts'])}")
+        if creative.get('internal_monologue'):
+            mono = creative['internal_monologue'][:120]
+            if len(creative['internal_monologue']) > 120:
+                mono += '...'
+            print(f"  thought        {mono}")
+        print()
+
+
+async def _peek_totems():
+    totems = await db.get_all_totems()
+
+    if not totems:
+        print(f"\n  {Fore.WHITE}(No totems yet.){Style.RESET_ALL}\n")
+        return
+
+    print()
+    print(f"  {Fore.YELLOW}── Totems ({len(totems)}) ──{Style.RESET_ALL}")
+    for t in totems:
+        weight_bar = '●' * int(t.weight * 5) + '○' * (5 - int(t.weight * 5))
+        cat = f" [{t.category}]" if t.category and t.category != 'general' else ''
+        ctx = f"  — {t.context}" if t.context else ''
+        visitor = f" (visitor)" if t.visitor_id else ''
+        print(f"  {Fore.WHITE}{weight_bar} {t.entity}{cat}{visitor}{Style.RESET_ALL}")
+        if ctx:
+            print(f"       {Fore.CYAN}{ctx}{Style.RESET_ALL}")
+    print()
+
+
+async def _peek_events():
+    events = await db.get_recent_events(limit=20)
+
+    if not events:
+        print(f"\n  {Fore.WHITE}(No events yet.){Style.RESET_ALL}\n")
+        return
+
+    print()
+    print(f"  {Fore.YELLOW}── Recent Events (last 20) ──{Style.RESET_ALL}")
+    for e in events:
+        time = _fmt_time(e.ts)
+        source_short = e.source.split(':')[-1][:16] if ':' in e.source else e.source[:16]
+        payload_preview = ''
+        if e.payload:
+            if 'text' in e.payload:
+                payload_preview = f" \"{e.payload['text'][:40]}\""
+            elif 'title' in e.payload:
+                payload_preview = f" \"{e.payload['title'][:40]}\""
+        print(f"  {Fore.CYAN}{time}{Style.RESET_ALL} {e.event_type:<24} "
+              f"{Fore.WHITE}{source_short}{Style.RESET_ALL}{payload_preview}")
+    print()
+
+
 # ─── Drop Command ───
 
 async def handle_drop(text: str, visitor_id: str):
@@ -206,17 +419,21 @@ async def client_mode():
 
     show_banner()
 
+    # Shared flag: set by _client_reader when connection is lost or rejected
+    disconnected = asyncio.Event()
+
     # Send connect
-    await _client_send(writer, {
+    if not await _client_send(writer, {
         'type': 'visitor_connect',
         'visitor_id': visitor_id,
-    })
+    }):
+        return
 
     # Start background reader for server messages
-    display_task = asyncio.create_task(_client_reader(reader))
+    display_task = asyncio.create_task(_client_reader(reader, disconnected))
 
     try:
-        while True:
+        while not disconnected.is_set():
             try:
                 user_input = await asyncio.get_event_loop().run_in_executor(
                     None, lambda: input(f"  {Fore.WHITE}you:{Style.RESET_ALL} ").strip()
@@ -224,7 +441,14 @@ async def client_mode():
             except EOFError:
                 break
 
+            if disconnected.is_set():
+                break
+
             if not user_input:
+                continue
+
+            # Peek commands — read-only, no engagement triggered
+            if await handle_peek(user_input):
                 continue
 
             if user_input.lower() in ('quit', 'exit', 'leave'):
@@ -265,14 +489,18 @@ async def client_mode():
         pass
 
 
-async def _client_send(writer: asyncio.StreamWriter, msg: dict):
-    """Send JSON line to server."""
-    line = json.dumps(msg) + '\n'
-    writer.write(line.encode())
-    await writer.drain()
+async def _client_send(writer: asyncio.StreamWriter, msg: dict) -> bool:
+    """Send JSON line to server. Returns False on transport failure."""
+    try:
+        line = json.dumps(msg) + '\n'
+        writer.write(line.encode())
+        await writer.drain()
+        return True
+    except (ConnectionResetError, BrokenPipeError, OSError):
+        return False
 
 
-async def _client_reader(reader: asyncio.StreamReader):
+async def _client_reader(reader: asyncio.StreamReader, disconnected: asyncio.Event):
     """Read and display messages from the server."""
     try:
         while True:
@@ -331,12 +559,15 @@ async def _client_reader(reader: asyncio.StreamReader):
             elif msg_type == 'rejected':
                 print(f"\n  {Fore.RED}{msg.get('body', 'Connection rejected.')}{Style.RESET_ALL}\n")
                 sys.stdout.flush()
+                disconnected.set()
                 return
 
     except asyncio.CancelledError:
         pass
     except Exception:
         pass
+    finally:
+        disconnected.set()
 
 
 # ─── Standalone Mode (original behavior + improvements) ───
@@ -370,7 +601,6 @@ async def standalone_mode():
     await on_visitor_connect(connect_event)
 
     # Set engagement BEFORE heartbeat starts
-    from datetime import datetime, timezone
     await db.update_engagement_state(
         status='engaged',
         visitor_id=visitor_id,
@@ -417,6 +647,10 @@ async def standalone_mode():
                 break
 
             if not user_input:
+                continue
+
+            # Peek commands — read-only, no engagement triggered
+            if await handle_peek(user_input):
                 continue
 
             if user_input.lower() in ('quit', 'exit', 'leave'):

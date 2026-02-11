@@ -322,17 +322,14 @@ class Heartbeat:
         cycle_id = str(uuid.uuid4())[:8]
         start_time = datetime.now(timezone.utc)
 
-        # 1. Read inbox and mark read immediately (prevents replay on crash)
+        # 1. Read inbox (mark read AFTER successful execution to prevent event loss)
         unread = await db.inbox_get_unread()
-        for event in unread:
-            await db.inbox_mark_read(event.id)
 
-        # 2. Load and update drives
+        # 2. Load and update drives (persist inside transaction below)
         drives = await db.get_drives_state()
         elapsed = (start_time - self._last_cycle_ts).total_seconds() / 3600.0
         self._last_cycle_ts = start_time
         drives, feelings = await update_drives(drives, elapsed, unread)
-        await db.save_drives_state(drives)
 
         # 3. Sensorium: events → perceptions
         perceptions = await build_perceptions(unread, drives)
@@ -448,27 +445,8 @@ class Heartbeat:
                 '_entropy_warning': validated.get('_entropy_warning'),
             })
 
-        # 10. Execute
-        await execute(validated, visitor_id)
-
-        # ── STAGE: Dialogue (last) ──
-        await self._emit_stage('dialogue', {
-            'dialogue': validated.get('dialogue'),
-            'expression': validated.get('expression', 'neutral'),
-        })
-
-        # ── STAGE: End Engagement (if she ended the conversation) ──
-        for action in approved:
-            if action.get('type') == 'end_engagement':
-                from pipeline.executor import END_ENGAGEMENT_LINES
-                reason = action.get('detail', {}).get('reason', 'natural')
-                farewell = END_ENGAGEMENT_LINES.get(reason, END_ENGAGEMENT_LINES['natural'])
-                await self._emit_stage('end_engagement', {
-                    'reason': reason,
-                    'farewell': farewell,
-                })
-
-        # 12. Build cycle log (for DB + queue)
+        # 10. Execute + mark inbox read + log cycle — all in one transaction
+        #     so a mid-cycle failure rolls back cleanly (no partial state).
         log = {
             'id': cycle_id,
             'mode': mode,
@@ -495,7 +473,29 @@ class Heartbeat:
             '_entropy_warning': validated.get('_entropy_warning'),
         }
 
-        await db.log_cycle(log)
+        async with db.transaction():
+            await db.save_drives_state(drives)
+            await execute(validated, visitor_id)
+            for event in unread:
+                await db.inbox_mark_read(event.id)
+            await db.log_cycle(log)
+
+        # ── STAGE: Dialogue (last) ──
+        await self._emit_stage('dialogue', {
+            'dialogue': validated.get('dialogue'),
+            'expression': validated.get('expression', 'neutral'),
+        })
+
+        # ── STAGE: End Engagement (if she ended the conversation) ──
+        for action in approved:
+            if action.get('type') == 'end_engagement':
+                from pipeline.executor import END_ENGAGEMENT_LINES
+                reason = action.get('detail', {}).get('reason', 'natural')
+                farewell = END_ENGAGEMENT_LINES.get(reason, END_ENGAGEMENT_LINES['natural'])
+                await self._emit_stage('end_engagement', {
+                    'reason': reason,
+                    'farewell': farewell,
+                })
         self._error_backoff = 5  # reset backoff on successful cycle
 
         # Broadcast to all subscribers (bounded queues, drop oldest if full)

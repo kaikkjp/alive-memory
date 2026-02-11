@@ -1,4 +1,6 @@
+import asyncio
 import aiosqlite
+import contextvars
 import json
 import uuid
 from datetime import datetime, timezone, timedelta
@@ -33,6 +35,78 @@ async def close_db():
     if _db:
         await _db.close()
         _db = None
+
+
+# ─── Write serialization ───
+# SQLite transaction state lives on the shared connection.  A write (execute)
+# from any coroutine lands inside whatever transaction is active, and a commit
+# from any coroutine commits everything.  We use a lock so that:
+#   - transaction() holds the lock for its entire lifetime (BEGIN → COMMIT/ROLLBACK)
+#   - standalone writes acquire the lock around execute+commit as an atomic unit
+# This prevents interleaving: no outside write can land inside a transaction,
+# and no outside commit can finalize a transaction early.
+_write_lock = asyncio.Lock()
+
+# Task-local depth counter (for nested transaction() calls within one task).
+_tx_depth: contextvars.ContextVar[int] = contextvars.ContextVar('_tx_depth', default=0)
+
+
+async def _exec_write(sql: str, params: tuple = ()):
+    """Execute a single write statement with proper serialization.
+
+    Inside a transaction block (same task): executes directly (lock already held).
+    Outside a transaction: acquires _write_lock, executes, commits, releases.
+    """
+    conn = await get_db()
+    if _tx_depth.get() > 0:
+        # Inside a transaction — lock is already held by this task
+        await conn.execute(sql, params)
+    else:
+        async with _write_lock:
+            await conn.execute(sql, params)
+            await conn.commit()
+
+
+class transaction:
+    """Async context manager that batches all writes into one atomic commit.
+
+    Usage:
+        async with db.transaction():
+            await db.append_event(...)
+            await db.log_cycle(...)
+        # single COMMIT happens here; ROLLBACK on exception
+
+    Holds _write_lock for the entire lifetime so no other coroutine can
+    execute writes or commits on the shared connection while this
+    transaction is open.
+    """
+
+    async def __aenter__(self):
+        depth = _tx_depth.get()
+        if depth == 0:
+            await _write_lock.acquire()
+            try:
+                conn = await get_db()
+                await conn.execute("BEGIN IMMEDIATE")
+            except BaseException:
+                _write_lock.release()
+                raise
+        _tx_depth.set(depth + 1)
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        depth = _tx_depth.get() - 1
+        _tx_depth.set(depth)
+        if depth == 0:
+            try:
+                conn = await get_db()
+                if exc_type is None:
+                    await conn.commit()
+                else:
+                    await conn.rollback()
+            finally:
+                _write_lock.release()
+        return False  # don't suppress exception
 
 
 # ─── Schema ───
@@ -217,12 +291,10 @@ async def init_db():
 # ─── Event Store ───
 
 async def append_event(event: Event):
-    db = await get_db()
-    await db.execute(
+    await _exec_write(
         "INSERT INTO events (id, event_type, source, ts, payload) VALUES (?, ?, ?, ?, ?)",
         (event.id, event.event_type, event.source, event.ts.isoformat(), json.dumps(event.payload))
     )
-    await db.commit()
 
 
 async def get_events_since(since: datetime, event_type: str = None) -> list[Event]:
@@ -265,12 +337,10 @@ def _row_to_event(row) -> Event:
 # ─── Inbox ───
 
 async def inbox_add(event_id: str, priority: float = 0.5):
-    db = await get_db()
-    await db.execute(
+    await _exec_write(
         "INSERT OR IGNORE INTO inbox (event_id, priority) VALUES (?, ?)",
         (event_id, priority)
     )
-    await db.commit()
 
 
 async def inbox_get_unread() -> list[Event]:
@@ -286,12 +356,10 @@ async def inbox_get_unread() -> list[Event]:
 
 
 async def inbox_mark_read(event_id: str):
-    db = await get_db()
-    await db.execute(
+    await _exec_write(
         "UPDATE inbox SET read_at = ? WHERE event_id = ?",
         (datetime.now(timezone.utc).isoformat(), event_id)
     )
-    await db.commit()
 
 
 # ─── Room State ───
@@ -313,14 +381,12 @@ async def get_room_state() -> RoomState:
 async def update_room_state(**kwargs):
     if not kwargs:
         return
-    db = await get_db()
     kwargs['updated_at'] = datetime.now(timezone.utc).isoformat()
     if 'room_arrangement' in kwargs:
         kwargs['room_arrangement'] = json.dumps(kwargs['room_arrangement'])
     sets = ", ".join(f"{k} = ?" for k in kwargs)
     vals = list(kwargs.values())
-    await db.execute(f"UPDATE room_state SET {sets} WHERE id = 1", vals)
-    await db.commit()
+    await _exec_write(f"UPDATE room_state SET {sets} WHERE id = 1", tuple(vals))
 
 
 # ─── Drives State ───
@@ -342,8 +408,7 @@ async def get_drives_state() -> DrivesState:
 
 
 async def save_drives_state(d: DrivesState):
-    db = await get_db()
-    await db.execute(
+    await _exec_write(
         """UPDATE drives_state SET
            social_hunger=?, curiosity=?, expression_need=?, rest_need=?,
            energy=?, mood_valence=?, mood_arousal=?, updated_at=?
@@ -352,7 +417,6 @@ async def save_drives_state(d: DrivesState):
          d.energy, d.mood_valence, d.mood_arousal,
          datetime.now(timezone.utc).isoformat())
     )
-    await db.commit()
 
 
 # ─── Engagement State ───
@@ -374,14 +438,12 @@ async def get_engagement_state() -> EngagementState:
 async def update_engagement_state(**kwargs):
     if not kwargs:
         return
-    db = await get_db()
     for k in ('started_at', 'last_activity'):
         if k in kwargs and isinstance(kwargs[k], datetime):
             kwargs[k] = kwargs[k].isoformat()
     sets = ", ".join(f"{k} = ?" for k in kwargs)
     vals = list(kwargs.values())
-    await db.execute(f"UPDATE engagement_state SET {sets} WHERE id = 1", vals)
-    await db.commit()
+    await _exec_write(f"UPDATE engagement_state SET {sets} WHERE id = 1", tuple(vals))
 
 
 # ─── Visitors ───
@@ -403,34 +465,28 @@ async def get_visitor(visitor_id: str) -> Optional[Visitor]:
 
 
 async def create_visitor(visitor_id: str) -> Visitor:
-    db = await get_db()
     now = datetime.now(timezone.utc).isoformat()
-    await db.execute(
+    await _exec_write(
         "INSERT OR IGNORE INTO visitors (id, visit_count, first_visit, last_visit) VALUES (?, 1, ?, ?)",
         (visitor_id, now, now)
     )
-    await db.commit()
     return await get_visitor(visitor_id)
 
 
 async def update_visitor(visitor_id: str, **kwargs):
     if not kwargs:
         return
-    db = await get_db()
     sets = ", ".join(f"{k} = ?" for k in kwargs)
     vals = list(kwargs.values()) + [visitor_id]
-    await db.execute(f"UPDATE visitors SET {sets} WHERE id = ?", vals)
-    await db.commit()
+    await _exec_write(f"UPDATE visitors SET {sets} WHERE id = ?", tuple(vals))
 
 
 async def increment_visit(visitor_id: str):
-    db = await get_db()
     now = datetime.now(timezone.utc).isoformat()
-    await db.execute(
+    await _exec_write(
         "UPDATE visitors SET visit_count = visit_count + 1, last_visit = ? WHERE id = ?",
         (now, visitor_id)
     )
-    await db.commit()
     # Update trust level based on visit count
     visitor = await get_visitor(visitor_id)
     if visitor:
@@ -464,15 +520,13 @@ async def get_latest_trait(visitor_id: str, category: str, key: str) -> Optional
 async def insert_trait(visitor_id: str, trait_category: str, trait_key: str,
                        trait_value: str, confidence: float = 0.5,
                        source_event_id: str = ''):
-    db = await get_db()
-    await db.execute(
+    await _exec_write(
         """INSERT INTO visitor_traits
            (id, visitor_id, trait_category, trait_key, trait_value, observed_at, source_event_id, confidence)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
         (str(uuid.uuid4()), visitor_id, trait_category, trait_key, trait_value,
          datetime.now(timezone.utc).isoformat(), source_event_id, confidence)
     )
-    await db.commit()
 
 
 async def get_visitor_traits(visitor_id: str, limit: int = 20) -> list[VisitorTrait]:
@@ -509,15 +563,11 @@ async def get_trait_history(visitor_id: str, category: str, key: str) -> list[Vi
 
 
 async def update_trait_stability(trait_id: str, stability: float):
-    db = await get_db()
-    await db.execute("UPDATE visitor_traits SET stability = ? WHERE id = ?", (stability, trait_id))
-    await db.commit()
+    await _exec_write("UPDATE visitor_traits SET stability = ? WHERE id = ?", (stability, trait_id))
 
 
 async def update_trait_status(trait_id: str, status: str):
-    db = await get_db()
-    await db.execute("UPDATE visitor_traits SET status = ? WHERE id = ?", (status, trait_id))
-    await db.commit()
+    await _exec_write("UPDATE visitor_traits SET status = ? WHERE id = ?", (status, trait_id))
 
 
 def _row_to_trait(row) -> VisitorTrait:
@@ -558,20 +608,17 @@ async def get_totems(visitor_id: str = None, min_weight: float = 0.0,
 async def insert_totem(visitor_id: str = None, entity: str = '',
                        weight: float = 0.5, context: str = '',
                        category: str = 'general', source_event_id: str = None):
-    db = await get_db()
     now = datetime.now(timezone.utc).isoformat()
-    await db.execute(
+    await _exec_write(
         """INSERT INTO totems
            (id, visitor_id, entity, weight, context, category, first_seen, last_referenced, source_event_id)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (str(uuid.uuid4()), visitor_id, entity, weight, context, category, now, now, source_event_id)
     )
-    await db.commit()
 
 
 async def update_totem(entity: str, visitor_id: str = None,
                        weight: float = None, last_referenced: datetime = None):
-    db = await get_db()
     updates = []
     vals = []
     if weight is not None:
@@ -587,8 +634,7 @@ async def update_totem(entity: str, visitor_id: str = None,
         else:
             where = "WHERE entity = ? AND visitor_id IS NULL"
             vals.append(entity)
-        await db.execute(f"UPDATE totems SET {', '.join(updates)} {where}", vals)
-        await db.commit()
+        await _exec_write(f"UPDATE totems SET {', '.join(updates)} {where}", tuple(vals))
 
 
 def _row_to_totem(row) -> Totem:
@@ -605,9 +651,8 @@ def _row_to_totem(row) -> Totem:
 # ─── Collection Items ───
 
 async def insert_collection_item(item: dict):
-    db = await get_db()
     now = datetime.now(timezone.utc).isoformat()
-    await db.execute(
+    await _exec_write(
         """INSERT INTO collection_items
            (id, item_type, title, url, description, location, origin, gifted_by,
             her_feeling, emotional_tags, display_note, created_at)
@@ -618,7 +663,6 @@ async def insert_collection_item(item: dict):
          item.get('her_feeling'), json.dumps(item.get('emotional_tags', [])),
          item.get('display_note'), item.get('created_at', now))
     )
-    await db.commit()
 
 
 async def search_collection(query: str = '', limit: int = 3) -> list[CollectionItem]:
@@ -654,15 +698,13 @@ def _row_to_collection(row) -> CollectionItem:
 
 async def insert_journal(content: str, mood: str = None, tags: list = None,
                          day_alive: int = None) -> str:
-    db = await get_db()
     jid = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
-    await db.execute(
+    await _exec_write(
         """INSERT INTO journal_entries (id, content, mood, day_alive, tags, created_at)
            VALUES (?, ?, ?, ?, ?, ?)""",
         (jid, content, mood, day_alive, json.dumps(tags or []), now)
     )
-    await db.commit()
     return jid
 
 
@@ -683,9 +725,8 @@ async def get_recent_journal(limit: int = 2) -> list[JournalEntry]:
 # ─── Daily Summary ───
 
 async def insert_daily_summary(summary: dict):
-    db = await get_db()
     now = datetime.now(timezone.utc).isoformat()
-    await db.execute(
+    await _exec_write(
         """INSERT INTO daily_summaries
            (id, day_number, date, journal_entry_id, summary_bullets, emotional_arc, notable_totems, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
@@ -693,19 +734,16 @@ async def insert_daily_summary(summary: dict):
          summary.get('journal_entry_id'), json.dumps(summary.get('summary_bullets', [])),
          summary.get('emotional_arc'), json.dumps(summary.get('notable_totems', [])), now)
     )
-    await db.commit()
 
 
 # ─── Conversation Log ───
 
 async def append_conversation(visitor_id: str, role: str, text: str):
-    db = await get_db()
     now = datetime.now(timezone.utc).isoformat()
-    await db.execute(
+    await _exec_write(
         "INSERT INTO conversation_log (id, visitor_id, role, text, ts) VALUES (?, ?, ?, ?, ?)",
         (str(uuid.uuid4()), visitor_id, role, text, now)
     )
-    await db.commit()
 
 
 async def get_recent_conversation(visitor_id: str, limit: int = 10) -> list[dict]:
@@ -721,8 +759,7 @@ async def get_recent_conversation(visitor_id: str, limit: int = 10) -> list[dict
 # ─── Cycle Log ───
 
 async def log_cycle(log: dict):
-    db = await get_db()
-    await db.execute(
+    await _exec_write(
         """INSERT INTO cycle_log
            (id, mode, drives, focus_salience, focus_type, routing_focus,
             token_budget, memory_count, internal_monologue, dialogue,
@@ -736,7 +773,6 @@ async def log_cycle(log: dict):
          json.dumps(log.get('actions', [])), json.dumps(log.get('dropped', [])),
          datetime.now(timezone.utc).isoformat())
     )
-    await db.commit()
 
 
 # ─── Self Knowledge ───
@@ -783,3 +819,90 @@ async def get_flashbulb_count_today() -> int:
     )
     row = await cursor.fetchone()
     return row['cnt'] if row else 0
+
+
+# ─── Peek Queries (read-only, no events) ───
+
+async def get_all_journal() -> list[JournalEntry]:
+    conn = await get_db()
+    cursor = await conn.execute(
+        "SELECT * FROM journal_entries ORDER BY created_at ASC"
+    )
+    rows = await cursor.fetchall()
+    return [JournalEntry(
+        id=r['id'], content=r['content'], mood=r['mood'],
+        day_alive=r['day_alive'],
+        tags=json.loads(r['tags']) if r['tags'] else [],
+        created_at=datetime.fromisoformat(r['created_at']) if r['created_at'] else None,
+    ) for r in rows]
+
+
+async def get_collection_by_location(location: str) -> list[CollectionItem]:
+    conn = await get_db()
+    cursor = await conn.execute(
+        "SELECT * FROM collection_items WHERE location = ? ORDER BY created_at DESC",
+        (location,)
+    )
+    rows = await cursor.fetchall()
+    return [_row_to_collection(r) for r in rows]
+
+
+async def get_all_totems(limit: int = 100) -> list[Totem]:
+    conn = await get_db()
+    cursor = await conn.execute(
+        "SELECT * FROM totems ORDER BY weight DESC LIMIT ?", (limit,)
+    )
+    rows = await cursor.fetchall()
+    return [_row_to_totem(r) for r in rows]
+
+
+async def get_recent_events(limit: int = 20) -> list[Event]:
+    conn = await get_db()
+    cursor = await conn.execute(
+        "SELECT * FROM events ORDER BY ts DESC LIMIT ?", (limit,)
+    )
+    rows = await cursor.fetchall()
+    return list(reversed([_row_to_event(r) for r in rows]))
+
+
+async def get_visitor_count_today() -> int:
+    conn = await get_db()
+    today_jst = datetime.now(JST).date().isoformat()
+    cursor = await conn.execute(
+        "SELECT COUNT(DISTINCT source) as cnt FROM events "
+        "WHERE event_type = 'visitor_connect' AND date(ts, '+9 hours') = ?",
+        (today_jst,)
+    )
+    row = await cursor.fetchone()
+    return row['cnt'] if row else 0
+
+
+async def get_days_alive() -> int:
+    conn = await get_db()
+    cursor = await conn.execute(
+        "SELECT MIN(created_at) as first FROM events"
+    )
+    row = await cursor.fetchone()
+    if not row or not row['first']:
+        return 0
+    first = datetime.fromisoformat(row['first'])
+    if first.tzinfo is None:
+        first = first.replace(tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc)
+    return max(1, (now - first).days + 1)
+
+
+async def get_last_creative_cycle() -> Optional[dict]:
+    conn = await get_db()
+    cursor = await conn.execute(
+        "SELECT * FROM cycle_log WHERE mode = 'autonomous' ORDER BY ts DESC LIMIT 1"
+    )
+    row = await cursor.fetchone()
+    if not row:
+        return None
+    return {
+        'mode': row['mode'],
+        'ts': row['ts'],
+        'dialogue': row['dialogue'],
+        'internal_monologue': row['internal_monologue'],
+    }
