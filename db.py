@@ -886,6 +886,8 @@ async def get_days_alive() -> int:
     if not row or not row['first']:
         return 0
     first = datetime.fromisoformat(row['first'])
+    if first.tzinfo is None:
+        first = first.replace(tzinfo=timezone.utc)
     now = datetime.now(timezone.utc)
     return max(1, (now - first).days + 1)
 

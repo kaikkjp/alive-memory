@@ -170,9 +170,18 @@ def _bar(value: float, width: int = 12) -> str:
     return '█' * filled + '░' * (width - filled)
 
 
+_peek_db_ready = False
+
+
 async def handle_peek(cmd: str) -> bool:
     """Handle read-only peek commands. Returns True if handled."""
+    global _peek_db_ready
     cmd = cmd.strip().lower()
+
+    # Ensure DB is accessible (client mode doesn't call init_db)
+    if not _peek_db_ready:
+        await db.init_db()
+        _peek_db_ready = True
 
     if cmd == 'journal':
         await _peek_journal(last_n=3)
