@@ -133,6 +133,7 @@ class Heartbeat:
         self._last_creative_cycle_ts: Optional[datetime] = None
         self._last_sleep_date: Optional[str] = None  # ISO date string
         self._last_fidget_behavior: Optional[str] = None
+        self._recent_fidgets: list[tuple] = []  # (behavior_key, description, timestamp)
         self._cycle_log_subscribers: dict[str, asyncio.Queue] = {}
         self._loop_task = None
         self._stage_callback: StageCallback = None
@@ -147,6 +148,9 @@ class Heartbeat:
                 choices = filtered
         behavior, description = random.choice(choices)
         self._last_fidget_behavior = behavior
+        # Track for body_memory — visitor may reference these later
+        self._recent_fidgets.append((behavior, description, datetime.now(timezone.utc)))
+        self._recent_fidgets = self._recent_fidgets[-5:]  # keep last 5
         return behavior, description
 
     def set_stage_callback(self, cb: StageCallback):
@@ -430,7 +434,7 @@ class Heartbeat:
         drives, feelings = await update_drives(drives, elapsed, unread)
 
         # 3. Sensorium: events → perceptions
-        perceptions = await build_perceptions(unread, drives)
+        perceptions = await build_perceptions(unread, drives, self._recent_fidgets)
 
         # For ambient cycles during engagement, inject silence perception
         if mode == 'ambient':
@@ -531,6 +535,10 @@ class Heartbeat:
             'turn_count': engagement.turn_count,
         }
         validated = validate(cortex_output, state)
+
+        # Journal deferred — the desire to write builds up
+        if validated.get('_journal_deferred'):
+            drives.expression_need = min(1.0, drives.expression_need + 0.15)
 
         # ── STAGE: Cortex ──
         await self._emit_stage('cortex', {

@@ -35,9 +35,11 @@ async def route(
     elif focus.p_type == 'visitor_connect':
         cycle_type = 'engage'
     elif focus.p_type == 'visitor_disconnect':
-        cycle_type = 'engage'
+        cycle_type = 'idle'  # she's alone now — reflect, don't engage
     elif focus.p_type == 'visitor_silence':
         cycle_type = 'engage'  # silence is still part of conversation
+    elif focus.p_type == 'fidget_mismatch':
+        cycle_type = 'engage'  # visitor referenced a fidget — she's in conversation
     elif focus.p_type == 'ambient_discovery':
         cycle_type = 'idle'  # she discovers it on her own time
     elif drives.expression_need > 0.7:

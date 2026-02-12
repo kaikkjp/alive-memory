@@ -52,12 +52,28 @@ async def execute(validated_output: dict, visitor_id: str = None):
     await db.append_event(body_event)
 
     # Execute approved actions
+    monologue = validated_output.get('internal_monologue', '')
     for action in validated_output.get('_approved_actions', []):
-        await execute_action(action, visitor_id)
+        await execute_action(action, visitor_id, monologue=monologue)
 
-    # Process memory updates
+    # Process memory updates (isolate failures so one bad update doesn't kill the rest)
     for update in validated_output.get('memory_updates', []):
-        await hippocampus_consolidate(update, visitor_id)
+        try:
+            await hippocampus_consolidate(update, visitor_id)
+        except Exception as e:
+            update_type = update.get('type', '?')
+            print(f"  [Memory Error] Failed to consolidate {update_type}: {e}")
+            # Persist failure as event so it survives cycle boundary for diagnosis/retry
+            await db.append_event(Event(
+                event_type='memory_consolidation_failed',
+                source='self',
+                payload={
+                    'update_type': update_type,
+                    'error': f"{type(e).__name__}: {e}",
+                    'original_update': update,
+                    'visitor_id': visitor_id,
+                },
+            ))
 
     # Update drives if resonance flagged
     if validated_output.get('resonance'):
@@ -79,7 +95,7 @@ async def execute(validated_output: dict, visitor_id: str = None):
         await db.update_engagement_state(turn_count=engagement.turn_count + 1)
 
 
-async def execute_action(action: dict, visitor_id: str):
+async def execute_action(action: dict, visitor_id: str, monologue: str = ''):
     """Execute a single approved action."""
 
     action_type = action.get('type')
@@ -115,11 +131,15 @@ async def execute_action(action: dict, visitor_id: str):
         ))
 
     elif action_type == 'write_journal':
-        await db.insert_journal(
-            content=detail.get('text', ''),
-            mood=detail.get('mood'),
-            tags=detail.get('tags', []),
-        )
+        # Use detail text if provided; fall back to internal monologue
+        # so journal entries aren't blank when LLM omits text in detail
+        journal_text = detail.get('text', '') or monologue
+        if journal_text:
+            await db.insert_journal(
+                content=journal_text,
+                mood=detail.get('mood'),
+                tags=detail.get('tags', []),
+            )
         await apply_expression_relief('write_journal')
 
     elif action_type == 'post_x_draft':
