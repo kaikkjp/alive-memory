@@ -1,6 +1,7 @@
 """Hippocampus Consolidate — memory writes, totem creation, contradiction detection. No LLM."""
 
 from datetime import datetime, timezone
+import clock
 from models.event import Event
 import db
 
@@ -89,7 +90,7 @@ async def hippocampus_consolidate(update: dict, visitor_id: str = None):
                 entity=content['entity'],
                 visitor_id=visitor_id,
                 weight=content.get('weight'),
-                last_referenced=datetime.now(timezone.utc),
+                last_referenced=clock.now_utc(),
             )
 
     elif update_type == 'journal_entry':

@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field
 from models.state import DrivesState, EngagementState, Visitor
 from pipeline.sensorium import Perception
+import clock
 import db
 
 
@@ -79,11 +80,10 @@ async def autonomous_routing(drives: DrivesState) -> RoutingDecision:
     else:
         cycle_type = 'idle'
 
-    from datetime import datetime, timezone
     focus = Perception(
         p_type='internal',
         source='self',
-        ts=datetime.now(timezone.utc),
+        ts=clock.now_utc(),
         content='No one is here. The shop is quiet.',
         features={},
         salience=0.2,

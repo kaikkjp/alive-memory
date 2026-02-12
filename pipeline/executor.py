@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import datetime, timezone
+import clock
 from models.event import Event
 from pipeline.hippocampus_write import hippocampus_consolidate
 from pipeline.hypothalamus import apply_expression_relief
@@ -89,7 +90,7 @@ async def execute(validated_output: dict, visitor_id: str = None):
             u.get('type') in ('journal_entry', 'totem_create', 'totem_update')
             for u in validated_output.get('memory_updates', [])
         )
-        now = datetime.now(timezone.utc)
+        now = clock.now_utc()
         outcome = None
         if has_collection:
             outcome = 'accepted'
@@ -125,7 +126,7 @@ async def execute(validated_output: dict, visitor_id: str = None):
         await db.update_engagement_state(
             status='engaged',
             visitor_id=visitor_id,
-            last_activity=datetime.now(timezone.utc),
+            last_activity=clock.now_utc(),
         )
         # Increment turn count
         engagement = await db.get_engagement_state()
@@ -209,7 +210,7 @@ async def execute_action(action: dict, visitor_id: str, monologue: str = ''):
         # Transition to cooldown
         await db.update_engagement_state(
             status='cooldown',
-            last_activity=datetime.now(timezone.utc),
+            last_activity=clock.now_utc(),
         )
 
     elif action_type == 'place_item':

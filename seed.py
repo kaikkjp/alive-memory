@@ -1,5 +1,7 @@
 import asyncio
 from datetime import datetime, timezone
+
+import clock
 import db
 
 
@@ -46,7 +48,7 @@ SEED_JOURNAL = {
 async def seed():
     """Load seed data into a fresh database."""
     for item in SEED_COLLECTION:
-        item['created_at'] = datetime.now(timezone.utc).isoformat()
+        item['created_at'] = clock.now_utc().isoformat()
         await db.insert_collection_item(item)
 
     await db.insert_journal(

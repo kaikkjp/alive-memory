@@ -3,6 +3,7 @@
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+import clock
 from models.event import Event
 from models.state import DrivesState, Visitor
 import db
@@ -200,7 +201,7 @@ def build_ambient_perception(drives: DrivesState) -> Perception:
     """Build ambient perception from room state and time."""
     from datetime import datetime, timezone
     from db import JST
-    hour = datetime.now(JST).hour
+    hour = clock.now().hour
 
     if 5 <= hour < 10:
         time_feel = "Morning light through the windows."
@@ -216,7 +217,7 @@ def build_ambient_perception(drives: DrivesState) -> Perception:
     return Perception(
         p_type='ambient',
         source='ambient',
-        ts=datetime.now(timezone.utc),
+        ts=clock.now_utc(),
         content=time_feel,
         features={'is_ambient': True},
         salience=0.1,
@@ -249,7 +250,7 @@ def check_fidget_reference(text: str, recent_fidgets: list = None) -> Perception
         return None
 
     text_lower = text.lower()
-    now = datetime.now(timezone.utc)
+    now = clock.now_utc()
 
     for behavior_key, description, ts in recent_fidgets:
         # Skip stale fidgets outside the recency window
@@ -261,7 +262,7 @@ def check_fidget_reference(text: str, recent_fidgets: list = None) -> Perception
                 return Perception(
                     p_type='fidget_mismatch',
                     source='self',
-                    ts=datetime.now(timezone.utc),
+                    ts=clock.now_utc(),
                     content=(
                         f"The visitor describes seeing you: {description} "
                         f"You don't remember doing this."
@@ -289,7 +290,7 @@ def _build_focus_perception(focus_context) -> Perception | None:
         return None
 
     payload = focus_context.payload
-    now = datetime.now(timezone.utc)
+    now = clock.now_utc()
 
     if focus_context.channel == 'consume':
         return Perception(
