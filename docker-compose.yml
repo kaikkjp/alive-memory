@@ -30,6 +30,7 @@ services:
   certbot:
     image: certbot/certbot:latest
     container_name: shopkeeper-certbot
+    restart: unless-stopped
     volumes:
       - certs:/etc/letsencrypt
       - certbot-webroot:/var/www/certbot

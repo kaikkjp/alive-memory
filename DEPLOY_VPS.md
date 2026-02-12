@@ -123,8 +123,8 @@ Alternative to the systemd approach above. Uses Docker Compose with nginx for TL
 ### 1. Clone and configure
 
 ```bash
-git clone https://github.com/TriMinhPham/shopkeeper.git
-cd shopkeeper
+git clone https://github.com/TriMinhPham/shopkeeper.git /home/ubuntu/shopkeeper
+cd /home/ubuntu/shopkeeper
 cp .env.example .env
 # Edit .env: set ANTHROPIC_API_KEY and SHOPKEEPER_SERVER_TOKEN
 chmod 600 .env
@@ -181,7 +181,7 @@ Certs are renewed via a host cron job that runs certbot inside the container and
 ```bash
 sudo crontab -e
 # Add:
-0 3 * * * /opt/shopkeeper/deploy/renew-certs.sh >> /var/log/shopkeeper-certbot.log 2>&1
+0 3 * * * /home/ubuntu/shopkeeper/deploy/renew-certs.sh >> /var/log/shopkeeper-certbot.log 2>&1
 ```
 
 ### 7. Backups
