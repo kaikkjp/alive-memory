@@ -29,16 +29,22 @@ async def get_db() -> aiosqlite.Connection:
         _db.row_factory = aiosqlite.Row
         # Load sqlite-vec extension for cold memory search (Phase 2)
         if COLD_SEARCH_ENABLED:
+            _ext_enabled = False
             try:
                 import sqlite_vec
                 await _db.enable_load_extension(True)
+                _ext_enabled = True
                 sqlite_vec.load(_db._conn)  # raw sqlite3.Connection
             except ImportError:
                 print("[DB] sqlite-vec not installed — cold search disabled")
             except Exception as e:
                 print(f"[DB] Failed to load sqlite-vec: {e}")
             finally:
-                await _db.enable_load_extension(False)
+                if _ext_enabled:
+                    try:
+                        await _db.enable_load_extension(False)
+                    except Exception:
+                        pass  # best-effort disable
         await _db.execute("PRAGMA journal_mode=WAL")
         await _db.execute("PRAGMA busy_timeout=5000")
         await _db.execute("PRAGMA foreign_keys=ON")

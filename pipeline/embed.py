@@ -9,6 +9,7 @@ For batch usage, wrap calls in `async with embed_session():` to reuse a
 single aiohttp.ClientSession across multiple embed() calls.
 """
 
+import contextvars
 import os
 from contextlib import asynccontextmanager
 from typing import Optional
@@ -23,27 +24,31 @@ _OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
 _MAX_INPUT_CHARS = 8000  # truncate long texts to stay within token limits
 _TIMEOUT_SECONDS = 10
 
-# Module-level shared session (set by embed_session context manager)
-_shared_session: Optional[aiohttp.ClientSession] = None
+# Task-local shared session (safe across concurrent coroutines).
+_session_var: contextvars.ContextVar[Optional[aiohttp.ClientSession]] = (
+    contextvars.ContextVar('_session_var', default=None)
+)
 
 
 @asynccontextmanager
 async def embed_session():
     """Context manager that reuses one aiohttp.ClientSession for a batch.
 
+    Uses a ContextVar so concurrent tasks each get their own session
+    without clobbering each other.
+
     Usage:
         async with embed_session():
             for text in texts:
                 vec = await embed(text)
     """
-    global _shared_session
     timeout = aiohttp.ClientTimeout(total=_TIMEOUT_SECONDS)
     async with aiohttp.ClientSession(timeout=timeout) as session:
-        _shared_session = session
+        token = _session_var.set(session)
         try:
             yield
         finally:
-            _shared_session = None
+            _session_var.reset(token)
 
 
 async def embed(text: str) -> Optional[list[float]]:
@@ -65,7 +70,7 @@ async def embed(text: str) -> Optional[list[float]]:
 async def _embed_openai(text: str) -> Optional[list[float]]:
     """Call OpenAI embeddings API via aiohttp (async, no openai lib needed).
 
-    Reuses _shared_session if available (set by embed_session()),
+    Reuses task-local session if available (set by embed_session()),
     otherwise creates a one-shot session.
     """
     if not _OPENAI_API_KEY:
@@ -96,8 +101,9 @@ async def _openai_request(text: str) -> Optional[list[float]]:
         'input': text,
     }
 
-    if _shared_session is not None:
-        return await _openai_post(_shared_session, headers, payload)
+    shared = _session_var.get()
+    if shared is not None:
+        return await _openai_post(shared, headers, payload)
     else:
         timeout = aiohttp.ClientTimeout(total=_TIMEOUT_SECONDS)
         async with aiohttp.ClientSession(timeout=timeout) as session:

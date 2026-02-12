@@ -7,7 +7,7 @@ Run once after Phase 2 deployment to embed historical data:
 
 Processes entries in batches of 50, sleeping 1s between batches to
 respect OpenAI rate limits. Safe to interrupt and resume — already-embedded
-entries are skipped via the NOT IN subquery.
+entries are skipped via NOT EXISTS + dedupe guard.
 """
 
 import asyncio
