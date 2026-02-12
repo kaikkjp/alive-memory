@@ -1,7 +1,7 @@
 """Sleep Cycle — daily consolidation. Runs 03:00-06:00 JST.
 
 Phase 1: Day memory → hot memory via moment-by-moment reflection.
-Phase 2 (future): Cold memory search via embeddings (COLD_SEARCH_ENABLED).
+Phase 2: Cold memory search via embeddings (COLD_SEARCH_ENABLED).
 """
 
 import os
@@ -69,10 +69,16 @@ async def sleep_cycle() -> bool:
             # a. Gather hot memory context
             hot_ctx = await gather_hot_context(moment)
 
-            # b. Cold search (Phase 2 only — no-op for Phase 1)
+            # b. Cold search (Phase 2 — semantic search over past conversations)
             cold_echoes = []
             if COLD_SEARCH_ENABLED:
-                pass  # Phase 2: cold_echoes = await search_cold_memory(...)
+                try:
+                    from pipeline.cold_search import search_cold_memory
+                    cold_echoes = await search_cold_memory(
+                        query=moment.summary, limit=3, exclude_today=True,
+                    )
+                except Exception as e:
+                    print(f"[Sleep] Cold search failed, proceeding without: {e}")
 
             # c. Reflect (LLM call)
             reflection = await sleep_reflect(moment, hot_ctx, cold_echoes)
@@ -114,7 +120,17 @@ async def sleep_cycle() -> bool:
     # 7. Reset drives for morning
     await reset_drives_for_morning()
 
-    # 8. Flush processed day memory + stale cleanup
+    # 8. Embed today's cold memory entries (Phase 2)
+    if COLD_SEARCH_ENABLED:
+        try:
+            from pipeline.embed_cold import embed_new_cold_entries
+            stats = await embed_new_cold_entries()
+            print(f"[Sleep] Embedded {stats['conversations_embedded']} convos + "
+                  f"{stats['monologues_embedded']} monologues")
+        except Exception as e:
+            print(f"[Sleep] Embedding pipeline failed: {e}")
+
+    # 9. Flush processed day memory + stale cleanup
     await flush_day_memory()
 
     return True
@@ -189,6 +205,8 @@ async def sleep_reflect(moment, hot_context: dict, cold_echoes: list) -> dict:
         for echo in cold_echoes:
             date_str = echo.get('date', '?')
             parts.append(f"  [{date_str}] {echo.get('summary', '')}")
+            if echo.get('context'):
+                parts.append(f"    Context: {echo['context'][:150]}")
 
     user_message = "\n".join(parts)
     system = SLEEP_REFLECTION_SYSTEM.format(identity_compact=IDENTITY_COMPACT)
