@@ -57,7 +57,18 @@ class SleepColdMemoryTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_sleep_cycle_continues_when_cold_search_raises(self):
         with patch.object(cold_search_mod, "search_cold_memory", new=AsyncMock(side_effect=RuntimeError("boom"))):
-            result = await self._run_sleep_cycle_with_common_patches()
+            with patch.object(
+                embed_cold_mod,
+                "embed_new_cold_entries",
+                new=AsyncMock(
+                    return_value={
+                        "conversations_embedded": 0,
+                        "monologues_embedded": 0,
+                        "errors": 0,
+                    }
+                ),
+            ):
+                result = await self._run_sleep_cycle_with_common_patches()
         self.assertTrue(result)
 
     async def test_sleep_cycle_continues_when_embedding_pipeline_raises(self):

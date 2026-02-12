@@ -1,3 +1,6 @@
+import importlib
+import os
+import sys
 import unittest
 from unittest.mock import AsyncMock, patch
 
@@ -5,7 +8,15 @@ from tests.aiohttp_stub import ensure_aiohttp_stub
 
 ensure_aiohttp_stub()
 
-from scripts import backfill_embeddings as backfill
+
+def _load_backfill_module():
+    """Import backfill module with environment restored after import-time mutation."""
+    module_name = "scripts.backfill_embeddings"
+    original_env = os.environ.copy()
+    sys.modules.pop(module_name, None)
+    with patch.dict(os.environ, original_env, clear=True):
+        module = importlib.import_module(module_name)
+    return module
 
 
 def _joined_print_output(print_mock) -> str:
@@ -17,6 +28,7 @@ def _joined_print_output(print_mock) -> str:
 
 class BackfillEmbeddingsTests(unittest.IsolatedAsyncioTestCase):
     async def test_main_reports_complete_when_zero_embeds_and_zero_errors(self):
+        backfill = _load_backfill_module()
         stats_seq = [
             {"conversations_embedded": 0, "monologues_embedded": 0, "errors": 0},
         ]
@@ -32,6 +44,7 @@ class BackfillEmbeddingsTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Complete — no more entries to embed.", output)
 
     async def test_main_reports_error_stop_when_zero_embeds_with_errors(self):
+        backfill = _load_backfill_module()
         stats_seq = [
             {"conversations_embedded": 0, "monologues_embedded": 0, "errors": 2},
         ]
@@ -48,6 +61,7 @@ class BackfillEmbeddingsTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("Complete — no more entries to embed.", output)
 
     async def test_main_continues_after_successful_batch_then_exits(self):
+        backfill = _load_backfill_module()
         stats_seq = [
             {"conversations_embedded": 1, "monologues_embedded": 0, "errors": 0},
             {"conversations_embedded": 0, "monologues_embedded": 0, "errors": 0},
