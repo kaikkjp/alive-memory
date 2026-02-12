@@ -2,6 +2,7 @@ import asyncio
 import aiosqlite
 import contextvars
 import json
+import pathlib
 import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Optional
@@ -270,6 +271,76 @@ CREATE TABLE IF NOT EXISTS cycle_log (
 """
 
 
+async def add_column_if_missing(conn, table: str, column: str,
+                                col_type: str, default=None):
+    """Add a column to a table if it doesn't already exist.
+
+    SQLite lacks ADD COLUMN IF NOT EXISTS, so we check PRAGMA table_info.
+    """
+    cursor = await conn.execute(f"PRAGMA table_info({table})")
+    existing = {row[1] for row in await cursor.fetchall()}
+    if column not in existing:
+        default_clause = f" DEFAULT {default}" if default is not None else ""
+        await conn.execute(
+            f"ALTER TABLE {table} ADD COLUMN {column} {col_type}{default_clause}"
+        )
+
+
+async def run_migrations(conn):
+    """Apply unapplied migrations in order. Safe to call on every startup."""
+    # Ensure schema_version table
+    await conn.execute("""
+        CREATE TABLE IF NOT EXISTS schema_version (
+            version INTEGER PRIMARY KEY,
+            applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            filename TEXT NOT NULL
+        )""")
+    await conn.commit()
+
+    # Get max applied version
+    cursor = await conn.execute("SELECT MAX(version) FROM schema_version")
+    row = await cursor.fetchone()
+    max_version = row[0] or 0
+
+    # Scan migrations/ directory
+    migrations_dir = pathlib.Path(__file__).parent / 'migrations'
+    if not migrations_dir.exists():
+        return
+
+    sql_files = sorted(migrations_dir.glob('*.sql'))
+    for f in sql_files:
+        version = int(f.name.split('_')[0])
+        if version <= max_version:
+            continue
+
+        # Special handling for migration 002: event contract columns
+        if version == 2:
+            await _apply_event_contract_migration(conn)
+        else:
+            sql = f.read_text()
+            # Execute statements individually (executescript not available in aiosqlite)
+            for stmt in sql.split(';'):
+                stmt = stmt.strip()
+                if stmt and not stmt.startswith('--'):
+                    await conn.execute(stmt)
+
+        await conn.execute(
+            "INSERT INTO schema_version (version, filename) VALUES (?, ?)",
+            (version, f.name)
+        )
+        await conn.commit()
+
+
+async def _apply_event_contract_migration(conn):
+    """Add Living Loop columns to events table."""
+    await add_column_if_missing(conn, 'events', 'channel', 'TEXT', "'system'")
+    await add_column_if_missing(conn, 'events', 'salience_base', 'FLOAT', '0.5')
+    await add_column_if_missing(conn, 'events', 'salience_dynamic', 'FLOAT', '0.0')
+    await add_column_if_missing(conn, 'events', 'ttl_hours', 'FLOAT', 'NULL')
+    await add_column_if_missing(conn, 'events', 'engaged_at', 'TIMESTAMP', 'NULL')
+    await add_column_if_missing(conn, 'events', 'outcome', 'TEXT', 'NULL')
+
+
 async def init_db():
     db = await get_db()
     for statement in SCHEMA.split(';'):
@@ -277,6 +348,9 @@ async def init_db():
         if statement:
             await db.execute(statement)
     await db.commit()
+
+    # Run versioned migrations (additive schema changes)
+    await run_migrations(db)
 
     # Ensure singleton rows exist
     await db.execute(
@@ -290,25 +364,26 @@ async def init_db():
     )
     await db.commit()
 
-    # Migrate cycle_log: add columns introduced in self-state continuity patch
+    # Legacy migration: cycle_log columns from self-state continuity patch
+    # (kept for DBs created before migration framework existed)
     for col, col_type in [('body_state', 'TEXT'), ('gaze', 'TEXT'),
                           ('next_cycle_hints', 'JSON')]:
-        try:
-            await db.execute(f"ALTER TABLE cycle_log ADD COLUMN {col} {col_type}")
-            await db.commit()
-        except Exception as e:
-            if 'duplicate column' in str(e).lower():
-                pass  # column already exists, expected
-            else:
-                raise  # real failure — don't swallow
+        await add_column_if_missing(db, 'cycle_log', col, col_type)
 
 
 # ─── Event Store ───
 
 async def append_event(event: Event):
     await _exec_write(
-        "INSERT INTO events (id, event_type, source, ts, payload) VALUES (?, ?, ?, ?, ?)",
-        (event.id, event.event_type, event.source, event.ts.isoformat(), json.dumps(event.payload))
+        """INSERT INTO events (id, event_type, source, ts, payload,
+           channel, salience_base, salience_dynamic, ttl_hours, engaged_at, outcome)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (event.id, event.event_type, event.source, event.ts.isoformat(),
+         json.dumps(event.payload),
+         event.channel, event.salience_base, event.salience_dynamic,
+         event.ttl_hours,
+         event.engaged_at.isoformat() if event.engaged_at else None,
+         event.outcome)
     )
 
 
@@ -340,12 +415,26 @@ async def get_events_today() -> list[Event]:
 
 
 def _row_to_event(row) -> Event:
+    # Safe access for Living Loop columns (may be missing on pre-migration DBs)
+    def _col(name, default=None):
+        try:
+            return row[name]
+        except (IndexError, KeyError):
+            return default
+
     return Event(
         id=row['id'],
         event_type=row['event_type'],
         source=row['source'],
         ts=datetime.fromisoformat(row['ts']),
         payload=json.loads(row['payload']),
+        channel=_col('channel', 'system') or 'system',
+        salience_base=_col('salience_base', 0.5) or 0.5,
+        salience_dynamic=_col('salience_dynamic', 0.0) or 0.0,
+        ttl_hours=_col('ttl_hours'),
+        engaged_at=(datetime.fromisoformat(_col('engaged_at'))
+                    if _col('engaged_at') else None),
+        outcome=_col('outcome'),
     )
 
 
@@ -364,6 +453,8 @@ async def inbox_get_unread() -> list[Event]:
         """SELECT e.* FROM inbox i
            JOIN events e ON i.event_id = e.id
            WHERE i.read_at IS NULL
+           AND (e.ttl_hours IS NULL
+                OR (julianday('now') - julianday(e.ts)) < e.ttl_hours / 24.0)
            ORDER BY i.priority DESC, e.ts ASC"""
     )
     rows = await cursor.fetchall()
@@ -997,3 +1088,67 @@ async def get_last_creative_cycle() -> Optional[dict]:
         'dialogue': row['dialogue'],
         'internal_monologue': row['internal_monologue'],
     }
+
+
+# ─── Arbiter State ───
+
+async def load_arbiter_state() -> dict:
+    """Load arbiter state from DB. Returns dict matching ArbiterState fields."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        "SELECT * FROM arbiter_state WHERE singleton_key = 1"
+    )
+    row = await cursor.fetchone()
+    if not row:
+        # Table exists but no row yet — return defaults
+        return {
+            'consume_count_today': 0,
+            'news_engage_count_today': 0,
+            'thread_focus_count_today': 0,
+            'express_count_today': 0,
+            'last_consume_ts': None,
+            'last_news_engage_ts': None,
+            'last_thread_focus_ts': None,
+            'last_express_ts': None,
+            'recent_focus_keywords': [],
+            'current_date_jst': datetime.now(JST).date().isoformat(),
+        }
+
+    return {
+        'consume_count_today': row['consume_count_today'],
+        'news_engage_count_today': row['news_engage_count_today'],
+        'thread_focus_count_today': row['thread_focus_count_today'],
+        'express_count_today': row['express_count_today'],
+        'last_consume_ts': (datetime.fromisoformat(row['last_consume_ts'])
+                            if row['last_consume_ts'] else None),
+        'last_news_engage_ts': (datetime.fromisoformat(row['last_news_engage_ts'])
+                                if row['last_news_engage_ts'] else None),
+        'last_thread_focus_ts': (datetime.fromisoformat(row['last_thread_focus_ts'])
+                                 if row['last_thread_focus_ts'] else None),
+        'last_express_ts': (datetime.fromisoformat(row['last_express_ts'])
+                            if row['last_express_ts'] else None),
+        'recent_focus_keywords': (json.loads(row['recent_focus_keywords'])
+                                  if row['recent_focus_keywords'] else []),
+        'current_date_jst': row['current_date_jst'] or '',
+    }
+
+
+async def save_arbiter_state(state: dict):
+    """Persist arbiter state to DB."""
+    await _exec_write(
+        """UPDATE arbiter_state SET
+           consume_count_today=?, news_engage_count_today=?,
+           thread_focus_count_today=?, express_count_today=?,
+           last_consume_ts=?, last_news_engage_ts=?,
+           last_thread_focus_ts=?, last_express_ts=?,
+           recent_focus_keywords=?, current_date_jst=?
+           WHERE singleton_key = 1""",
+        (state['consume_count_today'], state['news_engage_count_today'],
+         state['thread_focus_count_today'], state['express_count_today'],
+         state['last_consume_ts'].isoformat() if state.get('last_consume_ts') else None,
+         state['last_news_engage_ts'].isoformat() if state.get('last_news_engage_ts') else None,
+         state['last_thread_focus_ts'].isoformat() if state.get('last_thread_focus_ts') else None,
+         state['last_express_ts'].isoformat() if state.get('last_express_ts') else None,
+         json.dumps(state.get('recent_focus_keywords', [])[:20]),
+         state.get('current_date_jst', ''))
+    )

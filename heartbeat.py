@@ -20,6 +20,9 @@ from pipeline.cortex import cortex_call
 from pipeline.validator import validate
 from pipeline.executor import execute
 from pipeline.enrich import fetch_url_metadata
+from pipeline.arbiter import (
+    ArbiterFocus, decide_cycle_focus, update_arbiter_after_cycle,
+)
 from sleep import sleep_cycle
 
 # Type for stage callbacks: async fn(stage_name, stage_data)
@@ -138,6 +141,7 @@ class Heartbeat:
         self._loop_task = None
         self._stage_callback: StageCallback = None
         self._error_backoff = 5
+        self._arbiter_state: Optional[dict] = None  # loaded from DB on start
 
     def _pick_fidget_behavior(self) -> tuple[str, str]:
         """Pick a fidget behavior while avoiding immediate repetition."""
@@ -164,6 +168,18 @@ class Heartbeat:
 
     async def start(self):
         self.running = True
+        # Load arbiter state from DB (persisted across restarts)
+        try:
+            self._arbiter_state = await db.load_arbiter_state()
+        except Exception:
+            # arbiter_state table may not exist yet (pre-migration DB)
+            self._arbiter_state = {
+                'consume_count_today': 0, 'news_engage_count_today': 0,
+                'thread_focus_count_today': 0, 'express_count_today': 0,
+                'last_consume_ts': None, 'last_news_engage_ts': None,
+                'last_thread_focus_ts': None, 'last_express_ts': None,
+                'recent_focus_keywords': [], 'current_date_jst': '',
+            }
         self._loop_task = asyncio.create_task(self._main_loop())
 
     async def stop(self):
@@ -315,25 +331,17 @@ class Heartbeat:
 
                 # ── Autonomous behavior (no visitor engaged) ──
                 # She lives whether anyone is watching or not.
+                # The arbiter decides what this cycle is for.
 
                 # Check shop status — reopen if rested enough
                 room = await db.get_room_state()
                 if room.shop_status == 'closed' and drives.energy > 0.5:
                     await db.update_room_state(shop_status='open')
 
-                # Creative cycle (expensive, 2-4 hour cadence)
-                if self._creative_overdue() or (
-                    self._creative_cooldown_elapsed() and drives.expression_need > 0.5
-                ):
-                    await self.run_cycle('express')
-                    self._last_creative_cycle_ts = datetime.now(timezone.utc)
-                    await self._interruptible_sleep(random.randint(120, 600))
+                # Let the arbiter decide focus
+                focus = await decide_cycle_focus(drives, self._arbiter_state)
 
-                elif drives.rest_need > 0.7:
-                    await self.run_cycle('rest')
-                    await self._interruptible_sleep(random.randint(300, 1800))
-
-                else:
+                if focus.channel == 'idle':
                     # Ambient idle — 50% body-only (zero LLM cost), 50% full cycle
                     if random.random() < 0.5:
                         behavior, description = self._pick_fidget_behavior()
@@ -354,6 +362,21 @@ class Heartbeat:
                         })
                     else:
                         await self.run_cycle('idle')
+                    await self._interruptible_sleep(random.randint(120, 600))
+
+                elif focus.channel == 'rest':
+                    await self.run_cycle('rest')
+                    await self._interruptible_sleep(random.randint(300, 1800))
+
+                else:
+                    # Focused cycle (express, consume, thread, news)
+                    await self.run_cycle(focus.pipeline_mode,
+                                         focus_context=focus)
+                    # Update arbiter counters + persist
+                    update_arbiter_after_cycle(self._arbiter_state, focus)
+                    if focus.channel == 'express':
+                        self._last_creative_cycle_ts = datetime.now(timezone.utc)
+                    await db.save_arbiter_state(self._arbiter_state)
                     await self._interruptible_sleep(random.randint(120, 600))
 
             except asyncio.CancelledError:
@@ -418,8 +441,14 @@ class Heartbeat:
                 d.expression_need = min(1.0, d.expression_need + 0.03)
             await db.save_drives_state(d)
 
-    async def run_cycle(self, mode: str) -> dict:
-        """Execute one full cycle. Emits stage callbacks progressively."""
+    async def run_cycle(self, mode: str,
+                        focus_context: Optional[ArbiterFocus] = None) -> dict:
+        """Execute one full cycle. Emits stage callbacks progressively.
+
+        focus_context: Optional arbiter focus for autonomous cycles.
+        When present, a focus perception is injected at salience=1.0
+        and non-visitor perceptions are capped at 0.3.
+        """
 
         cycle_id = str(uuid.uuid4())[:8]
         start_time = datetime.now(timezone.utc)
@@ -434,7 +463,10 @@ class Heartbeat:
         drives, feelings = await update_drives(drives, elapsed, unread)
 
         # 3. Sensorium: events → perceptions
-        perceptions = await build_perceptions(unread, drives, self._recent_fidgets)
+        perceptions = await build_perceptions(
+            unread, drives, self._recent_fidgets,
+            focus_context=focus_context,
+        )
 
         # For ambient cycles during engagement, inject silence perception
         if mode == 'ambient':
@@ -470,6 +502,14 @@ class Heartbeat:
         perceptions = perception_gate(perceptions, visitor_id)
         perceptions = apply_affect_lens(perceptions, drives)
 
+        # ── Focus injection: cap non-focus non-visitor perceptions ──
+        if focus_context and focus_context.payload:
+            for p in perceptions:
+                if p.salience < 1.0 and not p.p_type.startswith('visitor_'):
+                    p.salience = min(p.salience, 0.3)
+            # Re-sort after salience capping
+            perceptions.sort(key=lambda p: p.salience, reverse=True)
+
         # ── STAGE: Sensorium ──
         await self._emit_stage('sensorium', {
             'focus_salience': round(perceptions[0].salience, 2) if perceptions else 0,
@@ -490,13 +530,21 @@ class Heartbeat:
         # 5. Thalamus: route
         routing = await route(perceptions, drives, engagement, visitor)
 
+        # ── Mode binding: arbiter focus overrides Thalamus unless visitor is primary ──
+        if focus_context and routing.focus and not routing.focus.p_type.startswith('visitor_'):
+            routing.cycle_type = focus_context.pipeline_mode
+            # Override token budget if arbiter specified one
+            if focus_context.token_budget_hint:
+                routing.token_budget = focus_context.token_budget_hint
+
         # Creative cooldown gate: block express routing if < 2hrs since last creative
         if routing.cycle_type == 'express' and not self._creative_cooldown_elapsed():
             routing.cycle_type = 'idle'
             routing.token_budget = 3000
 
-        # Force express if > 4hrs since last creative
-        if mode == 'idle' and self._creative_overdue() and drives.expression_need > 0.3:
+        # Force express if > 4hrs since last creative (only for non-arbiter idle cycles)
+        if (mode == 'idle' and not focus_context
+                and self._creative_overdue() and drives.expression_need > 0.3):
             routing.cycle_type = 'express'
 
         # 6. Hippocampus: recall

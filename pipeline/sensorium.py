@@ -19,10 +19,21 @@ class Perception:
 
 
 async def build_perceptions(unread_events: list[Event], drives: DrivesState,
-                           recent_fidgets: list = None) -> list[Perception]:
-    """Convert raw events into diegetic perceptions. No LLM."""
+                           recent_fidgets: list = None,
+                           focus_context=None) -> list[Perception]:
+    """Convert raw events into diegetic perceptions. No LLM.
+
+    focus_context: Optional ArbiterFocus. When present, a focus perception
+    is injected at salience=1.0 for the arbiter's chosen focus.
+    """
 
     perceptions = []
+
+    # ── Focus perception injection (from arbiter) ──
+    if focus_context and focus_context.payload:
+        focus_p = _build_focus_perception(focus_context)
+        if focus_p:
+            perceptions.append(focus_p)
 
     for event in unread_events:
         if event.event_type == 'visitor_speech':
@@ -104,6 +115,17 @@ async def build_perceptions(unread_events: list[Event], drives: DrivesState,
                     'urls': [event.payload['url']] if event.payload.get('url') else [],
                 },
                 salience=0.5,
+            )
+            perceptions.append(p)
+
+        elif event.event_type == 'ambient_weather':
+            p = Perception(
+                p_type='ambient_weather',
+                source='ambient',
+                ts=event.ts,
+                content=event.payload.get('diegetic_text', 'The weather outside.'),
+                features={'is_weather': True, **event.payload},
+                salience=0.1,
             )
             perceptions.append(p)
 
@@ -251,5 +273,64 @@ def check_fidget_reference(text: str, recent_fidgets: list = None) -> Perception
                     },
                     salience=0.4,  # below speech so it augments, never replaces focus
                 )
+
+    return None
+
+
+# ── Focus perception building (from arbiter) ──
+
+def _build_focus_perception(focus_context) -> Perception | None:
+    """Build a focus perception from an ArbiterFocus.
+
+    Uses dedicated p_types (consume_focus, thread_focus, news_focus) to
+    avoid branch collisions in existing Thalamus routing logic.
+    """
+    if not focus_context or not focus_context.payload:
+        return None
+
+    payload = focus_context.payload
+    now = datetime.now(timezone.utc)
+
+    if focus_context.channel == 'consume':
+        return Perception(
+            p_type='consume_focus',
+            source='self',
+            ts=now,
+            content=f"I'm reading: {payload.get('title', 'something')}",
+            features={
+                'is_consumption': True,
+                'focus_channel': 'consume',
+                **payload,
+            },
+            salience=1.0,
+        )
+
+    elif focus_context.channel == 'thread':
+        return Perception(
+            p_type='thread_focus',
+            source='self',
+            ts=now,
+            content=f"Thinking about: {payload.get('title', 'something')}",
+            features={
+                'is_thread_focus': True,
+                'focus_channel': 'thread',
+                **payload,
+            },
+            salience=1.0,
+        )
+
+    elif focus_context.channel == 'news':
+        return Perception(
+            p_type='news_focus',
+            source='feed',
+            ts=now,
+            content=payload.get('headline', payload.get('title', '')),
+            features={
+                'is_news': True,
+                'focus_channel': 'news',
+                **payload,
+            },
+            salience=1.0,
+        )
 
     return None
