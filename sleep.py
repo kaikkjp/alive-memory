@@ -24,6 +24,7 @@ async def sleep_cycle():
         'gifts_received': count_gifts(today_events),
         'thread_counts': thread_counts,
         'active_thread_titles': thread_titles,
+        'pool_stats': await db.get_pool_stats(),
     }
 
     # 2. Cortex writes journal (single call, budget-capped)
@@ -53,7 +54,10 @@ async def sleep_cycle():
     # 6. Thread lifecycle management
     await manage_thread_lifecycle()
 
-    # 7. Reset drives for morning
+    # 7. Content pool cleanup
+    await cleanup_content_pool()
+
+    # 8. Reset drives for morning
     await reset_drives_for_morning()
 
 
@@ -163,6 +167,12 @@ async def manage_thread_lifecycle():
     archived_count = await db.archive_stale_threads(older_than_days=7)
     if archived_count > 0:
         print(f"  [Sleep] Archived {archived_count} stale threads.")
+
+
+async def cleanup_content_pool():
+    """Clean up expired and excess pool items during sleep."""
+    await db.expire_pool_items()
+    await db.cap_unseen_pool()
 
 
 async def reset_drives_for_morning():

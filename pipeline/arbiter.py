@@ -176,10 +176,53 @@ async def decide_cycle_focus(drives: DrivesState, arbiter_state: dict) -> Arbite
                 )
 
     # ── Priority 3: Unread high-salience news ──
-    # (Stub — Phase 5 will add news queries)
+    if (_check_daily_budget(arbiter_state, 'news')
+            and _cooldown_elapsed(arbiter_state.get('last_news_engage_ts'),
+                                  CHANNEL_COOLDOWNS['news'],
+                                  drives.mood_arousal)):
+        high_sal_news = await db.get_unseen_news(min_salience=0.5, limit=1)
+        if high_sal_news:
+            item = high_sal_news[0]
+            payload = {
+                'pool_id': item['id'],
+                'title': item.get('title', ''),
+                'headline': item.get('content', ''),
+                'source_channel': item.get('source_channel', ''),
+            }
+            penalty = _novelty_penalty(payload,
+                                       arbiter_state.get('recent_focus_keywords', []))
+            if penalty < 0.3:
+                return ArbiterFocus(
+                    channel='news',
+                    pipeline_mode=CHANNEL_TO_MODE['news'],
+                    payload=payload,
+                )
 
     # ── Priority 4: Reading urge ──
-    # (Stub — Phase 4 will add consume selection)
+    if (_check_daily_budget(arbiter_state, 'consume')
+            and _cooldown_elapsed(arbiter_state.get('last_consume_ts'),
+                                  CHANNEL_COOLDOWNS['consume'],
+                                  drives.mood_arousal)
+            and drives.curiosity > 0.5):
+        from pipeline.discovery import select_consumption
+        from models.state import Totem, CollectionItem
+        totems = await db.get_all_totems(limit=20)
+        collection = await db.get_collection_by_location('shelf')
+        pick = await select_consumption(drives, totems, collection)
+        if pick:
+            payload = {
+                'pool_id': pick['id'],
+                'title': pick.get('title', ''),
+                'content': pick.get('content', ''),
+                'source_type': pick.get('source_type', ''),
+                'url': pick.get('content', '') if pick.get('source_type') == 'url' else None,
+            }
+            return ArbiterFocus(
+                channel='consume',
+                pipeline_mode=CHANNEL_TO_MODE['consume'],
+                payload=payload,
+                token_budget_hint=6000,
+            )
 
     # ── Priority 5: Active thread (LRU, cooldown elapsed) ──
     if (_check_daily_budget(arbiter_state, 'thread')
@@ -206,7 +249,23 @@ async def decide_cycle_focus(drives: DrivesState, arbiter_state: dict) -> Arbite
                 )
 
     # ── Priority 6: Unread news (lower salience) ──
-    # (Stub — Phase 5 will add news queries)
+    if (_check_daily_budget(arbiter_state, 'news')
+            and _cooldown_elapsed(arbiter_state.get('last_news_engage_ts'),
+                                  CHANNEL_COOLDOWNS['news'],
+                                  drives.mood_arousal)):
+        low_sal_news = await db.get_unseen_news(min_salience=0.0, limit=1)
+        if low_sal_news:
+            item = low_sal_news[0]
+            return ArbiterFocus(
+                channel='news',
+                pipeline_mode=CHANNEL_TO_MODE['news'],
+                payload={
+                    'pool_id': item['id'],
+                    'title': item.get('title', ''),
+                    'headline': item.get('content', ''),
+                    'source_channel': item.get('source_channel', ''),
+                },
+            )
 
     # ── Priority 7: Creative pressure ──
     if (_check_daily_budget(arbiter_state, 'express')

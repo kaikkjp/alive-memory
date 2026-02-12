@@ -75,6 +75,25 @@ async def execute(validated_output: dict, visitor_id: str = None):
                 },
             ))
 
+    # Update pool item status based on cortex actions
+    # (When consuming content, what she does determines the pool outcome)
+    pool_id = None
+    if validated_output.get('_focus_pool_id'):
+        pool_id = validated_output['_focus_pool_id']
+    if pool_id:
+        has_collection = any(
+            u.get('type') == 'collection_add'
+            for u in validated_output.get('memory_updates', [])
+        )
+        has_reflection = any(
+            u.get('type') in ('journal_entry', 'totem_create', 'totem_update')
+            for u in validated_output.get('memory_updates', [])
+        )
+        if has_collection:
+            await db.update_pool_item(pool_id, status='accepted')
+        elif has_reflection:
+            await db.update_pool_item(pool_id, status='reflected')
+
     # Update drives if resonance flagged
     if validated_output.get('resonance'):
         drives = await db.get_drives_state()

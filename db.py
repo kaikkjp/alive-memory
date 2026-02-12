@@ -1293,3 +1293,147 @@ async def save_arbiter_state(state: dict):
          json.dumps(state.get('recent_focus_keywords', [])[:20]),
          state.get('current_date_jst', ''))
     )
+
+
+# ── Content Pool ──
+
+async def add_to_content_pool(fingerprint: str, source_type: str,
+                               source_channel: str, content: str,
+                               title: str = '', metadata: dict = None,
+                               source_event_id: str = None,
+                               tags: list = None,
+                               ttl_hours: float = None,
+                               salience_base: float = 0.2) -> bool:
+    """Insert an item into the content pool. Returns True if inserted (False if dup)."""
+    pool_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    try:
+        await _exec_write(
+            """INSERT INTO content_pool
+               (id, fingerprint, source_type, source_channel, content, title,
+                metadata, source_event_id, status, salience_base, added_at, tags, ttl_hours)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'unseen', ?, ?, ?, ?)
+               ON CONFLICT(fingerprint) DO NOTHING""",
+            (pool_id, fingerprint, source_type, source_channel, content, title,
+             json.dumps(metadata or {}), source_event_id, salience_base, now,
+             json.dumps(tags or []), ttl_hours)
+        )
+        return True
+    except Exception:
+        return False
+
+
+async def get_pool_items(status: str = 'unseen', source_types: list = None,
+                          limit: int = 20) -> list[dict]:
+    """Get content pool items by status and source type."""
+    conn = await get_db()
+    if source_types:
+        placeholders = ','.join('?' * len(source_types))
+        query = f"""SELECT * FROM content_pool
+                    WHERE status = ? AND source_type IN ({placeholders})
+                    ORDER BY salience_base DESC, added_at ASC
+                    LIMIT ?"""
+        cursor = await conn.execute(query, (status, *source_types, limit))
+    else:
+        cursor = await conn.execute(
+            """SELECT * FROM content_pool WHERE status = ?
+               ORDER BY salience_base DESC, added_at ASC LIMIT ?""",
+            (status, limit)
+        )
+    rows = await cursor.fetchall()
+    return [_row_to_pool_item(r) for r in rows]
+
+
+async def get_pool_item_by_id(pool_id: str) -> Optional[dict]:
+    """Get a single pool item by ID."""
+    conn = await get_db()
+    cursor = await conn.execute("SELECT * FROM content_pool WHERE id = ?", (pool_id,))
+    row = await cursor.fetchone()
+    return _row_to_pool_item(row) if row else None
+
+
+async def update_pool_item(pool_id: str, **kwargs):
+    """Update pool item fields."""
+    sets = []
+    vals = []
+    for key in ('status', 'seen_at', 'engaged_at', 'outcome_detail'):
+        if key in kwargs:
+            sets.append(f"{key} = ?")
+            v = kwargs[key]
+            vals.append(v.isoformat() if isinstance(v, datetime) else v)
+    if not sets:
+        return
+    vals.append(pool_id)
+    await _exec_write(
+        f"UPDATE content_pool SET {', '.join(sets)} WHERE id = ?",
+        tuple(vals)
+    )
+
+
+async def get_pool_stats() -> dict:
+    """Get count of pool items by status."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        "SELECT status, COUNT(*) FROM content_pool GROUP BY status"
+    )
+    rows = await cursor.fetchall()
+    return {row[0]: row[1] for row in rows}
+
+
+async def expire_pool_items():
+    """Remove expired pool items (TTL-based)."""
+    await _exec_write(
+        """DELETE FROM content_pool
+           WHERE ttl_hours IS NOT NULL
+           AND status = 'unseen'
+           AND julianday('now') - julianday(added_at) > ttl_hours / 24.0"""
+    )
+
+
+async def cap_unseen_pool(max_unseen: int = 50):
+    """Remove oldest unseen items when pool exceeds cap."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        "SELECT COUNT(*) FROM content_pool WHERE status = 'unseen'"
+    )
+    row = await cursor.fetchone()
+    count = row[0] if row else 0
+    if count > max_unseen:
+        excess = count - max_unseen
+        await _exec_write(
+            """DELETE FROM content_pool WHERE id IN (
+                SELECT id FROM content_pool
+                WHERE status = 'unseen'
+                ORDER BY added_at ASC
+                LIMIT ?
+            )""",
+            (excess,)
+        )
+
+
+async def get_unseen_news(min_salience: float = 0.3, limit: int = 5) -> list[dict]:
+    """Get unseen news/headline items above salience threshold."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT * FROM content_pool
+           WHERE status = 'unseen'
+           AND source_type = 'rss_headline'
+           AND salience_base >= ?
+           ORDER BY salience_base DESC, added_at ASC
+           LIMIT ?""",
+        (min_salience, limit)
+    )
+    rows = await cursor.fetchall()
+    return [_row_to_pool_item(r) for r in rows]
+
+
+def _row_to_pool_item(row) -> dict:
+    """Convert a pool row to a dict."""
+    d = dict(row)
+    for json_key in ('metadata', 'tags'):
+        if json_key in d and isinstance(d[json_key], str):
+            try:
+                d[json_key] = json.loads(d[json_key])
+            except (json.JSONDecodeError, TypeError):
+                d[json_key] = {} if json_key == 'metadata' else []
+    return d

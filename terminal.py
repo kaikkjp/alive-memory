@@ -150,7 +150,7 @@ def show_banner():
 
 JST = timezone(timedelta(hours=9))
 
-PEEK_COMMANDS = ('journal', 'drives', 'collection', 'backroom', 'status', 'totems', 'events', 'threads', 'weather')
+PEEK_COMMANDS = ('journal', 'drives', 'collection', 'backroom', 'status', 'totems', 'events', 'threads', 'weather', 'pool')
 
 
 def _fmt_time(dt) -> str:
@@ -212,6 +212,8 @@ async def handle_peek(cmd: str) -> bool:
         await _peek_threads()
     elif cmd == 'weather':
         await _peek_weather()
+    elif cmd == 'pool':
+        await _peek_pool()
     else:
         return False
     return True
@@ -419,6 +421,31 @@ async def _peek_weather():
     print()
 
 
+async def _peek_pool():
+    """Show content pool summary."""
+    stats = await db.get_pool_stats()
+    total = sum(stats.values())
+
+    if total == 0:
+        print(f"\n  {Fore.WHITE}(Content pool is empty.){Style.RESET_ALL}\n")
+        return
+
+    print()
+    print(f"  {Fore.YELLOW}── Content Pool ({total} items) ──{Style.RESET_ALL}")
+    for status, count in sorted(stats.items()):
+        print(f"  {status:<12} {count}")
+
+    # Show unseen items
+    unseen = await db.get_pool_items(status='unseen', limit=5)
+    if unseen:
+        print(f"\n  {Fore.CYAN}Unseen:{Style.RESET_ALL}")
+        for item in unseen:
+            title = item.get('title', item.get('content', '?'))[:50]
+            src = item.get('source_channel', '?')
+            print(f"  • {title} ({src})")
+    print()
+
+
 # ─── Drop Command ───
 
 async def handle_drop(text: str, visitor_id: str):
@@ -472,6 +499,22 @@ async def _drop_single(content: str, visitor_id: str):
     )
     await db.append_event(event)
     await db.inbox_add(event.id, priority=0.5)
+
+    # Also add to content pool (visitor drops don't expire)
+    from feed_ingester import compute_pool_fingerprint
+    source_type = 'url' if is_url else 'text'
+    fingerprint = compute_pool_fingerprint('visitor_drop', source_type, content)
+    await db.add_to_content_pool(
+        fingerprint=fingerprint,
+        source_type=source_type,
+        source_channel='visitor_drop',
+        content=content,
+        title=payload.get('title', ''),
+        metadata=payload,
+        source_event_id=event.id,
+        tags=['visitor_gift'],
+        ttl_hours=None,
+    )
 
 
 # ─── Client Mode (connects to heartbeat_server) ───

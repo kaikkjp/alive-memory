@@ -24,6 +24,7 @@ from pipeline.arbiter import (
     ArbiterFocus, decide_cycle_focus, update_arbiter_after_cycle,
 )
 from pipeline.ambient import fetch_ambient_context
+from pipeline.enrich import fetch_readable_text
 from sleep import sleep_cycle
 
 # Type for stage callbacks: async fn(stage_name, stage_data)
@@ -144,6 +145,7 @@ class Heartbeat:
         self._error_backoff = 5
         self._arbiter_state: Optional[dict] = None  # loaded from DB on start
         self._last_ambient_fetch_ts: Optional[datetime] = None
+        self._last_feed_fetch_ts: Optional[datetime] = None
 
     def _pick_fidget_behavior(self) -> tuple[str, str]:
         """Pick a fidget behavior while avoiding immediate repetition."""
@@ -374,6 +376,22 @@ class Heartbeat:
                     except Exception as e:
                         print(f"  [Heartbeat] Ambient fetch error: {e}")
 
+                # ── Feed ingestion (every hour) ──
+                feed_stale = (
+                    self._last_feed_fetch_ts is None
+                    or (datetime.now(timezone.utc) - self._last_feed_fetch_ts).total_seconds() > 3600
+                )
+                if feed_stale:
+                    try:
+                        from feed_ingester import run_feed_ingestion
+                        await run_feed_ingestion()
+                        self._last_feed_fetch_ts = datetime.now(timezone.utc)
+                        # Expire old pool items + cap unseen count
+                        await db.expire_pool_items()
+                        await db.cap_unseen_pool()
+                    except Exception as e:
+                        print(f"  [Heartbeat] Feed ingestion error: {e}")
+
                 # Let the arbiter decide focus
                 focus = await decide_cycle_focus(drives, self._arbiter_state)
 
@@ -406,6 +424,32 @@ class Heartbeat:
 
                 else:
                     # Focused cycle (express, consume, thread, news)
+
+                    # Consume enrichment: fetch readable text + mark pool item seen
+                    if focus.channel == 'consume' and focus.payload:
+                        pool_id = focus.payload.get('pool_id')
+                        url = focus.payload.get('url')
+                        if url:
+                            try:
+                                readable = await fetch_readable_text(url)
+                                focus.payload['readable_text'] = readable
+                            except Exception:
+                                focus.payload['readable_text'] = ''
+                        if pool_id:
+                            await db.update_pool_item(
+                                pool_id, status='seen',
+                                seen_at=datetime.now(timezone.utc),
+                            )
+
+                    # News: mark pool item seen
+                    if focus.channel == 'news' and focus.payload:
+                        pool_id = focus.payload.get('pool_id')
+                        if pool_id:
+                            await db.update_pool_item(
+                                pool_id, status='seen',
+                                seen_at=datetime.now(timezone.utc),
+                            )
+
                     await self.run_cycle(focus.pipeline_mode,
                                          focus_context=focus)
                     # Update arbiter counters + persist
@@ -619,6 +663,10 @@ class Heartbeat:
             'turn_count': engagement.turn_count,
         }
         validated = validate(cortex_output, state)
+
+        # Pass pool_id through for executor pool status tracking
+        if focus_context and focus_context.payload and focus_context.payload.get('pool_id'):
+            validated['_focus_pool_id'] = focus_context.payload['pool_id']
 
         # Journal deferred — the desire to write builds up
         if validated.get('_journal_deferred'):
