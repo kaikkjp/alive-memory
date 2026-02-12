@@ -2,6 +2,7 @@ import asyncio
 import aiosqlite
 import contextvars
 import json
+import os
 import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Optional
@@ -10,6 +11,8 @@ from models.state import (
     RoomState, DrivesState, EngagementState, Visitor, VisitorTrait,
     Totem, CollectionItem, JournalEntry, DailySummary,
 )
+
+COLD_SEARCH_ENABLED = os.getenv('COLD_SEARCH_ENABLED', 'false').lower() == 'true'
 
 # The shopkeeper lives in JST. All "today" boundaries use JST.
 JST = timezone(timedelta(hours=9))
@@ -24,6 +27,17 @@ async def get_db() -> aiosqlite.Connection:
     if _db is None:
         _db = await aiosqlite.connect(DB_PATH)
         _db.row_factory = aiosqlite.Row
+        # Load sqlite-vec extension for cold memory search (Phase 2)
+        if COLD_SEARCH_ENABLED:
+            try:
+                import sqlite_vec
+                await _db.enable_load_extension(True)
+                sqlite_vec.load(_db._conn)  # raw sqlite3.Connection
+                await _db.enable_load_extension(False)
+            except ImportError:
+                print("[DB] sqlite-vec not installed — cold search disabled")
+            except Exception as e:
+                print(f"[DB] Failed to load sqlite-vec: {e}")
         await _db.execute("PRAGMA journal_mode=WAL")
         await _db.execute("PRAGMA busy_timeout=5000")
         await _db.execute("PRAGMA foreign_keys=ON")
@@ -294,6 +308,23 @@ async def init_db():
         if statement:
             await db.execute(statement)
     await db.commit()
+
+    # Cold memory vector table (Phase 2) — requires sqlite-vec extension
+    if COLD_SEARCH_ENABLED:
+        try:
+            await db.execute("""
+                CREATE VIRTUAL TABLE IF NOT EXISTS cold_memory_vec USING vec0(
+                    embedding float[1536],
+                    source_type text,
+                    +source_id text,
+                    +text_content text,
+                    +ts_iso text,
+                    +embed_model text
+                )
+            """)
+            await db.commit()
+        except Exception as e:
+            print(f"[DB] Failed to create cold_memory_vec table: {e}")
 
     # Ensure singleton rows exist
     await db.execute(
@@ -1186,3 +1217,202 @@ def _row_to_day_memory(row):
         processed_at=(datetime.fromisoformat(row['processed_at'])
                        if row['processed_at'] else None),
     )
+
+
+# ─── Cold Memory (Phase 2) ───
+
+async def insert_cold_embedding(
+    source_type: str,
+    source_id: str,
+    text_content: str,
+    ts: datetime,
+    embedding: list[float],
+    embed_model: str,
+) -> None:
+    """Insert a vector embedding into cold_memory_vec.
+
+    Uses _write_lock directly — vec0 virtual tables don't support
+    our transaction() wrapper the same way.
+    """
+    import sqlite_vec
+
+    ts_iso = ts.isoformat() if isinstance(ts, datetime) else str(ts)
+    text_truncated = text_content[:500] if text_content else ''
+    vec_blob = sqlite_vec.serialize_float32(embedding)
+
+    async with _write_lock:
+        conn = await get_db()
+        await conn.execute(
+            """INSERT INTO cold_memory_vec
+               (embedding, source_type, source_id, text_content, ts_iso, embed_model)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (vec_blob, source_type, source_id, text_truncated, ts_iso, embed_model)
+        )
+        await conn.commit()
+
+
+async def get_unembedded_conversations(limit: int = 50) -> list[dict]:
+    """Find conversation_log rows not yet embedded in cold_memory_vec.
+
+    Skips system boundary markers. Returns oldest-first for chronological
+    embedding order.
+    """
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT c.id, c.visitor_id, c.role, c.text, c.ts
+           FROM conversation_log c
+           WHERE c.role IN ('visitor', 'assistant')
+             AND c.id NOT IN (
+                 SELECT source_id FROM cold_memory_vec
+                 WHERE source_type = 'conversation'
+             )
+           ORDER BY c.ts ASC LIMIT ?""",
+        (limit,)
+    )
+    rows = await cursor.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def get_unembedded_monologues(limit: int = 50) -> list[dict]:
+    """Find cycle_log rows with internal monologue not yet embedded.
+
+    Skips entries with NULL or very short monologues (< 10 chars).
+    Returns oldest-first.
+    """
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT c.id, c.internal_monologue, c.dialogue, c.ts
+           FROM cycle_log c
+           WHERE c.internal_monologue IS NOT NULL
+             AND LENGTH(c.internal_monologue) > 10
+             AND c.id NOT IN (
+                 SELECT source_id FROM cold_memory_vec
+                 WHERE source_type = 'monologue'
+             )
+           ORDER BY c.ts ASC LIMIT ?""",
+        (limit,)
+    )
+    rows = await cursor.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def vector_search_cold_memory(
+    query_embedding: list[float],
+    limit: int = 3,
+    exclude_after_iso: Optional[str] = None,
+) -> list[dict]:
+    """KNN search over cold_memory_vec.
+
+    Returns nearest neighbors with source_type, source_id, text_content,
+    ts_iso, and distance. Optional timestamp exclusion for filtering out
+    today's entries.
+    """
+    import sqlite_vec
+
+    conn = await get_db()
+    vec_blob = sqlite_vec.serialize_float32(query_embedding)
+
+    # sqlite-vec KNN query: WHERE embedding MATCH ? AND k = ?
+    # Note: metadata filtering (source_type) can be added to WHERE clause.
+    # Auxiliary columns (ts_iso) cannot be filtered in WHERE — we filter in Python.
+    cursor = await conn.execute(
+        """SELECT source_type, source_id, text_content, ts_iso,
+                  embed_model, distance
+           FROM cold_memory_vec
+           WHERE embedding MATCH ? AND k = ?""",
+        (vec_blob, limit * 3 if exclude_after_iso else limit)
+    )
+    rows = await cursor.fetchall()
+
+    results = []
+    for r in rows:
+        # Filter out entries from today if requested
+        if exclude_after_iso and r['ts_iso'] >= exclude_after_iso:
+            continue
+        results.append(dict(r))
+        if len(results) >= limit:
+            break
+
+    return results
+
+
+async def get_conversation_context(
+    message_id: str,
+    before: int = 2,
+    after: int = 2,
+) -> list[dict]:
+    """Fetch surrounding conversation turns for context enrichment.
+
+    Returns ±N messages around the given message_id, ordered by timestamp.
+    """
+    conn = await get_db()
+
+    # Get the target message's timestamp and visitor_id
+    cursor = await conn.execute(
+        "SELECT ts, visitor_id FROM conversation_log WHERE id = ?",
+        (message_id,)
+    )
+    target = await cursor.fetchone()
+    if not target:
+        return []
+
+    # Get messages before
+    cursor = await conn.execute(
+        """SELECT role, text, ts FROM conversation_log
+           WHERE visitor_id = ? AND ts <= ? AND id != ?
+             AND role IN ('visitor', 'assistant')
+           ORDER BY ts DESC LIMIT ?""",
+        (target['visitor_id'], target['ts'], message_id, before)
+    )
+    before_rows = list(reversed(await cursor.fetchall()))
+
+    # Get the target message itself
+    cursor = await conn.execute(
+        "SELECT role, text, ts FROM conversation_log WHERE id = ?",
+        (message_id,)
+    )
+    target_row = await cursor.fetchone()
+
+    # Get messages after
+    cursor = await conn.execute(
+        """SELECT role, text, ts FROM conversation_log
+           WHERE visitor_id = ? AND ts > ?
+             AND role IN ('visitor', 'assistant')
+           ORDER BY ts ASC LIMIT ?""",
+        (target['visitor_id'], target['ts'], after)
+    )
+    after_rows = await cursor.fetchall()
+
+    context = []
+    for r in before_rows:
+        context.append({'role': r['role'], 'text': r['text']})
+    if target_row:
+        context.append({'role': target_row['role'], 'text': target_row['text']})
+    for r in after_rows:
+        context.append({'role': r['role'], 'text': r['text']})
+
+    return context
+
+
+async def get_cycle_by_id(cycle_id: str) -> Optional[dict]:
+    """Fetch a single cycle_log entry by ID."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        "SELECT * FROM cycle_log WHERE id = ?",
+        (cycle_id,)
+    )
+    row = await cursor.fetchone()
+    return dict(row) if row else None
+
+
+async def get_cold_embedding_count() -> int:
+    """Return total number of embeddings in cold_memory_vec."""
+    conn = await get_db()
+    try:
+        cursor = await conn.execute(
+            "SELECT COUNT(*) as cnt FROM cold_memory_vec"
+        )
+        row = await cursor.fetchone()
+        return row['cnt'] if row else 0
+    except Exception:
+        return 0
