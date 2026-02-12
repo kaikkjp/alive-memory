@@ -9,3 +9,7 @@ colorama>=0.4.6,<1.0.0  # terminal + server color output (module-level import)
 aiohttp>=3.9.0,<4.0.0     # ambient weather via wttr.in
 feedparser>=6.0.0,<7.0.0  # RSS feed ingestion
 sqlite-vec>=0.1.6,<1.0.0  # cold memory vector search (Phase 2)
+
+# Testing
+pytest>=8.0
+pytest-asyncio>=0.24
