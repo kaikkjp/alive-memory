@@ -2,6 +2,7 @@
 
 import random
 from datetime import datetime, timezone
+import clock
 from models.state import DrivesState
 from pipeline.sensorium import Perception
 
@@ -14,7 +15,7 @@ def apply_affect_lens(perceptions: list[Perception], drives: DrivesState) -> lis
     colored = []
     for p in perceptions:
         # Add subjective time
-        wait_seconds = (datetime.now(timezone.utc) - p.ts).total_seconds()
+        wait_seconds = (clock.now_utc() - p.ts).total_seconds()
         p.content = inject_time_feeling(p.content, wait_seconds, dilation, drives)
 
         # Mood colors interpretation

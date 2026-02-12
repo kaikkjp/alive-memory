@@ -3,6 +3,8 @@ from datetime import datetime, timezone
 from typing import Optional
 import uuid
 
+import clock
+
 
 @dataclass
 class Event:
@@ -10,7 +12,7 @@ class Event:
     source: str           # visitor:<id> | system | self | ambient
     payload: dict         # flexible per event type
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    ts: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    ts: datetime = field(default_factory=lambda: clock.now_utc())
     # Living Loop extensions (backward-compatible defaults)
     channel: str = 'system'          # news | consume | ambient | thread | visitor | system
     salience_base: float = 0.5

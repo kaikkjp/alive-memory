@@ -7,6 +7,7 @@ import pathlib
 import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Optional
+import clock
 from models.event import Event
 from models.state import (
     RoomState, DrivesState, EngagementState, Visitor, VisitorTrait,
@@ -21,6 +22,14 @@ JST = timezone(timedelta(hours=9))
 DB_PATH = os.environ.get('SHOPKEEPER_DB_PATH', 'data/shopkeeper.db')
 
 _db: Optional[aiosqlite.Connection] = None
+
+
+def set_db_path(path: str):
+    """Override DB_PATH for simulation. Must be called before first get_db()."""
+    global DB_PATH, _db
+    if _db is not None:
+        raise RuntimeError("set_db_path() must be called before first get_db()")
+    DB_PATH = path
 
 
 async def get_db() -> aiosqlite.Connection:
@@ -469,7 +478,7 @@ async def get_events_since(since: datetime, event_type: str = None) -> list[Even
 
 async def get_events_today() -> list[Event]:
     db = await get_db()
-    today_jst = datetime.now(JST).date().isoformat()
+    today_jst = clock.now().date().isoformat()
     cursor = await db.execute(
         "SELECT * FROM events WHERE date(ts, '+9 hours') = ? ORDER BY ts",
         (today_jst,)
@@ -531,7 +540,7 @@ async def inbox_flush_stale_visitor_events():
     Called on visitor_connect to prevent stale disconnect/speech events
     from a previous session leaking into the new session's perceptions.
     """
-    now = datetime.now(timezone.utc).isoformat()
+    now = clock.now_utc().isoformat()
     await _exec_write(
         """UPDATE inbox SET read_at = ?
            WHERE read_at IS NULL
@@ -551,7 +560,7 @@ async def inbox_flush_stale_visitor_events():
 async def inbox_mark_read(event_id: str):
     await _exec_write(
         "UPDATE inbox SET read_at = ? WHERE event_id = ?",
-        (datetime.now(timezone.utc).isoformat(), event_id)
+        (clock.now_utc().isoformat(), event_id)
     )
 
 
@@ -574,7 +583,7 @@ async def get_room_state() -> RoomState:
 async def update_room_state(**kwargs):
     if not kwargs:
         return
-    kwargs['updated_at'] = datetime.now(timezone.utc).isoformat()
+    kwargs['updated_at'] = clock.now_utc().isoformat()
     if 'room_arrangement' in kwargs:
         kwargs['room_arrangement'] = json.dumps(kwargs['room_arrangement'])
     sets = ", ".join(f"{k} = ?" for k in kwargs)
@@ -608,7 +617,7 @@ async def save_drives_state(d: DrivesState):
            WHERE id = 1""",
         (d.social_hunger, d.curiosity, d.expression_need, d.rest_need,
          d.energy, d.mood_valence, d.mood_arousal,
-         datetime.now(timezone.utc).isoformat())
+         clock.now_utc().isoformat())
     )
 
 
@@ -658,7 +667,7 @@ async def get_visitor(visitor_id: str) -> Optional[Visitor]:
 
 
 async def create_visitor(visitor_id: str) -> Visitor:
-    now = datetime.now(timezone.utc).isoformat()
+    now = clock.now_utc().isoformat()
     await _exec_write(
         "INSERT OR IGNORE INTO visitors (id, visit_count, first_visit, last_visit) VALUES (?, 1, ?, ?)",
         (visitor_id, now, now)
@@ -675,7 +684,7 @@ async def update_visitor(visitor_id: str, **kwargs):
 
 
 async def increment_visit(visitor_id: str):
-    now = datetime.now(timezone.utc).isoformat()
+    now = clock.now_utc().isoformat()
     await _exec_write(
         "UPDATE visitors SET visit_count = visit_count + 1, last_visit = ? WHERE id = ?",
         (now, visitor_id)
@@ -718,7 +727,7 @@ async def insert_trait(visitor_id: str, trait_category: str, trait_key: str,
            (id, visitor_id, trait_category, trait_key, trait_value, observed_at, source_event_id, confidence)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
         (str(uuid.uuid4()), visitor_id, trait_category, trait_key, trait_value,
-         datetime.now(timezone.utc).isoformat(), source_event_id, confidence)
+         clock.now_utc().isoformat(), source_event_id, confidence)
     )
 
 
@@ -801,7 +810,7 @@ async def get_totems(visitor_id: str = None, min_weight: float = 0.0,
 async def insert_totem(visitor_id: str = None, entity: str = '',
                        weight: float = 0.5, context: str = '',
                        category: str = 'general', source_event_id: str = None):
-    now = datetime.now(timezone.utc).isoformat()
+    now = clock.now_utc().isoformat()
     await _exec_write(
         """INSERT INTO totems
            (id, visitor_id, entity, weight, context, category, first_seen, last_referenced, source_event_id)
@@ -844,7 +853,7 @@ def _row_to_totem(row) -> Totem:
 # ─── Collection Items ───
 
 async def insert_collection_item(item: dict):
-    now = datetime.now(timezone.utc).isoformat()
+    now = clock.now_utc().isoformat()
     await _exec_write(
         """INSERT INTO collection_items
            (id, item_type, title, url, description, location, origin, gifted_by,
@@ -892,7 +901,7 @@ def _row_to_collection(row) -> CollectionItem:
 async def insert_journal(content: str, mood: str = None, tags: list = None,
                          day_alive: int = None) -> str:
     jid = str(uuid.uuid4())
-    now = datetime.now(timezone.utc).isoformat()
+    now = clock.now_utc().isoformat()
     await _exec_write(
         """INSERT INTO journal_entries (id, content, mood, day_alive, tags, created_at)
            VALUES (?, ?, ?, ?, ?, ?)""",
@@ -918,7 +927,7 @@ async def get_recent_journal(limit: int = 2) -> list[JournalEntry]:
 # ─── Daily Summary ───
 
 async def insert_daily_summary(summary: dict):
-    now = datetime.now(timezone.utc).isoformat()
+    now = clock.now_utc().isoformat()
     await _exec_write(
         """INSERT INTO daily_summaries
            (id, day_number, date, journal_entry_id, summary_bullets, emotional_arc, notable_totems, created_at)
@@ -932,7 +941,7 @@ async def insert_daily_summary(summary: dict):
 # ─── Conversation Log ───
 
 async def append_conversation(visitor_id: str, role: str, text: str):
-    now = datetime.now(timezone.utc).isoformat()
+    now = clock.now_utc().isoformat()
     await _exec_write(
         "INSERT INTO conversation_log (id, visitor_id, role, text, ts) VALUES (?, ?, ?, ?, ?)",
         (str(uuid.uuid4()), visitor_id, role, text, now)
@@ -941,7 +950,7 @@ async def append_conversation(visitor_id: str, role: str, text: str):
 
 async def mark_session_boundary(visitor_id: str):
     """Insert a session boundary marker so get_recent_conversation only returns current session."""
-    now = datetime.now(timezone.utc).isoformat()
+    now = clock.now_utc().isoformat()
     await _exec_write(
         "INSERT INTO conversation_log (id, visitor_id, role, text, ts) VALUES (?, ?, ?, ?, ?)",
         (str(uuid.uuid4()), visitor_id, 'system', '__session_boundary__', now)
@@ -993,7 +1002,7 @@ async def log_cycle(log: dict):
          log.get('body_state', 'sitting'), log.get('gaze', 'at_visitor'),
          json.dumps(log.get('actions', [])), json.dumps(log.get('dropped', [])),
          json.dumps(log.get('next_cycle_hints', [])),
-         datetime.now(timezone.utc).isoformat())
+         clock.now_utc().isoformat())
     )
 
 
@@ -1058,7 +1067,7 @@ async def get_taste_knowledge(domain: str) -> str:
 
 async def get_flashbulb_count_today() -> int:
     db = await get_db()
-    today_jst = datetime.now(JST).date().isoformat()
+    today_jst = clock.now().date().isoformat()
     cursor = await db.execute(
         "SELECT COUNT(*) as cnt FROM cycle_log WHERE date(ts, '+9 hours') = ? AND token_budget >= 10000",
         (today_jst,)
@@ -1113,7 +1122,7 @@ async def get_recent_events(limit: int = 20) -> list[Event]:
 
 async def get_visitor_count_today() -> int:
     conn = await get_db()
-    today_jst = datetime.now(JST).date().isoformat()
+    today_jst = clock.now().date().isoformat()
     cursor = await conn.execute(
         "SELECT COUNT(DISTINCT source) as cnt FROM events "
         "WHERE event_type = 'visitor_connect' AND date(ts, '+9 hours') = ?",
@@ -1134,7 +1143,7 @@ async def get_days_alive() -> int:
     first = datetime.fromisoformat(row['first'])
     if first.tzinfo is None:
         first = first.replace(tzinfo=timezone.utc)
-    now = datetime.now(timezone.utc)
+    now = clock.now_utc()
     return max(1, (now - first).days + 1)
 
 
@@ -1186,7 +1195,7 @@ async def insert_day_memory(moment) -> None:
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (moment.id, moment.ts.isoformat(), moment.salience, moment.moment_type,
              moment.visitor_id, moment.summary, json.dumps(moment.raw_refs),
-             json.dumps(moment.tags), datetime.now(timezone.utc).isoformat())
+             json.dumps(moment.tags), clock.now_utc().isoformat())
         )
         # commit is handled by transaction().__aexit__
 
@@ -1197,7 +1206,7 @@ def _jst_today_start_utc() -> str:
     Day memory is scoped to the current JST day. This computes midnight JST
     converted to UTC so we can filter the UTC timestamps stored in day_memory.
     """
-    now_jst = datetime.now(JST)
+    now_jst = clock.now()
     start_of_day_jst = now_jst.replace(hour=0, minute=0, second=0, microsecond=0)
     start_of_day_utc = start_of_day_jst.astimezone(timezone.utc)
     return start_of_day_utc.isoformat()
@@ -1255,7 +1264,7 @@ async def get_unprocessed_day_memory(
 
 async def mark_day_memory_processed(moment_id: str) -> None:
     """Stamp processed_at on a day memory entry."""
-    now = datetime.now(timezone.utc).isoformat()
+    now = clock.now_utc().isoformat()
     await _exec_write(
         "UPDATE day_memory SET processed_at = ? WHERE id = ?",
         (now, moment_id)
@@ -1289,7 +1298,7 @@ async def delete_stale_day_memory(max_age_days: int = 2) -> None:
     Safety net: prevents unprocessed moments from leaking across day
     boundaries if sleep didn't process them (e.g. only top-K were selected).
     """
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=max_age_days)).isoformat()
+    cutoff = (clock.now_utc() - timedelta(days=max_age_days)).isoformat()
     await _exec_write(
         "DELETE FROM day_memory WHERE ts < ?",
         (cutoff,)
@@ -1299,7 +1308,7 @@ async def delete_stale_day_memory(max_age_days: int = 2) -> None:
 async def get_daily_summary_for_today() -> Optional[dict]:
     """Check if a daily summary already exists for today (JST)."""
     conn = await get_db()
-    today_jst = datetime.now(JST).date().isoformat()
+    today_jst = clock.now().date().isoformat()
     cursor = await conn.execute(
         "SELECT * FROM daily_summaries WHERE date = ?",
         (today_jst,)
@@ -1601,7 +1610,7 @@ async def get_thread_by_title(title: str) -> Optional[Thread]:
 async def create_thread(thread_type: str, title: str, **kwargs) -> Thread:
     """Create a new thread. Returns the created Thread."""
     tid = str(uuid.uuid4())
-    now = datetime.now(timezone.utc).isoformat()
+    now = clock.now_utc().isoformat()
     await _exec_write(
         """INSERT INTO threads
            (id, thread_type, title, status, priority, content, created_at,
@@ -1623,7 +1632,7 @@ async def create_thread(thread_type: str, title: str, **kwargs) -> Thread:
 async def touch_thread(thread_id: str, reason: str,
                        content: str = None, status: str = None):
     """Update a thread's touch timestamp, reason, and optionally content/status."""
-    now = datetime.now(timezone.utc).isoformat()
+    now = clock.now_utc().isoformat()
     updates = ["last_touched = ?", "touch_count = touch_count + 1",
                "touch_reason = ?"]
     vals = [now, reason]
@@ -1645,7 +1654,7 @@ async def touch_thread(thread_id: str, reason: str,
 async def get_dormant_threads(older_than_hours: int = 48) -> list[Thread]:
     """Get active threads untouched for >older_than_hours."""
     conn = await get_db()
-    cutoff = (datetime.now(timezone.utc) - timedelta(hours=older_than_hours)).isoformat()
+    cutoff = (clock.now_utc() - timedelta(hours=older_than_hours)).isoformat()
     cursor = await conn.execute(
         """SELECT * FROM threads
            WHERE status IN ('open', 'active')
@@ -1658,7 +1667,7 @@ async def get_dormant_threads(older_than_hours: int = 48) -> list[Thread]:
 
 async def archive_stale_threads(older_than_days: int = 7) -> int:
     """Archive dormant threads older than N days. Returns count."""
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=older_than_days)).isoformat()
+    cutoff = (clock.now_utc() - timedelta(days=older_than_days)).isoformat()
     conn = await get_db()
     cursor = await conn.execute(
         """UPDATE threads SET status = 'archived'
@@ -1700,7 +1709,7 @@ async def load_arbiter_state() -> dict:
             'last_thread_focus_ts': None,
             'last_express_ts': None,
             'recent_focus_keywords': [],
-            'current_date_jst': datetime.now(JST).date().isoformat(),
+            'current_date_jst': clock.now().date().isoformat(),
         }
 
     return {
@@ -1754,7 +1763,7 @@ async def add_to_content_pool(fingerprint: str, source_type: str,
                                salience_base: float = 0.2) -> bool:
     """Insert an item into the content pool. Returns True if inserted (False if dup)."""
     pool_id = str(uuid.uuid4())
-    now = datetime.now(timezone.utc).isoformat()
+    now = clock.now_utc().isoformat()
     try:
         await _exec_write(
             """INSERT INTO content_pool
@@ -1824,7 +1833,7 @@ async def update_event_outcome(event_id: str, outcome: str,
 
     Used by executor to couple pool status changes with their source events.
     """
-    ts = (engaged_at or datetime.now(timezone.utc)).isoformat()
+    ts = (engaged_at or clock.now_utc()).isoformat()
     await _exec_write(
         "UPDATE events SET outcome = ?, engaged_at = ? WHERE id = ?",
         (outcome, ts, event_id)
@@ -1898,3 +1907,19 @@ def _row_to_pool_item(row) -> dict:
             except (json.JSONDecodeError, TypeError):
                 d[json_key] = {} if json_key == 'metadata' else []
     return d
+
+
+async def count_journal_entries() -> int:
+    """Count total journal entries."""
+    conn = await get_db()
+    cursor = await conn.execute("SELECT COUNT(*) FROM journal_entries")
+    row = await cursor.fetchone()
+    return row[0] if row else 0
+
+
+async def count_cycle_logs() -> int:
+    """Count total cycle log entries."""
+    conn = await get_db()
+    cursor = await conn.execute("SELECT COUNT(*) FROM cycle_log")
+    row = await cursor.fetchone()
+    return row[0] if row else 0

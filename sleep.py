@@ -7,6 +7,7 @@ Phase 2: Cold memory search via embeddings (COLD_SEARCH_ENABLED).
 import os
 from datetime import datetime, timezone
 
+import clock
 import db
 from db import JST
 from pipeline.cortex import cortex_call_reflect, SLEEP_REFLECTION_SYSTEM
@@ -234,7 +235,7 @@ async def write_daily_summary(moments: list, reflections: list) -> None:
         journal_id = None
 
     days_alive = await db.get_days_alive()
-    today_jst = datetime.now(JST).date().isoformat()
+    today_jst = clock.now().date().isoformat()
 
     await db.insert_daily_summary({
         'day_number': days_alive,
@@ -302,7 +303,7 @@ async def review_trait_stability():
 
         # Check for unconfirmed anomalies (> 7 days old)
         if trait.status == 'anomaly':
-            days_old = (datetime.now(timezone.utc) - trait.observed_at).days
+            days_old = (clock.now_utc() - trait.observed_at).days
             if days_old > 7:
                 await db.update_trait_status(trait.id, 'archived')
 

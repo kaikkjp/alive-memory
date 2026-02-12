@@ -16,6 +16,8 @@ import sys
 import random
 
 from datetime import datetime, timezone, timedelta
+
+import clock
 from colorama import Fore, Style, init as colorama_init
 
 from models.event import Event
@@ -394,7 +396,7 @@ async def _peek_threads():
         for t in active:
             age = ""
             if t.created_at:
-                age_days = (datetime.now(timezone.utc) - t.created_at).days
+                age_days = (clock.now_utc() - t.created_at).days
                 age = f" ({age_days}d)" if age_days > 0 else " (new)"
             touches = f" ×{t.touch_count}" if t.touch_count > 0 else ""
             snippet = ""
@@ -755,8 +757,8 @@ async def standalone_mode():
     await db.update_engagement_state(
         status='engaged',
         visitor_id=visitor_id,
-        started_at=datetime.now(timezone.utc),
-        last_activity=datetime.now(timezone.utc),
+        started_at=clock.now_utc(),
+        last_activity=clock.now_utc(),
         turn_count=0,
     )
 
@@ -844,7 +846,7 @@ async def standalone_mode():
             # Update last_activity on visitor speech (not just shopkeeper
             # response) so the silence timer doesn't drift during processing
             await db.update_engagement_state(
-                last_activity=datetime.now(timezone.utc),
+                last_activity=clock.now_utc(),
             )
 
             # Emit speech event through ACK path

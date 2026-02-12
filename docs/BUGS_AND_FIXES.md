@@ -6,6 +6,87 @@
 
 ---
 
+### BUG-2026-02-12-sim-db-filename-collision
+
+| Field           | Value |
+|-----------------|-------|
+| **Date**        | 2026-02-12 |
+| **Severity**    | High |
+| **Status**      | Fixed |
+| **Branch**      | `feat/simulation-mode` |
+| **PR**          | #14 |
+| **Commit**      | N/A |
+
+**Symptom:** Running `python simulate.py --days 0 --quiet` twice on the same day crashed with `sqlite3.IntegrityError: UNIQUE constraint failed: collection_items.id`.
+
+**Root Cause:** DB filename was derived only from `start` time (`sim_YYYYMMDD_HHMMSS.db`). With default start at 07:00 JST, rerunning on the same day reused the same DB file. `seed()` inserts fixed collection IDs which collide on second run.
+
+**Fix:** Append a short UUID (`run_id = str(uuid.uuid4())[:8]`) to the DB and log filenames: `sim_{ts}_{run_id}.db`.
+
+**Files Affected:**
+- `simulate.py` — added uuid import, appended run_id to db/log filenames
+
+**Tests Added:**
+- [ ] Run `simulate.py --days 0` twice — both succeed with different filenames
+
+**Follow-ups / Notes:**
+- Found by Codex review of PR #14. Confidence 0.98.
+
+---
+
+### BUG-2026-02-12-sim-start-timezone-not-normalized
+
+| Field           | Value |
+|-----------------|-------|
+| **Date**        | 2026-02-12 |
+| **Severity**    | Medium |
+| **Status**      | Fixed |
+| **Branch**      | `feat/simulation-mode` |
+| **PR**          | #14 |
+| **Commit**      | N/A |
+
+**Symptom:** `--start 2026-02-12T08:00:00+00:00` was printed as `08:00 JST` in output, and sleep windows (03:00-06:00 JST) were shifted by the timezone offset.
+
+**Root Cause:** `main()` only added JST when `tzinfo` was `None`. Timezone-aware inputs in other zones were kept as-is but treated/labeled as JST throughout simulation.
+
+**Fix:** Added `else: start = start.astimezone(JST)` to normalize all timezone-aware inputs to JST.
+
+**Files Affected:**
+- `simulate.py` — added astimezone(JST) normalization for tz-aware --start
+
+**Tests Added:**
+- [ ] Run with `--start 2026-02-12T08:00:00+00:00` — should show `17:00 JST`
+
+**Follow-ups / Notes:**
+- Found by Codex review of PR #14. Confidence 0.96.
+
+---
+
+### BUG-2026-02-12-sim-deferred-sleep-advances-clock
+
+| Field           | Value |
+|-----------------|-------|
+| **Date**        | 2026-02-12 |
+| **Severity**    | Medium |
+| **Status**      | Fixed |
+| **Branch**      | `feat/simulation-mode` |
+| **PR**          | #14 |
+| **Commit**      | N/A |
+
+**Symptom:** When `sleep_cycle()` returned `False` (deferred), the simulation still advanced the clock by 3 hours and logged a wake event, skipping daily consolidation while pretending it happened.
+
+**Root Cause:** `clock.advance(SLEEP_ADVANCE_SECONDS)` and `tl.log_wake()` were unconditional — they ran whether sleep succeeded or not.
+
+**Fix:** Only advance past sleep window and log wake when `hb._last_sleep_date == today_str` (sleep actually ran). On deferral, advance 60s and retry on next loop iteration.
+
+**Files Affected:**
+- `simulate.py` — conditional clock advance based on sleep success
+
+**Tests Added:**
+- [ ] Verify deferred sleep retries on next iteration
+
+**Follow-ups / Notes:**
+- Found by Codex review of PR #14. Confidence 0.93.
 
 ---
 

@@ -16,6 +16,8 @@ import signal
 import sys
 from datetime import datetime, timezone
 
+import clock
+
 from colorama import Fore, Style, init as colorama_init
 
 import db
@@ -193,8 +195,8 @@ class ShopkeeperServer:
                     await db.update_engagement_state(
                         status='engaged',
                         visitor_id=visitor_id,
-                        started_at=datetime.now(timezone.utc),
-                        last_activity=datetime.now(timezone.utc),
+                        started_at=clock.now_utc(),
+                        last_activity=clock.now_utc(),
                         turn_count=0,
                     )
 

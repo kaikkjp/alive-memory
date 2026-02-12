@@ -9,6 +9,7 @@ All failures return empty list (non-blocking — sleep proceeds with hot context
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
+import clock
 import db
 from db import JST
 from pipeline.embed import embed
@@ -112,7 +113,7 @@ async def _fetch_cold_context(source_id: str, source_type: str) -> str:
 
 def _jst_today_start_utc() -> str:
     """Return start of today (JST) as UTC ISO string."""
-    now_jst = datetime.now(JST)
+    now_jst = clock.now()
     start_jst = now_jst.replace(hour=0, minute=0, second=0, microsecond=0)
     start_utc = start_jst.astimezone(timezone.utc)
     return start_utc.isoformat()

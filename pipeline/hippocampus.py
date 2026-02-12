@@ -2,6 +2,7 @@
 
 from datetime import datetime, timezone
 from db import JST
+import clock
 import db
 
 MAX_CHUNK_TOKENS = 200  # approximate, measured by word count / 0.75
@@ -152,7 +153,7 @@ def format_day_moments(moments: list) -> str:
 
 def relative_time(ts: datetime) -> str:
     """Convert timestamp to relative time label."""
-    now = datetime.now(timezone.utc)
+    now = clock.now_utc()
     if ts.tzinfo is None:
         ts = ts.replace(tzinfo=timezone.utc)
     delta = now - ts

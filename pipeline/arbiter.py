@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
+import clock
 from db import JST
 from models.state import DrivesState
 import db
@@ -60,7 +61,7 @@ def _cooldown_elapsed(last_ts: Optional[datetime], cooldown_seconds: int,
     """Check if cooldown has elapsed since last timestamp."""
     if last_ts is None:
         return True
-    elapsed = (datetime.now(timezone.utc) - last_ts).total_seconds()
+    elapsed = (clock.now_utc() - last_ts).total_seconds()
     # High arousal shortens thread cooldown
     if mood_arousal > 0.7:
         cooldown_seconds = int(cooldown_seconds * 0.6)
@@ -82,7 +83,7 @@ def _check_daily_budget(state: dict, channel: str) -> bool:
 
 def _reset_if_new_day(state: dict) -> dict:
     """Reset daily counters if JST date has changed."""
-    today = datetime.now(JST).date().isoformat()
+    today = clock.now().date().isoformat()
     if state.get('current_date_jst') != today:
         state['consume_count_today'] = 0
         state['news_engage_count_today'] = 0
@@ -163,7 +164,7 @@ async def decide_cycle_focus(drives: DrivesState, arbiter_state: dict) -> Arbite
         return ArbiterFocus(channel='rest', pipeline_mode='rest')
 
     # ── Priority 2: Active thread with deadline today ──
-    today_jst = datetime.now(JST).date().isoformat()
+    today_jst = clock.now().date().isoformat()
     if (_check_daily_budget(arbiter_state, 'thread')
             and _cooldown_elapsed(arbiter_state.get('last_thread_focus_ts'),
                                   CHANNEL_COOLDOWNS['thread'],
@@ -298,7 +299,7 @@ def update_arbiter_after_cycle(arbiter_state: dict, focus: ArbiterFocus):
 
     Call this in heartbeat.py after run_cycle for non-idle/non-rest channels.
     """
-    now = datetime.now(timezone.utc)
+    now = clock.now_utc()
 
     if focus.channel == 'consume':
         arbiter_state['consume_count_today'] = arbiter_state.get('consume_count_today', 0) + 1

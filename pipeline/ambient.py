@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Optional
 
+import clock
+
 logger = logging.getLogger(__name__)
 
 
@@ -106,8 +108,12 @@ def _classify_condition(wttr_code: int, temp_c: float) -> str:
 async def fetch_ambient_context(location: str = None) -> Optional[AmbientContext]:
     """Fetch current weather from wttr.in (free, no API key).
 
+    In simulation mode, returns deterministic weather instead.
     Returns AmbientContext or None on failure.
     """
+    if clock.is_simulating():
+        return _simulated_weather(clock.now())
+
     import aiohttp
 
     if location is None:
@@ -151,7 +157,7 @@ def map_to_diegetic(condition: str, temp_c: float = 20.0,
         condition, ("The weather outside.", 0.0)
     )
 
-    now = datetime.now(JST)
+    now = clock.now()
     season = _month_to_season(now.month)
     season_text = SEASON_CONTEXT.get(season, "")
 
@@ -164,5 +170,58 @@ def map_to_diegetic(condition: str, temp_c: float = 20.0,
         mood_nudge=mood_nudge,
         season=season,
         season_text=season_text,
-        fetched_at=datetime.now(timezone.utc),
+        fetched_at=clock.now_utc(),
     )
+
+
+# ── Deterministic weather for simulation mode ──
+
+# 5 time-of-day slots (morning → night)
+SIMULATED_WEATHER_CYCLE = [
+    # (hour_start, hour_end, condition, temp_c, humidity, wind_kph)
+    (6, 9, 'clear', 14.0, 55, 5.0),        # cool morning
+    (9, 12, 'clear', 18.0, 50, 8.0),       # warming up
+    (12, 15, 'cloudy', 22.0, 55, 10.0),    # midday clouds
+    (15, 18, 'clear', 20.0, 50, 7.0),      # afternoon clearing
+    (18, 6, 'clear', 12.0, 60, 3.0),       # evening/night
+]
+
+# 7-day rotation for variety
+DAY_VARIATIONS = [
+    # (condition_override, temp_offset, humidity_offset)
+    (None, 0, 0),           # Day 0: baseline
+    ('rain', -2, +20),      # Day 1: rainy
+    (None, +3, -5),         # Day 2: warmer
+    ('cloudy', -1, +10),    # Day 3: overcast
+    (None, +1, 0),          # Day 4: baseline+
+    ('rain', -3, +25),      # Day 5: rainy
+    ('clear', +2, -10),     # Day 6: sunny
+]
+
+
+def _simulated_weather(now_jst: datetime) -> AmbientContext:
+    """Deterministic weather based on time-of-day and day-of-week rotation."""
+    hour = now_jst.hour
+    day_index = now_jst.toordinal() % 7
+
+    # Find time slot
+    condition, temp_c, humidity, wind_kph = 'clear', 16.0, 55, 5.0
+    for h_start, h_end, cond, temp, hum, wind in SIMULATED_WEATHER_CYCLE:
+        if h_start <= h_end:
+            if h_start <= hour < h_end:
+                condition, temp_c, humidity, wind_kph = cond, temp, hum, wind
+                break
+        else:
+            # Wraps midnight (18-6)
+            if hour >= h_start or hour < h_end:
+                condition, temp_c, humidity, wind_kph = cond, temp, hum, wind
+                break
+
+    # Apply day variation
+    override, temp_off, hum_off = DAY_VARIATIONS[day_index]
+    if override:
+        condition = override
+    temp_c += temp_off
+    humidity = max(20, min(95, humidity + hum_off))
+
+    return map_to_diegetic(condition, temp_c, humidity, wind_kph)

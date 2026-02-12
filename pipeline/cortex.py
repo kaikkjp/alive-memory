@@ -6,6 +6,7 @@ import re
 import time
 import anthropic
 from datetime import datetime, timezone
+import clock
 from models.state import DrivesState, Visitor
 from pipeline.thalamus import RoutingDecision
 from pipeline.sensorium import Perception
@@ -53,7 +54,7 @@ def _record_success():
 
 def _check_daily_cap() -> bool:
     global _daily_cycle_count, _daily_cycle_date
-    today = datetime.now(timezone.utc).date().isoformat()
+    today = clock.now_utc().date().isoformat()
     if today != _daily_cycle_date:
         _daily_cycle_date = today
         _daily_cycle_count = 0
@@ -204,7 +205,7 @@ async def cortex_call(
         for t in active_threads:
             age_str = ""
             if t.created_at:
-                age_days = (datetime.now(timezone.utc) - t.created_at).days
+                age_days = (clock.now_utc() - t.created_at).days
                 age_str = f" ({age_days}d old)" if age_days > 0 else " (new)"
             snippet = f" — {t.content[:80]}..." if t.content and len(t.content) > 80 else (f" — {t.content}" if t.content else "")
             parts.append(f"  [{t.thread_type}] {t.title} [id:{t.id}]{age_str}{snippet}")

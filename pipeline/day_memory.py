@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Optional
 
+import clock
 import db
 
 
@@ -39,7 +40,7 @@ async def maybe_record_moment(cycle_result: dict, cycle_context: dict) -> None:
 
     moment = DayMemoryEntry(
         id=str(uuid.uuid4()),
-        ts=datetime.now(timezone.utc),
+        ts=clock.now_utc(),
         salience=salience,
         moment_type=classify_moment(cycle_result, cycle_context),
         visitor_id=cycle_context.get('visitor_id'),
