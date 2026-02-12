@@ -26,7 +26,9 @@ _db: Optional[aiosqlite.Connection] = None
 async def get_db() -> aiosqlite.Connection:
     global _db
     if _db is None:
-        _db = await aiosqlite.connect(DB_PATH)
+        db_path = pathlib.Path(DB_PATH)
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        _db = await aiosqlite.connect(str(db_path))
         _db.row_factory = aiosqlite.Row
         # Load sqlite-vec extension for cold memory search (Phase 2)
         if COLD_SEARCH_ENABLED:
