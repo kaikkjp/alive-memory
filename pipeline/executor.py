@@ -83,8 +83,12 @@ async def execute(validated_output: dict, visitor_id: str = None):
         drives.mood_valence = min(1.0, drives.mood_valence + 0.1)
         await db.save_drives_state(drives)
 
-    # Update engagement
-    if visitor_id and dialogue and dialogue != '...':
+    # Update engagement (skip if end_engagement is approved — she's leaving)
+    ending = any(
+        a.get('type') == 'end_engagement'
+        for a in validated_output.get('_approved_actions', [])
+    )
+    if visitor_id and dialogue and dialogue != '...' and not ending:
         await db.update_engagement_state(
             status='engaged',
             visitor_id=visitor_id,

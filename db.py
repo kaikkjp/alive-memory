@@ -784,12 +784,38 @@ async def append_conversation(visitor_id: str, role: str, text: str):
     )
 
 
-async def get_recent_conversation(visitor_id: str, limit: int = 10) -> list[dict]:
-    db = await get_db()
-    cursor = await db.execute(
-        "SELECT role, text FROM conversation_log WHERE visitor_id = ? ORDER BY ts DESC LIMIT ?",
-        (visitor_id, limit)
+async def mark_session_boundary(visitor_id: str):
+    """Insert a session boundary marker so get_recent_conversation only returns current session."""
+    now = datetime.now(timezone.utc).isoformat()
+    await _exec_write(
+        "INSERT INTO conversation_log (id, visitor_id, role, text, ts) VALUES (?, ?, ?, ?, ?)",
+        (str(uuid.uuid4()), visitor_id, 'system', '__session_boundary__', now)
     )
+
+
+async def get_recent_conversation(visitor_id: str, limit: int = 10) -> list[dict]:
+    """Get recent conversation for visitor, scoped to current session."""
+    conn = await get_db()
+    # Find the most recent session boundary
+    cursor = await conn.execute(
+        "SELECT ts FROM conversation_log WHERE visitor_id = ? AND role = 'system' "
+        "AND text = '__session_boundary__' ORDER BY ts DESC LIMIT 1",
+        (visitor_id,)
+    )
+    boundary = await cursor.fetchone()
+
+    if boundary:
+        cursor = await conn.execute(
+            "SELECT role, text FROM conversation_log "
+            "WHERE visitor_id = ? AND ts > ? AND NOT (role = 'system' AND text = '__session_boundary__') "
+            "ORDER BY ts DESC LIMIT ?",
+            (visitor_id, boundary['ts'], limit)
+        )
+    else:
+        cursor = await conn.execute(
+            "SELECT role, text FROM conversation_log WHERE visitor_id = ? ORDER BY ts DESC LIMIT ?",
+            (visitor_id, limit)
+        )
     rows = await cursor.fetchall()
     return [{'role': r['role'], 'text': r['text']} for r in reversed(rows)]
 

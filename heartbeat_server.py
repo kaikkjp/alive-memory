@@ -8,6 +8,7 @@ Close the terminal, she keeps living.
 """
 
 import asyncio
+import errno
 import json
 import os
 import signal
@@ -22,6 +23,7 @@ from seed import seed, check_needs_seed
 from models.event import Event
 from pipeline.ack import on_visitor_message, on_visitor_connect, on_visitor_disconnect
 from pipeline.enrich import fetch_url_metadata
+from pipeline.sanitize import sanitize_input
 
 colorama_init()
 
@@ -62,9 +64,19 @@ class ShopkeeperServer:
         print(f"  {Fore.CYAN}[Heartbeat]{Style.RESET_ALL} She wakes up.")
 
         # Start TCP server
-        self._server = await asyncio.start_server(
-            self._handle_connection, HOST, PORT
-        )
+        try:
+            self._server = await asyncio.start_server(
+                self._handle_connection, HOST, PORT
+            )
+        except OSError as e:
+            if e.errno == errno.EADDRINUSE:
+                print(f"\n  {Fore.RED}[Error]{Style.RESET_ALL} Port {PORT} already in use.")
+                print(f"  Another shopkeeper instance may be running.")
+                print(f"  Try: lsof -ti :{PORT} | xargs kill")
+                await self.heartbeat.stop()
+                await db.close_db()
+                return
+            raise
         print(f"  {Fore.CYAN}[Server]{Style.RESET_ALL} Listening on {HOST}:{PORT}")
         print(f"  {Fore.WHITE}She lives whether you visit or not.{Style.RESET_ALL}\n")
 
@@ -134,6 +146,9 @@ class ShopkeeperServer:
                     self._active_visitor_id = visitor_id
                     self.heartbeat.subscribe_cycle_logs(visitor_id)
 
+                    # Mark session boundary so Cortex only sees current conversation
+                    await db.mark_session_boundary(visitor_id)
+
                     # Handle connect (creates/increments visitor)
                     connect_event = Event(
                         event_type='visitor_connect',
@@ -168,7 +183,7 @@ class ShopkeeperServer:
                 elif msg_type == 'visitor_speech':
                     if not visitor_id:
                         continue
-                    text = msg.get('text', '')
+                    text = sanitize_input(msg.get('text', ''))
                     if not text:
                         continue
 

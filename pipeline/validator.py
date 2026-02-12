@@ -1,7 +1,18 @@
 """Validator — two-stage: schema + physics/policy/entropy. No LLM."""
 
+import re
+
 # Entropy state (module-level)
 _recent_openings: list[str] = []
+
+# Canonical physical traits — things she cannot deny about herself.
+# Each entry: (denial pattern, canonical truth to inject as internal reminder).
+CANONICAL_TRAITS = [
+    (re.compile(r"\b(i\s+do\s+not|i\s+don.?t|don.?t|no|never)\s+(wear|have|own)\s+glasses\b", re.I),
+     "You wear glasses. Round, thin-framed."),
+    (re.compile(r"\bi.?m\s+not\s+(short|small|petite)\b", re.I),
+     "You're on the shorter side."),
+]
 
 
 def validate(cortex_output: dict, state: dict) -> dict:
@@ -86,6 +97,13 @@ def validate(cortex_output: dict, state: dict) -> dict:
     dialogue = disclosure_gate(dialogue)
     cortex_output['dialogue'] = dialogue
 
+    # Stage 2: Canonical consistency — remove contradicting sentences only
+    dialogue = cortex_output.get('dialogue') or ''
+    cleaned, contradiction = canonical_consistency_check(dialogue)
+    if contradiction:
+        cortex_output['dialogue'] = cleaned
+        cortex_output['_canonical_contradiction'] = contradiction
+
     # Stage 2: Entropy check
     cortex_output = entropy_check(cortex_output)
 
@@ -111,11 +129,37 @@ def disclosure_gate(text: str) -> str:
     text_lower = text.lower()
     for phrase in BANNED_PHRASES:
         if phrase in text_lower:
-            # Find the phrase case-insensitively and replace in original
-            import re
             text = re.sub(re.escape(phrase), '...', text, count=1, flags=re.IGNORECASE)
 
     return text
+
+
+def canonical_consistency_check(dialogue: str) -> tuple[str, str | None]:
+    """Check dialogue against canonical physical traits.
+
+    Returns (cleaned_dialogue, contradiction_detail_or_None).
+    Removes only the offending sentence(s), preserving the rest.
+    """
+    if not dialogue or dialogue == '...':
+        return dialogue, None
+
+    # Split into sentences (handles ., !, ? and ellipsis boundaries)
+    sentences = re.split(r'(?<=[.!?])\s+', dialogue)
+    contradiction = None
+
+    cleaned = []
+    for sentence in sentences:
+        flagged = False
+        for pattern, truth in CANONICAL_TRAITS:
+            if pattern.search(sentence):
+                contradiction = truth
+                flagged = True
+                break
+        if not flagged:
+            cleaned.append(sentence)
+
+    result = ' '.join(cleaned).strip() if cleaned else '...'
+    return result, contradiction
 
 
 def entropy_check(output: dict) -> dict:

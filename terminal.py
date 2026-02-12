@@ -20,6 +20,7 @@ from colorama import Fore, Style, init as colorama_init
 from models.event import Event
 from pipeline.ack import on_visitor_message, on_visitor_connect, on_visitor_disconnect
 from pipeline.enrich import fetch_url_metadata
+from pipeline.sanitize import sanitize_input
 import db
 from heartbeat import Heartbeat
 from seed import seed, check_needs_seed
@@ -483,11 +484,11 @@ async def client_mode():
                 })
                 continue
 
-            # Send speech
+            # Send speech (sanitize ANSI/control chars from terminal input)
             await _client_send(writer, {
                 'type': 'visitor_speech',
                 'visitor_id': visitor_id,
-                'text': user_input,
+                'text': sanitize_input(user_input),
             })
 
     except KeyboardInterrupt:
@@ -621,6 +622,9 @@ async def standalone_mode():
     )
     await on_visitor_connect(connect_event)
 
+    # Mark session boundary so Cortex only sees current conversation
+    await db.mark_session_boundary(visitor_id)
+
     # Set engagement BEFORE heartbeat starts
     await db.update_engagement_state(
         status='engaged',
@@ -705,7 +709,10 @@ async def standalone_mode():
                 print(f"  {Fore.WHITE}The shop is closing soon.{Style.RESET_ALL}\n")
                 continue
 
-            # Log visitor message to conversation
+            # Sanitize and log visitor message to conversation
+            user_input = sanitize_input(user_input)
+            if not user_input:
+                continue
             await db.append_conversation(visitor_id, 'visitor', user_input)
 
             # Update last_activity on visitor speech (not just shopkeeper
