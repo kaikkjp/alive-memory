@@ -75,6 +75,39 @@ async def execute(validated_output: dict, visitor_id: str = None):
                 },
             ))
 
+    # Update pool item status based on cortex actions
+    # (When consuming content, what she does determines the pool outcome)
+    pool_id = None
+    if validated_output.get('_focus_pool_id'):
+        pool_id = validated_output['_focus_pool_id']
+    if pool_id:
+        has_collection = any(
+            u.get('type') == 'collection_add'
+            for u in validated_output.get('memory_updates', [])
+        )
+        has_reflection = any(
+            u.get('type') in ('journal_entry', 'totem_create', 'totem_update')
+            for u in validated_output.get('memory_updates', [])
+        )
+        now = datetime.now(timezone.utc)
+        outcome = None
+        if has_collection:
+            outcome = 'accepted'
+            await db.update_pool_item(pool_id, status='accepted', engaged_at=now)
+        elif has_reflection:
+            outcome = 'reflected'
+            await db.update_pool_item(pool_id, status='reflected', engaged_at=now)
+
+        # Couple pool status with source event outcome (spec §3.4)
+        # Event outcome uses spec vocabulary (engaged|ignored|expired);
+        # pool-level detail (accepted|reflected) lives in content_pool.status.
+        if outcome:
+            pool_item = await db.get_pool_item_by_id(pool_id)
+            if pool_item and pool_item.get('source_event_id'):
+                await db.update_event_outcome(
+                    pool_item['source_event_id'], 'engaged', engaged_at=now
+                )
+
     # Update drives if resonance flagged
     if validated_output.get('resonance'):
         drives = await db.get_drives_state()

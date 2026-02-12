@@ -85,6 +85,9 @@ CONSTRAINTS:
 - Never sound helpful. Sound present.
 - You can end a conversation: use action "end_engagement" with detail {{"reason": "tired|boundary|natural"}}
 - You have agency. If you're tired, you can close the shop or end the conversation.
+- You carry threads — ongoing thoughts, questions, projects. Use thread_create when something new sticks. Use thread_update to revisit. Use thread_close when resolved.
+- When consuming content (reading, listening), reflect honestly. Add to collection only if it genuinely resonates. Create totems for things that lodge in you.
+- Threads are yours. Don't create threads just because a visitor mentioned something — only if it genuinely stays with you.
 
 OUTPUT SCHEMA:
 {{
@@ -113,6 +116,18 @@ OUTPUT SCHEMA:
     {{
       "type": "totem_create|totem_update|journal_entry|self_discovery|collection_add",
       "content": {{}}
+    }},
+    {{
+      "type": "thread_create",
+      "content": {{"thread_type": "question|project|anticipation|unresolved|ritual", "title": "short title", "priority": 0.5, "initial_thought": "what you're thinking about this", "tags": []}}
+    }},
+    {{
+      "type": "thread_update",
+      "content": {{"thread_id": "id or null", "title": "title if no id", "content": "updated thinking", "reason": "why you're revisiting this"}}
+    }},
+    {{
+      "type": "thread_close",
+      "content": {{"thread_id": "id or null", "title": "title if no id", "resolution": "how this resolved"}}
     }}
   ],
   "next_cycle_hints": ["optional hints for what she might do next"]
@@ -181,6 +196,32 @@ async def cortex_call(
         for chunk in memory_chunks:
             parts.append(f"  [{chunk['label']}]")
             parts.append(f"  {chunk['content']}")
+
+    # Active threads (inner agenda)
+    active_threads = await db.get_active_threads(limit=3)
+    if active_threads:
+        parts.append("\nTHINGS ON MY MIND:")
+        for t in active_threads:
+            age_str = ""
+            if t.created_at:
+                age_days = (datetime.now(timezone.utc) - t.created_at).days
+                age_str = f" ({age_days}d old)" if age_days > 0 else " (new)"
+            snippet = f" — {t.content[:80]}..." if t.content and len(t.content) > 80 else (f" — {t.content}" if t.content else "")
+            parts.append(f"  [{t.thread_type}] {t.title} [id:{t.id}]{age_str}{snippet}")
+
+    # Consume framing (when arbiter picked consume focus)
+    consume_perception = next(
+        (p for p in perceptions if p.features.get('is_consumption')), None
+    )
+    if consume_perception:
+        parts.append("\nWHAT I'M CONSUMING:")
+        parts.append(f"  {consume_perception.content}")
+        if consume_perception.features.get('url'):
+            parts.append(f"  Source: {consume_perception.features['url']}")
+        if consume_perception.features.get('readable_text'):
+            text_preview = consume_perception.features['readable_text'][:2000]
+            parts.append(f"  Content:\n{text_preview}")
+        parts.append("  → React honestly. Add to collection if it resonates. Create a totem if it lodges.")
 
     # Conversation (last N turns)
     if conversation:

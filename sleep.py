@@ -111,10 +111,16 @@ async def sleep_cycle() -> bool:
     # 4. Trait stability review (unchanged)
     await review_trait_stability()
 
-    # 5. Reset drives for morning
+    # 5. Thread lifecycle management
+    await manage_thread_lifecycle()
+
+    # 6. Content pool cleanup
+    await cleanup_content_pool()
+
+    # 7. Reset drives for morning
     await reset_drives_for_morning()
 
-    # 6. Embed today's cold memory entries (Phase 2)
+    # 8. Embed today's cold memory entries (Phase 2)
     if COLD_SEARCH_ENABLED:
         try:
             from pipeline.embed_cold import embed_new_cold_entries
@@ -124,7 +130,7 @@ async def sleep_cycle() -> bool:
         except Exception as e:
             print(f"[Sleep] Embedding pipeline failed: {e}")
 
-    # 7. Flush processed day memory + stale cleanup
+    # 9. Flush processed day memory + stale cleanup
     await flush_day_memory()
 
     return True
@@ -299,6 +305,35 @@ async def review_trait_stability():
             days_old = (datetime.now(timezone.utc) - trait.observed_at).days
             if days_old > 7:
                 await db.update_trait_status(trait.id, 'archived')
+
+
+async def manage_thread_lifecycle():
+    """Transition dormant and archive stale threads during sleep.
+
+    - Threads untouched >48hr → dormant
+    - Dormant threads >7 days → archived
+    """
+    # Transition untouched threads to dormant
+    dormant_candidates = await db.get_dormant_threads(older_than_hours=48)
+    for thread in dormant_candidates:
+        if thread.status in ('open', 'active'):
+            await db.touch_thread(
+                thread.id,
+                reason='sleep_cycle_dormant',
+                status='dormant',
+            )
+
+    # Archive stale dormant threads
+    archived_count = await db.archive_stale_threads(older_than_days=7)
+    if archived_count > 0:
+        print(f"  [Sleep] Archived {archived_count} stale threads.")
+
+
+async def cleanup_content_pool():
+    """Clean up expired and excess pool items during sleep."""
+    from config.feeds import MAX_POOL_UNSEEN
+    await db.expire_pool_items()
+    await db.cap_unseen_pool(max_unseen=MAX_POOL_UNSEEN)
 
 
 async def reset_drives_for_morning():

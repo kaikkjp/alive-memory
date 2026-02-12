@@ -114,3 +114,39 @@ def _fetch_url_metadata_sync(url: str) -> dict:
             'site': '',
             'url': url,
         }
+
+
+async def fetch_readable_text(url: str, max_chars: int = 4000) -> str:
+    """Fetch readable text content from a URL for consumption.
+
+    Reads up to 32KB of HTML and extracts a text approximation.
+    Returns truncated plain text suitable for Cortex prompt.
+    """
+    return await asyncio.to_thread(_fetch_readable_text_sync, url, max_chars)
+
+
+def _fetch_readable_text_sync(url: str, max_chars: int = 4000) -> str:
+    """Sync implementation — fetch and extract readable text."""
+    try:
+        if not _validate_url(url):
+            return ''
+
+        req = urllib.request.Request(url, headers={
+            'User-Agent': 'Mozilla/5.0 (compatible; Shopkeeper/1.0)',
+        })
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            html = resp.read(32768).decode('utf-8', errors='replace')
+
+        # Strip HTML tags to get approximate text
+        text = re.sub(r'<script[^>]*>.*?</script>', '', html, flags=re.DOTALL | re.IGNORECASE)
+        text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.DOTALL | re.IGNORECASE)
+        text = re.sub(r'<[^>]+>', ' ', text)
+        # Collapse whitespace
+        text = re.sub(r'\s+', ' ', text).strip()
+        # Decode HTML entities
+        import html as html_module
+        text = html_module.unescape(text)
+
+        return text[:max_chars]
+    except Exception:
+        return ''

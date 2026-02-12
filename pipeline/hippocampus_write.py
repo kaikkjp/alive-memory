@@ -108,3 +108,48 @@ async def hippocampus_consolidate(update: dict, visitor_id: str = None):
     elif update_type == 'collection_add':
         if content.get('title'):
             await db.insert_collection_item(content)
+
+    elif update_type == 'thread_create':
+        title = content.get('title', 'untitled thought')
+        await db.create_thread(
+            thread_type=content.get('thread_type', 'question'),
+            title=title,
+            priority=content.get('priority', 0.5),
+            content=content.get('initial_thought', ''),
+            tags=content.get('tags', []),
+            source_visitor_id=visitor_id,
+        )
+
+    elif update_type == 'thread_update':
+        thread = None
+        if content.get('thread_id'):
+            thread = await db.get_thread_by_id(content['thread_id'])
+        elif content.get('title'):
+            thread = await db.get_thread_by_title(content['title'])
+        if thread:
+            await db.touch_thread(
+                thread.id,
+                reason=content.get('reason') if 'reason' in content else content.get('touch_reason', 'thought about it'),
+                content=content.get('content') if 'content' in content else content.get('new_content'),
+                status=content.get('status') if 'status' in content else content.get('new_status'),
+            )
+        else:
+            print(f"  [Memory] Skipped thread_update — no unique thread match "
+                  f"(id={content.get('thread_id')}, title={content.get('title')})")
+
+    elif update_type == 'thread_close':
+        thread = None
+        if content.get('thread_id'):
+            thread = await db.get_thread_by_id(content['thread_id'])
+        elif content.get('title'):
+            thread = await db.get_thread_by_title(content['title'])
+        if thread:
+            await db.touch_thread(
+                thread.id,
+                reason='resolved',
+                content=content.get('resolution'),
+                status='closed',
+            )
+        else:
+            print(f"  [Memory] Skipped thread_close — no unique thread match "
+                  f"(id={content.get('thread_id')}, title={content.get('title')})")

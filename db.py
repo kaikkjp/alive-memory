@@ -3,13 +3,14 @@ import aiosqlite
 import contextvars
 import json
 import os
+import pathlib
 import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 from models.event import Event
 from models.state import (
     RoomState, DrivesState, EngagementState, Visitor, VisitorTrait,
-    Totem, CollectionItem, JournalEntry, DailySummary,
+    Totem, CollectionItem, JournalEntry, DailySummary, Thread,
 )
 
 COLD_SEARCH_ENABLED = os.getenv('COLD_SEARCH_ENABLED', 'false').lower() == 'true'
@@ -308,6 +309,83 @@ CREATE INDEX IF NOT EXISTS idx_day_memory_unprocessed ON day_memory(processed_at
 """
 
 
+async def add_column_if_missing(conn, table: str, column: str,
+                                col_type: str, default=None):
+    """Add a column to a table if it doesn't already exist.
+
+    SQLite lacks ADD COLUMN IF NOT EXISTS, so we check PRAGMA table_info.
+    """
+    cursor = await conn.execute(f"PRAGMA table_info({table})")
+    existing = {row[1] for row in await cursor.fetchall()}
+    if column not in existing:
+        default_clause = f" DEFAULT {default}" if default is not None else ""
+        await conn.execute(
+            f"ALTER TABLE {table} ADD COLUMN {column} {col_type}{default_clause}"
+        )
+
+
+async def run_migrations(conn):
+    """Apply unapplied migrations in order. Safe to call on every startup."""
+    # Ensure schema_version table
+    await conn.execute("""
+        CREATE TABLE IF NOT EXISTS schema_version (
+            version INTEGER PRIMARY KEY,
+            applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            filename TEXT NOT NULL
+        )""")
+    await conn.commit()
+
+    # Get max applied version
+    cursor = await conn.execute("SELECT MAX(version) FROM schema_version")
+    row = await cursor.fetchone()
+    max_version = row[0] or 0
+
+    # Scan migrations/ directory
+    migrations_dir = pathlib.Path(__file__).parent / 'migrations'
+    if not migrations_dir.exists():
+        return
+
+    sql_files = sorted(migrations_dir.glob('*.sql'))
+    for f in sql_files:
+        version = int(f.name.split('_')[0])
+        if version <= max_version:
+            continue
+
+        # Special handling for migration 002: event contract columns
+        if version == 2:
+            await _apply_event_contract_migration(conn)
+        else:
+            sql = f.read_text()
+            # Execute statements individually (executescript not available in aiosqlite)
+            for stmt in sql.split(';'):
+                # Strip comment-only lines before checking emptiness —
+                # a segment like "-- comment\nCREATE TABLE..." must not be
+                # skipped just because the first line is a comment.
+                lines = stmt.strip().splitlines()
+                cleaned = '\n'.join(
+                    line for line in lines
+                    if not line.strip().startswith('--')
+                ).strip()
+                if cleaned:
+                    await conn.execute(cleaned)
+
+        await conn.execute(
+            "INSERT INTO schema_version (version, filename) VALUES (?, ?)",
+            (version, f.name)
+        )
+        await conn.commit()
+
+
+async def _apply_event_contract_migration(conn):
+    """Add Living Loop columns to events table."""
+    await add_column_if_missing(conn, 'events', 'channel', 'TEXT', "'system'")
+    await add_column_if_missing(conn, 'events', 'salience_base', 'FLOAT', '0.5')
+    await add_column_if_missing(conn, 'events', 'salience_dynamic', 'FLOAT', '0.0')
+    await add_column_if_missing(conn, 'events', 'ttl_hours', 'FLOAT', 'NULL')
+    await add_column_if_missing(conn, 'events', 'engaged_at', 'TIMESTAMP', 'NULL')
+    await add_column_if_missing(conn, 'events', 'outcome', 'TEXT', 'NULL')
+
+
 async def init_db():
     db = await get_db()
     for statement in SCHEMA.split(';'):
@@ -315,6 +393,9 @@ async def init_db():
         if statement:
             await db.execute(statement)
     await db.commit()
+
+    # Run versioned migrations (additive schema changes)
+    await run_migrations(db)
 
     # Cold memory vector table (Phase 2) — requires sqlite-vec extension
     if COLD_SEARCH_ENABLED:
@@ -345,25 +426,26 @@ async def init_db():
     )
     await db.commit()
 
-    # Migrate cycle_log: add columns introduced in self-state continuity patch
+    # Legacy migration: cycle_log columns from self-state continuity patch
+    # (kept for DBs created before migration framework existed)
     for col, col_type in [('body_state', 'TEXT'), ('gaze', 'TEXT'),
                           ('next_cycle_hints', 'JSON')]:
-        try:
-            await db.execute(f"ALTER TABLE cycle_log ADD COLUMN {col} {col_type}")
-            await db.commit()
-        except Exception as e:
-            if 'duplicate column' in str(e).lower():
-                pass  # column already exists, expected
-            else:
-                raise  # real failure — don't swallow
+        await add_column_if_missing(db, 'cycle_log', col, col_type)
 
 
 # ─── Event Store ───
 
 async def append_event(event: Event):
     await _exec_write(
-        "INSERT INTO events (id, event_type, source, ts, payload) VALUES (?, ?, ?, ?, ?)",
-        (event.id, event.event_type, event.source, event.ts.isoformat(), json.dumps(event.payload))
+        """INSERT INTO events (id, event_type, source, ts, payload,
+           channel, salience_base, salience_dynamic, ttl_hours, engaged_at, outcome)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (event.id, event.event_type, event.source, event.ts.isoformat(),
+         json.dumps(event.payload),
+         event.channel, event.salience_base, event.salience_dynamic,
+         event.ttl_hours,
+         event.engaged_at.isoformat() if event.engaged_at else None,
+         event.outcome)
     )
 
 
@@ -395,12 +477,26 @@ async def get_events_today() -> list[Event]:
 
 
 def _row_to_event(row) -> Event:
+    # Safe access for Living Loop columns (may be missing on pre-migration DBs)
+    def _col(name, default=None):
+        try:
+            return row[name]
+        except (IndexError, KeyError):
+            return default
+
     return Event(
         id=row['id'],
         event_type=row['event_type'],
         source=row['source'],
         ts=datetime.fromisoformat(row['ts']),
         payload=json.loads(row['payload']),
+        channel=_col('channel', 'system') or 'system',
+        salience_base=_col('salience_base', 0.5) or 0.5,
+        salience_dynamic=_col('salience_dynamic', 0.0) or 0.0,
+        ttl_hours=_col('ttl_hours'),
+        engaged_at=(datetime.fromisoformat(_col('engaged_at'))
+                    if _col('engaged_at') else None),
+        outcome=_col('outcome'),
     )
 
 
@@ -419,6 +515,8 @@ async def inbox_get_unread() -> list[Event]:
         """SELECT e.* FROM inbox i
            JOIN events e ON i.event_id = e.id
            WHERE i.read_at IS NULL
+           AND (e.ttl_hours IS NULL
+                OR (julianday('now') - julianday(e.ts)) < e.ttl_hours / 24.0)
            ORDER BY i.priority DESC, e.ts ASC"""
     )
     rows = await cursor.fetchall()
@@ -1437,3 +1535,364 @@ async def get_cold_embedding_count() -> int:
         return row['cnt'] if row else 0
     except Exception:
         return 0
+
+# ─── Threads ───
+
+def _row_to_thread(row) -> Thread:
+    return Thread(
+        id=row['id'],
+        thread_type=row['thread_type'],
+        title=row['title'],
+        status=row['status'],
+        priority=row['priority'],
+        content=row['content'],
+        resolution=row['resolution'],
+        created_at=(datetime.fromisoformat(row['created_at'])
+                    if row['created_at'] else None),
+        last_touched=(datetime.fromisoformat(row['last_touched'])
+                      if row['last_touched'] else None),
+        touch_count=row['touch_count'] or 0,
+        touch_reason=row['touch_reason'],
+        target_date=row['target_date'],
+        source_visitor_id=row['source_visitor_id'],
+        source_event_id=row['source_event_id'],
+        tags=json.loads(row['tags']) if row['tags'] else [],
+    )
+
+
+async def get_active_threads(limit: int = 3) -> list[Thread]:
+    """Get active/open threads sorted by priority then recency."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT * FROM threads
+           WHERE status IN ('open', 'active')
+           ORDER BY priority DESC, last_touched DESC
+           LIMIT ?""",
+        (limit,)
+    )
+    rows = await cursor.fetchall()
+    return [_row_to_thread(r) for r in rows]
+
+
+async def get_thread_by_id(thread_id: str) -> Optional[Thread]:
+    conn = await get_db()
+    cursor = await conn.execute(
+        "SELECT * FROM threads WHERE id = ?", (thread_id,)
+    )
+    row = await cursor.fetchone()
+    return _row_to_thread(row) if row else None
+
+
+async def get_thread_by_title(title: str) -> Optional[Thread]:
+    """Exact case-insensitive match only. Returns None if 0 or >1 matches."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        "SELECT * FROM threads WHERE LOWER(title) = LOWER(?) AND status != 'archived'",
+        (title,)
+    )
+    rows = await cursor.fetchall()
+    if len(rows) != 1:
+        return None  # ambiguous or not found — no silent wrong-thread writes
+    return _row_to_thread(rows[0])
+
+
+async def create_thread(thread_type: str, title: str, **kwargs) -> Thread:
+    """Create a new thread. Returns the created Thread."""
+    tid = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    await _exec_write(
+        """INSERT INTO threads
+           (id, thread_type, title, status, priority, content, created_at,
+            last_touched, touch_count, tags, source_visitor_id, source_event_id,
+            target_date)
+           VALUES (?, ?, ?, 'open', ?, ?, ?, ?, 0, ?, ?, ?, ?)""",
+        (tid, thread_type, title,
+         kwargs.get('priority', 0.5),
+         kwargs.get('content', ''),
+         now, now,
+         json.dumps(kwargs.get('tags', [])),
+         kwargs.get('source_visitor_id'),
+         kwargs.get('source_event_id'),
+         kwargs.get('target_date'))
+    )
+    return await get_thread_by_id(tid)
+
+
+async def touch_thread(thread_id: str, reason: str,
+                       content: str = None, status: str = None):
+    """Update a thread's touch timestamp, reason, and optionally content/status."""
+    now = datetime.now(timezone.utc).isoformat()
+    updates = ["last_touched = ?", "touch_count = touch_count + 1",
+               "touch_reason = ?"]
+    vals = [now, reason]
+
+    if content is not None:
+        updates.append("content = ?")
+        vals.append(content)
+    if status is not None:
+        updates.append("status = ?")
+        vals.append(status)
+
+    vals.append(thread_id)
+    await _exec_write(
+        f"UPDATE threads SET {', '.join(updates)} WHERE id = ?",
+        tuple(vals)
+    )
+
+
+async def get_dormant_threads(older_than_hours: int = 48) -> list[Thread]:
+    """Get active threads untouched for >older_than_hours."""
+    conn = await get_db()
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=older_than_hours)).isoformat()
+    cursor = await conn.execute(
+        """SELECT * FROM threads
+           WHERE status IN ('open', 'active')
+           AND last_touched < ?""",
+        (cutoff,)
+    )
+    rows = await cursor.fetchall()
+    return [_row_to_thread(r) for r in rows]
+
+
+async def archive_stale_threads(older_than_days: int = 7) -> int:
+    """Archive dormant threads older than N days. Returns count."""
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=older_than_days)).isoformat()
+    conn = await get_db()
+    cursor = await conn.execute(
+        """UPDATE threads SET status = 'archived'
+           WHERE status = 'dormant' AND last_touched < ?""",
+        (cutoff,)
+    )
+    await conn.commit()
+    return cursor.rowcount
+
+
+async def get_thread_count_by_status() -> dict:
+    """Get thread counts by status. For peek command and sleep digest."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        "SELECT status, COUNT(*) as cnt FROM threads GROUP BY status"
+    )
+    rows = await cursor.fetchall()
+    return {row['status']: row['cnt'] for row in rows}
+
+
+# ─── Arbiter State ───
+
+async def load_arbiter_state() -> dict:
+    """Load arbiter state from DB. Returns dict matching ArbiterState fields."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        "SELECT * FROM arbiter_state WHERE singleton_key = 1"
+    )
+    row = await cursor.fetchone()
+    if not row:
+        # Table exists but no row yet — return defaults
+        return {
+            'consume_count_today': 0,
+            'news_engage_count_today': 0,
+            'thread_focus_count_today': 0,
+            'express_count_today': 0,
+            'last_consume_ts': None,
+            'last_news_engage_ts': None,
+            'last_thread_focus_ts': None,
+            'last_express_ts': None,
+            'recent_focus_keywords': [],
+            'current_date_jst': datetime.now(JST).date().isoformat(),
+        }
+
+    return {
+        'consume_count_today': row['consume_count_today'],
+        'news_engage_count_today': row['news_engage_count_today'],
+        'thread_focus_count_today': row['thread_focus_count_today'],
+        'express_count_today': row['express_count_today'],
+        'last_consume_ts': (datetime.fromisoformat(row['last_consume_ts'])
+                            if row['last_consume_ts'] else None),
+        'last_news_engage_ts': (datetime.fromisoformat(row['last_news_engage_ts'])
+                                if row['last_news_engage_ts'] else None),
+        'last_thread_focus_ts': (datetime.fromisoformat(row['last_thread_focus_ts'])
+                                 if row['last_thread_focus_ts'] else None),
+        'last_express_ts': (datetime.fromisoformat(row['last_express_ts'])
+                            if row['last_express_ts'] else None),
+        'recent_focus_keywords': (json.loads(row['recent_focus_keywords'])
+                                  if row['recent_focus_keywords'] else []),
+        'current_date_jst': row['current_date_jst'] or '',
+    }
+
+
+async def save_arbiter_state(state: dict):
+    """Persist arbiter state to DB."""
+    await _exec_write(
+        """UPDATE arbiter_state SET
+           consume_count_today=?, news_engage_count_today=?,
+           thread_focus_count_today=?, express_count_today=?,
+           last_consume_ts=?, last_news_engage_ts=?,
+           last_thread_focus_ts=?, last_express_ts=?,
+           recent_focus_keywords=?, current_date_jst=?
+           WHERE singleton_key = 1""",
+        (state['consume_count_today'], state['news_engage_count_today'],
+         state['thread_focus_count_today'], state['express_count_today'],
+         state['last_consume_ts'].isoformat() if state.get('last_consume_ts') else None,
+         state['last_news_engage_ts'].isoformat() if state.get('last_news_engage_ts') else None,
+         state['last_thread_focus_ts'].isoformat() if state.get('last_thread_focus_ts') else None,
+         state['last_express_ts'].isoformat() if state.get('last_express_ts') else None,
+         json.dumps(state.get('recent_focus_keywords', [])[:20]),
+         state.get('current_date_jst', ''))
+    )
+
+
+# ── Content Pool ──
+
+async def add_to_content_pool(fingerprint: str, source_type: str,
+                               source_channel: str, content: str,
+                               title: str = '', metadata: dict = None,
+                               source_event_id: str = None,
+                               tags: list = None,
+                               ttl_hours: float = None,
+                               salience_base: float = 0.2) -> bool:
+    """Insert an item into the content pool. Returns True if inserted (False if dup)."""
+    pool_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    try:
+        await _exec_write(
+            """INSERT INTO content_pool
+               (id, fingerprint, source_type, source_channel, content, title,
+                metadata, source_event_id, status, salience_base, added_at, tags, ttl_hours)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'unseen', ?, ?, ?, ?)
+               ON CONFLICT(fingerprint) DO NOTHING""",
+            (pool_id, fingerprint, source_type, source_channel, content, title,
+             json.dumps(metadata or {}), source_event_id, salience_base, now,
+             json.dumps(tags or []), ttl_hours)
+        )
+        return True
+    except Exception:
+        return False
+
+
+async def get_pool_items(status: str = 'unseen', source_types: list = None,
+                          limit: int = 20) -> list[dict]:
+    """Get content pool items by status and source type."""
+    conn = await get_db()
+    if source_types:
+        placeholders = ','.join('?' * len(source_types))
+        query = f"""SELECT * FROM content_pool
+                    WHERE status = ? AND source_type IN ({placeholders})
+                    ORDER BY salience_base DESC, added_at ASC
+                    LIMIT ?"""
+        cursor = await conn.execute(query, (status, *source_types, limit))
+    else:
+        cursor = await conn.execute(
+            """SELECT * FROM content_pool WHERE status = ?
+               ORDER BY salience_base DESC, added_at ASC LIMIT ?""",
+            (status, limit)
+        )
+    rows = await cursor.fetchall()
+    return [_row_to_pool_item(r) for r in rows]
+
+
+async def get_pool_item_by_id(pool_id: str) -> Optional[dict]:
+    """Get a single pool item by ID."""
+    conn = await get_db()
+    cursor = await conn.execute("SELECT * FROM content_pool WHERE id = ?", (pool_id,))
+    row = await cursor.fetchone()
+    return _row_to_pool_item(row) if row else None
+
+
+async def update_pool_item(pool_id: str, **kwargs):
+    """Update pool item fields."""
+    sets = []
+    vals = []
+    for key in ('status', 'seen_at', 'engaged_at', 'outcome_detail'):
+        if key in kwargs:
+            sets.append(f"{key} = ?")
+            v = kwargs[key]
+            vals.append(v.isoformat() if isinstance(v, datetime) else v)
+    if not sets:
+        return
+    vals.append(pool_id)
+    await _exec_write(
+        f"UPDATE content_pool SET {', '.join(sets)} WHERE id = ?",
+        tuple(vals)
+    )
+
+
+async def update_event_outcome(event_id: str, outcome: str,
+                                engaged_at: datetime = None) -> None:
+    """Update an event's outcome and engaged_at timestamp.
+
+    Used by executor to couple pool status changes with their source events.
+    """
+    ts = (engaged_at or datetime.now(timezone.utc)).isoformat()
+    await _exec_write(
+        "UPDATE events SET outcome = ?, engaged_at = ? WHERE id = ?",
+        (outcome, ts, event_id)
+    )
+
+
+async def get_pool_stats() -> dict:
+    """Get count of pool items by status."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        "SELECT status, COUNT(*) FROM content_pool GROUP BY status"
+    )
+    rows = await cursor.fetchall()
+    return {row[0]: row[1] for row in rows}
+
+
+async def expire_pool_items():
+    """Remove expired pool items (TTL-based)."""
+    await _exec_write(
+        """DELETE FROM content_pool
+           WHERE ttl_hours IS NOT NULL
+           AND status = 'unseen'
+           AND julianday('now') - julianday(added_at) > ttl_hours / 24.0"""
+    )
+
+
+async def cap_unseen_pool(max_unseen: int = 50):
+    """Remove oldest unseen items when pool exceeds cap."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        "SELECT COUNT(*) FROM content_pool WHERE status = 'unseen'"
+    )
+    row = await cursor.fetchone()
+    count = row[0] if row else 0
+    if count > max_unseen:
+        excess = count - max_unseen
+        await _exec_write(
+            """DELETE FROM content_pool WHERE id IN (
+                SELECT id FROM content_pool
+                WHERE status = 'unseen'
+                ORDER BY added_at ASC
+                LIMIT ?
+            )""",
+            (excess,)
+        )
+
+
+async def get_unseen_news(min_salience: float = 0.3, limit: int = 5) -> list[dict]:
+    """Get unseen news/headline items above salience threshold."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT * FROM content_pool
+           WHERE status = 'unseen'
+           AND source_type = 'rss_headline'
+           AND salience_base >= ?
+           ORDER BY salience_base DESC, added_at ASC
+           LIMIT ?""",
+        (min_salience, limit)
+    )
+    rows = await cursor.fetchall()
+    return [_row_to_pool_item(r) for r in rows]
+
+
+def _row_to_pool_item(row) -> dict:
+    """Convert a pool row to a dict."""
+    d = dict(row)
+    for json_key in ('metadata', 'tags'):
+        if json_key in d and isinstance(d[json_key], str):
+            try:
+                d[json_key] = json.loads(d[json_key])
+            except (json.JSONDecodeError, TypeError):
+                d[json_key] = {} if json_key == 'metadata' else []
+    return d

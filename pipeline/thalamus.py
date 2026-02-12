@@ -42,6 +42,12 @@ async def route(
         cycle_type = 'engage'  # visitor referenced a fidget — she's in conversation
     elif focus.p_type == 'ambient_discovery':
         cycle_type = 'idle'  # she discovers it on her own time
+    elif focus.p_type in ('consume_focus', 'thread_focus', 'news_focus'):
+        # Arbiter focus p_types — mode binding is handled by run_cycle.
+        # Default to idle here; run_cycle will override via focus_context.
+        cycle_type = 'idle'
+    elif focus.p_type == 'ambient_weather':
+        cycle_type = 'idle'
     elif drives.expression_need > 0.7:
         cycle_type = 'express'
     elif drives.rest_need > 0.7:
