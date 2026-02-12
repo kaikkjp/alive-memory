@@ -12,14 +12,26 @@ async def hippocampus_consolidate(update: dict, visitor_id: str = None):
     content = update.get('content', {})
 
     if update_type == 'visitor_impression':
-        if visitor_id:
-            kwargs = {}
-            if content.get('summary'):
-                kwargs['summary'] = content['summary']
-            if content.get('emotional_imprint'):
-                kwargs['emotional_imprint'] = content['emotional_imprint']
-            if kwargs:
-                await db.update_visitor(visitor_id, **kwargs)
+        if not visitor_id:
+            print(f"  [Memory] Skipped visitor_impression — no visitor_id")
+            return
+        kwargs = {}
+        # Accept aliases: LLM may output 'impression' instead of 'summary',
+        # or 'feeling' instead of 'emotional_imprint'
+        summary = (content.get('summary')
+                   or content.get('impression')
+                   or content.get('description'))
+        imprint = (content.get('emotional_imprint')
+                   or content.get('feeling')
+                   or content.get('emotion'))
+        if summary:
+            kwargs['summary'] = summary
+        if imprint:
+            kwargs['emotional_imprint'] = imprint
+        if kwargs:
+            await db.update_visitor(visitor_id, **kwargs)
+        else:
+            print(f"  [Memory] Skipped visitor_impression — no usable fields in: {list(content.keys())}")
 
     elif update_type == 'trait_observation':
         if visitor_id and content.get('trait_category') and content.get('trait_key'):
@@ -51,6 +63,15 @@ async def hippocampus_consolidate(update: dict, visitor_id: str = None):
                         'new_value': content.get('trait_value'),
                     },
                 ))
+        else:
+            missing = []
+            if not visitor_id:
+                missing.append('visitor_id')
+            if not content.get('trait_category'):
+                missing.append('trait_category')
+            if not content.get('trait_key'):
+                missing.append('trait_key')
+            print(f"  [Memory] Skipped trait_observation — missing: {missing}")
 
     elif update_type == 'totem_create':
         if content.get('entity'):
@@ -72,9 +93,10 @@ async def hippocampus_consolidate(update: dict, visitor_id: str = None):
             )
 
     elif update_type == 'journal_entry':
-        if content.get('text'):
+        text = content.get('text') or content.get('content') or content.get('entry')
+        if text:
             await db.insert_journal(
-                content=content['text'],
+                content=text,
                 mood=content.get('mood'),
                 tags=content.get('tags', []),
             )

@@ -102,7 +102,15 @@ OUTPUT SCHEMA:
   ],
   "memory_updates": [
     {{
-      "type": "visitor_impression|trait_observation|totem_create|totem_update|journal_entry|self_discovery|collection_add",
+      "type": "visitor_impression",
+      "content": {{"summary": "one-line impression of this visitor", "emotional_imprint": "how they make you feel"}}
+    }},
+    {{
+      "type": "trait_observation",
+      "content": {{"trait_category": "taste|personality|topic|relationship", "trait_key": "short label", "trait_value": "what you observed"}}
+    }},
+    {{
+      "type": "totem_create|totem_update|journal_entry|self_discovery|collection_add",
       "content": {{}}
     }}
   ],

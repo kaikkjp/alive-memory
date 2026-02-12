@@ -18,7 +18,8 @@ class Perception:
     salience: float = 0.5
 
 
-async def build_perceptions(unread_events: list[Event], drives: DrivesState) -> list[Perception]:
+async def build_perceptions(unread_events: list[Event], drives: DrivesState,
+                           recent_fidgets: list = None) -> list[Perception]:
     """Convert raw events into diegetic perceptions. No LLM."""
 
     perceptions = []
@@ -28,12 +29,19 @@ async def build_perceptions(unread_events: list[Event], drives: DrivesState) -> 
             vid = event.source.split(':')[1] if ':' in event.source else event.source
             visitor = await db.get_visitor(vid)
 
+            text = event.payload.get('text', '')
+
+            # Check if visitor is referencing a fidget she doesn't remember
+            fidget_perception = check_fidget_reference(text, recent_fidgets)
+            if fidget_perception:
+                perceptions.append(fidget_perception)
+
             p = Perception(
                 p_type='visitor_speech',
                 source=event.source,
                 ts=event.ts,
-                content=event.payload.get('text', ''),
-                features=extract_features(event.payload.get('text', '')),
+                content=text,
+                features=extract_features(text),
                 salience=calculate_salience(event, drives, visitor),
             )
             perceptions.append(p)
@@ -191,3 +199,57 @@ def build_ambient_perception(drives: DrivesState) -> Perception:
         features={'is_ambient': True},
         salience=0.1,
     )
+
+
+# ── Fidget reference detection ──
+# Maps fidget behavior keys to keywords a visitor might use when referencing them.
+FIDGET_KEYWORDS = {
+    'adjusts_glasses': ['glasses', 'spectacles', 'adjust'],
+    'looks_at_object': ['picked up', 'pick up', 'shelf', 'turns it over'],
+    'sips_tea': ['tea', 'sip', 'drink', 'cup'],
+    'turns_page': ['page', 'reading', 'book'],
+    'glances_at_window': ['window', 'looking outside', 'staring out'],
+    'touches_shelf': ['shelf', 'fingers', 'trailing'],
+    'examines_item': ['holding', 'held', 'looking at', 'studying', 'up to the light'],
+}
+
+
+FIDGET_RECENCY_SECONDS = 300  # only match fidgets from the last 5 minutes
+
+
+def check_fidget_reference(text: str, recent_fidgets: list = None) -> Perception | None:
+    """Check if visitor speech references a recent fidget behavior.
+
+    If matched, returns a fidget_mismatch perception — she becomes aware
+    that the visitor saw her do something she doesn't remember doing.
+    """
+    if not recent_fidgets or not text:
+        return None
+
+    text_lower = text.lower()
+    now = datetime.now(timezone.utc)
+
+    for behavior_key, description, ts in recent_fidgets:
+        # Skip stale fidgets outside the recency window
+        if ts and (now - ts).total_seconds() > FIDGET_RECENCY_SECONDS:
+            continue
+        keywords = FIDGET_KEYWORDS.get(behavior_key, [])
+        for keyword in keywords:
+            if keyword in text_lower:
+                return Perception(
+                    p_type='fidget_mismatch',
+                    source='self',
+                    ts=datetime.now(timezone.utc),
+                    content=(
+                        f"The visitor describes seeing you: {description} "
+                        f"You don't remember doing this."
+                    ),
+                    features={
+                        'is_fidget_mismatch': True,
+                        'fidget_key': behavior_key,
+                        'fidget_description': description,
+                    },
+                    salience=0.4,  # below speech so it augments, never replaces focus
+                )
+
+    return None

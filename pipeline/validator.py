@@ -40,8 +40,15 @@ def validate(cortex_output: dict, state: dict) -> dict:
     for action in cortex_output.get('actions', []):
         action_type = action.get('type', '')
 
-        # end_engagement always passes — it's how she exits conversation
+        # end_engagement — guard against premature exits
         if action_type in exit_actions:
+            turn_count = state.get('turn_count', 0)
+            if turn_count < 3:
+                dropped_actions.append({
+                    'action': action,
+                    'reason': f'end_engagement — too early (turn {turn_count}, min 3)',
+                })
+                continue
             approved_actions.append(action)
             continue
 
@@ -53,6 +60,9 @@ def validate(cortex_output: dict, state: dict) -> dict:
                 'action': action,
                 'reason': f'{action_type} — she\'s in conversation',
             })
+            # When journal is deferred, the desire to write builds up
+            if action_type == 'write_journal':
+                cortex_output['_journal_deferred'] = True
             continue
 
         if action_type in hands_required and hands_held:
