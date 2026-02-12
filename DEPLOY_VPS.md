@@ -174,7 +174,17 @@ sudo ufw allow 443/tcp   # TLS connections
 sudo ufw enable
 ```
 
-### 6. Backups
+### 6. Certificate renewal
+
+Certs are renewed via a host cron job that runs certbot inside the container and reloads nginx:
+
+```bash
+sudo crontab -e
+# Add:
+0 3 * * * /opt/shopkeeper/deploy/renew-certs.sh >> /var/log/shopkeeper-certbot.log 2>&1
+```
+
+### 7. Backups
 
 The SQLite database lives in a Docker volume (`shopkeeper-data`). Back it up:
 
@@ -185,7 +195,7 @@ shutil.copy2('/app/data/shopkeeper.db', '/app/data/backup.db')
 " && docker compose cp shopkeeper:/app/data/backup.db ./backup-$(date +%F).db
 ```
 
-### 7. Updating
+### 8. Updating
 
 ```bash
 git pull
