@@ -6,22 +6,20 @@ EMAIL="${2:?Usage: $0 <domain> <email>}"
 
 echo "Obtaining Let's Encrypt certificate for ${DOMAIN}..."
 
+# Obtain cert via standalone certbot (port 80 must be free)
 docker run --rm -p 80:80 \
     -v "$(pwd)/certbot-etc:/etc/letsencrypt" \
     certbot/certbot certonly --standalone \
     -d "$DOMAIN" --non-interactive --agree-tos -m "$EMAIL"
 
-# Copy certs into the named volume
-docker compose up -d --no-deps nginx 2>/dev/null || true
-docker compose cp certbot-etc/. shopkeeper-certbot:/etc/letsencrypt/ 2>/dev/null || true
+# Create the certbot container (and its certs volume) without starting it
+docker compose up --no-start certbot
 
-# Alternative: create the volume and populate it directly
-docker volume create shopkeeper_certs 2>/dev/null || true
-docker run --rm \
-    -v "$(pwd)/certbot-etc:/src:ro" \
-    -v "shopkeeper_certs:/dst" \
-    alpine sh -c 'cp -rL /src/* /dst/'
+# Copy certs into the Compose-managed volume via the certbot service
+docker compose cp "certbot-etc/." certbot:/etc/letsencrypt/
 
+# Clean up local copy and stop the helper container
+docker compose stop certbot 2>/dev/null || true
 rm -rf certbot-etc
 
 echo ""
