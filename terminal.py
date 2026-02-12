@@ -11,6 +11,7 @@ import hashlib
 import json
 import os
 import re
+import ssl
 import sys
 import random
 
@@ -539,8 +540,13 @@ async def client_mode():
         print(f"  Run: export SHOPKEEPER_SERVER_TOKEN='a-long-random-token'\n")
         return
 
+    use_tls = os.environ.get('SHOPKEEPER_TLS', '').lower() in ('1', 'true', 'yes')
+    ssl_ctx = ssl.create_default_context() if use_tls else None
+
     try:
-        reader, writer = await asyncio.open_connection(SERVER_HOST, SERVER_PORT)
+        reader, writer = await asyncio.open_connection(
+            SERVER_HOST, SERVER_PORT, ssl=ssl_ctx,
+        )
     except ConnectionRefusedError:
         print(f"\n  {Fore.RED}[Error]{Style.RESET_ALL} Can't connect to heartbeat_server at {SERVER_HOST}:{SERVER_PORT}")
         print(f"  Start the server first: python heartbeat_server.py\n")

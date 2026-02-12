@@ -108,3 +108,97 @@ Then run the client locally with:
 - `python3 terminal.py --connect`
 
 If you intentionally expose the app on the public internet (`SHOPKEEPER_HOST=0.0.0.0`), explicitly open only that port and understand that traffic (including token auth) is plaintext unless you add transport security separately.
+
+---
+
+## Docker Deployment (with TLS)
+
+Alternative to the systemd approach above. Uses Docker Compose with nginx for TLS termination.
+
+### Prerequisites
+
+- Docker and Docker Compose installed
+- A domain name with an A record pointing to the VPS IP
+
+### 1. Clone and configure
+
+```bash
+git clone https://github.com/TriMinhPham/shopkeeper.git /home/ubuntu/shopkeeper
+cd /home/ubuntu/shopkeeper
+cp .env.example .env
+# Edit .env: set ANTHROPIC_API_KEY and SHOPKEEPER_SERVER_TOKEN
+chmod 600 .env
+```
+
+### 2. Set up TLS certificate
+
+Edit `deploy/nginx.conf` — replace `YOURDOMAIN` with your actual domain.
+
+Then obtain the initial certificate:
+
+```bash
+bash deploy/init-certs.sh yourdomain.com you@email.com
+```
+
+### 3. Start
+
+```bash
+docker compose up -d
+```
+
+Verify:
+
+```bash
+docker compose ps          # all services healthy
+docker compose logs -f shopkeeper  # should show "Listening on 0.0.0.0:9999"
+```
+
+### 4. Connect remotely (TLS)
+
+On your local machine:
+
+```bash
+export SHOPKEEPER_HOST=yourdomain.com
+export SHOPKEEPER_PORT=443
+export SHOPKEEPER_TLS=true
+export SHOPKEEPER_SERVER_TOKEN=your-token
+python3 terminal.py --connect
+```
+
+### 5. Firewall
+
+```bash
+sudo ufw allow OpenSSH
+sudo ufw allow 80/tcp    # certbot renewals
+sudo ufw allow 443/tcp   # TLS connections
+sudo ufw enable
+```
+
+### 6. Certificate renewal
+
+Certs are renewed via a host cron job that runs certbot inside the container and reloads nginx:
+
+```bash
+sudo crontab -e
+# Add:
+0 3 * * * /home/ubuntu/shopkeeper/deploy/renew-certs.sh >> /var/log/shopkeeper-certbot.log 2>&1
+```
+
+### 7. Backups
+
+The SQLite database lives in a Docker volume (`shopkeeper-data`). Back it up:
+
+```bash
+docker compose exec shopkeeper python -c "
+import sqlite3, shutil
+shutil.copy2('/app/data/shopkeeper.db', '/app/data/backup.db')
+" && docker compose cp shopkeeper:/app/data/backup.db ./backup-$(date +%F).db
+```
+
+### 8. Updating
+
+```bash
+git pull
+docker compose build
+docker compose up -d
+```

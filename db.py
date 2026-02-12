@@ -18,7 +18,7 @@ COLD_SEARCH_ENABLED = os.getenv('COLD_SEARCH_ENABLED', 'false').lower() == 'true
 # The shopkeeper lives in JST. All "today" boundaries use JST.
 JST = timezone(timedelta(hours=9))
 
-DB_PATH = "data/shopkeeper.db"
+DB_PATH = os.environ.get('SHOPKEEPER_DB_PATH', 'data/shopkeeper.db')
 
 _db: Optional[aiosqlite.Connection] = None
 
