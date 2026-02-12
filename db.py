@@ -33,11 +33,12 @@ async def get_db() -> aiosqlite.Connection:
                 import sqlite_vec
                 await _db.enable_load_extension(True)
                 sqlite_vec.load(_db._conn)  # raw sqlite3.Connection
-                await _db.enable_load_extension(False)
             except ImportError:
                 print("[DB] sqlite-vec not installed — cold search disabled")
             except Exception as e:
                 print(f"[DB] Failed to load sqlite-vec: {e}")
+            finally:
+                await _db.enable_load_extension(False)
         await _db.execute("PRAGMA journal_mode=WAL")
         await _db.execute("PRAGMA busy_timeout=5000")
         await _db.execute("PRAGMA foreign_keys=ON")
@@ -1233,6 +1234,9 @@ async def insert_cold_embedding(
 
     Uses _write_lock directly — vec0 virtual tables don't support
     our transaction() wrapper the same way.
+
+    Includes dedupe guard: skips insert if (source_type, source_id)
+    already exists. This prevents double-embedding on retry.
     """
     import sqlite_vec
 
@@ -1242,6 +1246,15 @@ async def insert_cold_embedding(
 
     async with _write_lock:
         conn = await get_db()
+
+        # Dedupe guard: skip if already embedded
+        cursor = await conn.execute(
+            "SELECT 1 FROM cold_memory_vec WHERE source_type = ? AND source_id = ?",
+            (source_type, source_id)
+        )
+        if await cursor.fetchone():
+            return  # already embedded
+
         await conn.execute(
             """INSERT INTO cold_memory_vec
                (embedding, source_type, source_id, text_content, ts_iso, embed_model)
@@ -1255,16 +1268,17 @@ async def get_unembedded_conversations(limit: int = 50) -> list[dict]:
     """Find conversation_log rows not yet embedded in cold_memory_vec.
 
     Skips system boundary markers. Returns oldest-first for chronological
-    embedding order.
+    embedding order. Uses NOT EXISTS (safer than NOT IN with NULLs).
     """
     conn = await get_db()
     cursor = await conn.execute(
         """SELECT c.id, c.visitor_id, c.role, c.text, c.ts
            FROM conversation_log c
-           WHERE c.role IN ('visitor', 'assistant')
-             AND c.id NOT IN (
-                 SELECT source_id FROM cold_memory_vec
-                 WHERE source_type = 'conversation'
+           WHERE c.role IN ('visitor', 'shopkeeper')
+             AND NOT EXISTS (
+                 SELECT 1 FROM cold_memory_vec v
+                 WHERE v.source_id = c.id
+                   AND v.source_type = 'conversation'
              )
            ORDER BY c.ts ASC LIMIT ?""",
         (limit,)
@@ -1277,7 +1291,7 @@ async def get_unembedded_monologues(limit: int = 50) -> list[dict]:
     """Find cycle_log rows with internal monologue not yet embedded.
 
     Skips entries with NULL or very short monologues (< 10 chars).
-    Returns oldest-first.
+    Returns oldest-first. Uses NOT EXISTS (safer than NOT IN with NULLs).
     """
     conn = await get_db()
     cursor = await conn.execute(
@@ -1285,9 +1299,10 @@ async def get_unembedded_monologues(limit: int = 50) -> list[dict]:
            FROM cycle_log c
            WHERE c.internal_monologue IS NOT NULL
              AND LENGTH(c.internal_monologue) > 10
-             AND c.id NOT IN (
-                 SELECT source_id FROM cold_memory_vec
-                 WHERE source_type = 'monologue'
+             AND NOT EXISTS (
+                 SELECT 1 FROM cold_memory_vec v
+                 WHERE v.source_id = c.id
+                   AND v.source_type = 'monologue'
              )
            ORDER BY c.ts ASC LIMIT ?""",
         (limit,)
@@ -1360,7 +1375,7 @@ async def get_conversation_context(
     cursor = await conn.execute(
         """SELECT role, text, ts FROM conversation_log
            WHERE visitor_id = ? AND ts <= ? AND id != ?
-             AND role IN ('visitor', 'assistant')
+             AND role IN ('visitor', 'shopkeeper')
            ORDER BY ts DESC LIMIT ?""",
         (target['visitor_id'], target['ts'], message_id, before)
     )
@@ -1377,7 +1392,7 @@ async def get_conversation_context(
     cursor = await conn.execute(
         """SELECT role, text, ts FROM conversation_log
            WHERE visitor_id = ? AND ts > ?
-             AND role IN ('visitor', 'assistant')
+             AND role IN ('visitor', 'shopkeeper')
            ORDER BY ts ASC LIMIT ?""",
         (target['visitor_id'], target['ts'], after)
     )

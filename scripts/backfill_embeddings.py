@@ -55,9 +55,15 @@ async def main():
         print(f"  Embedded: {convos} conversations, {monos} monologues, {errors} errors")
         print(f"  Running total: {total_convos} convos, {total_monos} monos, {total_errors} errors")
 
-        # If nothing was embedded this batch, we're done
+        # If nothing was embedded AND no errors, we're truly done.
+        # If errors > 0 but nothing embedded, there are rows that failed —
+        # don't claim "complete" as they may succeed on retry.
         if convos == 0 and monos == 0:
-            print("\n[Backfill] Complete — no more entries to embed.")
+            if errors == 0:
+                print("\n[Backfill] Complete — no more entries to embed.")
+            else:
+                print(f"\n[Backfill] Stopped — {errors} errors in last batch, "
+                      f"0 successful. Check API key / network and re-run.")
             break
 
         # Rate limit pause between batches
