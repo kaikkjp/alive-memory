@@ -607,21 +607,40 @@ class ShopkeeperServer:
             if not request_line:
                 return
 
-            # Read headers (skip them, we only need the path)
+            # Read headers, capture Content-Length for POST body
+            content_length = 0
             while True:
                 line = await asyncio.wait_for(reader.readline(), timeout=5)
                 if line == b'\r\n' or line == b'\n' or not line:
                     break
+                header = line.decode('utf-8', errors='replace').strip().lower()
+                if header.startswith('content-length:'):
+                    try:
+                        content_length = int(header.split(':', 1)[1].strip())
+                    except ValueError:
+                        pass
 
             request_text = request_line.decode('utf-8', errors='replace').strip()
             parts = request_text.split()
             method = parts[0] if parts else 'GET'
             path = parts[1] if len(parts) > 1 else '/'
 
-            if path == '/api/state' and method == 'GET':
+            # Read POST body if present
+            body_bytes = b''
+            if content_length > 0:
+                body_bytes = await asyncio.wait_for(
+                    reader.readexactly(content_length), timeout=10
+                )
+
+            # Handle CORS preflight
+            if method == 'OPTIONS':
+                await self._http_cors_preflight(writer)
+            elif path == '/api/state' and method == 'GET':
                 await self._http_state(writer)
             elif path == '/api/health' and method == 'GET':
                 await self._http_json(writer, 200, {'status': 'alive'})
+            elif path == '/api/validate-token' and method == 'POST':
+                await self._http_validate_token(writer, body_bytes)
             else:
                 await self._http_json(writer, 404, {'error': 'not found'})
         except (asyncio.TimeoutError, ConnectionResetError, BrokenPipeError):
@@ -644,16 +663,59 @@ class ShopkeeperServer:
         state = await build_initial_state()
         await self._http_json(writer, 200, state)
 
+    async def _http_validate_token(self, writer: asyncio.StreamWriter,
+                                    body_bytes: bytes):
+        """Handle POST /api/validate-token — check chat token validity."""
+        try:
+            data = json.loads(body_bytes.decode('utf-8'))
+            token = data.get('token', '')
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            await self._http_json(writer, 400, {'error': 'bad request'})
+            return
+
+        if not token:
+            await self._http_json(writer, 400, {'error': 'token required'})
+            return
+
+        token_info = await db.validate_chat_token(token)
+        if token_info:
+            await self._http_json(writer, 200, {
+                'valid': True,
+                'display_name': token_info['display_name'],
+            })
+        else:
+            await self._http_json(writer, 403, {'valid': False})
+
+    async def _http_cors_preflight(self, writer: asyncio.StreamWriter):
+        """Handle OPTIONS preflight for CORS."""
+        response = (
+            'HTTP/1.1 204 No Content\r\n'
+            'Access-Control-Allow-Origin: *\r\n'
+            'Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n'
+            'Access-Control-Allow-Headers: Content-Type\r\n'
+            'Access-Control-Max-Age: 86400\r\n'
+            'Content-Length: 0\r\n'
+            'Connection: close\r\n'
+            '\r\n'
+        )
+        writer.write(response.encode())
+        await writer.drain()
+
     async def _http_json(self, writer: asyncio.StreamWriter,
                           status: int, body: dict):
         """Send an HTTP JSON response."""
         payload = json.dumps(body)
-        status_text = {200: 'OK', 404: 'Not Found', 500: 'Internal Server Error'}
+        status_text = {
+            200: 'OK', 204: 'No Content', 400: 'Bad Request',
+            403: 'Forbidden', 404: 'Not Found', 500: 'Internal Server Error',
+        }
         response = (
             f'HTTP/1.1 {status} {status_text.get(status, "Unknown")}\r\n'
             f'Content-Type: application/json\r\n'
             f'Content-Length: {len(payload)}\r\n'
             f'Access-Control-Allow-Origin: *\r\n'
+            f'Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n'
+            f'Access-Control-Allow-Headers: Content-Type\r\n'
             f'Connection: close\r\n'
             f'\r\n'
             f'{payload}'
