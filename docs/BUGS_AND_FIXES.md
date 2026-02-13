@@ -626,6 +626,46 @@
 
 ---
 
+### BUG-2026-02-13-simulation-api-timeout-hang
+
+| Field           | Value |
+|-----------------|-------|
+| **Date**        | 2026-02-13 |
+| **Severity**    | Critical |
+| **Status**      | Fixed |
+| **Branch**      | `fix/cortex-api-timeout-hang` |
+| **PR**          | #18 |
+| **Commit**      | `590249e` |
+
+**Symptom:** Simulation hangs indefinitely after ~0.5 simulated days (57 cycles, 1hr 3min wall time). Process freezes at Day 1 19:26 JST with 6 TCP connections stuck in CLOSE_WAIT to Anthropic API. 99.8% wait time, 0.1% CPU, no errors logged, no recovery.
+
+**Root Cause:** Four compounding issues: (1) Exception handlers only catch 4 specific types, missing `anthropic.APIError` base class, `httpx.TimeoutException`, and generic `Exception`. (2) Synchronous `client.messages.create()` called from async functions blocks the entire event loop — no other coroutines can run while waiting. (3) `timeout=30.0` on the client is per-socket-operation, not per-request; stuck connections can wait forever. (4) New `Anthropic()` client created every call, leaking connections in CLOSE_WAIT state.
+
+**Fix:** Five changes to `pipeline/cortex.py`:
+1. Singleton async client via `_get_client()` — reuses one `anthropic.AsyncAnthropic` instance, prevents connection pool exhaustion.
+2. Native async `await client.messages.create()` — replaces sync call, no event loop blocking, true cancellation on timeout.
+3. `asyncio.wait_for(..., timeout=60.0)` — hard 60-second ceiling per request, cancels the underlying httpx request (not just an orphaned thread).
+4. Broader exception handling — catches `anthropic.APIError` (base), `httpx.TimeoutException`, and generic `Exception` as final safety net.
+5. Logging — prints `[Cortex]` markers for API call start/finish/error to track where hangs occur.
+
+**Files Affected:**
+- `pipeline/cortex.py` — singleton client, async wrapping, broadened exceptions, logging at both `cortex_call` and `cortex_call_maintenance`
+
+**Tests Added:**
+- [ ] Manual test: simulation runs past 1 hour without hanging
+- [x] Test: API timeout triggers fallback response within 60s (`test_cortex_call_timeout_returns_fallback`, `test_maintenance_call_timeout_returns_fallback`)
+- [x] Test: connection reuse (single client instance across calls) (`test_singleton_client_reused`)
+- [x] Soak: 200 cycles with mixed success/timeout/error patterns (`test_soak_200_cycles_no_leak_no_hang`)
+- [x] Soak: 50 maintenance cycles with intermittent failures (`test_soak_maintenance_50_cycles`)
+- [x] Exception handling: APIError, httpx.TimeoutException, generic Exception
+- [x] Circuit breaker opens after consecutive failures
+
+**Follow-ups / Notes:**
+- Now uses `anthropic.AsyncAnthropic` (available in `anthropic==0.79.0`) for true cancellable async — no orphaned threads on timeout.
+- Simulation data from before the hang was valid (3 items consumed, 2 threads, 46 journal entries, 3 totems, 4 collection items).
+
+---
+
 ### BUG-2026-02-12-canonical-identity-contradiction
 
 | Field           | Value |
