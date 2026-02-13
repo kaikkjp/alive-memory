@@ -4,11 +4,15 @@
 aiosqlite>=0.20.0,<1.0.0
 anthropic>=0.49.0,<1.0.0
 colorama>=0.4.6,<1.0.0  # terminal + server color output (module-level import)
+python-dotenv>=1.0.0,<2.0.0
 
 # Optional — features degrade gracefully if missing
 aiohttp>=3.9.0,<4.0.0     # ambient weather via wttr.in
 feedparser>=6.0.0,<7.0.0  # RSS feed ingestion
 sqlite-vec>=0.1.6,<1.0.0  # cold memory vector search (Phase 2)
+google-genai>=1.0.0       # image generation for window sprites
+Pillow>=10.0.0            # OG image compositing
+websockets>=12.0          # window viewer websocket server
 
 # Testing
 pytest>=8.0

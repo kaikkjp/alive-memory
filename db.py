@@ -317,6 +317,34 @@ CREATE TABLE IF NOT EXISTS day_memory (
 CREATE INDEX IF NOT EXISTS idx_day_memory_salience ON day_memory(salience DESC);
 CREATE INDEX IF NOT EXISTS idx_day_memory_visitor ON day_memory(visitor_id);
 CREATE INDEX IF NOT EXISTS idx_day_memory_unprocessed ON day_memory(processed_at) WHERE processed_at IS NULL;
+
+CREATE TABLE IF NOT EXISTS text_fragments (
+    id TEXT PRIMARY KEY,
+    content TEXT NOT NULL,
+    fragment_type TEXT NOT NULL,
+    cycle_id TEXT,
+    thread_id TEXT,
+    visitor_id TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_fragments_created ON text_fragments(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_fragments_type ON text_fragments(fragment_type);
+
+CREATE TABLE IF NOT EXISTS shelf_assignments (
+    slot_id TEXT PRIMARY KEY,
+    item_id TEXT NOT NULL,
+    item_description TEXT,
+    sprite_filename TEXT,
+    assigned_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS chat_tokens (
+    token TEXT PRIMARY KEY,
+    display_name TEXT NOT NULL,
+    uses_remaining INTEGER,
+    expires_at TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 """
 
 
@@ -1332,6 +1360,206 @@ def _row_to_day_memory(row):
         retry_count=row['retry_count'],
         processed_at=(datetime.fromisoformat(row['processed_at'])
                        if row['processed_at'] else None),
+    )
+
+
+# ─── Window UI Support ───
+
+async def insert_text_fragment(
+    content: str,
+    fragment_type: str,
+    cycle_id: str = None,
+    thread_id: str = None,
+    visitor_id: str = None,
+) -> str:
+    """Insert a text fragment for the window text stream."""
+    frag_id = str(uuid.uuid4())
+    now = clock.now_utc().isoformat()
+    await _exec_write(
+        """INSERT INTO text_fragments
+           (id, content, fragment_type, cycle_id, thread_id, visitor_id, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        (frag_id, content, fragment_type, cycle_id, thread_id, visitor_id, now)
+    )
+    return frag_id
+
+
+async def get_recent_text_fragments(limit: int = 8) -> list[dict]:
+    """Get recent text fragments for window display."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        "SELECT * FROM text_fragments ORDER BY created_at DESC LIMIT ?",
+        (limit,)
+    )
+    rows = await cursor.fetchall()
+    return [{
+        'id': r['id'],
+        'content': r['content'],
+        'fragment_type': r['fragment_type'],
+        'cycle_id': r['cycle_id'],
+        'thread_id': r['thread_id'],
+        'visitor_id': r['visitor_id'],
+        'created_at': r['created_at'],
+    } for r in rows]
+
+
+async def get_shelf_assignments() -> list[dict]:
+    """Get all shelf assignments for scene composition."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        "SELECT * FROM shelf_assignments ORDER BY assigned_at ASC"
+    )
+    rows = await cursor.fetchall()
+    return [{
+        'slot_id': r['slot_id'],
+        'item_id': r['item_id'],
+        'item_description': r['item_description'],
+        'sprite_filename': r['sprite_filename'],
+        'assigned_at': r['assigned_at'],
+    } for r in rows]
+
+
+async def assign_shelf_slot(item_id: str, description: str,
+                            sprite_filename: str = None) -> Optional[str]:
+    """Assign an item to the next available shelf slot. Returns slot_id or None."""
+    from pipeline.scene import SHELF_SLOTS
+
+    conn = await get_db()
+    cursor = await conn.execute("SELECT slot_id FROM shelf_assignments")
+    occupied = {r['slot_id'] for r in await cursor.fetchall()}
+
+    slot_id = None
+    for sid in SHELF_SLOTS:
+        if sid not in occupied:
+            slot_id = sid
+            break
+
+    if not slot_id:
+        return None
+
+    now = clock.now_utc().isoformat()
+    await _exec_write(
+        """INSERT INTO shelf_assignments
+           (slot_id, item_id, item_description, sprite_filename, assigned_at)
+           VALUES (?, ?, ?, ?, ?)""",
+        (slot_id, item_id, description, sprite_filename, now)
+    )
+    return slot_id
+
+
+async def update_shelf_sprite(slot_id: str, sprite_filename: str):
+    """Update sprite filename after generation completes."""
+    await _exec_write(
+        "UPDATE shelf_assignments SET sprite_filename = ? WHERE slot_id = ?",
+        (sprite_filename, slot_id)
+    )
+
+
+async def create_chat_token(
+    token: str,
+    display_name: str,
+    uses_remaining: int = None,
+    expires_at: datetime = None,
+):
+    """Create a new chat invite token."""
+    now = clock.now_utc().isoformat()
+    expires_str = expires_at.isoformat() if expires_at else None
+    await _exec_write(
+        """INSERT INTO chat_tokens
+           (token, display_name, uses_remaining, expires_at, created_at)
+           VALUES (?, ?, ?, ?, ?)""",
+        (token, display_name, uses_remaining, expires_str, now)
+    )
+
+
+async def validate_chat_token(token: str) -> Optional[dict]:
+    """Validate a chat token. Returns token info or None if invalid.
+
+    NOTE: This only checks validity. To atomically validate AND consume
+    a use, call validate_and_consume_chat_token() instead.
+    """
+    conn = await get_db()
+    cursor = await conn.execute(
+        "SELECT * FROM chat_tokens WHERE token = ?", (token,)
+    )
+    row = await cursor.fetchone()
+    if not row:
+        return None
+
+    if row['expires_at']:
+        expires = datetime.fromisoformat(row['expires_at'])
+        if expires.tzinfo is None:
+            expires = expires.replace(tzinfo=timezone.utc)
+        if clock.now_utc() > expires:
+            return None
+
+    if row['uses_remaining'] is not None and row['uses_remaining'] <= 0:
+        return None
+
+    return {
+        'token': row['token'],
+        'display_name': row['display_name'],
+        'uses_remaining': row['uses_remaining'],
+    }
+
+
+async def validate_and_consume_chat_token(token: str) -> Optional[dict]:
+    """Atomically validate and consume one use of a chat token.
+
+    Uses UPDATE ... WHERE uses_remaining > 0 to prevent race conditions.
+    Returns token info if valid and consumed, or None if invalid/exhausted.
+    """
+    conn = await get_db()
+    cursor = await conn.execute(
+        "SELECT * FROM chat_tokens WHERE token = ?", (token,)
+    )
+    row = await cursor.fetchone()
+    if not row:
+        return None
+
+    if row['expires_at']:
+        expires = datetime.fromisoformat(row['expires_at'])
+        if expires.tzinfo is None:
+            expires = expires.replace(tzinfo=timezone.utc)
+        if clock.now_utc() > expires:
+            return None
+
+    if row['uses_remaining'] is None:
+        return {
+            'token': row['token'],
+            'display_name': row['display_name'],
+            'uses_remaining': None,
+        }
+
+    # Atomic decrement under _write_lock — only succeeds if uses_remaining > 0.
+    # Must hold the lock so we don't commit unrelated in-flight transactions.
+    async with _write_lock:
+        result = await conn.execute(
+            """UPDATE chat_tokens SET uses_remaining = uses_remaining - 1
+               WHERE token = ? AND uses_remaining > 0""",
+            (token,)
+        )
+        await conn.commit()
+
+    if result.rowcount == 0:
+        return None
+
+    return {
+        'token': row['token'],
+        'display_name': row['display_name'],
+        'uses_remaining': row['uses_remaining'] - 1,
+    }
+
+
+async def consume_chat_token(token: str):
+    """Decrement uses_remaining for a token.
+
+    DEPRECATED: Use validate_and_consume_chat_token() for atomic operations.
+    """
+    await _exec_write(
+        """UPDATE chat_tokens SET uses_remaining = uses_remaining - 1
+           WHERE token = ? AND uses_remaining IS NOT NULL AND uses_remaining > 0""",
+        (token,)
     )
 
 

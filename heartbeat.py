@@ -159,10 +159,15 @@ class Heartbeat:
         self._cycle_log_subscribers: dict[str, asyncio.Queue] = {}
         self._loop_task = None
         self._stage_callback: StageCallback = None
+        self._window_broadcast: Optional[Callable] = None
         self._error_backoff = 5
         self._arbiter_state: Optional[dict] = None  # loaded from DB on start
         self._last_ambient_fetch_ts: Optional[datetime] = None
         self._last_feed_fetch_ts: Optional[datetime] = None
+
+    def set_window_broadcast(self, cb: Callable):
+        """Set callback for broadcasting to window viewers."""
+        self._window_broadcast = cb
 
     def _pick_fidget_behavior(self) -> tuple[str, str]:
         """Pick a fidget behavior while avoiding immediate repetition."""
@@ -785,7 +790,7 @@ class Heartbeat:
 
         async with db.transaction():
             await db.save_drives_state(drives)
-            await execute(validated, visitor_id)
+            await execute(validated, visitor_id, cycle_id=cycle_id)
             for event in unread:
                 await db.inbox_mark_read(event.id)
             await db.log_cycle(log)
@@ -808,6 +813,26 @@ class Heartbeat:
                 })
         self._error_backoff = 5  # reset backoff on successful cycle
 
+        # ── Window broadcast: push scene update to web viewers ──
+        if self._window_broadcast:
+            try:
+                from window_state import build_cycle_broadcast
+                room = await db.get_room_state()
+                ambient = {'condition': room.weather}
+                shelf_items = await db.get_shelf_assignments()
+                broadcast_msg = await build_cycle_broadcast(
+                    cycle_log=log,
+                    drives=drives,
+                    ambient=ambient,
+                    focus=routing.focus if routing else None,
+                    engagement=engagement,
+                    clock_now=datetime.now(timezone.utc),
+                    shelf_items=shelf_items,
+                    shop_status=room.shop_status,
+                )
+                await self._window_broadcast(broadcast_msg)
+            except Exception as e:
+                print(f"  [WindowBroadcast] Error: {e}")
         # ── Day Memory: record salient moment from this cycle ──
         try:
             cycle_context = self._build_cycle_context(
