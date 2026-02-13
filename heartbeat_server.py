@@ -641,6 +641,8 @@ class ShopkeeperServer:
                 await self._http_json(writer, 200, {'status': 'alive'})
             elif path == '/api/validate-token' and method == 'POST':
                 await self._http_validate_token(writer, body_bytes)
+            elif path == '/api/og' and method == 'GET':
+                await self._http_og_image(writer)
             else:
                 await self._http_json(writer, 404, {'error': 'not found'})
         except (asyncio.TimeoutError, ConnectionResetError, BrokenPipeError):
@@ -662,6 +664,33 @@ class ShopkeeperServer:
         from window_state import build_initial_state
         state = await build_initial_state()
         await self._http_json(writer, 200, state)
+
+    async def _http_og_image(self, writer: asyncio.StreamWriter):
+        """Handle GET /api/og — return server-side composed PNG for social preview."""
+        try:
+            from window_state import build_initial_state
+            from compositing import composite_scene
+            state = await build_initial_state()
+            layers = state.get('layers', {})
+            png_bytes = composite_scene(layers)
+            response = (
+                'HTTP/1.1 200 OK\r\n'
+                'Content-Type: image/png\r\n'
+                f'Content-Length: {len(png_bytes)}\r\n'
+                'Cache-Control: public, max-age=300\r\n'
+                'Access-Control-Allow-Origin: *\r\n'
+                'Connection: close\r\n'
+                '\r\n'
+            )
+            writer.write(response.encode())
+            writer.write(png_bytes)
+            await writer.drain()
+        except ImportError:
+            await self._http_json(writer, 503, {
+                'error': 'Pillow not installed (pip install Pillow)',
+            })
+        except Exception as e:
+            await self._http_json(writer, 500, {'error': str(e)})
 
     async def _http_validate_token(self, writer: asyncio.StreamWriter,
                                     body_bytes: bytes):
