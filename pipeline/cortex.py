@@ -304,16 +304,20 @@ async def cortex_call(
     _record_success()
     _increment_daily()
 
-    # Log LLM call for cost tracking
-    usage = response.usage
-    await llm_logger.log_llm_call(
-        provider='anthropic',
-        model=CORTEX_MODEL,
-        purpose='cortex',
-        input_tokens=usage.input_tokens,
-        output_tokens=usage.output_tokens,
-        cycle_id=routing.cycle_id if hasattr(routing, 'cycle_id') else None,
-    )
+    # Log LLM call for cost tracking (best-effort, don't fail request)
+    try:
+        usage = response.usage
+        await llm_logger.log_llm_call(
+            provider='anthropic',
+            model=CORTEX_MODEL,
+            purpose='cortex',
+            input_tokens=usage.input_tokens,
+            output_tokens=usage.output_tokens,
+            cycle_id=routing.cycle_id if hasattr(routing, 'cycle_id') else None,
+        )
+    except Exception as e:
+        # Telemetry failure should not break cortex
+        print(f'[Warning] LLM logging failed: {e}')
 
     # Parse response
     text = response.content[0].text.strip()
@@ -384,15 +388,19 @@ Return JSON: {{"journal": "your entry", "summary": {{"summary_bullets": ["..."],
     _record_success()
     _increment_daily()
 
-    # Log LLM call for cost tracking
-    usage = response.usage
-    await llm_logger.log_llm_call(
-        provider='anthropic',
-        model=CORTEX_MODEL,
-        purpose='cortex_maintenance',
-        input_tokens=usage.input_tokens,
-        output_tokens=usage.output_tokens,
-    )
+    # Log LLM call for cost tracking (best-effort, don't fail request)
+    try:
+        usage = response.usage
+        await llm_logger.log_llm_call(
+            provider='anthropic',
+            model=CORTEX_MODEL,
+            purpose='cortex_maintenance',
+            input_tokens=usage.input_tokens,
+            output_tokens=usage.output_tokens,
+        )
+    except Exception as e:
+        # Telemetry failure should not break maintenance
+        print(f'[Warning] LLM logging failed: {e}')
 
     text = response.content[0].text.strip()
     text = re.sub(r'^```(?:json)?\s*', '', text)

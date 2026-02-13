@@ -1,5 +1,6 @@
 'use client';
 
+import { dashboardApi } from '@/lib/dashboard-api';
 import { useState, useEffect } from 'react';
 
 interface Thread {
@@ -16,8 +17,7 @@ export default function ThreadsPanel() {
 
   const fetchThreads = async () => {
     try {
-      const res = await fetch('http://localhost:8080/api/dashboard/threads');
-      const data = await res.json();
+      const data = await dashboardApi.getThreads();
       setThreads(data.threads || []);
     } catch (err) {
       console.error('Failed to fetch threads:', err);
