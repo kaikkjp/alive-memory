@@ -23,6 +23,7 @@ import sys
 _mock_db = unittest.mock.MagicMock()
 _mock_db.get_visitor_traits = unittest.mock.AsyncMock(return_value=[])
 _mock_db.get_active_threads = unittest.mock.AsyncMock(return_value=[])
+_mock_db.insert_llm_call_log = unittest.mock.AsyncMock(return_value=None)
 sys.modules.setdefault("db", _mock_db)
 
 from models.state import DrivesState, Visitor
@@ -115,7 +116,15 @@ def _reset_cortex_state():
     cortex._daily_cycle_count = 0
     cortex._daily_cycle_date = ""
     cortex._client = None
+    # Ensure cortex and llm_logger use our mock db even when real db was imported first
+    import llm_logger
+    _original_cortex_db = cortex.db
+    _original_logger_db = llm_logger.db
+    cortex.db = _mock_db
+    llm_logger.db = _mock_db
     yield
+    cortex.db = _original_cortex_db
+    llm_logger.db = _original_logger_db
     cortex._client = None
 
 

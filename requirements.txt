@@ -9,7 +9,7 @@ python-dotenv>=1.0.0,<2.0.0
 # Optional — features degrade gracefully if missing
 aiohttp>=3.9.0,<4.0.0     # ambient weather via wttr.in
 certifi>=2024.0.0          # SSL CA bundle for fal.ai CDN downloads
-fal-client>=0.5.0          # image generation (replaces google-genai)
+fal-client>=0.5.0          # image generation (fal.ai Seedream)
 feedparser>=6.0.0,<7.0.0   # RSS feed ingestion
 pyyaml>=6.0                # prompt config (config/prompts.yaml)
 sqlite-vec>=0.1.6,<1.0.0   # cold memory vector search (Phase 2)

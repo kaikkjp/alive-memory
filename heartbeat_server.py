@@ -887,7 +887,7 @@ class ShopkeeperServer:
         if len(parts) != 2 or parts[0] != 'Bearer':
             return False
 
-        return parts[1] == expected
+        return hmac.compare_digest(parts[1], expected)
 
     async def _http_dashboard_auth(self, writer: asyncio.StreamWriter,
                                      body_bytes: bytes):
@@ -895,6 +895,9 @@ class ShopkeeperServer:
         try:
             data = json.loads(body_bytes.decode('utf-8'))
             password = data.get('password', '')
+            if not isinstance(password, str):
+                await self._http_json(writer, 400, {'error': 'bad request'})
+                return
         except (json.JSONDecodeError, UnicodeDecodeError):
             await self._http_json(writer, 400, {'error': 'bad request'})
             return
@@ -907,7 +910,7 @@ class ShopkeeperServer:
             })
             return
 
-        if password == expected:
+        if hmac.compare_digest(password, expected):
             # In production, return a JWT or session token
             # For now, return success (client stores password)
             await self._http_json(writer, 200, {'authenticated': True})
