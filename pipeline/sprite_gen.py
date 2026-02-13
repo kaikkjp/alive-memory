@@ -6,9 +6,27 @@ Uses the Gemini Imagen adapter for actual image generation.
 
 import asyncio
 import os
+import re
 from pathlib import Path
 
 ASSET_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets')
+_ASSET_DIR_RESOLVED = Path(ASSET_DIR).resolve()
+
+
+def _sanitize_filename(filename: str) -> str:
+    """Strip path traversal characters and restrict to safe filename chars.
+
+    Allows only alphanumerics, underscores, hyphens, and dots.
+    Raises ValueError if the result is empty or starts with a dot.
+    """
+    # Remove path separators and traversal
+    name = filename.replace('/', '').replace('\\', '').replace('..', '')
+    # Strip to safe chars only
+    name = re.sub(r'[^a-zA-Z0-9_\-.]', '', name)
+    # Reject empty or hidden files
+    if not name or name.startswith('.'):
+        raise ValueError(f'Invalid sprite filename: {filename!r}')
+    return name
 
 GENERATION_QUEUE: asyncio.Queue = asyncio.Queue()
 
@@ -221,6 +239,7 @@ def build_sprite_prompt(params: dict) -> tuple[str, str]:
 
 async def queue_sprite_generation(sprite_filename: str):
     """Queue a sprite for async generation. Non-blocking."""
+    sprite_filename = _sanitize_filename(sprite_filename)
     if sprite_filename in _in_flight:
         return  # already queued
     if sprite_exists(sprite_filename):
@@ -250,9 +269,12 @@ async def sprite_gen_worker():
             print(f'  [sprite_gen] Generating: {filename}')
             image_data = await generate_image(prompt, aspect_ratio)
 
-            # Save to assets directory
+            # Save to assets directory (with path confinement check)
             subdir = params.get('category', 'unknown')
-            filepath = os.path.join(ASSET_DIR, subdir, filename)
+            safe_name = _sanitize_filename(filename)
+            filepath = Path(ASSET_DIR, subdir, safe_name).resolve()
+            if not str(filepath).startswith(str(_ASSET_DIR_RESOLVED)):
+                raise ValueError(f'Path escape attempt: {filename!r}')
             os.makedirs(os.path.dirname(filepath), exist_ok=True)
             with open(filepath, 'wb') as f:
                 f.write(image_data)
@@ -269,8 +291,15 @@ async def sprite_gen_worker():
 
 def sprite_exists(filename: str) -> bool:
     """Check if sprite already exists in library."""
+    try:
+        safe = _sanitize_filename(filename)
+    except ValueError:
+        return False
     for subdir in ('bg', 'shop', 'her', 'items', 'fg'):
-        if Path(ASSET_DIR, subdir, filename).exists():
+        path = Path(ASSET_DIR, subdir, safe).resolve()
+        if not str(path).startswith(str(_ASSET_DIR_RESOLVED)):
+            continue
+        if path.exists():
             return True
     return False
 

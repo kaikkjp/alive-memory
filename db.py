@@ -1323,7 +1323,11 @@ async def create_chat_token(
 
 
 async def validate_chat_token(token: str) -> Optional[dict]:
-    """Validate a chat token. Returns token info or None if invalid."""
+    """Validate a chat token. Returns token info or None if invalid.
+
+    NOTE: This only checks validity. To atomically validate AND consume
+    a use, call validate_and_consume_chat_token() instead.
+    """
     conn = await get_db()
     cursor = await conn.execute(
         "SELECT * FROM chat_tokens WHERE token = ?", (token,)
@@ -1351,10 +1355,62 @@ async def validate_chat_token(token: str) -> Optional[dict]:
     }
 
 
+async def validate_and_consume_chat_token(token: str) -> Optional[dict]:
+    """Atomically validate and consume one use of a chat token.
+
+    Uses UPDATE ... WHERE uses_remaining > 0 to prevent race conditions.
+    Returns token info if valid and consumed, or None if invalid/exhausted.
+    """
+    conn = await get_db()
+    cursor = await conn.execute(
+        "SELECT * FROM chat_tokens WHERE token = ?", (token,)
+    )
+    row = await cursor.fetchone()
+    if not row:
+        return None
+
+    # Check expiry
+    if row['expires_at']:
+        expires = datetime.fromisoformat(row['expires_at'])
+        if expires.tzinfo is None:
+            expires = expires.replace(tzinfo=timezone.utc)
+        if datetime.now(timezone.utc) > expires:
+            return None
+
+    # For unlimited tokens (uses_remaining IS NULL), just validate
+    if row['uses_remaining'] is None:
+        return {
+            'token': row['token'],
+            'display_name': row['display_name'],
+            'uses_remaining': None,
+        }
+
+    # Atomic decrement — only succeeds if uses_remaining > 0
+    result = await conn.execute(
+        """UPDATE chat_tokens SET uses_remaining = uses_remaining - 1
+           WHERE token = ? AND uses_remaining > 0""",
+        (token,)
+    )
+    await conn.commit()
+
+    if result.rowcount == 0:
+        # Race: another request consumed the last use
+        return None
+
+    return {
+        'token': row['token'],
+        'display_name': row['display_name'],
+        'uses_remaining': row['uses_remaining'] - 1,
+    }
+
+
 async def consume_chat_token(token: str):
-    """Decrement uses_remaining for a token."""
+    """Decrement uses_remaining for a token.
+
+    DEPRECATED: Use validate_and_consume_chat_token() for atomic operations.
+    """
     await _exec_write(
         """UPDATE chat_tokens SET uses_remaining = uses_remaining - 1
-           WHERE token = ? AND uses_remaining IS NOT NULL""",
+           WHERE token = ? AND uses_remaining IS NOT NULL AND uses_remaining > 0""",
         (token,)
     )

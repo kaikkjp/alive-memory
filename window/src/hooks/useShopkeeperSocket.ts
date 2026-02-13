@@ -27,8 +27,10 @@ export function useShopkeeperSocket(): ShopkeeperState & {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectDelay = useRef(RECONNECT_BASE_MS);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const disposedRef = useRef(false);
 
   const connect = useCallback(() => {
+    if (disposedRef.current) return;
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
     const ws = new WebSocket(WS_URL);
@@ -51,7 +53,8 @@ export function useShopkeeperSocket(): ShopkeeperState & {
     ws.onclose = () => {
       setConnected(false);
       wsRef.current = null;
-      // Auto-reconnect with exponential backoff
+      // Only reconnect if not intentionally disposed
+      if (disposedRef.current) return;
       reconnectTimer.current = setTimeout(() => {
         reconnectDelay.current = Math.min(
           reconnectDelay.current * 2,
@@ -128,8 +131,10 @@ export function useShopkeeperSocket(): ShopkeeperState & {
   }, []);
 
   useEffect(() => {
+    disposedRef.current = false;
     connect();
     return () => {
+      disposedRef.current = true;
       clearTimeout(reconnectTimer.current);
       wsRef.current?.close();
     };
