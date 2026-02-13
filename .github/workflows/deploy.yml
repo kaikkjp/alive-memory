@@ -1,0 +1,21 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    name: Deploy Shopkeeper
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: shopkeeper
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script_stop: true
+          script: bash /var/www/shopkeeper/deploy/deploy.sh
