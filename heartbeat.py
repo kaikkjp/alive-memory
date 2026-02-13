@@ -20,6 +20,7 @@ from pipeline.cortex import cortex_call
 from pipeline.validator import validate
 from pipeline.executor import execute
 from pipeline.enrich import fetch_url_metadata
+from pipeline.day_memory import maybe_record_moment
 from sleep import sleep_cycle
 
 # Type for stage callbacks: async fn(stage_name, stage_data)
@@ -137,7 +138,12 @@ class Heartbeat:
         self._cycle_log_subscribers: dict[str, asyncio.Queue] = {}
         self._loop_task = None
         self._stage_callback: StageCallback = None
+        self._window_broadcast: Optional[Callable] = None
         self._error_backoff = 5
+
+    def set_window_broadcast(self, cb: Callable):
+        """Set callback for broadcasting to window viewers."""
+        self._window_broadcast = cb
 
     def _pick_fidget_behavior(self) -> tuple[str, str]:
         """Pick a fidget behavior while avoiding immediate repetition."""
@@ -229,14 +235,18 @@ class Heartbeat:
             try:
                 # ── Sleep cycle check ──
                 if self._should_sleep():
-                    self._last_sleep_date = datetime.now(JST).date().isoformat()
                     try:
                         await self._emit_stage('sleep', {'status': 'entering_sleep'})
-                        await sleep_cycle()
-                        await self._emit_stage('sleep', {'status': 'woke_up'})
+                        ran = await sleep_cycle()
+                        if ran:
+                            self._last_sleep_date = datetime.now(JST).date().isoformat()
+                            await self._emit_stage('sleep', {'status': 'woke_up'})
+                        else:
+                            # Deferred — do NOT stamp _last_sleep_date.
+                            # Will retry on next loop iteration.
+                            await self._emit_stage('sleep', {'status': 'deferred'})
                     except Exception as e:
                         print(f"  [Heartbeat] Sleep cycle error: {e}")
-                    # After sleep, continue the loop
                     await self._interruptible_sleep(60)
                     continue
 
@@ -429,6 +439,12 @@ class Heartbeat:
 
         # 2. Load and update drives (persist inside transaction below)
         drives = await db.get_drives_state()
+        drives_before = DrivesState(
+            social_hunger=drives.social_hunger, curiosity=drives.curiosity,
+            expression_need=drives.expression_need, rest_need=drives.rest_need,
+            energy=drives.energy, mood_valence=drives.mood_valence,
+            mood_arousal=drives.mood_arousal,
+        )
         elapsed = (start_time - self._last_cycle_ts).total_seconds() / 3600.0
         self._last_cycle_ts = start_time
         drives, feelings = await update_drives(drives, elapsed, unread)
@@ -589,7 +605,7 @@ class Heartbeat:
 
         async with db.transaction():
             await db.save_drives_state(drives)
-            await execute(validated, visitor_id)
+            await execute(validated, visitor_id, cycle_id=cycle_id)
             for event in unread:
                 await db.inbox_mark_read(event.id)
             await db.log_cycle(log)
@@ -611,6 +627,40 @@ class Heartbeat:
                     'farewell': farewell,
                 })
         self._error_backoff = 5  # reset backoff on successful cycle
+
+        # ── Window broadcast: push scene update to web viewers ──
+        if self._window_broadcast:
+            try:
+                from window_state import build_cycle_broadcast
+                room = await db.get_room_state()
+                ambient = {'condition': room.weather}
+                shelf_items = await db.get_shelf_assignments()
+                broadcast_msg = await build_cycle_broadcast(
+                    cycle_log=log,
+                    drives=drives,
+                    ambient=ambient,
+                    focus=routing.focus if routing else None,
+                    engagement=engagement,
+                    clock_now=datetime.now(timezone.utc),
+                    shelf_items=shelf_items,
+                    shop_status=room.shop_status,
+                )
+                await self._window_broadcast(broadcast_msg)
+            except Exception as e:
+                print(f"  [WindowBroadcast] Error: {e}")
+
+        # ── Day Memory: record salient moment from this cycle ──
+        try:
+            cycle_context = self._build_cycle_context(
+                cycle_id=cycle_id, mode=mode, visitor=visitor,
+                visitor_id=visitor_id, engagement=engagement,
+                drives_before=drives_before, drives_after=drives,
+                unread=unread,
+            )
+            await maybe_record_moment(validated, cycle_context)
+        except Exception as e:
+            # Day memory failure must NOT break the main cycle
+            print(f"  [DayMemory] Error recording moment: {e}")
 
         # Broadcast to all subscribers (bounded queues, drop oldest if full)
         for sub_id, q in list(self._cycle_log_subscribers.items()):
@@ -651,6 +701,52 @@ class Heartbeat:
             features={'is_silence': True, 'idle_seconds': idle_seconds},
             salience=salience,
         )
+
+    def _build_cycle_context(
+        self, cycle_id: str, mode: str, visitor, visitor_id: str,
+        engagement, drives_before, drives_after, unread: list,
+    ) -> dict:
+        """Build cycle_context dict for day memory moment extraction. Deterministic."""
+        drive_fields = [
+            'social_hunger', 'curiosity', 'expression_need',
+            'rest_need', 'energy', 'mood_valence', 'mood_arousal',
+        ]
+        max_delta = 0.0
+        for field in drive_fields:
+            before_val = getattr(drives_before, field, 0.0)
+            after_val = getattr(drives_after, field, 0.0)
+            max_delta = max(max_delta, abs(after_val - before_val))
+
+        had_contradiction = any(
+            e.event_type == 'internal_shift_candidate' for e in unread
+        )
+
+        is_abrupt_end = (
+            any(e.event_type == 'visitor_disconnect' for e in unread)
+            and engagement.turn_count < 3
+        )
+
+        is_silence_moment = False
+        if (mode in ('ambient', 'idle')
+                and engagement.status == 'engaged'
+                and engagement.last_activity is not None):
+            idle_s = (datetime.now(timezone.utc) - engagement.last_activity).total_seconds()
+            is_silence_moment = idle_s > 1800
+
+        return {
+            'cycle_id': cycle_id,
+            'mode': mode,
+            'visitor_id': visitor_id,
+            'visitor_name': visitor.name if visitor else None,
+            'trust_level': visitor.trust_level if visitor else 'stranger',
+            'event_ids': [e.id for e in unread],
+            'max_drive_delta': max_delta,
+            'had_contradiction': had_contradiction,
+            'is_abrupt_end': is_abrupt_end,
+            'is_silence_moment': is_silence_moment,
+            'is_novel_topic': False,  # deferred to Phase 2
+            'turn_count': engagement.turn_count,
+        }
 
     def subscribe_cycle_logs(self, subscriber_id: str, maxsize: int = 50) -> asyncio.Queue:
         """Register a subscriber for cycle logs. Returns their personal queue."""
