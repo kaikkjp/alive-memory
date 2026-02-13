@@ -130,3 +130,22 @@ class DailySummary:
     emotional_arc: Optional[str] = None
     notable_totems: list = field(default_factory=list)
     created_at: Optional[datetime] = None
+
+
+@dataclass
+class Thread:
+    id: str
+    thread_type: str                    # question | project | anticipation | unresolved | ritual
+    title: str
+    status: str = 'open'               # open | active | dormant | archived | closed
+    priority: float = 0.5
+    content: Optional[str] = None      # her current thinking
+    resolution: Optional[str] = None   # how it ended (if closed)
+    created_at: Optional[datetime] = None
+    last_touched: Optional[datetime] = None
+    touch_count: int = 0
+    touch_reason: Optional[str] = None
+    target_date: Optional[str] = None
+    source_visitor_id: Optional[str] = None
+    source_event_id: Optional[str] = None
+    tags: list = field(default_factory=list)

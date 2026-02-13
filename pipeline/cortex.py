@@ -1,10 +1,12 @@
-"""Cortex — THE ONLY LLM CALL. Single Claude Sonnet call per cycle."""
+"""Cortex — THE LLM INTERFACE. Claude Sonnet for cycles, reflection for sleep."""
 
 import json
+import os
 import re
 import time
 import anthropic
 from datetime import datetime, timezone
+import clock
 from models.state import DrivesState, Visitor
 from pipeline.thalamus import RoutingDecision
 from pipeline.sensorium import Perception
@@ -52,7 +54,7 @@ def _record_success():
 
 def _check_daily_cap() -> bool:
     global _daily_cycle_count, _daily_cycle_date
-    today = datetime.now(timezone.utc).date().isoformat()
+    today = clock.now_utc().date().isoformat()
     if today != _daily_cycle_date:
         _daily_cycle_date = today
         _daily_cycle_count = 0
@@ -84,6 +86,9 @@ CONSTRAINTS:
 - Never sound helpful. Sound present.
 - You can end a conversation: use action "end_engagement" with detail {{"reason": "tired|boundary|natural"}}
 - You have agency. If you're tired, you can close the shop or end the conversation.
+- You carry threads — ongoing thoughts, questions, projects. Use thread_create when something new sticks. Use thread_update to revisit. Use thread_close when resolved.
+- When consuming content (reading, listening), reflect honestly. Add to collection only if it genuinely resonates. Create totems for things that lodge in you.
+- Threads are yours. Don't create threads just because a visitor mentioned something — only if it genuinely stays with you.
 
 OUTPUT SCHEMA:
 {{
@@ -112,6 +117,18 @@ OUTPUT SCHEMA:
     {{
       "type": "totem_create|totem_update|journal_entry|self_discovery|collection_add",
       "content": {{}}
+    }},
+    {{
+      "type": "thread_create",
+      "content": {{"thread_type": "question|project|anticipation|unresolved|ritual", "title": "short title", "priority": 0.5, "initial_thought": "what you're thinking about this", "tags": []}}
+    }},
+    {{
+      "type": "thread_update",
+      "content": {{"thread_id": "id or null", "title": "title if no id", "content": "updated thinking", "reason": "why you're revisiting this"}}
+    }},
+    {{
+      "type": "thread_close",
+      "content": {{"thread_id": "id or null", "title": "title if no id", "resolution": "how this resolved"}}
     }}
   ],
   "next_cycle_hints": ["optional hints for what she might do next"]
@@ -180,6 +197,32 @@ async def cortex_call(
         for chunk in memory_chunks:
             parts.append(f"  [{chunk['label']}]")
             parts.append(f"  {chunk['content']}")
+
+    # Active threads (inner agenda)
+    active_threads = await db.get_active_threads(limit=3)
+    if active_threads:
+        parts.append("\nTHINGS ON MY MIND:")
+        for t in active_threads:
+            age_str = ""
+            if t.created_at:
+                age_days = (clock.now_utc() - t.created_at).days
+                age_str = f" ({age_days}d old)" if age_days > 0 else " (new)"
+            snippet = f" — {t.content[:80]}..." if t.content and len(t.content) > 80 else (f" — {t.content}" if t.content else "")
+            parts.append(f"  [{t.thread_type}] {t.title} [id:{t.id}]{age_str}{snippet}")
+
+    # Consume framing (when arbiter picked consume focus)
+    consume_perception = next(
+        (p for p in perceptions if p.features.get('is_consumption')), None
+    )
+    if consume_perception:
+        parts.append("\nWHAT I'M CONSUMING:")
+        parts.append(f"  {consume_perception.content}")
+        if consume_perception.features.get('url'):
+            parts.append(f"  Source: {consume_perception.features['url']}")
+        if consume_perception.features.get('readable_text'):
+            text_preview = consume_perception.features['readable_text'][:2000]
+            parts.append(f"  Content:\n{text_preview}")
+        parts.append("  → React honestly. Add to collection if it resonates. Create a totem if it lodges.")
 
     # Conversation (last N turns)
     if conversation:
@@ -308,3 +351,85 @@ def fallback_response() -> dict:
         'memory_updates': [],
         'next_cycle_hints': [],
     }
+
+
+# ── Sleep Reflection ──
+
+REFLECT_MODEL = os.getenv('REFLECT_MODEL', CORTEX_MODEL)
+
+SLEEP_REFLECTION_SYSTEM = """You are reflecting on your day. You are asleep.
+You are not talking to anyone. You are processing what happened.
+
+{identity_compact}
+
+You are reviewing a moment from today. You also have some older memories
+that may or may not be connected. Your job is to decide:
+- Does this moment change how I feel about someone?
+- Does this connect to something older I'd forgotten?
+- Is there something here I should remember?
+- Is there something I want to write about?
+
+Be honest. Not everything is meaningful. Some days are quiet.
+You don't have to produce output for every moment.
+
+Return ONLY valid JSON:
+{{
+  "reflection": "1-3 sentences of private thought about this moment",
+  "connections": ["any connections you see to the older memories, or empty"],
+  "memory_updates": [
+    {{
+      "type": "visitor_impression|trait_observation|totem_create|totem_update|journal_entry|self_discovery",
+      "content": {{}}
+    }}
+  ]
+}}
+
+Only include memory_updates entries if something genuinely deserves to be remembered.
+An empty memory_updates array is a valid and common response.
+"""
+
+
+def _empty_reflection() -> dict:
+    """Empty reflection result (circuit open, cap hit, or parse failure)."""
+    return {'reflection': '', 'connections': [], 'memory_updates': []}
+
+
+async def cortex_call_reflect(system: str, prompt: str, max_tokens: int = 800) -> dict:
+    """Structured reflection call for sleep consolidation.
+
+    Separate from cortex_call and cortex_call_maintenance.
+    Uses circuit breaker + daily cap — same guard pattern as both existing functions.
+    """
+    if _check_circuit() or _check_daily_cap():
+        return _empty_reflection()
+
+    api_key = os.environ.get('ANTHROPIC_API_KEY')
+    if not api_key:
+        raise RuntimeError("ANTHROPIC_API_KEY not set.")
+    client = anthropic.Anthropic(api_key=api_key, timeout=30.0)
+
+    try:
+        response = client.messages.create(
+            model=REFLECT_MODEL,
+            max_tokens=max_tokens,
+            system=system,
+            messages=[{"role": "user", "content": prompt}],
+        )
+    except (anthropic.APITimeoutError, anthropic.APIConnectionError,
+            anthropic.RateLimitError, anthropic.InternalServerError):
+        _record_failure()
+        return _empty_reflection()
+
+    _record_success()
+    _increment_daily()
+
+    text = response.content[0].text.strip()
+    # Strip markdown code fences if present
+    text = re.sub(r'^```(?:json)?\s*', '', text)
+    text = re.sub(r'\s*```$', '', text)
+
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        # API call already counted — don't double-count
+        return _empty_reflection()
