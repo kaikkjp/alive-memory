@@ -1,0 +1,29 @@
+[Unit]
+Description=Shopkeeper Heartbeat Server
+Documentation=https://github.com/TriMinhPham/shopkeeper
+After=network.target
+
+[Service]
+Type=simple
+User=shopkeeper
+Group=shopkeeper
+WorkingDirectory=/var/www/shopkeeper
+ExecStart=/var/www/shopkeeper/.venv/bin/python heartbeat_server.py
+EnvironmentFile=/var/www/shopkeeper/.env
+Restart=always
+RestartSec=5
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=shopkeeper
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/www/shopkeeper/data /var/www/shopkeeper/assets
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

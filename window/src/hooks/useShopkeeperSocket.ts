@@ -9,7 +9,15 @@ import type {
   ShopkeeperState,
 } from '@/lib/types';
 
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8765';
+// In production (behind nginx), WebSocket is at wss://<host>/ws/.
+// In development, fall back to the local heartbeat server.
+function getWsUrl(): string {
+  if (process.env.NEXT_PUBLIC_WS_URL) return process.env.NEXT_PUBLIC_WS_URL;
+  if (typeof window === 'undefined') return 'ws://localhost:8765';
+  const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${proto}//${window.location.host}/ws/`;
+}
+const WS_URL = getWsUrl();
 const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 30000;
 const MAX_TEXT_ENTRIES = 8;

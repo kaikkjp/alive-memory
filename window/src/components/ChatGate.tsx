@@ -16,7 +16,7 @@ export default function ChatGate({ onAuthenticated }: ChatGateProps) {
   const [error, setError] = useState('');
   const [validating, setValidating] = useState(false);
 
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || '';
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {

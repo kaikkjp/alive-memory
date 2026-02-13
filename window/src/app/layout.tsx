@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
 import './globals.css';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+// OG images require absolute URLs for social crawlers.
+// Set NEXT_PUBLIC_SITE_URL at build time in production.
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:8080';
 
 export const metadata: Metadata = {
   title: 'The Shopkeeper',
@@ -9,14 +11,14 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'The Shopkeeper',
     description: 'A window into her world.',
-    images: [`${API_BASE}/api/og`],
+    images: [`${SITE_URL}/api/og`],
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'The Shopkeeper',
     description: 'A window into her world.',
-    images: [`${API_BASE}/api/og`],
+    images: [`${SITE_URL}/api/og`],
   },
 };
 
