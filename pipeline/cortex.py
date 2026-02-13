@@ -1,10 +1,12 @@
 """Cortex — THE LLM INTERFACE. Claude Sonnet for cycles, reflection for sleep."""
 
+import asyncio
 import json
 import os
 import re
 import time
 import anthropic
+import httpx
 from datetime import datetime, timezone
 import clock
 from models.state import DrivesState, Visitor
@@ -15,6 +17,7 @@ from config.identity import IDENTITY_COMPACT, VOICE_CHECKSUM
 import db
 
 CORTEX_MODEL = "claude-sonnet-4-5-20250929"
+API_CALL_TIMEOUT = 60.0  # Hard timeout per request (seconds)
 
 # ── Circuit Breaker & Cost Controls ──
 
@@ -50,6 +53,30 @@ def _record_success():
     global _consecutive_failures, _circuit_open_until
     _consecutive_failures = 0
     _circuit_open_until = 0.0
+
+
+# ── Singleton Async Client ──
+
+_client: anthropic.AsyncAnthropic | None = None
+
+
+def _get_client() -> anthropic.AsyncAnthropic:
+    """Return a reused async Anthropic client.
+
+    Uses AsyncAnthropic so that ``await client.messages.create(...)`` is a
+    true coroutine — ``asyncio.wait_for`` can cancel the underlying httpx
+    request on timeout instead of leaving an orphaned worker thread.
+    """
+    global _client
+    api_key = os.environ.get('ANTHROPIC_API_KEY')
+    if not api_key:
+        raise RuntimeError(
+            "ANTHROPIC_API_KEY not set. Export it before running: "
+            "export ANTHROPIC_API_KEY='sk-ant-...'"
+        )
+    if _client is None:
+        _client = anthropic.AsyncAnthropic(api_key=api_key, timeout=30.0)
+    return _client
 
 
 def _check_daily_cap() -> bool:
@@ -147,14 +174,7 @@ async def cortex_call(
 ) -> dict:
     """The one LLM call. Build prompt pack, call model, return structured response."""
 
-    import os
-    api_key = os.environ.get('ANTHROPIC_API_KEY')
-    if not api_key:
-        raise RuntimeError(
-            "ANTHROPIC_API_KEY not set. Export it before running: "
-            "export ANTHROPIC_API_KEY='sk-ant-...'"
-        )
-    client = anthropic.Anthropic(api_key=api_key, timeout=30.0)
+    client = _get_client()
 
     # Circuit breaker / daily cap check
     if _check_circuit() or _check_daily_cap():
@@ -256,14 +276,27 @@ async def cortex_call(
     user_message = "\n".join(parts)
 
     try:
-        response = client.messages.create(
-            model=CORTEX_MODEL,
-            max_tokens=1500,
-            system=system,
-            messages=[{"role": "user", "content": user_message}],
+        print(f"[Cortex] API call start — {routing.cycle_type}")
+        response = await asyncio.wait_for(
+            client.messages.create(
+                model=CORTEX_MODEL,
+                max_tokens=1500,
+                system=system,
+                messages=[{"role": "user", "content": user_message}],
+            ),
+            timeout=API_CALL_TIMEOUT,
         )
-    except (anthropic.APITimeoutError, anthropic.APIConnectionError,
-            anthropic.RateLimitError, anthropic.InternalServerError) as e:
+        print(f"[Cortex] API call done — {routing.cycle_type}")
+    except asyncio.TimeoutError:
+        print(f"[Cortex] Hard timeout ({API_CALL_TIMEOUT}s) — {routing.cycle_type}")
+        _record_failure()
+        return fallback_response()
+    except (anthropic.APIError, httpx.TimeoutException) as e:
+        print(f"[Cortex] API error: {type(e).__name__}: {e}")
+        _record_failure()
+        return fallback_response()
+    except Exception as e:
+        print(f"[Cortex] Unexpected error: {type(e).__name__}: {e}")
         _record_failure()
         return fallback_response()
 
@@ -285,11 +318,7 @@ async def cortex_call(
 async def cortex_call_maintenance(mode: str, digest: dict, max_tokens: int = 600) -> dict:
     """Maintenance call for sleep cycle journal writing."""
 
-    import os
-    api_key = os.environ.get('ANTHROPIC_API_KEY')
-    if not api_key:
-        raise RuntimeError("ANTHROPIC_API_KEY not set.")
-    client = anthropic.Anthropic(api_key=api_key, timeout=30.0)
+    client = _get_client()
 
     if _check_circuit() or _check_daily_cap():
         return {
@@ -307,14 +336,33 @@ Return JSON: {{"journal": "your entry", "summary": {{"summary_bullets": ["..."],
     user_message = f"Today's digest:\n{json.dumps(digest, indent=2)}"
 
     try:
-        response = client.messages.create(
-            model=CORTEX_MODEL,
-            max_tokens=max_tokens,
-            system=system,
-            messages=[{"role": "user", "content": user_message}],
+        print(f"[Cortex] Maintenance API call start — {mode}")
+        response = await asyncio.wait_for(
+            client.messages.create(
+                model=CORTEX_MODEL,
+                max_tokens=max_tokens,
+                system=system,
+                messages=[{"role": "user", "content": user_message}],
+            ),
+            timeout=API_CALL_TIMEOUT,
         )
-    except (anthropic.APITimeoutError, anthropic.APIConnectionError,
-            anthropic.RateLimitError, anthropic.InternalServerError) as e:
+        print(f"[Cortex] Maintenance API call done — {mode}")
+    except asyncio.TimeoutError:
+        print(f"[Cortex] Maintenance hard timeout ({API_CALL_TIMEOUT}s) — {mode}")
+        _record_failure()
+        return {
+            'journal': 'Today happened. I am still here.',
+            'summary': {'summary_bullets': ['another day'], 'emotional_arc': 'quiet'},
+        }
+    except (anthropic.APIError, httpx.TimeoutException) as e:
+        print(f"[Cortex] Maintenance API error: {type(e).__name__}: {e}")
+        _record_failure()
+        return {
+            'journal': 'Today happened. I am still here.',
+            'summary': {'summary_bullets': ['another day'], 'emotional_arc': 'quiet'},
+        }
+    except Exception as e:
+        print(f"[Cortex] Maintenance unexpected error: {type(e).__name__}: {e}")
         _record_failure()
         return {
             'journal': 'Today happened. I am still here.',
@@ -399,24 +447,35 @@ async def cortex_call_reflect(system: str, prompt: str, max_tokens: int = 800) -
 
     Separate from cortex_call and cortex_call_maintenance.
     Uses circuit breaker + daily cap — same guard pattern as both existing functions.
+    Uses shared AsyncAnthropic singleton + hard timeout for cancellation safety.
     """
     if _check_circuit() or _check_daily_cap():
         return _empty_reflection()
 
-    api_key = os.environ.get('ANTHROPIC_API_KEY')
-    if not api_key:
-        raise RuntimeError("ANTHROPIC_API_KEY not set.")
-    client = anthropic.Anthropic(api_key=api_key, timeout=30.0)
+    client = _get_client()
 
     try:
-        response = client.messages.create(
-            model=REFLECT_MODEL,
-            max_tokens=max_tokens,
-            system=system,
-            messages=[{"role": "user", "content": prompt}],
+        print(f"[Cortex] Reflect API call start")
+        response = await asyncio.wait_for(
+            client.messages.create(
+                model=REFLECT_MODEL,
+                max_tokens=max_tokens,
+                system=system,
+                messages=[{"role": "user", "content": prompt}],
+            ),
+            timeout=API_CALL_TIMEOUT,
         )
-    except (anthropic.APITimeoutError, anthropic.APIConnectionError,
-            anthropic.RateLimitError, anthropic.InternalServerError):
+        print(f"[Cortex] Reflect API call done")
+    except asyncio.TimeoutError:
+        print(f"[Cortex] Reflect hard timeout ({API_CALL_TIMEOUT}s)")
+        _record_failure()
+        return _empty_reflection()
+    except (anthropic.APIError, httpx.TimeoutException) as e:
+        print(f"[Cortex] Reflect API error: {type(e).__name__}: {e}")
+        _record_failure()
+        return _empty_reflection()
+    except Exception as e:
+        print(f"[Cortex] Reflect unexpected error: {type(e).__name__}: {e}")
         _record_failure()
         return _empty_reflection()
 
