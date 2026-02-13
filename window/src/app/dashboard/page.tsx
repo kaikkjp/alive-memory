@@ -24,6 +24,16 @@ export default function DashboardPage() {
       setPassword(stored);
       setAuthenticated(true);
     }
+
+    // Listen for auth failures from API calls
+    const handleStorageChange = () => {
+      if (!sessionStorage.getItem('dashboard_password')) {
+        setAuthenticated(false);
+        setError('Session expired - please log in again');
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {

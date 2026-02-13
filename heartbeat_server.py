@@ -932,7 +932,7 @@ class ShopkeeperServer:
             'HTTP/1.1 204 No Content\r\n'
             'Access-Control-Allow-Origin: *\r\n'
             'Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n'
-            'Access-Control-Allow-Headers: Content-Type\r\n'
+            'Access-Control-Allow-Headers: Content-Type, Authorization\r\n'
             'Access-Control-Max-Age: 86400\r\n'
             'Content-Length: 0\r\n'
             'Connection: close\r\n'
@@ -946,7 +946,7 @@ class ShopkeeperServer:
         """Send an HTTP JSON response."""
         payload = json.dumps(body)
         status_text = {
-            200: 'OK', 204: 'No Content', 400: 'Bad Request',
+            200: 'OK', 204: 'No Content', 400: 'Bad Request', 401: 'Unauthorized',
             403: 'Forbidden', 404: 'Not Found',
             413: 'Payload Too Large', 431: 'Request Header Fields Too Large',
             500: 'Internal Server Error', 503: 'Service Unavailable',
@@ -957,7 +957,7 @@ class ShopkeeperServer:
             f'Content-Length: {len(payload)}\r\n'
             f'Access-Control-Allow-Origin: *\r\n'
             f'Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n'
-            f'Access-Control-Allow-Headers: Content-Type\r\n'
+            f'Access-Control-Allow-Headers: Content-Type, Authorization\r\n'
             f'Connection: close\r\n'
             f'\r\n'
             f'{payload}'

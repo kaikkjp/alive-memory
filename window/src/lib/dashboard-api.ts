@@ -19,10 +19,24 @@ export async function dashboardFetch(
     headers.set('Authorization', `Bearer ${password}`);
   }
 
-  return fetch(`${API_BASE}${path}`, {
+  const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers,
   });
+
+  // Handle auth failures (expired/invalid password)
+  if (res.status === 401) {
+    // Clear stored password and force re-login
+    sessionStorage.removeItem('dashboard_password');
+    throw new Error('Unauthorized - please log in again');
+  }
+
+  // Throw on other non-2xx errors
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+  }
+
+  return res;
 }
 
 export const dashboardApi = {
