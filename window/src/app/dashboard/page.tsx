@@ -8,6 +8,7 @@ import ThreadsPanel from '@/components/dashboard/ThreadsPanel';
 import PoolPanel from '@/components/dashboard/PoolPanel';
 import CollectionPanel from '@/components/dashboard/CollectionPanel';
 import TimelinePanel from '@/components/dashboard/TimelinePanel';
+import ControlsPanel from '@/components/dashboard/ControlsPanel';
 
 export default function DashboardPage() {
   const [authenticated, setAuthenticated] = useState(false);
@@ -110,6 +111,7 @@ export default function DashboardPage() {
           <PoolPanel />
           <CollectionPanel />
           <TimelinePanel />
+          <ControlsPanel />
         </div>
       </div>
     </div>

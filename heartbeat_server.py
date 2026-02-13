@@ -719,6 +719,10 @@ class ShopkeeperServer:
                 await self._http_dashboard_collection(writer)
             elif path == '/api/dashboard/timeline' and method == 'GET':
                 await self._http_dashboard_timeline(writer)
+            elif path == '/api/dashboard/controls/cycle' and method == 'POST':
+                await self._http_dashboard_trigger_cycle(writer)
+            elif path == '/api/dashboard/controls/status' and method == 'GET':
+                await self._http_dashboard_status(writer)
             else:
                 await self._http_json(writer, 404, {'error': 'not found'})
         except (asyncio.TimeoutError, ConnectionResetError, BrokenPipeError):
@@ -916,6 +920,22 @@ class ShopkeeperServer:
             'payload': e.payload,
         } for e in events]
         await self._http_json(writer, 200, {'timeline': timeline})
+
+    async def _http_dashboard_trigger_cycle(self, writer: asyncio.StreamWriter):
+        """Handle POST /api/dashboard/controls/cycle — manually trigger a cycle."""
+        await self.heartbeat.schedule_microcycle()
+        await self._http_json(writer, 200, {'triggered': True})
+
+    async def _http_dashboard_status(self, writer: asyncio.StreamWriter):
+        """Handle GET /api/dashboard/controls/status — return heartbeat status."""
+        engagement = await db.get_engagement_state()
+        room = await db.get_room_state()
+        await self._http_json(writer, 200, {
+            'heartbeat_active': self.heartbeat._running if hasattr(self.heartbeat, '_running') else False,
+            'engagement_status': engagement.status,
+            'shop_status': room.shop_status,
+            'active_visitor': engagement.visitor_id,
+        })
 
     async def _http_cors_preflight(self, writer: asyncio.StreamWriter):
         """Handle OPTIONS preflight for CORS."""
