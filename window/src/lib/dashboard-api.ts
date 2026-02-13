@@ -4,6 +4,8 @@
  * Reads NEXT_PUBLIC_DASHBOARD_API_URL from env, falls back to localhost.
  */
 
+import { authManager } from './auth-manager';
+
 const API_BASE =
   process.env.NEXT_PUBLIC_DASHBOARD_API_URL || 'http://localhost:8080';
 
@@ -12,7 +14,7 @@ export async function dashboardFetch(
   options: RequestInit = {}
 ): Promise<Response> {
   // Add Authorization header if password is stored
-  const password = sessionStorage.getItem('dashboard_password');
+  const password = authManager.getPassword();
   const headers = new Headers(options.headers);
 
   if (password && !path.endsWith('/auth')) {
@@ -26,8 +28,8 @@ export async function dashboardFetch(
 
   // Handle auth failures (expired/invalid password)
   if (res.status === 401) {
-    // Clear stored password and force re-login
-    sessionStorage.removeItem('dashboard_password');
+    // Signal session expiry to all subscribers (same-tab fix)
+    authManager.signalSessionExpired();
     throw new Error('Unauthorized - please log in again');
   }
 
