@@ -1,5 +1,6 @@
 'use client';
 
+import { dashboardApi } from '@/lib/dashboard-api';
 import { useState, useEffect } from 'react';
 
 interface CostsSummary {
@@ -27,8 +28,7 @@ export default function CostsPanel() {
 
   const fetchCosts = async () => {
     try {
-      const res = await fetch('http://localhost:8080/api/dashboard/costs');
-      const data = await res.json();
+      const data = await dashboardApi.getCosts();
       setCosts(data);
     } catch (err) {
       console.error('Failed to fetch costs:', err);

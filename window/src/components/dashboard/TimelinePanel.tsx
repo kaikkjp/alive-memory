@@ -1,5 +1,6 @@
 'use client';
 
+import { dashboardApi } from '@/lib/dashboard-api';
 import { useState, useEffect } from 'react';
 
 interface TimelineEvent {
@@ -16,8 +17,7 @@ export default function TimelinePanel() {
 
   const fetchTimeline = async () => {
     try {
-      const res = await fetch('http://localhost:8080/api/dashboard/timeline');
-      const data = await res.json();
+      const data = await dashboardApi.getTimeline();
       setEvents(data.timeline || []);
     } catch (err) {
       console.error('Failed to fetch timeline:', err);

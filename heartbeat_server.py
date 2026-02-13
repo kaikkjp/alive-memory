@@ -653,8 +653,9 @@ class ShopkeeperServer:
             if not request_line:
                 return
 
-            # Read headers, capture Content-Length for POST body
+            # Read headers, capture Content-Length and Authorization
             content_length = 0
+            auth_header = None
             header_count = 0
             while True:
                 line = await asyncio.wait_for(reader.readline(), timeout=5)
@@ -667,12 +668,15 @@ class ShopkeeperServer:
                 if len(line) > self._MAX_HEADER_BYTES:
                     await self._http_json(writer, 431, {'error': 'header too large'})
                     return
-                header = line.decode('utf-8', errors='replace').strip().lower()
-                if header.startswith('content-length:'):
+                header = line.decode('utf-8', errors='replace').strip()
+                header_lower = header.lower()
+                if header_lower.startswith('content-length:'):
                     try:
                         content_length = int(header.split(':', 1)[1].strip())
                     except ValueError:
                         pass
+                elif header_lower.startswith('authorization:'):
+                    auth_header = header.split(':', 1)[1].strip()
 
             request_text = request_line.decode('utf-8', errors='replace').strip()
             parts = request_text.split()
@@ -705,24 +709,30 @@ class ShopkeeperServer:
             # Dashboard API endpoints (password-protected)
             elif path == '/api/dashboard/auth' and method == 'POST':
                 await self._http_dashboard_auth(writer, body_bytes)
-            elif path == '/api/dashboard/vitals' and method == 'GET':
-                await self._http_dashboard_vitals(writer)
-            elif path == '/api/dashboard/drives' and method == 'GET':
-                await self._http_dashboard_drives(writer)
-            elif path == '/api/dashboard/costs' and method == 'GET':
-                await self._http_dashboard_costs(writer)
-            elif path == '/api/dashboard/threads' and method == 'GET':
-                await self._http_dashboard_threads(writer)
-            elif path == '/api/dashboard/pool' and method == 'GET':
-                await self._http_dashboard_pool(writer)
-            elif path == '/api/dashboard/collection' and method == 'GET':
-                await self._http_dashboard_collection(writer)
-            elif path == '/api/dashboard/timeline' and method == 'GET':
-                await self._http_dashboard_timeline(writer)
-            elif path == '/api/dashboard/controls/cycle' and method == 'POST':
-                await self._http_dashboard_trigger_cycle(writer)
-            elif path == '/api/dashboard/controls/status' and method == 'GET':
-                await self._http_dashboard_status(writer)
+            elif path.startswith('/api/dashboard/'):
+                # All dashboard endpoints except /auth require auth
+                if not self._check_dashboard_auth(auth_header):
+                    await self._http_json(writer, 401, {'error': 'unauthorized'})
+                elif path == '/api/dashboard/vitals' and method == 'GET':
+                    await self._http_dashboard_vitals(writer)
+                elif path == '/api/dashboard/drives' and method == 'GET':
+                    await self._http_dashboard_drives(writer)
+                elif path == '/api/dashboard/costs' and method == 'GET':
+                    await self._http_dashboard_costs(writer)
+                elif path == '/api/dashboard/threads' and method == 'GET':
+                    await self._http_dashboard_threads(writer)
+                elif path == '/api/dashboard/pool' and method == 'GET':
+                    await self._http_dashboard_pool(writer)
+                elif path == '/api/dashboard/collection' and method == 'GET':
+                    await self._http_dashboard_collection(writer)
+                elif path == '/api/dashboard/timeline' and method == 'GET':
+                    await self._http_dashboard_timeline(writer)
+                elif path == '/api/dashboard/controls/cycle' and method == 'POST':
+                    await self._http_dashboard_trigger_cycle(writer)
+                elif path == '/api/dashboard/controls/status' and method == 'GET':
+                    await self._http_dashboard_status(writer)
+                else:
+                    await self._http_json(writer, 404, {'error': 'not found'})
             else:
                 await self._http_json(writer, 404, {'error': 'not found'})
         except (asyncio.TimeoutError, ConnectionResetError, BrokenPipeError):
@@ -796,6 +806,25 @@ class ShopkeeperServer:
             })
         else:
             await self._http_json(writer, 403, {'valid': False})
+
+    def _check_dashboard_auth(self, auth_header: str | None) -> bool:
+        """Check if Authorization header contains valid dashboard password.
+
+        Expected format: "Bearer <password>"
+        """
+        if not auth_header:
+            return False
+
+        expected = os.environ.get('DASHBOARD_PASSWORD')
+        if not expected:
+            return False
+
+        # Parse "Bearer <password>"
+        parts = auth_header.split(' ', 1)
+        if len(parts) != 2 or parts[0] != 'Bearer':
+            return False
+
+        return parts[1] == expected
 
     async def _http_dashboard_auth(self, writer: asyncio.StreamWriter,
                                      body_bytes: bytes):
@@ -943,7 +972,7 @@ class ShopkeeperServer:
             'HTTP/1.1 204 No Content\r\n'
             'Access-Control-Allow-Origin: *\r\n'
             'Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n'
-            'Access-Control-Allow-Headers: Content-Type\r\n'
+            'Access-Control-Allow-Headers: Content-Type, Authorization\r\n'
             'Access-Control-Max-Age: 86400\r\n'
             'Content-Length: 0\r\n'
             'Connection: close\r\n'
@@ -957,7 +986,7 @@ class ShopkeeperServer:
         """Send an HTTP JSON response."""
         payload = json.dumps(body)
         status_text = {
-            200: 'OK', 204: 'No Content', 400: 'Bad Request',
+            200: 'OK', 204: 'No Content', 400: 'Bad Request', 401: 'Unauthorized',
             403: 'Forbidden', 404: 'Not Found',
             413: 'Payload Too Large', 431: 'Request Header Fields Too Large',
             500: 'Internal Server Error', 503: 'Service Unavailable',
@@ -968,7 +997,7 @@ class ShopkeeperServer:
             f'Content-Length: {len(payload)}\r\n'
             f'Access-Control-Allow-Origin: *\r\n'
             f'Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n'
-            f'Access-Control-Allow-Headers: Content-Type\r\n'
+            f'Access-Control-Allow-Headers: Content-Type, Authorization\r\n'
             f'Connection: close\r\n'
             f'\r\n'
             f'{payload}'
