@@ -267,6 +267,52 @@ CREATE TABLE IF NOT EXISTS cycle_log (
     next_cycle_hints JSON,
     ts TIMESTAMP NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS day_memory (
+    id TEXT PRIMARY KEY,
+    ts TIMESTAMP NOT NULL,
+    salience FLOAT NOT NULL,
+    moment_type TEXT NOT NULL,
+    visitor_id TEXT,
+    summary TEXT NOT NULL,
+    raw_refs JSON,
+    tags JSON,
+    retry_count INTEGER DEFAULT 0,
+    processed_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_day_memory_salience ON day_memory(salience DESC);
+CREATE INDEX IF NOT EXISTS idx_day_memory_visitor ON day_memory(visitor_id);
+CREATE INDEX IF NOT EXISTS idx_day_memory_unprocessed ON day_memory(processed_at)
+    WHERE processed_at IS NULL;
+
+CREATE TABLE IF NOT EXISTS text_fragments (
+    id TEXT PRIMARY KEY,
+    content TEXT NOT NULL,
+    fragment_type TEXT NOT NULL,
+    cycle_id TEXT,
+    thread_id TEXT,
+    visitor_id TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_fragments_created ON text_fragments(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_fragments_type ON text_fragments(fragment_type);
+
+CREATE TABLE IF NOT EXISTS shelf_assignments (
+    slot_id TEXT PRIMARY KEY,
+    item_id TEXT NOT NULL,
+    item_description TEXT,
+    sprite_filename TEXT,
+    assigned_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS chat_tokens (
+    token TEXT PRIMARY KEY,
+    display_name TEXT NOT NULL,
+    uses_remaining INTEGER,
+    expires_at TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 """
 
 
@@ -997,3 +1043,318 @@ async def get_last_creative_cycle() -> Optional[dict]:
         'dialogue': row['dialogue'],
         'internal_monologue': row['internal_monologue'],
     }
+
+
+# ─── Day Memory ───
+
+_MAX_DAY_MEMORIES = 30
+
+
+def _row_to_day_memory(row):
+    """Convert a DB row to a DayMemoryEntry (deferred import)."""
+    from pipeline.day_memory import DayMemoryEntry
+    return DayMemoryEntry(
+        id=row['id'],
+        ts=datetime.fromisoformat(row['ts']) if row['ts'] else datetime.now(timezone.utc),
+        salience=row['salience'],
+        moment_type=row['moment_type'],
+        visitor_id=row['visitor_id'],
+        summary=row['summary'],
+        raw_refs=json.loads(row['raw_refs']) if row['raw_refs'] else {},
+        tags=json.loads(row['tags']) if row['tags'] else [],
+        retry_count=row['retry_count'] or 0,
+        processed_at=(datetime.fromisoformat(row['processed_at'])
+                      if row['processed_at'] else None),
+    )
+
+
+async def insert_day_memory(moment) -> None:
+    """Insert a day memory entry. Enforces _MAX_DAY_MEMORIES cap.
+
+    Atomic: count + evict + insert inside a single transaction."""
+    async with transaction():
+        conn = await get_db()
+        cursor = await conn.execute(
+            "SELECT COUNT(*) as cnt FROM day_memory WHERE processed_at IS NULL"
+        )
+        row = await cursor.fetchone()
+        count = row['cnt'] if row else 0
+
+        if count >= _MAX_DAY_MEMORIES:
+            # Evict lowest-salience unprocessed entry
+            await conn.execute(
+                "DELETE FROM day_memory WHERE id = ("
+                "  SELECT id FROM day_memory WHERE processed_at IS NULL"
+                "  ORDER BY salience ASC LIMIT 1"
+                ")"
+            )
+
+        await conn.execute(
+            """INSERT INTO day_memory
+               (id, ts, salience, moment_type, visitor_id, summary, raw_refs, tags,
+                retry_count, processed_at, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (moment.id, moment.ts.isoformat(), moment.salience, moment.moment_type,
+             moment.visitor_id, moment.summary,
+             json.dumps(moment.raw_refs), json.dumps(moment.tags),
+             moment.retry_count, None,
+             datetime.now(timezone.utc).isoformat())
+        )
+
+
+def _jst_today_start_utc() -> str:
+    """Return start of today (JST) as UTC ISO string."""
+    now_jst = datetime.now(JST)
+    midnight_jst = now_jst.replace(hour=0, minute=0, second=0, microsecond=0)
+    midnight_utc = midnight_jst.astimezone(timezone.utc)
+    return midnight_utc.isoformat()
+
+
+async def get_day_memory(
+    visitor_id: str = None,
+    limit: int = 3,
+    min_salience: float = 0.3,
+) -> list:
+    """Get today's day memory entries for hippocampus recall."""
+    conn = await get_db()
+    today_start = _jst_today_start_utc()
+
+    if visitor_id:
+        cursor = await conn.execute(
+            "SELECT * FROM day_memory "
+            "WHERE processed_at IS NULL AND ts >= ? AND salience >= ? AND visitor_id = ? "
+            "ORDER BY salience DESC LIMIT ?",
+            (today_start, min_salience, visitor_id, limit)
+        )
+    else:
+        cursor = await conn.execute(
+            "SELECT * FROM day_memory "
+            "WHERE processed_at IS NULL AND ts >= ? AND salience >= ? "
+            "ORDER BY salience DESC LIMIT ?",
+            (today_start, min_salience, limit)
+        )
+    rows = await cursor.fetchall()
+    return [_row_to_day_memory(r) for r in rows]
+
+
+async def get_unprocessed_day_memory(
+    min_salience: float = 0.4,
+    limit: int = 7,
+) -> list:
+    """Get ALL unprocessed day memory for sleep consolidation.
+
+    No date filter — sleep runs at 03:00 JST; moments span two calendar days
+    (previous 06:00 JST through current 02:59 JST). A date filter would drop
+    most moments. delete_stale_day_memory() prevents unbounded accumulation."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        "SELECT * FROM day_memory "
+        "WHERE processed_at IS NULL AND salience >= ? "
+        "ORDER BY salience DESC LIMIT ?",
+        (min_salience, limit)
+    )
+    rows = await cursor.fetchall()
+    return [_row_to_day_memory(r) for r in rows]
+
+
+async def mark_day_memory_processed(moment_id: str) -> None:
+    """Stamp processed_at on a day memory entry."""
+    now = datetime.now(timezone.utc).isoformat()
+    await _exec_write(
+        "UPDATE day_memory SET processed_at = ? WHERE id = ?",
+        (now, moment_id)
+    )
+
+
+async def increment_day_memory_retry(moment_id: str) -> None:
+    """Increment retry_count. Standalone write — commits even if calling
+    transaction rolled back."""
+    await _exec_write(
+        "UPDATE day_memory SET retry_count = retry_count + 1 WHERE id = ?",
+        (moment_id,)
+    )
+
+
+async def delete_processed_day_memory() -> None:
+    """Delete day_memory rows where processed_at IS NOT NULL.
+    This is the ONLY delete in the entire system.
+
+    Calls _exec_write() directly — do NOT wrap in _write_lock here,
+    because _exec_write() already acquires _write_lock when called
+    outside a transaction."""
+    await _exec_write(
+        "DELETE FROM day_memory WHERE processed_at IS NOT NULL"
+    )
+
+
+async def delete_stale_day_memory(max_age_days: int = 2) -> None:
+    """Delete day_memory rows older than max_age_days. Safety net."""
+    cutoff = datetime.now(timezone.utc) - timedelta(days=max_age_days)
+    await _exec_write(
+        "DELETE FROM day_memory WHERE ts < ?",
+        (cutoff.isoformat(),)
+    )
+
+
+async def get_daily_summary_for_today() -> Optional[dict]:
+    """Check if a daily summary exists for today (JST)."""
+    conn = await get_db()
+    today_jst = datetime.now(JST).date().isoformat()
+    cursor = await conn.execute(
+        "SELECT id FROM daily_summaries WHERE date = ? LIMIT 1",
+        (today_jst,)
+    )
+    row = await cursor.fetchone()
+    return dict(row) if row else None
+
+
+# ─── Text Fragments ───
+
+async def insert_text_fragment(
+    content: str,
+    fragment_type: str,
+    cycle_id: str = None,
+    thread_id: str = None,
+    visitor_id: str = None,
+) -> str:
+    """Insert a text fragment for the window text stream."""
+    frag_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    await _exec_write(
+        """INSERT INTO text_fragments
+           (id, content, fragment_type, cycle_id, thread_id, visitor_id, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        (frag_id, content, fragment_type, cycle_id, thread_id, visitor_id, now)
+    )
+    return frag_id
+
+
+async def get_recent_text_fragments(limit: int = 8) -> list[dict]:
+    """Get recent text fragments for window display."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        "SELECT * FROM text_fragments ORDER BY created_at DESC LIMIT ?",
+        (limit,)
+    )
+    rows = await cursor.fetchall()
+    return [{
+        'id': r['id'],
+        'content': r['content'],
+        'fragment_type': r['fragment_type'],
+        'cycle_id': r['cycle_id'],
+        'thread_id': r['thread_id'],
+        'visitor_id': r['visitor_id'],
+        'created_at': r['created_at'],
+    } for r in rows]
+
+
+# ─── Shelf Assignments ───
+
+async def get_shelf_assignments() -> list[dict]:
+    """Get all shelf assignments for scene composition."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        "SELECT * FROM shelf_assignments ORDER BY assigned_at ASC"
+    )
+    rows = await cursor.fetchall()
+    return [{
+        'slot_id': r['slot_id'],
+        'item_id': r['item_id'],
+        'item_description': r['item_description'],
+        'sprite_filename': r['sprite_filename'],
+        'assigned_at': r['assigned_at'],
+    } for r in rows]
+
+
+async def assign_shelf_slot(item_id: str, description: str,
+                             sprite_filename: str = None) -> Optional[str]:
+    """Assign an item to the next available shelf slot. Returns slot_id or None."""
+    from pipeline.scene import SHELF_SLOTS
+
+    conn = await get_db()
+    cursor = await conn.execute("SELECT slot_id FROM shelf_assignments")
+    occupied = {r['slot_id'] for r in await cursor.fetchall()}
+
+    # Find first available slot
+    slot_id = None
+    for sid in SHELF_SLOTS:
+        if sid not in occupied:
+            slot_id = sid
+            break
+
+    if not slot_id:
+        return None  # all slots full
+
+    now = datetime.now(timezone.utc).isoformat()
+    await _exec_write(
+        """INSERT INTO shelf_assignments
+           (slot_id, item_id, item_description, sprite_filename, assigned_at)
+           VALUES (?, ?, ?, ?, ?)""",
+        (slot_id, item_id, description, sprite_filename, now)
+    )
+    return slot_id
+
+
+async def update_shelf_sprite(slot_id: str, sprite_filename: str):
+    """Update sprite filename after generation completes."""
+    await _exec_write(
+        "UPDATE shelf_assignments SET sprite_filename = ? WHERE slot_id = ?",
+        (sprite_filename, slot_id)
+    )
+
+
+# ─── Chat Tokens ───
+
+async def create_chat_token(
+    token: str,
+    display_name: str,
+    uses_remaining: int = None,
+    expires_at: datetime = None,
+):
+    """Create a new chat invite token."""
+    now = datetime.now(timezone.utc).isoformat()
+    expires_str = expires_at.isoformat() if expires_at else None
+    await _exec_write(
+        """INSERT INTO chat_tokens
+           (token, display_name, uses_remaining, expires_at, created_at)
+           VALUES (?, ?, ?, ?, ?)""",
+        (token, display_name, uses_remaining, expires_str, now)
+    )
+
+
+async def validate_chat_token(token: str) -> Optional[dict]:
+    """Validate a chat token. Returns token info or None if invalid."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        "SELECT * FROM chat_tokens WHERE token = ?", (token,)
+    )
+    row = await cursor.fetchone()
+    if not row:
+        return None
+
+    # Check expiry
+    if row['expires_at']:
+        expires = datetime.fromisoformat(row['expires_at'])
+        if expires.tzinfo is None:
+            expires = expires.replace(tzinfo=timezone.utc)
+        if datetime.now(timezone.utc) > expires:
+            return None
+
+    # Check uses
+    if row['uses_remaining'] is not None and row['uses_remaining'] <= 0:
+        return None
+
+    return {
+        'token': row['token'],
+        'display_name': row['display_name'],
+        'uses_remaining': row['uses_remaining'],
+    }
+
+
+async def consume_chat_token(token: str):
+    """Decrement uses_remaining for a token."""
+    await _exec_write(
+        """UPDATE chat_tokens SET uses_remaining = uses_remaining - 1
+           WHERE token = ? AND uses_remaining IS NOT NULL""",
+        (token,)
+    )
