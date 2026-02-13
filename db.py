@@ -1385,13 +1385,15 @@ async def validate_and_consume_chat_token(token: str) -> Optional[dict]:
             'uses_remaining': None,
         }
 
-    # Atomic decrement — only succeeds if uses_remaining > 0
-    result = await conn.execute(
-        """UPDATE chat_tokens SET uses_remaining = uses_remaining - 1
-           WHERE token = ? AND uses_remaining > 0""",
-        (token,)
-    )
-    await conn.commit()
+    # Atomic decrement under _write_lock — only succeeds if uses_remaining > 0.
+    # Must hold the lock so we don't commit unrelated in-flight transactions.
+    async with _write_lock:
+        result = await conn.execute(
+            """UPDATE chat_tokens SET uses_remaining = uses_remaining - 1
+               WHERE token = ? AND uses_remaining > 0""",
+            (token,)
+        )
+        await conn.commit()
 
     if result.rowcount == 0:
         # Race: another request consumed the last use
