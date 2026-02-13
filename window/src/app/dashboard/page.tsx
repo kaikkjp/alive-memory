@@ -4,6 +4,10 @@ import { useState, useEffect } from 'react';
 import VitalsPanel from '@/components/dashboard/VitalsPanel';
 import DrivesPanel from '@/components/dashboard/DrivesPanel';
 import CostsPanel from '@/components/dashboard/CostsPanel';
+import ThreadsPanel from '@/components/dashboard/ThreadsPanel';
+import PoolPanel from '@/components/dashboard/PoolPanel';
+import CollectionPanel from '@/components/dashboard/CollectionPanel';
+import TimelinePanel from '@/components/dashboard/TimelinePanel';
 
 export default function DashboardPage() {
   const [authenticated, setAuthenticated] = useState(false);
@@ -102,6 +106,10 @@ export default function DashboardPage() {
           <VitalsPanel />
           <DrivesPanel />
           <CostsPanel />
+          <ThreadsPanel />
+          <PoolPanel />
+          <CollectionPanel />
+          <TimelinePanel />
         </div>
       </div>
     </div>
