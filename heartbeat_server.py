@@ -671,6 +671,14 @@ class ShopkeeperServer:
                 await self._http_dashboard_drives(writer)
             elif path == '/api/dashboard/costs' and method == 'GET':
                 await self._http_dashboard_costs(writer)
+            elif path == '/api/dashboard/threads' and method == 'GET':
+                await self._http_dashboard_threads(writer)
+            elif path == '/api/dashboard/pool' and method == 'GET':
+                await self._http_dashboard_pool(writer)
+            elif path == '/api/dashboard/collection' and method == 'GET':
+                await self._http_dashboard_collection(writer)
+            elif path == '/api/dashboard/timeline' and method == 'GET':
+                await self._http_dashboard_timeline(writer)
             else:
                 await self._http_json(writer, 404, {'error': 'not found'})
         except (asyncio.TimeoutError, ConnectionResetError, BrokenPipeError):
@@ -808,6 +816,66 @@ class ShopkeeperServer:
             'summary': summary,
             'daily': daily,
         })
+
+    async def _http_dashboard_threads(self, writer: asyncio.StreamWriter):
+        """Handle GET /api/dashboard/threads — return active conversation threads."""
+        # Get recent cycle logs to show conversation activity
+        conn = await db.get_db()
+        cursor = await conn.execute(
+            """SELECT id, mode, dialogue, internal_monologue, ts
+               FROM cycle_log
+               WHERE dialogue IS NOT NULL AND dialogue != ''
+               ORDER BY ts DESC LIMIT 20"""
+        )
+        rows = await cursor.fetchall()
+        threads = [{
+            'id': r['id'],
+            'mode': r['mode'],
+            'dialogue': r['dialogue'],
+            'internal_monologue': r['internal_monologue'],
+            'ts': r['ts'],
+        } for r in rows]
+        await self._http_json(writer, 200, {'threads': threads})
+
+    async def _http_dashboard_pool(self, writer: asyncio.StreamWriter):
+        """Handle GET /api/dashboard/pool — return day memory pool."""
+        from pipeline.day_memory import DayMemoryEntry
+        moments = await db.get_day_memory(limit=20)
+        pool = [{
+            'id': m.id,
+            'summary': m.summary,
+            'salience': m.salience,
+            'moment_type': m.moment_type,
+            'visitor_id': m.visitor_id,
+            'ts': m.ts.isoformat(),
+        } for m in moments]
+        await self._http_json(writer, 200, {'pool': pool})
+
+    async def _http_dashboard_collection(self, writer: asyncio.StreamWriter):
+        """Handle GET /api/dashboard/collection — return collection items."""
+        items = await db.search_collection(query='', limit=20)
+        collection = [{
+            'id': item.id,
+            'title': item.title,
+            'item_type': item.item_type,
+            'location': item.location,
+            'origin': item.origin,
+            'her_feeling': item.her_feeling,
+            'created_at': item.created_at.isoformat() if item.created_at else None,
+        } for item in items]
+        await self._http_json(writer, 200, {'collection': collection})
+
+    async def _http_dashboard_timeline(self, writer: asyncio.StreamWriter):
+        """Handle GET /api/dashboard/timeline — return recent events."""
+        events = await db.get_recent_events(limit=50)
+        timeline = [{
+            'id': e.id,
+            'event_type': e.event_type,
+            'source': e.source,
+            'ts': e.ts.isoformat(),
+            'payload': e.payload,
+        } for e in events]
+        await self._http_json(writer, 200, {'timeline': timeline})
 
     async def _http_cors_preflight(self, writer: asyncio.StreamWriter):
         """Handle OPTIONS preflight for CORS."""
