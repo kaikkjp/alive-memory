@@ -5,14 +5,36 @@ Used for OG images, social preview cards, and static snapshots.
 """
 
 import os
+import re
 from io import BytesIO
 from pathlib import Path
 
 from PIL import Image
 
 ASSET_DIR = Path(os.environ.get('SHOPKEEPER_ASSET_DIR', 'assets'))
+_ASSET_DIR_RESOLVED = ASSET_DIR.resolve()
 OUTPUT_WIDTH = 1200
 OUTPUT_HEIGHT = 630  # OG image standard 1.91:1
+
+
+def _safe_asset_path(category: str, filename: str) -> Path | None:
+    """Resolve an asset path and verify it stays within ASSET_DIR.
+
+    Returns None if the filename is invalid or escapes the asset directory.
+    """
+    if not filename:
+        return None
+    # Strip traversal and unsafe characters
+    safe = re.sub(
+        r'[^a-zA-Z0-9_\-.]', '',
+        filename.replace('/', '').replace('\\', '').replace('..', ''),
+    )
+    if not safe or safe.startswith('.'):
+        return None
+    resolved = (ASSET_DIR / category / safe).resolve()
+    if not str(resolved).startswith(str(_ASSET_DIR_RESOLVED)):
+        return None
+    return resolved
 
 
 def composite_scene(layers: dict) -> bytes:
@@ -62,17 +84,15 @@ def composite_scene(layers: dict) -> bytes:
 
 def _paste_layer(canvas: Image.Image, category: str, filename: str):
     """Paste a full-canvas layer (background, shop, foreground)."""
-    if not filename:
-        return
-    path = ASSET_DIR / category / filename
-    if not path.exists():
+    path = _safe_asset_path(category, filename)
+    if not path or not path.exists():
         return
     try:
         layer = Image.open(path).convert('RGBA')
         layer = layer.resize((OUTPUT_WIDTH, OUTPUT_HEIGHT), Image.LANCZOS)
         canvas.alpha_composite(layer)
-    except Exception:
-        pass
+    except Exception as e:
+        print(f'  [compositing] Failed to paste layer {filename}: {e}')
 
 
 def _paste_item(canvas: Image.Image, item: dict):
@@ -80,7 +100,7 @@ def _paste_item(canvas: Image.Image, item: dict):
     sprite = item.get('sprite', '')
     if not sprite:
         return
-    # Scale item coordinates from scene canvas (1536×1024) to OG size (1200×630)
+    # Scale item coordinates from scene canvas (1536x1024) to OG size (1200x630)
     sx = OUTPUT_WIDTH / 1536
     sy = OUTPUT_HEIGHT / 1024
     _paste_at(
@@ -95,14 +115,12 @@ def _paste_item(canvas: Image.Image, item: dict):
 def _paste_at(canvas: Image.Image, category: str, filename: str,
               x: int, y: int, w: int, h: int):
     """Paste an image at a specific position and size."""
-    if not filename:
-        return
-    path = ASSET_DIR / category / filename
-    if not path.exists():
+    path = _safe_asset_path(category, filename)
+    if not path or not path.exists():
         return
     try:
         img = Image.open(path).convert('RGBA')
         img = img.resize((max(1, w), max(1, h)), Image.LANCZOS)
         canvas.alpha_composite(img, dest=(x, y))
-    except Exception:
-        pass
+    except Exception as e:
+        print(f'  [compositing] Failed to paste {filename}: {e}')

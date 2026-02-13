@@ -534,8 +534,12 @@ class ShopkeeperServer:
                         await self._handle_ws_chat(data, websocket)
                 except (json.JSONDecodeError, KeyError):
                     pass
-        except Exception:
-            pass
+        except Exception as e:
+            # websockets library raises ConnectionClosed on normal disconnect,
+            # only log unexpected errors
+            err_name = type(e).__name__
+            if err_name not in ('ConnectionClosed', 'ConnectionClosedOK', 'ConnectionClosedError'):
+                print(f"  {Fore.YELLOW}[Window]{Style.RESET_ALL} WS error: {err_name}: {e}")
         finally:
             self._window_clients.discard(websocket)
             print(f"  {Fore.GREEN}[Window]{Style.RESET_ALL} Viewer disconnected")
@@ -547,17 +551,14 @@ class ShopkeeperServer:
         if not text or not token:
             return
 
-        # Validate token
-        token_info = await db.validate_chat_token(token)
+        # Atomically validate and consume one token use
+        token_info = await db.validate_and_consume_chat_token(token)
         if not token_info:
             await websocket.send(json.dumps({
                 'type': 'chat_error',
                 'message': "The door doesn't open.",
             }))
             return
-
-        # Consume token use
-        await db.consume_chat_token(token)
 
         display_name = token_info['display_name']
         visitor_id = f'web_{display_name.lower().replace(" ", "_")}'
@@ -599,6 +600,11 @@ class ShopkeeperServer:
 
     # ─── HTTP handler (REST API) ───
 
+    # HTTP safety limits
+    _MAX_BODY_BYTES = 64 * 1024  # 64 KB max POST body
+    _MAX_HEADER_COUNT = 50       # max headers per request
+    _MAX_HEADER_BYTES = 8192     # max single header line length
+
     async def _handle_http(self, reader: asyncio.StreamReader,
                             writer: asyncio.StreamWriter):
         """Simple HTTP handler for REST API endpoints."""
@@ -609,10 +615,18 @@ class ShopkeeperServer:
 
             # Read headers, capture Content-Length for POST body
             content_length = 0
+            header_count = 0
             while True:
                 line = await asyncio.wait_for(reader.readline(), timeout=5)
                 if line == b'\r\n' or line == b'\n' or not line:
                     break
+                header_count += 1
+                if header_count > self._MAX_HEADER_COUNT:
+                    await self._http_json(writer, 431, {'error': 'too many headers'})
+                    return
+                if len(line) > self._MAX_HEADER_BYTES:
+                    await self._http_json(writer, 431, {'error': 'header too large'})
+                    return
                 header = line.decode('utf-8', errors='replace').strip().lower()
                 if header.startswith('content-length:'):
                     try:
@@ -624,6 +638,11 @@ class ShopkeeperServer:
             parts = request_text.split()
             method = parts[0] if parts else 'GET'
             path = parts[1] if len(parts) > 1 else '/'
+
+            # Enforce body size limit
+            if content_length > self._MAX_BODY_BYTES:
+                await self._http_json(writer, 413, {'error': 'payload too large'})
+                return
 
             # Read POST body if present
             body_bytes = b''
@@ -648,8 +667,9 @@ class ShopkeeperServer:
         except (asyncio.TimeoutError, ConnectionResetError, BrokenPipeError):
             pass
         except Exception as e:
+            print(f'  [HTTP] Request error: {e}')
             try:
-                await self._http_json(writer, 500, {'error': str(e)})
+                await self._http_json(writer, 500, {'error': 'internal server error'})
             except Exception:
                 pass
         finally:
@@ -690,7 +710,8 @@ class ShopkeeperServer:
                 'error': 'Pillow not installed (pip install Pillow)',
             })
         except Exception as e:
-            await self._http_json(writer, 500, {'error': str(e)})
+            print(f'  [OG] Compositing error: {e}')
+            await self._http_json(writer, 500, {'error': 'compositing failed'})
 
     async def _http_validate_token(self, writer: asyncio.StreamWriter,
                                     body_bytes: bytes):
@@ -736,7 +757,9 @@ class ShopkeeperServer:
         payload = json.dumps(body)
         status_text = {
             200: 'OK', 204: 'No Content', 400: 'Bad Request',
-            403: 'Forbidden', 404: 'Not Found', 500: 'Internal Server Error',
+            403: 'Forbidden', 404: 'Not Found',
+            413: 'Payload Too Large', 431: 'Request Header Fields Too Large',
+            500: 'Internal Server Error', 503: 'Service Unavailable',
         }
         response = (
             f'HTTP/1.1 {status} {status_text.get(status, "Unknown")}\r\n'
