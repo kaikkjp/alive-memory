@@ -12,12 +12,15 @@ REST API available on SHOPKEEPER_HTTP_PORT (default 8080).
 
 import asyncio
 import errno
+import hmac
 import json
 import os
 import signal
 import sys
 from datetime import datetime, timezone
 from dotenv import load_dotenv
+
+import clock
 
 from colorama import Fore, Style, init as colorama_init
 
@@ -34,10 +37,27 @@ from pipeline.sanitize import sanitize_input
 
 colorama_init()
 
-HOST = 'localhost'
-PORT = 9999
+DEFAULT_HOST = '127.0.0.1'
+DEFAULT_PORT = 9999
+TOKEN_ENV_VAR = 'SHOPKEEPER_SERVER_TOKEN'
 WS_PORT = int(os.environ.get('SHOPKEEPER_WS_PORT', '8765'))
 HTTP_PORT = int(os.environ.get('SHOPKEEPER_HTTP_PORT', '8080'))
+
+
+def _load_bind_address() -> tuple[str, int]:
+    """Load host/port from env with validation."""
+    host = os.environ.get('SHOPKEEPER_HOST', DEFAULT_HOST).strip() or DEFAULT_HOST
+    raw_port = os.environ.get('SHOPKEEPER_PORT', str(DEFAULT_PORT)).strip()
+
+    try:
+        port = int(raw_port)
+    except ValueError as exc:
+        raise RuntimeError(f"Invalid SHOPKEEPER_PORT: {raw_port!r}") from exc
+
+    if port < 1 or port > 65535:
+        raise RuntimeError(f"SHOPKEEPER_PORT must be 1-65535, got: {port}")
+
+    return host, port
 
 
 class ShopkeeperServer:
@@ -54,6 +74,8 @@ class ShopkeeperServer:
         self._http_server = None
         self._window_clients: set = set()  # WebSocket connections for window viewers
         self._sprite_gen_task = None
+        self.host, self.port = _load_bind_address()
+        self._server_token = os.environ.get(TOKEN_ENV_VAR, '').strip()
 
     async def start(self):
         """Initialize DB, seed, start heartbeat, TCP, WebSocket, and HTTP servers."""
@@ -61,6 +83,11 @@ class ShopkeeperServer:
         if not os.environ.get('ANTHROPIC_API_KEY'):
             print(f"\n  {Fore.RED}[Error]{Style.RESET_ALL} ANTHROPIC_API_KEY not set.")
             print(f"  Run: export ANTHROPIC_API_KEY='sk-ant-...'")
+            return
+
+        if not self._server_token:
+            print(f"\n  {Fore.RED}[Error]{Style.RESET_ALL} {TOKEN_ENV_VAR} not set.")
+            print(f"  Run: export {TOKEN_ENV_VAR}='a-long-random-token'")
             return
 
         # Initialize database
@@ -92,18 +119,18 @@ class ShopkeeperServer:
         # Start TCP server (terminal clients)
         try:
             self._server = await asyncio.start_server(
-                self._handle_connection, HOST, PORT
+                self._handle_connection, self.host, self.port
             )
         except OSError as e:
             if e.errno == errno.EADDRINUSE:
-                print(f"\n  {Fore.RED}[Error]{Style.RESET_ALL} Port {PORT} already in use.")
+                print(f"\n  {Fore.RED}[Error]{Style.RESET_ALL} Port {self.port} already in use.")
                 print(f"  Another shopkeeper instance may be running.")
-                print(f"  Try: lsof -ti :{PORT} | xargs kill")
+                print(f"  Try: lsof -ti :{self.port} | xargs kill")
                 await self.heartbeat.stop()
                 await db.close_db()
                 return
             raise
-        print(f"  {Fore.CYAN}[Server]{Style.RESET_ALL} TCP on {HOST}:{PORT}")
+        print(f"  {Fore.CYAN}[Server]{Style.RESET_ALL} TCP on {self.host}:{self.port}")
 
         # Start WebSocket server (window viewers)
         servers = [self._server.serve_forever()]
@@ -209,6 +236,13 @@ class ShopkeeperServer:
                 msg_type = msg.get('type')
 
                 if msg_type == 'visitor_connect':
+                    if not self._is_authorized(msg.get('token', '')):
+                        await self._send(writer, {
+                            'type': 'rejected',
+                            'body': 'Unauthorized. Missing or invalid token.',
+                        })
+                        break
+
                     visitor_id = msg.get('visitor_id', 'v_unknown')
 
                     # Enforce single-visitor: reject if anyone is already engaged
@@ -242,8 +276,8 @@ class ShopkeeperServer:
                     await db.update_engagement_state(
                         status='engaged',
                         visitor_id=visitor_id,
-                        started_at=datetime.now(timezone.utc),
-                        last_activity=datetime.now(timezone.utc),
+                        started_at=clock.now_utc(),
+                        last_activity=clock.now_utc(),
                         turn_count=0,
                     )
 
@@ -418,6 +452,12 @@ class ShopkeeperServer:
             await writer.drain()
         except (ConnectionResetError, BrokenPipeError):
             pass
+
+    def _is_authorized(self, token: str) -> bool:
+        """Constant-time auth check for incoming client token."""
+        if not self._server_token:
+            return False
+        return hmac.compare_digest(token or '', self._server_token)
 
     async def _send_cycle_log(self, writer: asyncio.StreamWriter, log: dict):
         """Send cycle log as a series of stream messages."""
@@ -918,7 +958,11 @@ class ShopkeeperServer:
 
 
 async def run_server():
-    server = ShopkeeperServer()
+    try:
+        server = ShopkeeperServer()
+    except RuntimeError as e:
+        print(f"\n  {Fore.RED}[Error]{Style.RESET_ALL} {e}")
+        return
 
     loop = asyncio.get_event_loop()
 

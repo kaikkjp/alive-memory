@@ -1,5 +1,8 @@
 """Hippocampus Recall — DB reads, compressed chunks. No LLM."""
 
+from datetime import datetime, timezone
+from db import JST
+import clock
 import db
 
 MAX_CHUNK_TOKENS = 200  # approximate, measured by word count / 0.75
@@ -69,6 +72,18 @@ async def recall(requests: list[dict]) -> list[dict]:
                     'content': format_journal_entries(entries),
                 })
 
+        elif req['type'] == 'day_context':
+            moments = await db.get_day_memory(
+                visitor_id=req.get('visitor_id'),
+                limit=req.get('max_items', 3),
+                min_salience=req.get('min_salience', 0.3),
+            )
+            if moments:
+                chunks.append({
+                    'label': 'Earlier today',
+                    'content': format_day_moments(moments),
+                })
+
     return chunks
 
 
@@ -125,3 +140,41 @@ def truncate(text: str, max_tokens: int) -> str:
     if len(words) <= max_words:
         return text
     return " ".join(words[:max_words]) + "..."
+
+
+def format_day_moments(moments: list) -> str:
+    """Format day memory entries with relative time labels."""
+    lines = []
+    for m in moments:
+        time_label = relative_time(m.ts)
+        lines.append(f"[{time_label}] {m.summary}")
+    return "\n".join(lines)
+
+
+def relative_time(ts: datetime) -> str:
+    """Convert timestamp to relative time label."""
+    now = clock.now_utc()
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    delta = now - ts
+    minutes = delta.total_seconds() / 60
+
+    if minutes < 5:
+        return "just now"
+    elif minutes < 30:
+        return "a little while ago"
+    elif minutes < 90:
+        return "about an hour ago"
+    elif minutes < 240:
+        hours = int(minutes / 60)
+        return f"about {hours} hours ago"
+    else:
+        # Use JST for time-of-day labeling
+        ts_jst = ts.astimezone(JST)
+        hour = ts_jst.hour
+        if hour < 12:
+            return "this morning"
+        elif hour < 17:
+            return "this afternoon"
+        else:
+            return "this evening"

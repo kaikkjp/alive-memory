@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field
 from models.state import DrivesState, EngagementState, Visitor
 from pipeline.sensorium import Perception
+import clock
 import db
 
 
@@ -42,6 +43,12 @@ async def route(
         cycle_type = 'engage'  # visitor referenced a fidget — she's in conversation
     elif focus.p_type == 'ambient_discovery':
         cycle_type = 'idle'  # she discovers it on her own time
+    elif focus.p_type in ('consume_focus', 'thread_focus', 'news_focus'):
+        # Arbiter focus p_types — mode binding is handled by run_cycle.
+        # Default to idle here; run_cycle will override via focus_context.
+        cycle_type = 'idle'
+    elif focus.p_type == 'ambient_weather':
+        cycle_type = 'idle'
     elif drives.expression_need > 0.7:
         cycle_type = 'express'
     elif drives.rest_need > 0.7:
@@ -53,7 +60,7 @@ async def route(
     token_budget = await get_token_budget(focus.salience, drives)
 
     # Determine memory requests
-    memory_requests = build_memory_requests(focus, visitor, drives, token_budget)
+    memory_requests = build_memory_requests(focus, visitor, drives, token_budget, cycle_type)
 
     return RoutingDecision(
         cycle_type=cycle_type,
@@ -73,11 +80,10 @@ async def autonomous_routing(drives: DrivesState) -> RoutingDecision:
     else:
         cycle_type = 'idle'
 
-    from datetime import datetime, timezone
     focus = Perception(
         p_type='internal',
         source='self',
-        ts=datetime.now(timezone.utc),
+        ts=clock.now_utc(),
         content='No one is here. The shop is quiet.',
         features={},
         salience=0.2,
@@ -88,6 +94,15 @@ async def autonomous_routing(drives: DrivesState) -> RoutingDecision:
         memory_requests.append({
             'type': 'recent_journal',
             'max_items': 1,
+            'priority': 3,
+        })
+
+    # Day context for idle/express (what's on her mind today)
+    if cycle_type in ('idle', 'express'):
+        memory_requests.append({
+            'type': 'day_context',
+            'max_items': 3,
+            'min_salience': 0.5,
             'priority': 3,
         })
 
@@ -123,6 +138,7 @@ def build_memory_requests(
     visitor: Visitor,
     drives: DrivesState,
     budget: int,
+    cycle_type: str = 'idle',
 ) -> list[dict]:
     """Decide what memories to retrieve. Deterministic."""
 
@@ -177,6 +193,23 @@ def build_memory_requests(
             'type': 'recent_journal',
             'max_items': 1,
             'priority': 5,
+        })
+
+    # Day context: what happened earlier today
+    if cycle_type == 'engage' and visitor:
+        requests.append({
+            'type': 'day_context',
+            'visitor_id': visitor.id,
+            'max_items': 3,
+            'min_salience': 0.3,
+            'priority': 2,
+        })
+    if cycle_type in ('idle', 'express'):
+        requests.append({
+            'type': 'day_context',
+            'max_items': 3,
+            'min_salience': 0.5,
+            'priority': 3,
         })
 
     # Cap total requests
