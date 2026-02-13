@@ -1,7 +1,8 @@
 """Sprite Generation Queue — async, non-blocking.
 
 New sprites are generated in the background. Never blocks a cycle.
-Uses the Gemini Imagen adapter for actual image generation.
+Uses the fal.ai adapter for actual image generation.
+Prompt assembly delegated to prompt_assembler (reads config/prompts.yaml).
 """
 
 import asyncio
@@ -32,127 +33,6 @@ GENERATION_QUEUE: asyncio.Queue = asyncio.Queue()
 
 # Track in-flight generations to avoid duplicates
 _in_flight: set[str] = set()
-
-
-# ─── Prompt Templates (from spec §1.2-1.5) ───
-
-TIME_DETAIL = {
-    'morning':   'Early light, long shadows on the narrow street. A few people walking.',
-    'afternoon': 'Full daylight, warm. A bicycle parked against a wall.',
-    'evening':   'Golden hour fading to blue. Shop signs beginning to glow.',
-    'night':     'Dark street, puddles of light from vending machines and distant signs.',
-}
-
-WEATHER_DETAIL = {
-    'clear':    'Clear sky. Sharp light.',
-    'overcast': 'Grey sky, flat diffused light. Everything looks muted.',
-    'rain':     'Rain streaks the glass. The street glistens. Umbrellas.',
-    'snow':     'Snow falling gently. The street is hushed. White edges on everything.',
-    'storm':    'Heavy rain. The street is empty. Water running along the curb.',
-}
-
-LIGHTING_DESCRIPTIONS = {
-    'warm_day':     'Warm natural daylight filling the shop through the window. Everything looks golden.',
-    'soft_evening': 'Soft amber light from paper lanterns. Outside is turning blue.',
-    'dim_night':    'Low warm light. The lanterns are the main light source. Cozy and quiet.',
-    'dark_sleep':   'Nearly dark. Only a faint glow from a lamp in the back room.',
-}
-
-POSTURE_DESCRIPTIONS = {
-    'reading':          'sitting at a wooden counter, leaning slightly over an open book, one hand resting on the page',
-    'writing':          'sitting at a wooden counter, writing in a small journal with a pen, head slightly tilted',
-    'standing_window':  'standing by a window, hands loosely clasped behind her back, looking outward',
-    'arranging':        'reaching toward a shelf, carefully adjusting the position of a small object',
-    'sitting':          'sitting still on a wooden stool behind the counter, hands in her lap, eyes unfocused',
-    'talking':          'leaning slightly forward across the counter, one hand gesturing gently, making eye contact',
-    'resting':          'resting her head on her folded arms on the counter, eyes half-closed',
-    'sleeping':         'not visible — the shop is dark, only a faint light from the back room',
-}
-
-MOOD_DESCRIPTIONS = {
-    'calm':       'calm, neutral, at rest — a quiet presence',
-    'happy':      'a slight smile, warmth in the eyes, something gentle',
-    'melancholy': 'a distant look, not sad but contemplative, as if remembering something',
-    'curious':    'eyes slightly wider, head tilted, engaged with something interesting',
-    'tired':      'heavy eyelids, shoulders slightly low, the weight of a long day',
-}
-
-OUTFIT_DESCRIPTIONS = {
-    'apronA': 'a dark indigo work apron over a cream-colored long-sleeve shirt, sleeves rolled up',
-    'casualB': 'a loose grey cardigan over a white tee, comfortable and relaxed',
-    'coatC': 'a dark wool coat, as if she just came in from outside or is about to leave',
-}
-
-
-def _build_bg_prompt(location: str, weather: str, time: str) -> str:
-    time_detail = TIME_DETAIL.get(time, '')
-    weather_detail = WEATHER_DETAIL.get(weather, '')
-    return (
-        f'A view through a shop window in a quiet Tokyo side street. '
-        f'{time.capitalize()}, {weather}. '
-        f'{time_detail} {weather_detail} '
-        f'The view is from inside looking out — the window frame is visible at the edges. '
-        f'Style: soft illustration, muted warm palette, Studio Ghibli atmosphere, slight grain, 16:9. '
-        f'Consistent with a series — same street, same angle, different conditions.'
-    )
-
-
-def _build_shop_prompt(lighting: str) -> str:
-    lighting_desc = LIGHTING_DESCRIPTIONS.get(lighting, LIGHTING_DESCRIPTIONS['warm_day'])
-    return (
-        f'Interior of a small, cluttered antique shop in Tokyo. Warm wooden shelves along the walls, '
-        f'a wooden counter with a brass cash register, paper lanterns hanging from the ceiling. '
-        f'Curious objects on shelves — old cameras, ceramic figures, brass instruments, glass bottles. '
-        f'{lighting_desc}. '
-        f'The shop window is visible on the left wall (leave this area semi-transparent for compositing). '
-        f'There are 16 clearly visible empty spaces on the shelves where objects could be placed. '
-        f'The counter area is clear for a character to stand/sit behind. '
-        f'Style: soft illustration, muted warm palette, Studio Ghibli atmosphere, slight grain, 16:9. '
-        f'Top-down slight angle, as if viewed from just inside the doorway.'
-    )
-
-
-def _build_character_prompt(posture: str, mood: str, outfit: str) -> str:
-    posture_desc = POSTURE_DESCRIPTIONS.get(posture, POSTURE_DESCRIPTIONS['sitting'])
-    mood_desc = MOOD_DESCRIPTIONS.get(mood, MOOD_DESCRIPTIONS['calm'])
-    outfit_desc = OUTFIT_DESCRIPTIONS.get(outfit, OUTFIT_DESCRIPTIONS['apronA'])
-    return (
-        f'A young Japanese woman with short dark hair and quiet eyes, {posture_desc}. '
-        f'She wears {outfit_desc}. Her expression is {mood_desc}. '
-        f'Full body, positioned as if behind a shop counter in a small antique shop. '
-        f'Transparent background. Consistent character across all images in the series. '
-        f'Style: soft illustration, muted warm palette, Studio Ghibli atmosphere. '
-        f'Same character as reference — maintain face, hair, body proportions exactly.'
-    )
-
-
-def _build_item_prompt(description: str) -> str:
-    return (
-        f'A single {description}. Small object, centered on transparent background. '
-        f'Style: soft illustration, warm palette, consistent with antique shop aesthetic. '
-        f'Studio Ghibli style object. Slight shadow beneath. 80x80 pixels effective size.'
-    )
-
-
-def _build_fg_prompt(fg_type: str) -> str:
-    prompts = {
-        'fg_counter_top': (
-            'A wooden shop counter surface viewed from slightly above. '
-            'Transparent except for the counter itself. '
-            'Style: soft illustration, warm wood tones, Studio Ghibli atmosphere.'
-        ),
-        'fg_lantern_glow': (
-            'Warm golden light bloom from paper lanterns. '
-            'Semi-transparent overlay effect. '
-            'Style: soft illustration, warm amber glow, subtle and atmospheric.'
-        ),
-        'fg_window_frame': (
-            'A wooden window frame, viewing from inside a shop. '
-            'The frame borders visible at the edges, interior transparent. '
-            'Style: soft illustration, dark wood, Studio Ghibli atmosphere.'
-        ),
-    }
-    return prompts.get(fg_type, f'Decorative foreground element: {fg_type}')
 
 
 # ─── Filename parsing ───
@@ -209,28 +89,46 @@ def parse_sprite_filename(filename: str) -> dict:
     return {'category': 'unknown', 'filename': filename}
 
 
-def build_sprite_prompt(params: dict) -> tuple[str, str]:
-    """Build generation prompt from parsed params. Returns (prompt, aspect_ratio)."""
+def build_sprite_prompt(params: dict) -> dict:
+    """Build generation prompt from parsed params.
+
+    Delegates to prompt_assembler which reads config/prompts.yaml.
+    Returns dict with keys: filename, subdir, prompt, aspect.
+    """
+    from prompt_assembler import (
+        assemble_background,
+        assemble_shop,
+        assemble_character,
+        assemble_item,
+        assemble_foreground,
+    )
+
     category = params.get('category', 'unknown')
 
     if category == 'bg':
-        return _build_bg_prompt(
-            params.get('location', 'tokyo'),
+        return assemble_background(
             params.get('weather', 'clear'),
             params.get('time', 'afternoon'),
-        ), '16:9'
+        )
     elif category == 'shop':
-        return _build_shop_prompt(params.get('lighting', 'warm_day')), '16:9'
+        return assemble_shop(params.get('lighting', 'warm_day'))
     elif category == 'her':
-        return _build_character_prompt(
+        return assemble_character(
             params.get('posture', 'sitting'),
             params.get('mood', 'calm'),
             params.get('outfit', 'apronA'),
-        ), '3:4'
+        )
     elif category == 'items':
-        return _build_item_prompt(params.get('description', 'a small antique object')), '1:1'
+        return assemble_item(
+            params.get('item_id', 'unknown'),
+            params.get('description', 'a small antique object'),
+        )
     elif category == 'fg':
-        return _build_fg_prompt(params.get('fg_type', '')), '16:9'
+        # parse_sprite_filename returns fg_type as 'fg_counter_top' etc.
+        # but assemble_foreground expects 'counter_top'
+        fg_type = params.get('fg_type', '')
+        overlay_id = fg_type.removeprefix('fg_') if fg_type.startswith('fg_') else fg_type
+        return assemble_foreground(overlay_id)
     else:
         raise ValueError(f'Unknown sprite category: {category}')
 
@@ -264,13 +162,13 @@ async def sprite_gen_worker():
                 continue  # race condition guard
 
             params = parse_sprite_filename(filename)
-            prompt, aspect_ratio = build_sprite_prompt(params)
+            asset = build_sprite_prompt(params)
 
             print(f'  [sprite_gen] Generating: {filename}')
-            image_data = await generate_image(prompt, aspect_ratio)
+            image_data = await generate_image(asset['prompt'], asset['aspect'])
 
             # Save to assets directory (with path confinement check)
-            subdir = params.get('category', 'unknown')
+            subdir = asset.get('subdir', params.get('category', 'unknown'))
             safe_name = _sanitize_filename(filename)
             filepath = Path(ASSET_DIR, subdir, safe_name).resolve()
             if not str(filepath).startswith(str(_ASSET_DIR_RESOLVED)):
