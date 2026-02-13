@@ -104,6 +104,15 @@ def validate(cortex_output: dict, state: dict) -> dict:
         cortex_output['dialogue'] = cleaned
         cortex_output['_canonical_contradiction'] = contradiction
 
+    # Stage 2: Voice guardrails from character bible
+    dialogue = cortex_output.get('dialogue') or ''
+    trust_level = state.get('trust_level', 'stranger')
+    expression = cortex_output.get('expression', 'neutral')
+    dialogue, voice_adjustments = enforce_voice_rules(dialogue, trust_level, expression)
+    cortex_output['dialogue'] = dialogue
+    if voice_adjustments:
+        cortex_output['_voice_adjustments'] = voice_adjustments
+
     # Stage 2: Entropy check
     cortex_output = entropy_check(cortex_output)
 
@@ -160,6 +169,48 @@ def canonical_consistency_check(dialogue: str) -> tuple[str, str | None]:
 
     result = ' '.join(cleaned).strip() if cleaned else '...'
     return result, contradiction
+
+
+def enforce_voice_rules(dialogue: str, trust_level: str, expression: str) -> tuple[str, list[str]]:
+    """Enforce non-negotiable voice rules deterministically."""
+    adjustments: list[str] = []
+    if not dialogue or dialogue == '...':
+        return dialogue, adjustments
+
+    text = dialogue
+
+    # No "haha"/"lol" style assistant-ish laughter.
+    laughter_pattern = re.compile(r'\b(?:haha+|lol+)\b', re.IGNORECASE)
+    if laughter_pattern.search(text):
+        text = laughter_pattern.sub('...', text)
+        adjustments.append('removed_laughter')
+
+    # Exclamation marks are only allowed when expression is "surprised".
+    if expression != 'surprised' and '!' in text:
+        text = re.sub(r'!+', '.', text)
+        adjustments.append('removed_exclamation')
+
+    # Hard sentence cap by trust level.
+    max_sentences = {
+        'stranger': 3,
+        'returner': 5,
+        'regular': 5,
+    }.get(trust_level)
+
+    if max_sentences is not None:
+        sentences = [
+            s.strip()
+            for s in re.findall(r'[^.!?]+[.!?]?', text)
+            if s.strip() and s.strip(' .!?')
+        ]
+        if len(sentences) > max_sentences:
+            text = ' '.join(sentences[:max_sentences]).strip()
+            adjustments.append(f'sentence_cap_{max_sentences}')
+
+    text = re.sub(r'\s+', ' ', text).strip()
+    if not text:
+        text = '...'
+    return text, adjustments
 
 
 def entropy_check(output: dict) -> dict:
