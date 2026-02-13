@@ -10,6 +10,7 @@ from functools import partial
 
 from google import genai
 from google.genai import types
+import llm_logger
 
 
 def _get_client() -> genai.Client:
@@ -58,7 +59,17 @@ async def generate_image(prompt: str, aspect_ratio: str = '16:9') -> bytes:
     block the asyncio event loop.
     """
     loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(
+    image_bytes = await loop.run_in_executor(
         None,
         partial(_generate_sync, prompt, aspect_ratio),
     )
+
+    # Log image generation for cost tracking
+    await llm_logger.log_llm_call(
+        provider='google',
+        model='imagen-4.0-generate-001',
+        purpose='image_gen',
+        images_generated=1,
+    )
+
+    return image_bytes

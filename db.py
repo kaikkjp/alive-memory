@@ -313,6 +313,20 @@ CREATE TABLE IF NOT EXISTS chat_tokens (
     expires_at TIMESTAMP,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS llm_call_log (
+    id TEXT PRIMARY KEY,
+    provider TEXT NOT NULL,
+    model TEXT NOT NULL,
+    purpose TEXT NOT NULL,
+    input_tokens INTEGER DEFAULT 0,
+    output_tokens INTEGER DEFAULT 0,
+    cost_usd REAL DEFAULT 0.0,
+    cycle_id TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_llm_log_date ON llm_call_log(created_at);
+CREATE INDEX IF NOT EXISTS idx_llm_log_purpose ON llm_call_log(purpose);
 """
 
 
@@ -1416,3 +1430,130 @@ async def consume_chat_token(token: str):
            WHERE token = ? AND uses_remaining IS NOT NULL AND uses_remaining > 0""",
         (token,)
     )
+
+
+# ─── LLM Call Log ───
+
+async def insert_llm_call_log(
+    call_id: str,
+    provider: str,
+    model: str,
+    purpose: str,
+    input_tokens: int = 0,
+    output_tokens: int = 0,
+    cost_usd: float = 0.0,
+    cycle_id: str = None,
+):
+    """Insert LLM call log entry for cost tracking."""
+    now = datetime.now(timezone.utc).isoformat()
+    await _exec_write(
+        """INSERT INTO llm_call_log
+           (id, provider, model, purpose, input_tokens, output_tokens, cost_usd, cycle_id, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (call_id, provider, model, purpose, input_tokens, output_tokens, cost_usd, cycle_id, now)
+    )
+
+
+async def get_llm_call_cost_today() -> float:
+    """Get total LLM cost for today (JST)."""
+    conn = await get_db()
+    today_jst = datetime.now(JST).date().isoformat()
+    cursor = await conn.execute(
+        "SELECT SUM(cost_usd) as total FROM llm_call_log WHERE date(created_at, '+9 hours') = ?",
+        (today_jst,)
+    )
+    row = await cursor.fetchone()
+    return row['total'] if row and row['total'] else 0.0
+
+
+async def get_llm_call_count_today() -> int:
+    """Get total LLM call count for today (JST)."""
+    conn = await get_db()
+    today_jst = datetime.now(JST).date().isoformat()
+    cursor = await conn.execute(
+        "SELECT COUNT(*) as cnt FROM llm_call_log WHERE date(created_at, '+9 hours') = ?",
+        (today_jst,)
+    )
+    row = await cursor.fetchone()
+    return row['cnt'] if row else 0
+
+
+async def get_llm_costs_summary(days: int = 30) -> dict:
+    """Get LLM cost summary for dashboard.
+
+    Returns:
+        {
+            'today': float,
+            '7d_avg': float,
+            '30d_total': float,
+            'breakdown': [{'purpose': str, 'cost': float, 'calls': int}],
+        }
+    """
+    conn = await get_db()
+    today_jst = datetime.now(JST).date().isoformat()
+
+    # Today's total
+    cursor = await conn.execute(
+        "SELECT SUM(cost_usd) as total FROM llm_call_log WHERE date(created_at, '+9 hours') = ?",
+        (today_jst,)
+    )
+    row = await cursor.fetchone()
+    today_cost = row['total'] if row and row['total'] else 0.0
+
+    # 7-day average
+    cursor = await conn.execute(
+        """SELECT AVG(daily_cost) as avg FROM (
+               SELECT date(created_at, '+9 hours') as day, SUM(cost_usd) as daily_cost
+               FROM llm_call_log
+               WHERE created_at >= datetime('now', '-7 days')
+               GROUP BY day
+           )"""
+    )
+    row = await cursor.fetchone()
+    avg_7d = row['avg'] if row and row['avg'] else 0.0
+
+    # 30-day total
+    cursor = await conn.execute(
+        """SELECT SUM(cost_usd) as total FROM llm_call_log
+           WHERE created_at >= datetime('now', '-30 days')"""
+    )
+    row = await cursor.fetchone()
+    total_30d = row['total'] if row and row['total'] else 0.0
+
+    # Breakdown by purpose (today)
+    cursor = await conn.execute(
+        """SELECT purpose, SUM(cost_usd) as cost, COUNT(*) as calls
+           FROM llm_call_log
+           WHERE date(created_at, '+9 hours') = ?
+           GROUP BY purpose
+           ORDER BY cost DESC""",
+        (today_jst,)
+    )
+    rows = await cursor.fetchall()
+    breakdown = [{'purpose': r['purpose'], 'cost': r['cost'], 'calls': r['calls']} for r in rows]
+
+    return {
+        'today': today_cost,
+        '7d_avg': avg_7d,
+        '30d_total': total_30d,
+        'breakdown': breakdown,
+    }
+
+
+async def get_llm_daily_costs(days: int = 30) -> list[dict]:
+    """Get daily cost array for dashboard sparkline chart.
+
+    Returns:
+        [{'date': 'YYYY-MM-DD', 'cost': float}, ...]
+    """
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT date(created_at, '+9 hours') as day, SUM(cost_usd) as cost
+           FROM llm_call_log
+           WHERE created_at >= datetime('now', '-' || ? || ' days')
+           GROUP BY day
+           ORDER BY day ASC""",
+        (days,)
+    )
+    rows = await cursor.fetchall()
+    return [{'date': r['day'], 'cost': r['cost']} for r in rows]
