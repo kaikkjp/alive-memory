@@ -1500,17 +1500,14 @@ async def get_llm_costs_summary(days: int = 30) -> dict:
     row = await cursor.fetchone()
     today_cost = row['total'] if row and row['total'] else 0.0
 
-    # 7-day average
+    # 7-day average (total cost / 7 days, including zero-cost days)
     cursor = await conn.execute(
-        """SELECT AVG(daily_cost) as avg FROM (
-               SELECT date(created_at, '+9 hours') as day, SUM(cost_usd) as daily_cost
-               FROM llm_call_log
-               WHERE created_at >= datetime('now', '-7 days')
-               GROUP BY day
-           )"""
+        """SELECT SUM(cost_usd) as total FROM llm_call_log
+           WHERE created_at >= datetime('now', '-7 days')"""
     )
     row = await cursor.fetchone()
-    avg_7d = row['avg'] if row and row['avg'] else 0.0
+    total_7d = row['total'] if row and row['total'] else 0.0
+    avg_7d = total_7d / 7.0
 
     # 30-day total
     cursor = await conn.execute(

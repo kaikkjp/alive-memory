@@ -64,12 +64,16 @@ async def generate_image(prompt: str, aspect_ratio: str = '16:9') -> bytes:
         partial(_generate_sync, prompt, aspect_ratio),
     )
 
-    # Log image generation for cost tracking
-    await llm_logger.log_llm_call(
-        provider='google',
-        model='imagen-4.0-generate-001',
-        purpose='image_gen',
-        images_generated=1,
-    )
+    # Log image generation for cost tracking (best-effort, don't fail request)
+    try:
+        await llm_logger.log_llm_call(
+            provider='google',
+            model='imagen-4.0-generate-001',
+            purpose='image_gen',
+            images_generated=1,
+        )
+    except Exception as e:
+        # Telemetry failure should not break image generation
+        print(f'[Warning] Image gen logging failed: {e}')
 
     return image_bytes
