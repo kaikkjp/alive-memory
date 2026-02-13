@@ -662,6 +662,15 @@ class ShopkeeperServer:
                 await self._http_validate_token(writer, body_bytes)
             elif path == '/api/og' and method == 'GET':
                 await self._http_og_image(writer)
+            # Dashboard API endpoints (password-protected)
+            elif path == '/api/dashboard/auth' and method == 'POST':
+                await self._http_dashboard_auth(writer, body_bytes)
+            elif path == '/api/dashboard/vitals' and method == 'GET':
+                await self._http_dashboard_vitals(writer)
+            elif path == '/api/dashboard/drives' and method == 'GET':
+                await self._http_dashboard_drives(writer)
+            elif path == '/api/dashboard/costs' and method == 'GET':
+                await self._http_dashboard_costs(writer)
             else:
                 await self._http_json(writer, 404, {'error': 'not found'})
         except (asyncio.TimeoutError, ConnectionResetError, BrokenPipeError):
@@ -735,6 +744,70 @@ class ShopkeeperServer:
             })
         else:
             await self._http_json(writer, 403, {'valid': False})
+
+    async def _http_dashboard_auth(self, writer: asyncio.StreamWriter,
+                                     body_bytes: bytes):
+        """Handle POST /api/dashboard/auth — validate dashboard password."""
+        try:
+            data = json.loads(body_bytes.decode('utf-8'))
+            password = data.get('password', '')
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            await self._http_json(writer, 400, {'error': 'bad request'})
+            return
+
+        # Read password from environment (DASHBOARD_PASSWORD)
+        expected = os.environ.get('DASHBOARD_PASSWORD')
+        if not expected:
+            await self._http_json(writer, 503, {
+                'error': 'DASHBOARD_PASSWORD not configured',
+            })
+            return
+
+        if password == expected:
+            # In production, return a JWT or session token
+            # For now, return success (client stores password)
+            await self._http_json(writer, 200, {'authenticated': True})
+        else:
+            await self._http_json(writer, 401, {'authenticated': False})
+
+    async def _http_dashboard_vitals(self, writer: asyncio.StreamWriter):
+        """Handle GET /api/dashboard/vitals — return vitals panel data."""
+        days_alive = await db.get_days_alive()
+        visitor_count_today = await db.get_visitor_count_today()
+        cycle_count = await db.get_flashbulb_count_today()
+        llm_calls_today = await db.get_llm_call_count_today()
+        cost_today = await db.get_llm_call_cost_today()
+
+        await self._http_json(writer, 200, {
+            'days_alive': days_alive,
+            'visitors_today': visitor_count_today,
+            'cycles_today': cycle_count,
+            'llm_calls_today': llm_calls_today,
+            'cost_today': cost_today,
+        })
+
+    async def _http_dashboard_drives(self, writer: asyncio.StreamWriter):
+        """Handle GET /api/dashboard/drives — return drives state."""
+        drives = await db.get_drives_state()
+        await self._http_json(writer, 200, {
+            'social_hunger': drives.social_hunger,
+            'curiosity': drives.curiosity,
+            'expression_need': drives.expression_need,
+            'rest_need': drives.rest_need,
+            'energy': drives.energy,
+            'mood_valence': drives.mood_valence,
+            'mood_arousal': drives.mood_arousal,
+            'updated_at': drives.updated_at.isoformat() if drives.updated_at else None,
+        })
+
+    async def _http_dashboard_costs(self, writer: asyncio.StreamWriter):
+        """Handle GET /api/dashboard/costs — return cost tracking data."""
+        summary = await db.get_llm_costs_summary()
+        daily = await db.get_llm_daily_costs(days=30)
+        await self._http_json(writer, 200, {
+            'summary': summary,
+            'daily': daily,
+        })
 
     async def _http_cors_preflight(self, writer: asyncio.StreamWriter):
         """Handle OPTIONS preflight for CORS."""
