@@ -6,6 +6,10 @@ from pipeline.sensorium import Perception
 import clock
 import db
 
+# Salience threshold for visitor_connect routing.
+# Above this → engage (greet). Below → idle (notice but continue).
+VISITOR_CONNECT_SALIENCE_THRESHOLD = 0.5
+
 
 @dataclass
 class RoutingDecision:
@@ -37,7 +41,7 @@ async def route(
         # Visitor arrival competes with other perceptions via salience.
         # High salience (familiar face, lonely) → engage and greet.
         # Low salience (stranger, she's absorbed) → idle, she notices but continues.
-        cycle_type = 'engage' if focus.salience >= 0.5 else 'idle'
+        cycle_type = 'engage' if focus.salience >= VISITOR_CONNECT_SALIENCE_THRESHOLD else 'idle'
     elif focus.p_type == 'visitor_disconnect':
         cycle_type = 'idle'  # she's alone now — reflect, don't engage
     elif focus.p_type == 'visitor_silence':

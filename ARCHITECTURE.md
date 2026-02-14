@@ -46,18 +46,18 @@ Terminal/Web Client
 
 | File | Lines | What it does |
 |------|-------|-------------|
-| `heartbeat_server.py` | 1092 | **Main process.** TCP server for terminal clients, HTTP REST API for dashboard, WebSocket for window frontend, sprite generation worker. Start with `python heartbeat_server.py`. |
-| `terminal.py` | 913 | CLI visitor interface + debug commands. Connects to heartbeat_server via TCP. Start with `python terminal.py --connect`. |
+| `heartbeat_server.py` | 1170 | **Main process.** TCP server for terminal clients, HTTP REST API for dashboard, WebSocket for window frontend, sprite generation worker. Start with `python heartbeat_server.py`. |
+| `terminal.py` | 1074 | CLI visitor interface + debug commands. Connects to heartbeat_server via TCP. Start with `python terminal.py --connect`. |
 | `simulate.py` | 230 | Offline simulation runner. Runs N cycles without a server, useful for testing. |
 
 ### Core Engine
 
 | File | Lines | What it does | Depends on |
 |------|-------|-------------|------------|
-| `heartbeat.py` | 972 | **The brain's clock.** Runs the main async loop: sleep → wake → process inbox → run cycle → sleep. Contains the `Heartbeat` class with `run_cycle()`, `run_silence_cycle()`, sleep scheduling, fidget behaviors. | db, all pipeline/*, sleep, clock |
-| `db.py` | 2291 | **All persistence.** 100+ functions for events, inbox, room state, drives, engagement, visitors, traits, totems, collection, journal, conversations, cycle logs, threads, content pool, cold memory, LLM cost tracking, shelf assignments, chat tokens. SQLite + aiosqlite. | models/*, clock |
-| `clock.py` | 68 | Time abstraction. Returns real time normally, simulated time during `simulate.py`. | — |
-| `seed.py` | 79 | Initial database seeding for fresh instances. | db |
+| `heartbeat.py` | 1004 | **The brain's clock.** Runs the main async loop: sleep → wake → process inbox → run cycle → sleep. Contains the `Heartbeat` class with `run_cycle()`, `run_silence_cycle()`, sleep scheduling, fidget behaviors. | db, all pipeline/*, sleep, clock |
+| `db.py` | 2637 | **All persistence.** 100+ functions for events, inbox, room state, drives, engagement, visitors, traits, totems, collection, journal, conversations, cycle logs, threads, content pool, cold memory, LLM cost tracking, shelf assignments, chat tokens, action log, inhibitions, habits. SQLite + aiosqlite. | models/*, clock |
+| `clock.py` | 78 | Time abstraction. Returns real time normally, simulated time during `simulate.py`. | — |
+| `seed.py` | 85 | Initial database seeding for fresh instances. | db |
 
 ### Pipeline (the cognitive architecture)
 
@@ -88,20 +88,21 @@ Events → Inbox → Sensorium → Gates → Affect → Hypothalamus → Thalamu
 
 | File | Lines | Stage | What it does |
 |------|-------|-------|-------------|
-| `pipeline/sensorium.py` | 337 | Perception | Raw events → structured `Perception` objects with salience scores, type classification. |
-| `pipeline/gates.py` | 51 | Filtering | Drops low-salience perceptions, prevents re-processing. |
-| `pipeline/affect.py` | 57 | Emotional lens | Applies mood/drives overlay to perception before routing. |
-| `pipeline/hypothalamus.py` | 136 | Drive math | Deterministic drive updates (social hunger, curiosity, expression need, rest, energy). No LLM. |
-| `pipeline/thalamus.py` | 234 | Routing | Decides cycle type: engage visitor, idle contemplation, rest, consume content, thread work. Returns `RoutingDecision`. |
-| `pipeline/hippocampus.py` | 166 | Memory recall | Retrieves relevant memories (journal, totems, visitor history, collection) for context injection. |
-| `pipeline/cortex.py` | 524 | **LLM call** | The ONE Claude API call per cycle. Assembles prompt, calls Sonnet, parses structured response (speech, body, internal monologue, actions). |
-| `pipeline/validator.py` | 229 | Validation | Checks cortex output against character rules (no journal during engagement, no forbidden actions, trait consistency). |
-| `pipeline/basal_ganglia.py` | 57 | Action selection | Wraps validated actions into a `MotorPlan`. Phase 1 stub: passes all approved actions through unchanged. Future: multi-intention selection, energy gating, inhibition, habits. |
-| `pipeline/body.py` | 255 | Action execution | Executes approved actions from the motor plan: dialogue emission, body state broadcast, journal writes, room changes, gift handling. |
-| `pipeline/output.py` | 107 | Output processing | Post-action side effects: memory consolidation (via hippocampus_write), pool status updates, drive adjustments, engagement state updates. |
-| `pipeline/action_registry.py` | 163 | Action registry | `ActionCapability` dataclass and `ACTION_REGISTRY` dict defining all actions the body can perform, their energy costs, cooldowns, and prerequisites. |
+| `pipeline/sensorium.py` | 367 | Perception | Raw events → structured `Perception` objects with salience scores, type classification. |
+| `pipeline/gates.py` | 57 | Filtering | Drops low-salience perceptions, prevents re-processing. |
+| `pipeline/affect.py` | 51 | Emotional lens | Applies mood/drives overlay to perception before routing. |
+| `pipeline/hypothalamus.py` | 134 | Drive math | Deterministic drive updates (social hunger, curiosity, expression need, rest, energy). No LLM. |
+| `pipeline/thalamus.py` | 244 | Routing | Decides cycle type: engage visitor, idle contemplation, rest, consume content, thread work. Returns `RoutingDecision`. |
+| `pipeline/hippocampus.py` | 180 | Memory recall | Retrieves relevant memories (journal, totems, visitor history, collection) for context injection. |
+| `pipeline/cortex.py` | 589 | **LLM call** | The ONE Claude API call per cycle. Assembles prompt, calls Sonnet, parses structured response (speech, body, internal monologue, intentions). |
+| `pipeline/validator.py` | 131 | Validation | Checks cortex output format/schema. Character-rule enforcement moved to metacognitive monitor in output.py. |
+| `pipeline/basal_ganglia.py` | 352 | Action selection | Multi-intention selection from cortex intentions[]. Gates 1-6: capability, enabled, prerequisites, cooldown, energy, inhibition. Strongest intention fires, others suppressed with reasons. |
+| `pipeline/body.py` | 248 | Action execution | Executes approved actions from the motor plan: dialogue emission, body state broadcast, journal writes, room changes, gift handling. |
+| `pipeline/output.py` | 483 | Output processing | Post-action side effects: memory consolidation, drive adjustments, engagement state, action logging, suppression reflection, inhibition formation, habit tracking, metacognitive monitoring. |
+| `pipeline/action_registry.py` | 219 | Action registry | `ActionCapability` dataclass and `ACTION_REGISTRY` dict defining all actions the body can perform, their energy costs, cooldowns, and prerequisites. |
 | `pipeline/executor.py` | 53 | ~~Action execution~~ | **DEPRECATED.** Backward-compat wrapper that delegates to `basal_ganglia` → `body` → `output`. |
-| `pipeline/hippocampus_write.py` | 175 | Memory consolidation | After execution: updates visitor traits, totems, consolidates short-term → long-term memory. |
+| `pipeline/hippocampus_write.py` | 156 | Memory consolidation | After execution: updates visitor traits, totems, consolidates short-term → long-term memory. |
+| `pipeline/context_bands.py` | 61 | Context banding | Computes coarse-grained trigger context (energy band, mood band, mode, time band, visitor_present) for habit matching. |
 
 ### Pipeline — Supporting Modules
 
@@ -109,17 +110,17 @@ Events → Inbox → Sensorium → Gates → Affect → Hypothalamus → Thalamu
 |------|-------|-------------|
 | `pipeline/arbiter.py` | 329 | Decides which "channel" gets the cycle (visitor, thread, news, creative, ambient). Manages attention budget. |
 | `pipeline/ambient.py` | 231 | Fetches ambient context (time of day, weather, RSS feeds) for idle cycles. |
-| `pipeline/ack.py` | 52 | Instant acknowledgments for visitor events (before full cycle processes). |
-| `pipeline/discovery.py` | 87 | Discovery/curiosity-driven item exploration from collection. |
-| `pipeline/enrich.py` | 123 | URL metadata fetching, readable text extraction from links. |
-| `pipeline/sanitize.py` | 26 | Input sanitization (strip dangerous content). |
+| `pipeline/ack.py` | 69 | Instant acknowledgments for visitor events (before full cycle processes). |
+| `pipeline/discovery.py` | 90 | Discovery/curiosity-driven item exploration from collection. |
+| `pipeline/enrich.py` | 152 | URL metadata fetching, readable text extraction from links. |
+| `pipeline/sanitize.py` | 24 | Input sanitization (strip dangerous content). |
 | `pipeline/scene.py` | 249 | Scene state computation (posture, gaze, lighting, shelf items) for visual rendering. |
 | `pipeline/image_gen.py` | 282 | Image generation abstraction (fal.ai backend). |
 | `pipeline/sprite_gen.py` | 220 | Character sprite generation from scene state. |
-| `pipeline/day_memory.py` | 199 | "Flashbulb moment" recording — significant events get special memory treatment. |
-| `pipeline/embed.py` | 132 | Text embedding via external API (for cold memory search). |
-| `pipeline/embed_cold.py` | 96 | Batch embedding of conversation/monologue history. |
-| `pipeline/cold_search.py` | 119 | Vector similarity search over embedded memories. |
+| `pipeline/day_memory.py` | 213 | "Flashbulb moment" recording — significant events (including internal conflicts) get special memory treatment with salience boost. |
+| `pipeline/embed.py` | 143 | Text embedding via external API (for cold memory search). |
+| `pipeline/embed_cold.py` | 99 | Batch embedding of conversation/monologue history. |
+| `pipeline/cold_search.py` | 132 | Vector similarity search over embedded memories. |
 
 ### Prompt Assembly
 
@@ -127,7 +128,7 @@ Events → Inbox → Sensorium → Gates → Affect → Hypothalamus → Thalamu
 |------|-------|-------------|
 | `prompt_assembler.py` | 450 | Builds the full system prompt for cortex. Assembles identity, drives, memories, perceptions, context into one prompt. |
 | `config/prompts.yaml` | 335 | Image generation prompt fragments (style, palette, character description, shop description). |
-| `config/identity.py` | 48 | Character identity constants (name, voice rules, personality checksum). |
+| `config/identity.py` | 54 | Character identity constants (name, voice rules, personality checksum, machine-readable patterns for metacognitive monitor). |
 | `config/location.py` | 13 | Physical location constants (Daikanyama, Tokyo). |
 | `config/feeds.py` | 11 | RSS feed URLs for ambient content ingestion. |
 
@@ -135,7 +136,7 @@ Events → Inbox → Sensorium → Gates → Affect → Hypothalamus → Thalamu
 
 | File | Lines | What it does |
 |------|-------|-------------|
-| `sleep.py` | 349 | End-of-day processing: daily summary generation, memory consolidation, dream-like reflection, journal compilation. Runs when `rest_need` is high or during JST night hours. |
+| `sleep.py` | 349 | End-of-day processing: per-moment reflective journal entries, lightweight daily summary index, memory consolidation. Runs when `rest_need` is high or during JST night hours. |
 
 ### Content Ingestion
 
@@ -159,7 +160,7 @@ Events → Inbox → Sensorium → Gates → Affect → Hypothalamus → Thalamu
 | File | Lines | What it does |
 |------|-------|-------------|
 | `compositing.py` | 117 | Layer compositing: background + shop + items + character sprite → final scene image. |
-| `window_state.py` | 224 | Builds the full state object broadcast to window frontend via WebSocket. |
+| `window_state.py` | 240 | Builds the full state object broadcast to window frontend via WebSocket. |
 | `bootstrap_assets.py` | 138 | Initial asset generation (backgrounds, shop interiors) on first run. |
 
 ### Frontend — `window/`
@@ -195,6 +196,7 @@ Next.js app. Two pages: public shop window + operator dashboard.
 | File | What it defines |
 |------|----------------|
 | `models/event.py` | `Event` dataclass (id, type, source, timestamp, payload) |
+| `models/pipeline.py` | `CortexOutput`, `ValidatedOutput`, `MotorPlan`, `ActionDecision`, `ActionResult`, `BodyOutput`, `CycleOutput`, `SelfConsistencyResult` — typed contracts between pipeline stages |
 | `models/state.py` | `RoomState`, `DrivesState`, `EngagementState`, `Visitor`, `VisitorTrait`, `Totem`, `CollectionItem`, `JournalEntry`, `DailySummary`, `Thread` |
 
 ### Deployment
@@ -223,17 +225,24 @@ Next.js app. Two pages: public shop window + operator dashboard.
 | `tests/test_cortex_soak.py` | Extended cortex stress test |
 | `tests/test_validator.py` | Response validation rules |
 | `tests/test_basal_ganglia.py` | Basal ganglia stub passthrough |
+| `tests/test_basal_ganglia_selection.py` | Multi-intention selection, energy gating, cooldown, inhibition |
 | `tests/test_body.py` | Body action execution and event emission |
 | `tests/test_hypothalamus.py` | Drive math correctness |
+| `tests/test_engagement_choice.py` | Visitor engagement as pipeline choice, not forced state |
 | `tests/test_embed.py` | Embedding pipeline |
 | `tests/test_embed_cold.py` | Cold embedding batch process |
 | `tests/test_cold_memory_e2e.py` | End-to-end cold memory flow |
+| `tests/test_habits.py` | Habit formation, strength curve, trigger context matching |
 | `tests/test_image_gen.py` | Image generation |
 | `tests/test_llm_logger.py` | LLM call logging |
 | `tests/test_models.py` | Data model serialization |
 | `tests/test_sanitize.py` | Input sanitization |
 | `tests/test_identity.py` | Identity constants |
+| `tests/test_inhibition.py` | Inhibition formation, strengthening, weakening |
+| `tests/test_metacognitive.py` | Self-consistency detection, internal conflict events |
+| `tests/test_multi_visitor.py` | Multi-visitor presence, attention allocation |
 | `tests/test_sleep_cold_memory.py` | Sleep + cold memory integration |
+| `tests/test_window_state.py` | Window state broadcast payload |
 | `tests/test_backfill_embeddings.py` | Embedding backfill script |
 | `tests/soak_live.py` | Live soak test (manual) |
 
@@ -280,12 +289,12 @@ window/ (Next.js) ← connects via WebSocket + HTTP to heartbeat_server
 
 ## Known Architectural Debt
 
-### 1. `db.py` is a god module (2,291 lines, 100+ functions)
+### 1. `db.py` is a god module (2,637 lines, 100+ functions)
 Every module imports `db`. Any change to db.py risks breaking anything. This is the #1 source of merge conflicts when multiple agents work simultaneously.
 
 **Future fix:** Split into `db/events.py`, `db/state.py`, `db/memory.py`, `db/content.py`, `db/analytics.py` with a thin `db/__init__.py` re-exporting for backward compat.
 
-### 2. `heartbeat_server.py` mixes too many concerns (1,092 lines)
+### 2. `heartbeat_server.py` mixes too many concerns (1,170 lines)
 TCP server, HTTP API, WebSocket server, sprite generation worker, and dashboard endpoints in one file/class.
 
 **Future fix:** Extract `api/rest.py`, `api/websocket.py`, `api/tcp.py`, `workers/sprite_worker.py`.
@@ -293,20 +302,14 @@ TCP server, HTTP API, WebSocket server, sprite generation worker, and dashboard 
 ### 3. ~~No interface contracts between pipeline stages~~ (RESOLVED — TASK-004, extended TASK-008)
 Pipeline stages now use typed dataclasses (`CortexOutput`, `ValidatedOutput`, `MotorPlan`, `BodyOutput`, `CycleOutput`) defined in `models/pipeline.py`. The cognitive pipeline (cortex → validator → basal ganglia → body → output) passes typed objects; maintenance/sleep calls remain dict-based.
 
-### 4. Engagement is a forced singleton
-`EngagementState` holds one visitor slot. When a visitor connects, `heartbeat_server.py` immediately forces `status='engaged'` — the shopkeeper has no say. She can't ignore a visitor, prefer one over another, or be aware of multiple visitors. The thalamus always routes visitor events as `engage` cycle type.
-
-This is load-bearing: `heartbeat.py`, `heartbeat_server.py`, `terminal.py`, `pipeline/thalamus.py`, `pipeline/ack.py`, `pipeline/executor.py`, and `pipeline/sensorium.py` all reference `engagement.status == 'engaged'`.
-
-**Future fix:** Replace singleton with multi-slot visitor presence. `visitor_connect` becomes a perception routed through sensorium → thalamus → arbiter like anything else. Engagement becomes her choice, modulated by drives and visitor familiarity. See `body-spec-v2.md` for the basal ganglia architecture that enables this.
+### 4. ~~Engagement is a forced singleton~~ (RESOLVED — TASK-012, TASK-013, TASK-014)
+Visitor connection no longer forces engagement. `visitor_connect` flows through sensorium → thalamus → arbiter as a perception competing for attention. Engagement is set in `pipeline/output.py` only when she actually speaks to a visitor. Multi-visitor presence via `visitors_present` table replaces the singleton. Drives (social hunger, curiosity) modulate which visitor she addresses.
 
 ### 5. ~~Sleep consolidation summarizes instead of reflecting~~ (RESOLVED — TASK-007)
 Fixed in TASK-007. `MIN_SLEEP_SALIENCE` raised from 0.4 to 0.65. Each moment's reflection is now written as its own journal entry. Daily summary is a lightweight index (moment count, moment IDs, journal entry IDs, emotional arc) — not a concatenated narrative.
 
-### 6. No metacognitive monitoring
-The validator strips out-of-character behavior silently. There is no mechanism for the shopkeeper to *notice* when she deviates from her self-concept. Inconsistency is filtered rather than processed.
-
-**Future fix:** Add a metacognitive monitor in `pipeline/output.py` that compares executed behavior against identity/character-bible. Divergences become `internal_conflict` events → high-salience day memories → reflected on at night → character development, not bugs.
+### 6. ~~No metacognitive monitoring~~ (RESOLVED — TASK-010)
+Metacognitive monitor in `pipeline/output.py` compares executed behavior against voice rules and physical traits from `config/identity.py`. Divergences become `internal_conflict` events with salience boost in `pipeline/day_memory.py`, reflected on at night. Validator now only checks format/schema; character-rule enforcement is post-hoc detection, not silent stripping.
 
 ---
 
@@ -326,12 +329,12 @@ The validator strips out-of-character behavior silently. There is no mechanism f
 | Area | Files | Lines |
 |------|-------|-------|
 | Core engine (*.py root) | 17 | ~8,147 |
-| Pipeline (pipeline/*.py) | 29 | ~5,554 |
+| Pipeline (pipeline/*.py) | 29 | ~5,560 |
 | Config | 5 | ~415 |
 | Models | 4 | ~511 |
 | Scripts | 3 | ~455 |
 | Tests | 29 | ~5,520 |
 | Frontend (window/src/) | 28 | ~2,490 |
-| Docs (*.md) | 12 | ~7,213 |
+| Docs (*.md) | 12 | ~7,216 |
 | Deploy | 6 | ~471 |
-| **Total** | **~133** | **~30,776** | **~132** | **~30,587** | **~132** | **~30,188** | **~131** | **~29,762** | **~130** | **~29,343** | **~126** | **~27,852** |
+| **Total** | **~155** | **~31,916** |
