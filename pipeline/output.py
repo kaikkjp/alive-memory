@@ -135,12 +135,19 @@ async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
                 last_activity=now,
                 turn_count=1,
             )
+            # Sync visitor presence: new target → in_conversation,
+            # previous target (if any) → waiting
+            if engagement.status == 'engaged' and engagement.visitor_id and engagement.visitor_id != visitor_id:
+                await db.update_visitor_present(engagement.visitor_id, status='waiting')
+            await db.update_visitor_present(visitor_id, status='in_conversation', last_activity=now)
         else:
             # Continuing conversation — update activity and increment turn
             await db.update_engagement_state(
                 last_activity=now,
                 turn_count=engagement.turn_count + 1,
             )
+            # Sync visitor presence: update last activity
+            await db.update_visitor_present(visitor_id, last_activity=now)
 
     # ── Drive adjustments from action outcomes (Phase 2) ──
     if body_output.executed:
