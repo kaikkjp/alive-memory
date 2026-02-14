@@ -6,35 +6,51 @@ services:
     container_name: shopkeeper
     restart: unless-stopped
     env_file: .env
+    environment:
+      - SHOPKEEPER_HOST=0.0.0.0
+      - SHOPKEEPER_PORT=9999
+      - SHOPKEEPER_WS_PORT=8765
+      - SHOPKEEPER_HTTP_PORT=8080
+    ports:
+      - "127.0.0.1:9999:9999"   # TCP terminal (localhost only, use SSH tunnel)
     volumes:
       - shopkeeper-data:/app/data
     networks:
       - internal
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/api/health')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
 
   nginx:
-    image: nginx:1.27-alpine
+    build:
+      context: .
+      dockerfile: deploy/nginx.Dockerfile
     container_name: shopkeeper-nginx
     restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - ./deploy/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - certs:/etc/letsencrypt:ro
       - certbot-webroot:/var/www/certbot:ro
     depends_on:
-      - shopkeeper
+      shopkeeper:
+        condition: service_healthy
     networks:
       - internal
 
   certbot:
     image: certbot/certbot:latest
     container_name: shopkeeper-certbot
-    restart: unless-stopped
     volumes:
       - certs:/etc/letsencrypt
       - certbot-webroot:/var/www/certbot
-    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do sleep 12h & wait $${!}; done'"
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done'"
+    restart: unless-stopped
 
 volumes:
   shopkeeper-data:

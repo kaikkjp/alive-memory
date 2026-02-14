@@ -96,7 +96,7 @@
 ---
 
 ### TASK-005: VPS deployment hardening
-**Status:** BACKLOG
+**Status:** DONE (2026-02-14)
 **Priority:** High
 **Description:** Finalize Docker + nginx + TLS deployment per `DEPLOY_VPS.md` spec. Ensure `docker-compose.yml` builds cleanly, nginx proxies WebSocket correctly, and TLS certs auto-renew.
 **Scope (files you may touch):**
@@ -393,6 +393,37 @@
 - `sleep.py`
 **Tests:** Verify endpoints return correct JSON. Panels render without errors.
 **Definition of done:** Dashboard shows body state and behavioral data. "She almost..." feed works.
+
+---
+
+### TASK-016: Dashboard and WebSocket authentication enforcement
+**Status:** BACKLOG
+**Priority:** High
+**Description:** Security audit found that dashboard HTTP endpoints (`/api/dashboard/*`) have NO server-side auth enforcement — the `DASHBOARD_PASSWORD` is validated by `/api/dashboard/auth` but never checked on data endpoints. WebSocket connections (port 8765) are also unauthenticated. Any client can connect and receive full application state.
+Fix: (1) Extract+validate `Authorization: Bearer` header on all `_http_dashboard_*` handlers. (2) Require a valid token on WebSocket handshake. (3) Refuse to start (or warn loudly) if `DASHBOARD_PASSWORD` is unset.
+**Scope (files you may touch):**
+- `heartbeat_server.py`
+**Scope (files you may NOT touch):**
+- `heartbeat.py`
+- `db.py`
+- `pipeline/*`
+**Tests:** Add `tests/test_dashboard_auth.py` verifying 401 on unauthenticated requests.
+**Definition of done:** Dashboard endpoints return 401 without valid auth. WebSocket rejects unauthenticated connections.
+
+---
+
+### TASK-017: Restrict CORS to production domain
+**Status:** BACKLOG
+**Priority:** Medium
+**Description:** Both nginx and the Python HTTP handler set `Access-Control-Allow-Origin: *`, allowing any website to make cross-origin API requests. Replace with specific domain allowlist.
+**Scope (files you may touch):**
+- `heartbeat_server.py` (CORS headers in `_http_json`, `_http_bytes`, `_http_cors_preflight`)
+- `deploy/nginx.conf` (CORS headers in `/api/` location)
+**Scope (files you may NOT touch):**
+- `heartbeat.py`
+- `db.py`
+**Tests:** Verify CORS headers reflect allowed origin, not wildcard.
+**Definition of done:** CORS restricted to production domain. Wildcard removed.
 
 ---
 
