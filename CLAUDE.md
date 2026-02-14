@@ -57,6 +57,17 @@ git add -A
 git commit -m "feat: <task title> [TASK-XXX]"
 ```
 
+### Step 9: Code review (MANDATORY before merge)
+Do NOT merge to main without a review pass. Request a code-reviewer agent review:
+- **Scope check:** all changed files must be in the task's scope
+- **Tests pass**
+- **No architectural violations**
+
+If you ARE the code-reviewer: output a `VERDICT: PASS` or `VERDICT: FAIL`. No merge without `VERDICT: PASS`.
+
+### Step 10: Clear context
+Run `/clear` before starting any new task.
+
 ## Critical Rules
 
 ### DO NOT touch these files unless your task explicitly requires it:
