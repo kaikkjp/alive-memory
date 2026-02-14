@@ -103,14 +103,31 @@ async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
                     pool_item['source_event_id'], 'engaged', engaged_at=now
                 )
 
-    # ── Update drives if resonance flagged ──
-    if validated.resonance:
+    # ── Update drives (resonance + action outcomes in a single save) ──
+    needs_drives = validated.resonance or body_output.executed
+    if needs_drives:
         drives = await db.get_drives_state()
-        drives.social_hunger = max(0.0, drives.social_hunger - 0.15)
-        drives.energy = min(1.0, drives.energy + 0.05)
-        drives.mood_valence = min(1.0, drives.mood_valence + 0.1)
-        await db.save_drives_state(drives)
-        result.resonance_applied = True
+        drives_changed = False
+
+        if validated.resonance:
+            drives.social_hunger = max(0.0, drives.social_hunger - 0.15)
+            drives.energy = min(1.0, drives.energy + 0.05)
+            drives.mood_valence = min(1.0, drives.mood_valence + 0.1)
+            drives_changed = True
+            result.resonance_applied = True
+
+        if body_output.executed:
+            failures = [r for r in body_output.executed if not r.success]
+            successes = [r for r in body_output.executed if r.success]
+            if failures:
+                drives.mood_valence = max(-1.0, drives.mood_valence - 0.05 * len(failures))
+                drives_changed = True
+            if successes:
+                drives.mood_valence = min(1.0, drives.mood_valence + 0.02 * len(successes))
+                drives_changed = True
+
+        if drives_changed:
+            await db.save_drives_state(drives)
 
     # ── Update engagement state ──
     # Engagement is set when she speaks, not when a visitor connects.
@@ -148,21 +165,6 @@ async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
             )
             # Sync visitor presence: update last activity
             await db.update_visitor_present(visitor_id, last_activity=now)
-
-    # ── Drive adjustments from action outcomes (Phase 2) ──
-    if body_output.executed:
-        drives = await db.get_drives_state()
-        failures = [r for r in body_output.executed if not r.success]
-        successes = [r for r in body_output.executed if r.success]
-        changed = False
-        if failures:
-            drives.mood_valence = max(-1.0, drives.mood_valence - 0.05 * len(failures))
-            changed = True
-        if successes:
-            drives.mood_valence = min(1.0, drives.mood_valence + 0.02 * len(successes))
-            changed = True
-        if changed:
-            await db.save_drives_state(drives)
 
     # ── Log actions to action_log (Phase 2) ──
     if motor_plan and cycle_id:

@@ -484,7 +484,7 @@ Fix: (1) Extract+validate `Authorization: Bearer` header on all `_http_dashboard
 ---
 
 ### TASK-020: Post-review cleanup (009 + 012)
-**Status:** BACKLOG
+**Status:** DONE (2026-02-14)
 **Priority:** Low
 **Description:** Minor items from code reviews:
 - Extract 0.5 salience threshold in thalamus.py to named constant
