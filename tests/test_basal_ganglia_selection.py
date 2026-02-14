@@ -279,8 +279,8 @@ class TestPriorityCalculation:
         drives = DrivesState(social_hunger=0.8, energy=0.8)
         priority = _calculate_priority(intention, drives, energy_cost=0.15)
 
-        # base=0.5 + 0.8*0.2=0.66
-        assert priority == pytest.approx(0.66, abs=0.01)
+        # base=0.5 + 0.8*0.3=0.74 (TASK-014: coefficient increased to 0.3)
+        assert priority == pytest.approx(0.74, abs=0.01)
 
     def test_non_visitor_target_no_boost(self):
         intention = Intention(action='write_journal', target='journal', impulse=0.5)
