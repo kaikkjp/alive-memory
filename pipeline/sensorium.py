@@ -79,8 +79,8 @@ async def build_perceptions(unread_events: list[Event], drives: DrivesState,
                 source=event.source,
                 ts=event.ts,
                 content=content,
-                features={'is_arrival': True},
-                salience=0.6 + (0.1 if trust != 'stranger' else 0.0),
+                features={'is_arrival': True, 'trust_level': trust},
+                salience=calculate_connect_salience(drives, trust),
             )
             perceptions.append(p)
 
@@ -191,6 +191,36 @@ def calculate_salience(event: Event, drives: DrivesState,
         base += 0.15
 
     # Low energy dampens salience
+    if drives.energy < 0.3:
+        base -= 0.1
+
+    return max(0.0, min(1.0, base))
+
+
+def calculate_connect_salience(drives: DrivesState, trust_level: str) -> float:
+    """Salience for visitor_connect — how much she cares about a new arrival.
+
+    Factors: trust level, social hunger, current absorption (expression_need).
+    A familiar face when she's lonely = high salience.
+    A stranger when she's absorbed in writing = low salience.
+    """
+    base = 0.3
+
+    # Trust amplifies: familiar faces pull harder
+    trust_bonus = {'stranger': 0.0, 'returner': 0.15, 'regular': 0.3, 'familiar': 0.45}
+    base += trust_bonus.get(trust_level, 0.0)
+
+    # Social hunger: lonely = more drawn to visitors
+    if drives.social_hunger > 0.7:
+        base += 0.2
+    elif drives.social_hunger > 0.4:
+        base += 0.1
+
+    # Absorption penalty: if she's deep in expression, arrivals matter less
+    if drives.expression_need > 0.7:
+        base -= 0.15
+
+    # Low energy dampens attention to arrivals
     if drives.energy < 0.3:
         base -= 0.1
 

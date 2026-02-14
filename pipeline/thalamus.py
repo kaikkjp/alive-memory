@@ -34,7 +34,10 @@ async def route(
     if focus.p_type == 'visitor_speech':
         cycle_type = 'engage'
     elif focus.p_type == 'visitor_connect':
-        cycle_type = 'engage'
+        # Visitor arrival competes with other perceptions via salience.
+        # High salience (familiar face, lonely) → engage and greet.
+        # Low salience (stranger, she's absorbed) → idle, she notices but continues.
+        cycle_type = 'engage' if focus.salience >= 0.5 else 'idle'
     elif focus.p_type == 'visitor_disconnect':
         cycle_type = 'idle'  # she's alone now — reflect, don't engage
     elif focus.p_type == 'visitor_silence':

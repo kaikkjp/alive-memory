@@ -284,19 +284,14 @@ class ShopkeeperServer:
                     )
                     await on_visitor_connect(connect_event)
 
-                    # Set engagement
-                    await db.update_engagement_state(
-                        status='engaged',
-                        visitor_id=visitor_id,
-                        started_at=clock.now_utc(),
-                        last_activity=clock.now_utc(),
-                        turn_count=0,
-                    )
+                    # No forced engagement — the pipeline decides whether
+                    # to engage via sensorium salience + thalamus routing.
+                    # Engagement state is set by executor when she speaks.
 
-                    # ACK
+                    # ACK — "she noticed you", not "she's talking to you"
                     await self._send(writer, {
                         'type': 'ack',
-                        'body': 'She looks up.',
+                        'body': 'She glances toward the door.',
                     })
 
                     # Trigger entrance cycle
@@ -670,7 +665,9 @@ class ShopkeeperServer:
         display_name = row['display_name']
         visitor_id = f'web_{display_name.lower().replace(" ", "_")}'
 
-        # Only process disconnect if THIS visitor owns the active session
+        # Only process disconnect if THIS visitor owns the active session.
+        # For WS visitors, engagement.visitor_id is set by executor when
+        # she speaks back. If she never engaged, disconnect is a no-op.
         engagement = await db.get_engagement_state()
         if engagement.visitor_id != visitor_id:
             if engagement.visitor_id:

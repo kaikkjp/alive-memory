@@ -90,18 +90,30 @@ async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
         result.resonance_applied = True
 
     # ── Update engagement state ──
+    # Engagement is set when she speaks, not when a visitor connects.
+    # This lets the pipeline decide whether to engage (TASK-012).
     dialogue = validated.dialogue
     ending = any(
         a.type == 'end_engagement'
         for a in validated.approved_actions
     )
     if visitor_id and dialogue and dialogue != '...' and not ending:
-        await db.update_engagement_state(
-            status='engaged',
-            visitor_id=visitor_id,
-            last_activity=clock.now_utc(),
-        )
         engagement = await db.get_engagement_state()
-        await db.update_engagement_state(turn_count=engagement.turn_count + 1)
+        now = clock.now_utc()
+        if engagement.status != 'engaged' or engagement.visitor_id != visitor_id:
+            # First speak to this visitor — begin engagement
+            await db.update_engagement_state(
+                status='engaged',
+                visitor_id=visitor_id,
+                started_at=now,
+                last_activity=now,
+                turn_count=1,
+            )
+        else:
+            # Continuing conversation — update activity and increment turn
+            await db.update_engagement_state(
+                last_activity=now,
+                turn_count=engagement.turn_count + 1,
+            )
 
     return result

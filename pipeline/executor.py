@@ -49,4 +49,5 @@ async def execute(validated_output: ValidatedOutput, visitor_id: str = None,
     result.memory_update_failures = cycle_output.memory_update_failures
     result.resonance_applied = cycle_output.resonance_applied
     result.pool_outcome = cycle_output.pool_outcome
+
     return result

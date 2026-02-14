@@ -325,14 +325,13 @@ The validator strips out-of-character behavior silently. There is no mechanism f
 
 | Area | Files | Lines |
 |------|-------|-------|
-| Core engine (*.py root) | 17 | ~7,626 |
-| Pipeline (pipeline/*.py) | 28 | ~4,746 |
+| Core engine (*.py root) | 17 | ~7,623 |
+| Pipeline (pipeline/*.py) | 28 | ~4,791 |
 | Config | 5 | ~396 |
 | Models | 4 | ~414 |
 | Scripts | 3 | ~455 |
-| Tests | 22 | ~3,206 |
-| Frontend (window/src/) | 27 | ~2,328 |
-| Docs (*.md) | 12 | ~7,046 |
-| Deploy | 5 | ~367 |
-| Other | 15 | ~373 |
-| **Total** | **~138** | **~26,957** |
+| Tests | 24 | ~3,682 |
+| Frontend (window/src/) | 28 | ~2,490 |
+| Docs (*.md) | 12 | ~7,155 |
+| Deploy | 6 | ~471 |
+| **Total** | **~127** | **~27,477** | **~138** | **~27,232** |

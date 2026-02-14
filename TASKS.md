@@ -290,7 +290,7 @@
 ---
 
 ### TASK-012: Engagement Phase 1 — visitor_connect as perception, not state change
-**Status:** BACKLOG
+**Status:** DONE (2026-02-14)
 **Priority:** High
 **Depends on:** TASK-008 (body refactor provides the action registry / motor plan structure)
 **Description:** Currently `heartbeat_server.py` forces `engagement.status='engaged'` the instant a visitor connects. She has no choice. Change this so visitor_connect goes through the normal pipeline.
