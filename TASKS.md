@@ -317,7 +317,7 @@
 ---
 
 ### TASK-013: Engagement Phase 2 — multi-slot visitor presence
-**Status:** BACKLOG
+**Status:** DONE (2026-02-14)
 **Priority:** Medium
 **Depends on:** TASK-012
 **Description:** Replace the singleton `EngagementState` with a multi-visitor presence model. Multiple people can be in the shop simultaneously.

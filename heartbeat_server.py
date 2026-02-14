@@ -78,7 +78,6 @@ class ShopkeeperServer:
     def __init__(self):
         self.heartbeat = Heartbeat()
         self.connections: dict[str, asyncio.StreamWriter] = {}  # visitor_id → writer
-        self._active_visitor_id: str | None = None
         self._server = None
         self._ws_server = None
         self._http_server = None
@@ -104,6 +103,9 @@ class ShopkeeperServer:
 
         # Initialize database
         await db.init_db()
+
+        # Clear stale visitor presence from previous session
+        await db.clear_all_visitors_present()
 
         # Seed if fresh
         if await check_needs_seed():
@@ -257,24 +259,22 @@ class ShopkeeperServer:
 
                     visitor_id = msg.get('visitor_id', 'v_unknown')
 
-                    # Enforce single-visitor: reject if anyone is already engaged
-                    if self._active_visitor_id:
-                        if self._active_visitor_id != visitor_id:
-                            reason = 'The shop is occupied. Someone else is inside. Try again later.'
-                        else:
-                            reason = 'You are already inside. Only one connection at a time.'
+                    # Reject duplicate connection for same visitor
+                    if visitor_id in self.connections:
                         await self._send(writer, {
                             'type': 'rejected',
-                            'body': reason,
+                            'body': 'You are already inside. Only one connection at a time.',
                         })
                         break
 
                     self.connections[visitor_id] = writer
-                    self._active_visitor_id = visitor_id
                     self.heartbeat.subscribe_cycle_logs(visitor_id)
 
                     # Mark session boundary so Cortex only sees current conversation
                     await db.mark_session_boundary(visitor_id)
+
+                    # Track visitor presence (multi-slot)
+                    await db.add_visitor_present(visitor_id, 'tcp')
 
                     # Handle connect (creates/increments visitor)
                     connect_event = Event(
@@ -326,6 +326,7 @@ class ShopkeeperServer:
                     ack_lines = {
                         'glance_toward': 'She looks up.',
                         'listening': 'She\u2019s listening.',
+                        'busy_with_other': 'She\u2019s talking to someone else. She nods toward you.',
                         'busy_ack': 'She glances at you briefly, then turns back.',
                     }
                     await self._send(writer, {
@@ -381,10 +382,13 @@ class ShopkeeperServer:
                     # Clean up
                     self.connections.pop(visitor_id, None)
                     self.heartbeat.unsubscribe_cycle_logs(visitor_id)
-                    self._active_visitor_id = None
-                    await db.update_engagement_state(
-                        status='none', visitor_id=None, turn_count=0
-                    )
+                    await db.remove_visitor_present(visitor_id)
+                    # Only clear engagement if this visitor was the engaged one
+                    engagement = await db.get_engagement_state()
+                    if engagement.visitor_id == visitor_id:
+                        await db.update_engagement_state(
+                            status='none', visitor_id=None, turn_count=0
+                        )
                     break
 
                 elif msg_type == 'drop':
@@ -403,12 +407,14 @@ class ShopkeeperServer:
             if visitor_id and self.connections.get(visitor_id) is writer:
                 self.connections.pop(visitor_id, None)
                 self.heartbeat.unsubscribe_cycle_logs(visitor_id)
-                if self._active_visitor_id == visitor_id:
-                    self._active_visitor_id = None
                 try:
-                    await db.update_engagement_state(
-                        status='none', visitor_id=None, turn_count=0
-                    )
+                    await db.remove_visitor_present(visitor_id)
+                    # Only clear engagement if this visitor was the engaged one
+                    engagement = await db.get_engagement_state()
+                    if engagement.visitor_id == visitor_id:
+                        await db.update_engagement_state(
+                            status='none', visitor_id=None, turn_count=0
+                        )
                 except Exception:
                     pass
             try:
@@ -545,11 +551,8 @@ class ShopkeeperServer:
             print(f"  {Fore.CYAN}[Sensorium]{Style.RESET_ALL} "
                   f"Salience: {salience:.1f} | Type: {ftype}")
 
-        # Push to the active visitor's terminal (or broadcast autonomous stages)
-        target = self._active_visitor_id
+        # Push stages to all connected visitors
         for vid, writer in list(self.connections.items()):
-            if target and vid != target and stage not in ('sleep',):
-                continue
             try:
                 await self._send(writer, {
                     'type': 'stream',
@@ -613,6 +616,9 @@ class ShopkeeperServer:
         display_name = token_info['display_name']
         visitor_id = f'web_{display_name.lower().replace(" ", "_")}'
 
+        # Track visitor presence (multi-slot) — idempotent via INSERT OR REPLACE
+        await db.add_visitor_present(visitor_id, 'websocket')
+
         # Write visitor speech as text fragment (visible to all window viewers)
         from window_state import build_text_fragment_message
         visitor_frag = build_text_fragment_message(
@@ -665,18 +671,11 @@ class ShopkeeperServer:
         display_name = row['display_name']
         visitor_id = f'web_{display_name.lower().replace(" ", "_")}'
 
-        # Only process disconnect if THIS visitor owns the active session.
-        # For WS visitors, engagement.visitor_id is set by executor when
-        # she speaks back. If she never engaged, disconnect is a no-op.
-        engagement = await db.get_engagement_state()
-        if engagement.visitor_id != visitor_id:
-            if engagement.visitor_id:
-                print(f"  {Fore.GREEN}[Window]{Style.RESET_ALL} "
-                      f"Visitor {display_name} left (not the active visitor)")
-            return
-
         print(f"  {Fore.GREEN}[Window]{Style.RESET_ALL} "
               f"Visitor {display_name} left the shop")
+
+        # Remove from visitor presence table
+        await db.remove_visitor_present(visitor_id)
 
         # Create disconnect event for the pipeline
         disconnect_event = Event(
@@ -691,10 +690,12 @@ class ShopkeeperServer:
         # before we clear it — matching the TCP handler order.
         await self.heartbeat.schedule_microcycle()
 
-        # Clear engagement state AFTER scheduling the cycle
-        await db.update_engagement_state(
-            status='none', visitor_id=None, turn_count=0
-        )
+        # Only clear engagement if THIS visitor was the engaged one
+        engagement = await db.get_engagement_state()
+        if engagement.visitor_id == visitor_id:
+            await db.update_engagement_state(
+                status='none', visitor_id=None, turn_count=0
+            )
 
     async def _broadcast_to_window(self, message: dict):
         """Broadcast a JSON message to all connected window viewers."""

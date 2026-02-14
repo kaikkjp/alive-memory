@@ -163,7 +163,7 @@ def show_banner():
 
 JST = timezone(timedelta(hours=9))
 
-PEEK_COMMANDS = ('journal', 'drives', 'collection', 'backroom', 'status', 'totems', 'events', 'threads', 'weather', 'pool', 'body', 'suppressed', 'action-log', 'inhibitions')
+PEEK_COMMANDS = ('journal', 'drives', 'collection', 'backroom', 'status', 'totems', 'events', 'threads', 'weather', 'pool', 'body', 'suppressed', 'action-log', 'inhibitions', 'who')
 
 
 def _fmt_time(dt) -> str:
@@ -235,6 +235,8 @@ async def handle_peek(cmd: str) -> bool:
         await _peek_action_log()
     elif cmd == 'inhibitions':
         await _peek_inhibitions()
+    elif cmd == 'who':
+        await _peek_who()
     else:
         return False
     return True
@@ -328,8 +330,14 @@ async def _peek_status():
     print(f"  status         {engagement.status}")
     print(f"  visitors today {visitors_today}")
     if engagement.visitor_id:
-        print(f"  current        {engagement.visitor_id}")
+        print(f"  talking to     {engagement.visitor_id}")
         print(f"  turns          {engagement.turn_count}")
+    try:
+        present = await db.get_visitors_present()
+        if present:
+            print(f"  in shop now    {len(present)} ({', '.join(vp.visitor_id for vp in present)})")
+    except Exception:
+        pass
     print()
     if creative:
         print(f"  {Fore.YELLOW}── Last Creative Cycle ──{Style.RESET_ALL}")
@@ -580,6 +588,35 @@ async def _peek_inhibitions():
         bar = _bar(strength)
         print(f"  {color}{action:<20}{Style.RESET_ALL}  {bar} {strength:.2f}  "
               f"triggers:{triggers}  formed:{formed}")
+    print()
+
+
+async def _peek_who():
+    """Show who's currently in the shop."""
+    try:
+        visitors = await db.get_visitors_present()
+    except Exception:
+        print(f"\n  {Fore.WHITE}(Visitor presence not available.){Style.RESET_ALL}\n")
+        return
+
+    engagement = await db.get_engagement_state()
+
+    if not visitors:
+        print(f"\n  {Fore.WHITE}The shop is empty.{Style.RESET_ALL}\n")
+        return
+
+    print()
+    print(f"  {Fore.YELLOW}── Who's in the shop ({len(visitors)}) ──{Style.RESET_ALL}")
+    for vp in visitors:
+        status_icon = {
+            'browsing': f"{Fore.WHITE}·",
+            'in_conversation': f"{Fore.GREEN}*",
+            'waiting': f"{Fore.YELLOW}~",
+        }.get(vp.status, f"{Fore.WHITE}?")
+
+        talking = " ← talking to" if engagement.visitor_id == vp.visitor_id else ""
+        entered = _fmt_time(vp.entered_at) if vp.entered_at else "?"
+        print(f"  {status_icon} {vp.visitor_id:<20} {vp.status:<16} entered: {entered}{Fore.CYAN}{talking}{Style.RESET_ALL}")
     print()
 
 

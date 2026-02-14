@@ -127,6 +127,11 @@ async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
         engagement = await db.get_engagement_state()
         now = clock.now_utc()
         if engagement.status != 'engaged' or engagement.visitor_id != visitor_id:
+            # Switching to a new visitor — update previous visitor's presence
+            if engagement.status == 'engaged' and engagement.visitor_id and engagement.visitor_id != visitor_id:
+                await db.update_visitor_present(
+                    engagement.visitor_id, status='waiting',
+                )
             # First speak to this visitor — begin engagement
             await db.update_engagement_state(
                 status='engaged',
@@ -135,11 +140,18 @@ async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
                 last_activity=now,
                 turn_count=1,
             )
+            # Mark this visitor as in_conversation
+            await db.update_visitor_present(
+                visitor_id, status='in_conversation', last_activity=now,
+            )
         else:
             # Continuing conversation — update activity and increment turn
             await db.update_engagement_state(
                 last_activity=now,
                 turn_count=engagement.turn_count + 1,
+            )
+            await db.update_visitor_present(
+                visitor_id, last_activity=now,
             )
 
     # ── Drive adjustments from action outcomes (Phase 2) ──

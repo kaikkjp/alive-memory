@@ -54,6 +54,16 @@ class EngagementState:
 
 
 @dataclass
+class VisitorPresence:
+    """A visitor currently in the shop (multi-slot presence model)."""
+    visitor_id: str
+    status: str = 'browsing'            # browsing | in_conversation | waiting | left
+    entered_at: Optional[datetime] = None
+    last_activity: Optional[datetime] = None
+    connection_type: str = 'tcp'        # tcp | websocket
+
+
+@dataclass
 class Visitor:
     id: str
     name: Optional[str] = None

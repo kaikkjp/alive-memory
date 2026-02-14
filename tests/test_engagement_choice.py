@@ -176,6 +176,7 @@ class TestEngagementOnSpeak:
                 status='none', visitor_id=None,
             ))
             mock_db.update_engagement_state = AsyncMock()
+            mock_db.update_visitor_present = AsyncMock()
 
             from models.pipeline import BodyOutput
             body_output = BodyOutput()
@@ -217,6 +218,7 @@ class TestEngagementOnSpeak:
                 started_at=datetime(2026, 2, 14, 12, 0, 0, tzinfo=timezone.utc),
             ))
             mock_db.update_engagement_state = AsyncMock()
+            mock_db.update_visitor_present = AsyncMock()
 
             from models.pipeline import BodyOutput
             body_output = BodyOutput()

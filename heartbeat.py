@@ -358,6 +358,24 @@ class Heartbeat:
                     await self._interruptible_sleep(30)
                     continue
 
+                # ── Visitors present but not engaged ──
+                # Someone is in the shop (browsing/waiting) but she hasn't
+                # spoken to them yet. Wait for messages with shorter timeout,
+                # then fall through to autonomous if no one speaks.
+                visitors = await db.get_visitors_present()
+                if visitors:
+                    try:
+                        await asyncio.wait_for(
+                            self.pending_microcycle.wait(),
+                            timeout=random.randint(15, 45)
+                        )
+                        continue  # microcycle triggered
+                    except asyncio.TimeoutError:
+                        if self.pending_microcycle.is_set():
+                            continue
+                        # Fall through to autonomous — she does her own thing
+                        # while visitors browse
+
                 # ── Autonomous behavior (no visitor engaged) ──
                 # She lives whether anyone is watching or not.
                 result = await self.run_one_cycle(drives)

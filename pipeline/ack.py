@@ -18,6 +18,9 @@ async def on_visitor_message(event: Event, engagement: EngagementState) -> dict:
         body = {"type": "glance_toward", "target": event.source}
     elif engagement.is_engaged_with(event.source):
         body = {"type": "listening", "target": event.source}
+    elif engagement.status == 'engaged':
+        # She's in conversation with someone else
+        body = {"type": "busy_with_other", "target": event.source}
     else:
         body = {"type": "busy_ack", "target": event.source}
 
@@ -29,7 +32,11 @@ async def on_visitor_message(event: Event, engagement: EngagementState) -> dict:
     )
     await db.append_event(body_event)
 
-    # Determine delay
+    # Determine if this message should trigger a microcycle.
+    # All messages enter the inbox (via inbox_add above).
+    # Schedule microcycle if she's free or talking to this visitor.
+    # If talking to someone else, the message waits in inbox for
+    # next cycle — she'll process it via salience competition.
     should_process = (
         engagement.is_engaged_with(event.source)
         or engagement.status == 'none'
