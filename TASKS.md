@@ -73,7 +73,7 @@
 ---
 
 ### TASK-004: Add typed pipeline contracts
-**Status:** BACKLOG
+**Status:** DONE (2026-02-14)
 **Priority:** Medium
 **Description:** Pipeline stages pass data through dicts and implicit conventions. Define explicit dataclasses:
 - `CortexInput` — what goes into the LLM call
@@ -393,6 +393,21 @@
 - `sleep.py`
 **Tests:** Verify endpoints return correct JSON. Panels render without errors.
 **Definition of done:** Dashboard shows body state and behavioral data. "She almost..." feed works.
+
+---
+
+### TASK-016: Reconcile DailySummary dataclass with new index schema
+**Status:** BACKLOG
+**Priority:** Low
+**Description:** TASK-007 changed daily_summary from narrative blob to lightweight index, but `DailySummary` dataclass in `models/state.py` and the `summary_bullets` column name still reflect the old shape. Rename field and update dataclass to match actual data.
+**Scope (files you may touch):**
+- `models/state.py`
+- `db.py` (only the `insert_daily_summary` / `get_daily_summary` functions)
+- `sleep.py` (update references if field name changes)
+**Scope (files you may NOT touch):**
+- Everything else
+**Tests:** Existing sleep tests pass. Add test verifying round-trip of new index structure.
+**Definition of done:** `DailySummary` fields match what `sleep.py` actually stores.
 
 ---
 

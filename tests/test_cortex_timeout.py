@@ -27,6 +27,7 @@ _mock_db.insert_llm_call_log = unittest.mock.AsyncMock(return_value=None)
 sys.modules.setdefault("db", _mock_db)
 
 from models.state import DrivesState, Visitor
+from models.pipeline import CortexOutput
 from pipeline.sensorium import Perception
 from pipeline.thalamus import RoutingDecision
 
@@ -97,12 +98,6 @@ VALID_RESPONSE_JSON = json.dumps({
     "next_cycle_hints": [],
 })
 
-FALLBACK_KEYS = {
-    "internal_monologue", "dialogue", "dialogue_language",
-    "expression", "body_state", "gaze", "resonance",
-    "actions", "memory_updates", "next_cycle_hints",
-}
-
 
 # ── Reset module state between tests ──
 
@@ -159,8 +154,8 @@ async def test_cortex_call_timeout_returns_fallback():
             elapsed = time.monotonic() - t0
 
         # Must return fallback
-        assert set(result.keys()) == FALLBACK_KEYS
-        assert result["dialogue"] == "..."
+        assert isinstance(result, CortexOutput)
+        assert result.dialogue == "..."
 
         # Must finish well under the stall time (cancelled, not waited out)
         assert elapsed < 3.0, f"Took {elapsed:.1f}s — timeout cancellation failed"
@@ -227,7 +222,7 @@ async def test_api_error_returns_fallback():
             drives=_make_drives(),
         )
 
-    assert set(result.keys()) == FALLBACK_KEYS
+    assert isinstance(result, CortexOutput)
     assert cortex._consecutive_failures == 1
 
 
@@ -250,7 +245,7 @@ async def test_httpx_timeout_returns_fallback():
             drives=_make_drives(),
         )
 
-    assert set(result.keys()) == FALLBACK_KEYS
+    assert isinstance(result, CortexOutput)
     assert cortex._consecutive_failures == 1
 
 
@@ -273,7 +268,7 @@ async def test_generic_exception_returns_fallback():
             drives=_make_drives(),
         )
 
-    assert set(result.keys()) == FALLBACK_KEYS
+    assert isinstance(result, CortexOutput)
     assert cortex._consecutive_failures == 1
 
 
@@ -334,8 +329,8 @@ async def test_successful_call_returns_parsed_json():
             drives=_make_drives(),
         )
 
-    assert result["dialogue"] == "Hello."
-    assert result["expression"] == "neutral"
+    assert result.dialogue == "Hello."
+    assert result.expression == "neutral"
     assert cortex._consecutive_failures == 0
 
 
@@ -358,7 +353,7 @@ async def test_malformed_json_returns_fallback():
             drives=_make_drives(),
         )
 
-    assert set(result.keys()) == FALLBACK_KEYS
+    assert isinstance(result, CortexOutput)
     # Malformed JSON is not an API failure — circuit breaker should not trip
     assert cortex._consecutive_failures == 0
 
@@ -406,7 +401,7 @@ async def test_circuit_breaker_opens_after_consecutive_failures():
             )
             elapsed = time.monotonic() - t0
 
-        assert set(result.keys()) == FALLBACK_KEYS
+        assert isinstance(result, CortexOutput)
         # Should be near-instant (no API call)
         assert elapsed < 0.1
     finally:

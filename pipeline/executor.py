@@ -4,6 +4,7 @@ import uuid
 from datetime import datetime, timezone
 import clock
 from models.event import Event
+from models.pipeline import ValidatedOutput, ExecutionResult, ActionRequest
 from pipeline.hippocampus_write import hippocampus_consolidate
 from pipeline.hypothalamus import apply_expression_relief
 import db
@@ -16,23 +17,26 @@ END_ENGAGEMENT_LINES = {
 }
 
 
-async def execute(validated_output: dict, visitor_id: str = None,
-                  cycle_id: str = None):
+async def execute(validated_output: ValidatedOutput, visitor_id: str = None,
+                  cycle_id: str = None) -> ExecutionResult:
     """Execute approved actions. Emit events. Update state. Write text fragments."""
 
+    result = ExecutionResult()
+
     # Emit dialogue
-    dialogue = validated_output.get('dialogue')
+    dialogue = validated_output.dialogue
     if dialogue and dialogue != '...':
         event = Event(
             event_type='action_speak',
             source='self',
             payload={
                 'text': dialogue,
-                'language': validated_output.get('dialogue_language', 'en'),
+                'language': validated_output.dialogue_language,
                 'target': visitor_id,
             },
         )
         await db.append_event(event)
+        result.events_emitted += 1
 
         # Immediate drive relief — she spoke, expression need drops
         await apply_expression_relief('action_speak')
@@ -54,7 +58,7 @@ async def execute(validated_output: dict, visitor_id: str = None,
             print(f"  [TextFragment] Failed to write dialogue fragment: {e}")
 
     # Write internal monologue as thought fragment (if no dialogue)
-    monologue = validated_output.get('internal_monologue', '')
+    monologue = validated_output.internal_monologue
     if monologue and not (dialogue and dialogue != '...'):
         try:
             await db.insert_text_fragment(
@@ -70,50 +74,55 @@ async def execute(validated_output: dict, visitor_id: str = None,
         event_type='action_body',
         source='self',
         payload={
-            'expression': validated_output.get('expression', 'neutral'),
-            'body_state': validated_output.get('body_state', 'sitting'),
-            'gaze': validated_output.get('gaze', 'at_visitor'),
+            'expression': validated_output.expression,
+            'body_state': validated_output.body_state,
+            'gaze': validated_output.gaze,
         },
     )
     await db.append_event(body_event)
+    result.events_emitted += 1
 
     # Execute approved actions
-    monologue = validated_output.get('internal_monologue', '')
-    for action in validated_output.get('_approved_actions', []):
+    monologue = validated_output.internal_monologue
+    for action in validated_output.approved_actions:
         await execute_action(action, visitor_id, monologue=monologue)
+        result.actions_executed.append(action.type)
 
     # Process memory updates (isolate failures so one bad update doesn't kill the rest)
-    for update in validated_output.get('memory_updates', []):
+    for update in validated_output.memory_updates:
         try:
-            await hippocampus_consolidate(update, visitor_id)
+            # Convert to dict at hippocampus_write boundary (out of scope for typing)
+            await hippocampus_consolidate(
+                {'type': update.type, 'content': update.content},
+                visitor_id,
+            )
+            result.memory_updates_processed += 1
         except Exception as e:
-            update_type = update.get('type', '?')
-            print(f"  [Memory Error] Failed to consolidate {update_type}: {e}")
+            result.memory_update_failures += 1
+            print(f"  [Memory Error] Failed to consolidate {update.type}: {e}")
             # Persist failure as event so it survives cycle boundary for diagnosis/retry
             await db.append_event(Event(
                 event_type='memory_consolidation_failed',
                 source='self',
                 payload={
-                    'update_type': update_type,
+                    'update_type': update.type,
                     'error': f"{type(e).__name__}: {e}",
-                    'original_update': update,
+                    'original_update': {'type': update.type, 'content': update.content},
                     'visitor_id': visitor_id,
                 },
             ))
 
     # Update pool item status based on cortex actions
     # (When consuming content, what she does determines the pool outcome)
-    pool_id = None
-    if validated_output.get('_focus_pool_id'):
-        pool_id = validated_output['_focus_pool_id']
+    pool_id = validated_output.focus_pool_id
     if pool_id:
         has_collection = any(
-            u.get('type') == 'collection_add'
-            for u in validated_output.get('memory_updates', [])
+            u.type == 'collection_add'
+            for u in validated_output.memory_updates
         )
         has_reflection = any(
-            u.get('type') in ('journal_entry', 'totem_create', 'totem_update')
-            for u in validated_output.get('memory_updates', [])
+            u.type in ('journal_entry', 'totem_create', 'totem_update')
+            for u in validated_output.memory_updates
         )
         now = clock.now_utc()
         outcome = None
@@ -128,6 +137,7 @@ async def execute(validated_output: dict, visitor_id: str = None,
         # Event outcome uses spec vocabulary (engaged|ignored|expired);
         # pool-level detail (accepted|reflected) lives in content_pool.status.
         if outcome:
+            result.pool_outcome = outcome
             pool_item = await db.get_pool_item_by_id(pool_id)
             if pool_item and pool_item.get('source_event_id'):
                 await db.update_event_outcome(
@@ -135,17 +145,18 @@ async def execute(validated_output: dict, visitor_id: str = None,
                 )
 
     # Update drives if resonance flagged
-    if validated_output.get('resonance'):
+    if validated_output.resonance:
         drives = await db.get_drives_state()
         drives.social_hunger = max(0.0, drives.social_hunger - 0.15)
         drives.energy = min(1.0, drives.energy + 0.05)
         drives.mood_valence = min(1.0, drives.mood_valence + 0.1)
         await db.save_drives_state(drives)
+        result.resonance_applied = True
 
     # Update engagement (skip if end_engagement is approved — she's leaving)
     ending = any(
-        a.get('type') == 'end_engagement'
-        for a in validated_output.get('_approved_actions', [])
+        a.type == 'end_engagement'
+        for a in validated_output.approved_actions
     )
     if visitor_id and dialogue and dialogue != '...' and not ending:
         await db.update_engagement_state(
@@ -157,12 +168,14 @@ async def execute(validated_output: dict, visitor_id: str = None,
         engagement = await db.get_engagement_state()
         await db.update_engagement_state(turn_count=engagement.turn_count + 1)
 
+    return result
 
-async def execute_action(action: dict, visitor_id: str, monologue: str = ''):
+
+async def execute_action(action: ActionRequest, visitor_id: str, monologue: str = ''):
     """Execute a single approved action."""
 
-    action_type = action.get('type')
-    detail = action.get('detail', {})
+    action_type = action.type
+    detail = action.detail
 
     if action_type == 'accept_gift':
         item_id = str(uuid.uuid4())
