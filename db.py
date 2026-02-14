@@ -2485,3 +2485,67 @@ async def get_recent_internal_conflicts(limit: int = 5) -> list[dict]:
     )
     rows = await cursor.fetchall()
     return [dict(r) for r in rows]
+
+
+# ── Visitor presence (multi-slot, TASK-013) ──
+
+async def add_visitor_present(visitor_id: str, connection_type: str = 'tcp'):
+    """Add a visitor to the shop (or update if already present)."""
+    await _exec_write(
+        """INSERT INTO visitors_present (visitor_id, connection_type, status, entered_at, last_activity)
+           VALUES (?, ?, 'browsing', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+           ON CONFLICT(visitor_id) DO UPDATE SET
+               connection_type = excluded.connection_type,
+               status = 'browsing',
+               last_activity = CURRENT_TIMESTAMP""",
+        (visitor_id, connection_type),
+    )
+
+
+async def remove_visitor_present(visitor_id: str):
+    """Remove a visitor from the shop."""
+    await _exec_write(
+        "DELETE FROM visitors_present WHERE visitor_id = ?",
+        (visitor_id,),
+    )
+
+
+async def get_visitors_present() -> list:
+    """Get all visitors currently in the shop."""
+    from models.state import VisitorPresence
+    conn = await get_db()
+    cursor = await conn.execute(
+        "SELECT visitor_id, status, entered_at, last_activity, connection_type FROM visitors_present"
+    )
+    rows = await cursor.fetchall()
+    return [
+        VisitorPresence(
+            visitor_id=r['visitor_id'],
+            status=r['status'],
+            entered_at=r['entered_at'],
+            last_activity=r['last_activity'],
+            connection_type=r['connection_type'],
+        )
+        for r in rows
+    ]
+
+
+async def update_visitor_present(visitor_id: str, **kwargs):
+    """Update fields on a visitor's presence record.
+
+    Accepts keyword args matching visitors_present columns:
+    status, last_activity, connection_type.
+    """
+    if not kwargs:
+        return
+    sets = ", ".join(f"{k} = ?" for k in kwargs)
+    vals = tuple(kwargs.values())
+    await _exec_write(
+        f"UPDATE visitors_present SET {sets} WHERE visitor_id = ?",
+        vals + (visitor_id,),
+    )
+
+
+async def clear_all_visitors_present():
+    """Clear all visitor presence records (used on server startup)."""
+    await _exec_write("DELETE FROM visitors_present")

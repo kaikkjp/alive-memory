@@ -1,36 +1,13 @@
 """Tests for pipeline/body.py — action execution and event emission.
 
 Verifies that the body module produces identical behavior to the old executor
-for all action types. Uses mocked db to isolate body logic.
+for all action types. Uses unittest.mock.patch to isolate body logic from
+real db, clock, and hypothalamus modules.
 """
 
-import sys
-import unittest.mock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
-# Mock db and clock before importing body
-_mock_db = unittest.mock.MagicMock()
-_mock_db.append_event = unittest.mock.AsyncMock(return_value=None)
-_mock_db.append_conversation = unittest.mock.AsyncMock(return_value=None)
-_mock_db.insert_text_fragment = unittest.mock.AsyncMock(return_value=None)
-_mock_db.insert_collection_item = unittest.mock.AsyncMock(return_value=None)
-_mock_db.assign_shelf_slot = unittest.mock.AsyncMock(return_value=None)
-_mock_db.insert_journal = unittest.mock.AsyncMock(return_value=None)
-_mock_db.update_room_state = unittest.mock.AsyncMock(return_value=None)
-_mock_db.update_engagement_state = unittest.mock.AsyncMock(return_value=None)
-_mock_db.update_visitor = unittest.mock.AsyncMock(return_value=None)
-sys.modules.setdefault("db", _mock_db)
-
-# Mock clock
-_mock_clock = unittest.mock.MagicMock()
-_mock_clock.now_utc = unittest.mock.MagicMock(return_value=None)
-sys.modules.setdefault("clock", _mock_clock)
-
-# Mock hypothalamus
-_mock_hypothalamus = unittest.mock.MagicMock()
-_mock_hypothalamus.apply_expression_relief = unittest.mock.AsyncMock(return_value=None)
-sys.modules.setdefault("pipeline.hypothalamus", _mock_hypothalamus)
 
 from models.pipeline import (
     ValidatedOutput, ActionRequest, ActionDecision, MotorPlan,
@@ -40,23 +17,35 @@ from pipeline.body import execute_body, _execute_single_action, END_ENGAGEMENT_L
 
 
 @pytest.fixture(autouse=True)
-def _reset_mocks():
-    """Reset all mock call counts between tests."""
-    _mock_db.reset_mock()
-    _mock_clock.reset_mock()
-    _mock_hypothalamus.reset_mock()
-    # Re-setup return values after reset
-    _mock_db.append_event = unittest.mock.AsyncMock(return_value=None)
-    _mock_db.append_conversation = unittest.mock.AsyncMock(return_value=None)
-    _mock_db.insert_text_fragment = unittest.mock.AsyncMock(return_value=None)
-    _mock_db.insert_collection_item = unittest.mock.AsyncMock(return_value=None)
-    _mock_db.assign_shelf_slot = unittest.mock.AsyncMock(return_value=None)
-    _mock_db.insert_journal = unittest.mock.AsyncMock(return_value=None)
-    _mock_db.update_room_state = unittest.mock.AsyncMock(return_value=None)
-    _mock_db.update_engagement_state = unittest.mock.AsyncMock(return_value=None)
-    _mock_db.update_visitor = unittest.mock.AsyncMock(return_value=None)
-    _mock_hypothalamus.apply_expression_relief = unittest.mock.AsyncMock(return_value=None)
-    yield
+def _patch_body_deps():
+    """Patch db, clock, and hypothalamus at the pipeline.body module level."""
+    mock_db = MagicMock()
+    mock_db.append_event = AsyncMock(return_value=None)
+    mock_db.append_conversation = AsyncMock(return_value=None)
+    mock_db.insert_text_fragment = AsyncMock(return_value=None)
+    mock_db.insert_collection_item = AsyncMock(return_value=None)
+    mock_db.assign_shelf_slot = AsyncMock(return_value=None)
+    mock_db.update_shelf_sprite = AsyncMock(return_value=None)
+    mock_db.insert_journal = AsyncMock(return_value=None)
+    mock_db.update_room_state = AsyncMock(return_value=None)
+    mock_db.update_engagement_state = AsyncMock(return_value=None)
+    mock_db.update_visitor = AsyncMock(return_value=None)
+
+    mock_clock = MagicMock()
+    mock_clock.now_utc = MagicMock(return_value=None)
+
+    mock_relief = AsyncMock(return_value=None)
+
+    with patch('pipeline.body.db', mock_db), \
+         patch('pipeline.body.clock', mock_clock), \
+         patch('pipeline.body.apply_expression_relief', mock_relief):
+        yield mock_db, mock_clock, mock_relief
+
+
+@pytest.fixture
+def mock_db(_patch_body_deps):
+    """Convenience access to the patched db mock."""
+    return _patch_body_deps[0]
 
 
 @pytest.fixture
@@ -97,11 +86,11 @@ class TestExecuteBody:
         assert output.events_emitted >= 2
 
     @pytest.mark.asyncio
-    async def test_emits_body_state_event(self, simple_motor_plan, simple_validated):
+    async def test_emits_body_state_event(self, mock_db, simple_motor_plan, simple_validated):
         output = await execute_body(simple_motor_plan, simple_validated)
         # action_body event should be emitted
         body_calls = [
-            call for call in _mock_db.append_event.call_args_list
+            call for call in mock_db.append_event.call_args_list
             if call[0][0].event_type == 'action_body'
         ]
         assert len(body_calls) == 1
@@ -117,7 +106,7 @@ class TestExecuteBody:
         assert output.executed[0].action == 'write_journal'
 
     @pytest.mark.asyncio
-    async def test_no_dialogue_emits_thought_fragment(self):
+    async def test_no_dialogue_emits_thought_fragment(self, mock_db):
         validated = ValidatedOutput(
             dialogue=None,
             internal_monologue='A passing thought.',
@@ -129,19 +118,19 @@ class TestExecuteBody:
         await execute_body(plan, validated)
         # Should write thought fragment
         frag_calls = [
-            call for call in _mock_db.insert_text_fragment.call_args_list
+            call for call in mock_db.insert_text_fragment.call_args_list
             if call[1].get('fragment_type') == 'thought'
             or (call[1] and 'thought' in str(call))
         ]
         assert len(frag_calls) >= 1
 
     @pytest.mark.asyncio
-    async def test_silence_dialogue_not_emitted(self):
+    async def test_silence_dialogue_not_emitted(self, mock_db):
         validated = ValidatedOutput(dialogue='...')
         plan = MotorPlan(actions=[], suppressed=[], habit_fired=False, energy_budget=0.8)
         await execute_body(plan, validated)
         speak_calls = [
-            call for call in _mock_db.append_event.call_args_list
+            call for call in mock_db.append_event.call_args_list
             if call[0][0].event_type == 'action_speak'
         ]
         assert len(speak_calls) == 0
@@ -159,22 +148,22 @@ class TestExecuteSingleAction:
     """_execute_single_action() handles each action type correctly."""
 
     @pytest.mark.asyncio
-    async def test_write_journal(self):
+    async def test_write_journal(self, mock_db):
         action = ActionRequest(type='write_journal', detail={'text': 'My thoughts.'})
         result = await _execute_single_action(action, visitor_id=None)
         assert result.action == 'write_journal'
         assert result.success is True
         assert 'journal_entry_created' in result.side_effects
-        _mock_db.insert_journal.assert_called_once()
+        mock_db.insert_journal.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_end_engagement(self):
+    async def test_end_engagement(self, mock_db):
         action = ActionRequest(type='end_engagement', detail={'reason': 'natural'})
         result = await _execute_single_action(action, visitor_id='v1')
         assert result.action == 'end_engagement'
         assert result.success is True
         assert 'engagement_ended' in result.side_effects
-        _mock_db.update_engagement_state.assert_called_once()
+        mock_db.update_engagement_state.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_close_shop(self):
