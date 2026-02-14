@@ -102,14 +102,8 @@ async def execute_body(motor_plan: MotorPlan, validated: ValidatedOutput,
 
     # ── Execute approved actions from motor plan ──
     for decision in motor_plan.actions:
-        # Convert ActionDecision back to ActionRequest for execute_action()
-        action_req = ActionRequest(type=decision.action, detail={})
-        # Find matching original ActionRequest to preserve detail dict
-        for orig in validated.approved_actions:
-            if orig.type == decision.action:
-                action_req = orig
-                break
-
+        # Use detail dict carried on ActionDecision (set by basal_ganglia)
+        action_req = ActionRequest(type=decision.action, detail=decision.detail)
         result = await _execute_single_action(action_req, visitor_id, monologue=monologue)
         output.executed.append(result)
 

@@ -163,7 +163,7 @@ def show_banner():
 
 JST = timezone(timedelta(hours=9))
 
-PEEK_COMMANDS = ('journal', 'drives', 'collection', 'backroom', 'status', 'totems', 'events', 'threads', 'weather', 'pool')
+PEEK_COMMANDS = ('journal', 'drives', 'collection', 'backroom', 'status', 'totems', 'events', 'threads', 'weather', 'pool', 'body', 'suppressed', 'action-log')
 
 
 def _fmt_time(dt) -> str:
@@ -227,6 +227,12 @@ async def handle_peek(cmd: str) -> bool:
         await _peek_weather()
     elif cmd == 'pool':
         await _peek_pool()
+    elif cmd == 'body':
+        await _peek_body()
+    elif cmd == 'suppressed':
+        await _peek_suppressed()
+    elif cmd == 'action-log':
+        await _peek_action_log()
     else:
         return False
     return True
@@ -456,6 +462,88 @@ async def _peek_pool():
             title = item.get('title', item.get('content', '?'))[:50]
             src = item.get('source_channel', '?')
             print(f"  • {title} ({src})")
+    print()
+
+
+async def _peek_body():
+    """Show action registry: enabled actions with energy cost and status."""
+    from pipeline.action_registry import ACTION_REGISTRY
+    print()
+    print(f"  {Fore.YELLOW}── Body Capabilities ──{Style.RESET_ALL}")
+    enabled = []
+    disabled = []
+    for name, cap in sorted(ACTION_REGISTRY.items()):
+        if cap.enabled:
+            enabled.append(cap)
+        else:
+            disabled.append(cap)
+
+    for cap in enabled:
+        cooldown_str = f"  cd:{cap.cooldown_seconds}s" if cap.cooldown_seconds > 0 else ""
+        reqs = f"  req:{','.join(cap.requires)}" if cap.requires else ""
+        print(f"  {Fore.GREEN}●{Style.RESET_ALL} {cap.name:<20} ⚡{cap.energy_cost:.2f}{cooldown_str}{reqs}")
+
+    if disabled:
+        print(f"\n  {Fore.WHITE}Disabled:{Style.RESET_ALL}")
+        for cap in disabled:
+            print(f"  {Fore.RED}○{Style.RESET_ALL} {cap.name:<20} (not yet)")
+    print()
+
+
+async def _peek_suppressed():
+    """Show recently suppressed actions from action_log."""
+    try:
+        entries = await db.get_recent_suppressions(limit=20, min_impulse=0.0)
+    except Exception:
+        print(f"\n  {Fore.WHITE}(No action log yet.){Style.RESET_ALL}\n")
+        return
+
+    if not entries:
+        print(f"\n  {Fore.WHITE}(No suppressed actions.){Style.RESET_ALL}\n")
+        return
+
+    print()
+    print(f"  {Fore.YELLOW}── Suppressed Actions (last 20) ──{Style.RESET_ALL}")
+    for e in entries:
+        impulse = e.get('impulse', 0) or 0
+        action = e.get('action', '?')
+        reason = e.get('suppression_reason', '?')
+        ts = _fmt_time(e.get('created_at'))
+        bar = '█' * int(impulse * 8) + '░' * (8 - int(impulse * 8))
+        print(f"  {Fore.CYAN}{ts}{Style.RESET_ALL}  {bar} {impulse:.1f}  {action:<18} {Fore.WHITE}{reason}{Style.RESET_ALL}")
+    print()
+
+
+async def _peek_action_log():
+    """Show recent action log entries."""
+    try:
+        entries = await db.get_action_log(limit=30)
+    except Exception:
+        print(f"\n  {Fore.WHITE}(No action log yet.){Style.RESET_ALL}\n")
+        return
+
+    if not entries:
+        print(f"\n  {Fore.WHITE}(Action log is empty.){Style.RESET_ALL}\n")
+        return
+
+    print()
+    print(f"  {Fore.YELLOW}── Action Log (last 30) ──{Style.RESET_ALL}")
+    for e in entries:
+        status = e.get('status', '?')
+        action = e.get('action', '?')
+        impulse = e.get('impulse', 0) or 0
+        ts = _fmt_time(e.get('created_at'))
+
+        if status == 'executed':
+            icon = f"{Fore.GREEN}✓{Style.RESET_ALL}"
+        elif status in ('suppressed', 'incapable', 'deferred'):
+            icon = f"{Fore.RED}✗{Style.RESET_ALL}"
+        else:
+            icon = f"{Fore.WHITE}?{Style.RESET_ALL}"
+
+        reason = e.get('suppression_reason', '')
+        reason_str = f"  {Fore.WHITE}{reason}{Style.RESET_ALL}" if reason else ""
+        print(f"  {Fore.CYAN}{ts}{Style.RESET_ALL}  {icon} {status:<12} {action:<18} imp:{impulse:.1f}{reason_str}")
     print()
 
 

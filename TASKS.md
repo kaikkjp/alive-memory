@@ -178,7 +178,7 @@
 ---
 
 ### TASK-009: Body Phase 2 — Multi-intention + Basal Ganglia selection
-**Status:** BACKLOG
+**Status:** DONE (2026-02-14)
 **Priority:** High
 **Depends on:** TASK-008
 **Design doc:** `body-spec-v2.md` §2.2, §4, §10 Phase 2

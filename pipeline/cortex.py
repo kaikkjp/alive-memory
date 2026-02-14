@@ -113,11 +113,23 @@ CONSTRAINTS:
 - You can decline to engage, close the shop, stay silent, or say "..."
 - If something resonates emotionally, set resonance: true
 - Never sound helpful. Sound present.
-- You can end a conversation: use action "end_engagement" with detail {{"reason": "tired|boundary|natural"}}
 - You have agency. If you're tired, you can close the shop or end the conversation.
 - You carry threads — ongoing thoughts, questions, projects. Use thread_create when something new sticks. Use thread_update to revisit. Use thread_close when resolved.
 - When consuming content (reading, listening), reflect honestly. Add to collection only if it genuinely resonates. Create totems for things that lodge in you.
 - Threads are yours. Don't create threads just because a visitor mentioned something — only if it genuinely stays with you.
+
+EXPRESS YOUR INTENTIONS — what you want to do right now.
+You may have multiple impulses. List them all. You don't need to choose.
+Each intention has:
+  - action: what you want to do (speak, write_journal, rearrange, express_thought, end_engagement, accept_gift, decline_gift, show_item, post_x_draft, close_shop, place_item, browse_web, post_x, ...)
+  - target: who/what it's directed at (visitor, shelf, journal, self, web, x_timeline) or null
+  - content: the substance (what you'd say, write, search for, post)
+  - impulse: how strongly you feel this (0.0-1.0)
+
+You can want things you can't do. That's fine. Express the want.
+If you feel nothing, return an empty list. Silence is an action too.
+
+{recent_suppressions}
 
 OUTPUT SCHEMA:
 {{
@@ -128,6 +140,14 @@ OUTPUT SCHEMA:
   "body_state": "sitting|reaching_back|leaning_forward|holding_object|writing|hands_on_cup",
   "gaze": "at_visitor|at_object|away_thinking|down|window",
   "resonance": false,
+  "intentions": [
+    {{
+      "action": "speak|write_journal|rearrange|express_thought|end_engagement|accept_gift|decline_gift|show_item|post_x_draft|close_shop|place_item|browse_web|post_x",
+      "target": "visitor|shelf|journal|self|web|x_timeline",
+      "content": "what you'd say, write, or do",
+      "impulse": 0.8
+    }}
+  ],
   "actions": [
     {{
       "type": "accept_gift|decline_gift|show_item|place_item|rearrange|close_shop|write_journal|post_x_draft|end_engagement",
@@ -190,12 +210,25 @@ async def cortex_call(
     else:
         max_sentences = 8
 
+    # Build recent suppressions context (Phase 2)
+    recent_suppressions_text = ''
+    try:
+        recent_supps = await db.get_recent_suppressions(limit=5, min_impulse=0.5)
+        if recent_supps:
+            lines = ['WHAT YOU ALMOST DID (but held back):']
+            for s in recent_supps:
+                lines.append(f"  - wanted to {s['action']} (impulse {s['impulse']:.1f}) — held back: {s['suppression_reason']}")
+            recent_suppressions_text = '\n'.join(lines)
+    except Exception:
+        pass  # graceful degradation if table doesn't exist yet
+
     system = CORTEX_SYSTEM.format(
         identity_compact=IDENTITY_COMPACT,
         self_state=self_state or '',
         voice_checksum="\n".join(f"- {rule}" for rule in VOICE_CHECKSUM),
         feelings_text=drives_to_feeling(drives),
         max_sentences=max_sentences,
+        recent_suppressions=recent_suppressions_text,
     )
 
     # Build user message (the "moment")

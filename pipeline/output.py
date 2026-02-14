@@ -4,10 +4,11 @@ Position: after Body.
 Question it answers: "What changed in the world because of what she did?"
 
 Handles: memory consolidation, pool status updates, drive adjustments,
-engagement state updates.
+engagement state updates, action logging, suppression reflection seeds.
 
-Phase 1: Stub that replicates executor post-action behavior exactly.
-Phase 2 will add: suppressed-action reflection seeds, drive adjustments from outcomes.
+Phase 2: Full implementation with action logging, drive adjustments from
+outcomes, and self-reflection seed injection for suppressed high-impulse
+actions.
 Phase 3 will add: inhibition formation, metacognitive monitoring.
 Phase 4 will add: habit pattern tracking.
 """
@@ -15,20 +16,23 @@ Phase 4 will add: habit pattern tracking.
 import clock
 from models.event import Event
 from models.pipeline import (
-    ValidatedOutput, BodyOutput, CycleOutput,
+    ValidatedOutput, MotorPlan, BodyOutput, CycleOutput,
 )
+from pipeline.action_registry import ACTION_REGISTRY
 from pipeline.hippocampus_write import hippocampus_consolidate
 import db
 
 
 async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
-                         visitor_id: str = None) -> CycleOutput:
+                         visitor_id: str = None, motor_plan: MotorPlan = None,
+                         cycle_id: str = None) -> CycleOutput:
     """Process post-action side effects.
 
-    Memory consolidation, pool updates, drive adjustments, engagement state.
+    Memory consolidation, pool updates, drive adjustments, engagement state,
+    action logging, and suppression reflection seeds.
     All within the caller's transaction boundary.
     """
-    result = CycleOutput(body_output=body_output)
+    result = CycleOutput(body_output=body_output, motor_plan=motor_plan)
 
     # ── Process memory updates ──
     for update in validated.memory_updates:
@@ -94,6 +98,9 @@ async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
     # This lets the pipeline decide whether to engage (TASK-012).
     dialogue = validated.dialogue
     ending = any(
+        d.action == 'end_engagement'
+        for d in (motor_plan.actions if motor_plan else [])
+    ) or any(
         a.type == 'end_engagement'
         for a in validated.approved_actions
     )
@@ -116,4 +123,105 @@ async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
                 turn_count=engagement.turn_count + 1,
             )
 
+    # ── Drive adjustments from action outcomes (Phase 2) ──
+    if body_output.executed:
+        drives = await db.get_drives_state()
+        failures = [r for r in body_output.executed if not r.success]
+        successes = [r for r in body_output.executed if r.success]
+        changed = False
+        if failures:
+            drives.mood_valence = max(-1.0, drives.mood_valence - 0.05 * len(failures))
+            changed = True
+        if successes:
+            drives.mood_valence = min(1.0, drives.mood_valence + 0.02 * len(successes))
+            changed = True
+        if changed:
+            await db.save_drives_state(drives)
+
+    # ── Log actions to action_log (Phase 2) ──
+    if motor_plan and cycle_id:
+        await _log_motor_plan(motor_plan, body_output, cycle_id)
+
+    # ── Suppression reflection seed (Phase 2) ──
+    if motor_plan:
+        await _inject_reflection_seed(motor_plan)
+
     return result
+
+
+async def _log_motor_plan(motor_plan: MotorPlan, body_output: BodyOutput,
+                          cycle_id: str) -> None:
+    """Log all action decisions (approved + suppressed) and execution results."""
+    try:
+        # Log approved actions with execution results
+        for i, decision in enumerate(motor_plan.actions):
+            cap = ACTION_REGISTRY.get(decision.action)
+            energy_cost = cap.energy_cost if cap else None
+
+            # Match with execution result if available
+            exec_result = None
+            if i < len(body_output.executed):
+                exec_result = body_output.executed[i]
+
+            await db.log_action(
+                cycle_id=cycle_id,
+                action=decision.action,
+                status='executed' if exec_result else 'approved',
+                source=decision.source,
+                impulse=decision.impulse,
+                priority=decision.priority,
+                content=decision.content or None,
+                target=decision.target,
+                suppression_reason=None,
+                energy_cost=energy_cost,
+                success=exec_result.success if exec_result else None,
+                error=exec_result.error if exec_result else None,
+            )
+
+        # Log suppressed actions
+        for decision in motor_plan.suppressed:
+            cap = ACTION_REGISTRY.get(decision.action)
+            energy_cost = cap.energy_cost if cap else None
+            await db.log_action(
+                cycle_id=cycle_id,
+                action=decision.action,
+                status=decision.status,
+                source=decision.source,
+                impulse=decision.impulse,
+                priority=decision.priority,
+                content=decision.content or None,
+                target=decision.target,
+                suppression_reason=decision.suppression_reason,
+                energy_cost=energy_cost,
+                success=None,
+                error=None,
+            )
+    except Exception as e:
+        print(f"  [ActionLog] Failed to log actions: {e}")
+
+
+async def _inject_reflection_seed(motor_plan: MotorPlan) -> None:
+    """If a high-impulse action was suppressed, inject a self-reflection seed.
+
+    This goes into the inbox so next cycle's cortex can journal about
+    "what I almost did."
+    """
+    interesting = [s for s in motor_plan.suppressed if s.impulse > 0.5]
+    if not interesting:
+        return
+
+    strongest = max(interesting, key=lambda s: s.impulse)
+    try:
+        await db.append_event(Event(
+            event_type='self_reflection_seed',
+            source='self',
+            payload={
+                'suppressed_action': strongest.action,
+                'suppressed_content': strongest.content,
+                'suppressed_target': strongest.target,
+                'impulse': strongest.impulse,
+                'reason': strongest.suppression_reason,
+            },
+        ))
+    except Exception as e:
+        print(f"  [ReflectionSeed] Failed to inject: {e}")

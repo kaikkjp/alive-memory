@@ -3,9 +3,47 @@
 Shared between Basal Ganglia (for gating) and Body (for execution).
 """
 
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
+from typing import NamedTuple, Optional
+
+
+class PrereqResult(NamedTuple):
+    """Result of a prerequisite check."""
+    passed: bool
+    failed: str  # empty string if passed, description of failure if not
+
+
+def check_prerequisites(requires: list[str], context: dict) -> PrereqResult:
+    """Check whether all prerequisites for an action are met.
+
+    Context keys: visitor_present (bool), turn_count (int), mode (str).
+    """
+    if not requires:
+        return PrereqResult(passed=True, failed='')
+
+    for req in requires:
+        if req == 'visitor_present':
+            if not context.get('visitor_present', False):
+                return PrereqResult(passed=False, failed='no visitor present')
+        elif req.startswith('turn_count'):
+            # Parse "turn_count >= N"
+            match = re.match(r'turn_count\s*>=\s*(\d+)', req)
+            if match:
+                threshold = int(match.group(1))
+                if context.get('turn_count', 0) < threshold:
+                    return PrereqResult(passed=False, failed=f'turn_count < {threshold}')
+        elif req == 'wallet_connected':
+            if not context.get('wallet_connected', False):
+                return PrereqResult(passed=False, failed='wallet not connected')
+        elif req == 'budget_remaining':
+            if not context.get('budget_remaining', False):
+                return PrereqResult(passed=False, failed='no budget remaining')
+        else:
+            return PrereqResult(passed=False, failed=f'unknown prerequisite: {req}')
+
+    return PrereqResult(passed=True, failed='')
 
 
 @dataclass
