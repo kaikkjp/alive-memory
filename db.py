@@ -969,13 +969,25 @@ async def get_recent_journal(limit: int = 2) -> list[JournalEntry]:
 # ─── Daily Summary ───
 
 async def insert_daily_summary(summary: dict):
+    """Insert a lightweight daily summary index.
+
+    The summary_bullets column stores the index structure as JSON:
+    {"moment_count": N, "moment_ids": [...], "journal_entry_ids": [...]}
+    Individual reflections are stored as separate journal entries.
+    journal_entry_id is NULL (no single consolidated blob anymore).
+    """
     now = clock.now_utc().isoformat()
+    index_data = {
+        'moment_count': summary.get('moment_count', 0),
+        'moment_ids': summary.get('moment_ids', []),
+        'journal_entry_ids': summary.get('journal_entry_ids', []),
+    }
     await _exec_write(
         """INSERT INTO daily_summaries
            (id, day_number, date, journal_entry_id, summary_bullets, emotional_arc, notable_totems, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
         (str(uuid.uuid4()), summary.get('day_number'), summary.get('date'),
-         summary.get('journal_entry_id'), json.dumps(summary.get('summary_bullets', [])),
+         None, json.dumps(index_data),
          summary.get('emotional_arc'), json.dumps(summary.get('notable_totems', [])), now)
     )
 
