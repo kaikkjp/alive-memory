@@ -1,0 +1,39 @@
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://openrouter.ai/api",
+    "ANTHROPIC_AUTH_TOKEN": "<YOUR_OPENROUTER_API_KEY>",
+    "ANTHROPIC_API_KEY": "",
+    "ANTHROPIC_MODEL": "anthropic/claude-opus-4-6",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": 1,
+    "API_TIMEOUT_MS": "3000000"
+  },
+  "permissions": {
+    "allow": [
+      "Read",
+      "Write",
+      "Edit",
+      "Bash(python -m pytest*)",
+      "Bash(python scripts/*)",
+      "Bash(git *)",
+      "Bash(cat *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(grep *)",
+      "Bash(find *)",
+      "Bash(wc *)",
+      "Bash(ls *)",
+      "Glob",
+      "Grep",
+      "Task"
+    ],
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(git push --force*)",
+      "Bash(git reset --hard*)",
+      "Bash(pip install*)",
+      "Bash(npm install*)",
+      "Bash(python heartbeat_server.py*)",
+      "Bash(python heartbeat.py*)"
+    ]
+  }
+}
