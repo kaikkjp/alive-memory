@@ -45,7 +45,7 @@ echo -e "Found: ${GREEN}${TASK_ID}${NC} — ${TASK_TITLE}"
 echo ""
 
 # ── Step 1: Create feature branch ──
-BRANCH_NAME="feat/${TASK_ID,,}"  # lowercase
+BRANCH_NAME="feat/$(echo "$TASK_ID" | tr '[:upper:]' '[:lower:]')"  # lowercase, portable
 echo -e "${YELLOW}[1/6] Creating branch: ${BRANCH_NAME}${NC}"
 
 git checkout main

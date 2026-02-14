@@ -3,10 +3,13 @@
 Replaces implicit dict conventions with dataclasses so breaking changes
 are caught at import/construction time, not at runtime.
 
-Chain: cortex_call() -> CortexOutput -> validate() -> ValidatedOutput -> execute() -> ExecutionResult
+Chain: cortex_call() -> CortexOutput -> validate() -> ValidatedOutput
+       -> select_actions() -> MotorPlan -> execute_body() -> BodyOutput
+       -> process_output() -> CycleOutput
 """
 
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Optional
 
 
@@ -163,6 +166,60 @@ class ExecutionResult:
     """What the executor did. Returned for logging/observability."""
     events_emitted: int = 0
     actions_executed: list[str] = field(default_factory=list)
+    memory_updates_processed: int = 0
+    memory_update_failures: int = 0
+    resonance_applied: bool = False
+    pool_outcome: Optional[str] = None
+
+
+# ── Body pipeline dataclasses (Phase 1) ──
+
+@dataclass
+class ActionDecision:
+    """A single action after basal ganglia gating."""
+    action: str = ''
+    content: str = ''
+    target: Optional[str] = None
+    impulse: float = 1.0
+    priority: float = 1.0
+    status: str = 'approved'        # 'approved' | 'suppressed' | 'incapable' | 'deferred'
+    suppression_reason: Optional[str] = None
+    source: str = 'cortex'          # 'cortex' | 'habit'
+
+
+@dataclass
+class MotorPlan:
+    """Basal ganglia output. Handed to Body for execution."""
+    actions: list[ActionDecision] = field(default_factory=list)
+    suppressed: list[ActionDecision] = field(default_factory=list)
+    habit_fired: bool = False
+    energy_budget: float = 1.0
+
+
+@dataclass
+class ActionResult:
+    """Result of a single body action execution."""
+    action: str = ''
+    success: bool = True
+    content: Optional[str] = None
+    error: Optional[str] = None
+    side_effects: list[str] = field(default_factory=list)
+    timestamp: Optional[datetime] = None
+
+
+@dataclass
+class BodyOutput:
+    """What the body did. Returned by execute_body()."""
+    executed: list[ActionResult] = field(default_factory=list)
+    energy_spent: float = 0.0
+    events_emitted: int = 0
+
+
+@dataclass
+class CycleOutput:
+    """Complete output of one cycle after output processing."""
+    body_output: Optional['BodyOutput'] = None
+    motor_plan: Optional['MotorPlan'] = None
     memory_updates_processed: int = 0
     memory_update_failures: int = 0
     resonance_applied: bool = False

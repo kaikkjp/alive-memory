@@ -77,7 +77,13 @@ Events → Inbox → Sensorium → Gates → Affect → Hypothalamus → Thalamu
                                      Validator
                                          │
                                          ▼
-                                     Executor → hippocampus_write
+                                  Basal Ganglia (action selection)
+                                         │
+                                         ▼
+                                       Body (action execution)
+                                         │
+                                         ▼
+                                      Output → hippocampus_write
 ```
 
 | File | Lines | Stage | What it does |
@@ -90,7 +96,11 @@ Events → Inbox → Sensorium → Gates → Affect → Hypothalamus → Thalamu
 | `pipeline/hippocampus.py` | 166 | Memory recall | Retrieves relevant memories (journal, totems, visitor history, collection) for context injection. |
 | `pipeline/cortex.py` | 524 | **LLM call** | The ONE Claude API call per cycle. Assembles prompt, calls Sonnet, parses structured response (speech, body, internal monologue, actions). |
 | `pipeline/validator.py` | 229 | Validation | Checks cortex output against character rules (no journal during engagement, no forbidden actions, trait consistency). |
-| `pipeline/executor.py` | 283 | Action execution | Executes validated actions: speak, body movement, journal write, room changes, post drafts. Calls hippocampus_write. |
+| `pipeline/basal_ganglia.py` | 57 | Action selection | Wraps validated actions into a `MotorPlan`. Phase 1 stub: passes all approved actions through unchanged. Future: multi-intention selection, energy gating, inhibition, habits. |
+| `pipeline/body.py` | 255 | Action execution | Executes approved actions from the motor plan: dialogue emission, body state broadcast, journal writes, room changes, gift handling. |
+| `pipeline/output.py` | 107 | Output processing | Post-action side effects: memory consolidation (via hippocampus_write), pool status updates, drive adjustments, engagement state updates. |
+| `pipeline/action_registry.py` | 163 | Action registry | `ActionCapability` dataclass and `ACTION_REGISTRY` dict defining all actions the body can perform, their energy costs, cooldowns, and prerequisites. |
+| `pipeline/executor.py` | 53 | ~~Action execution~~ | **DEPRECATED.** Backward-compat wrapper that delegates to `basal_ganglia` → `body` → `output`. |
 | `pipeline/hippocampus_write.py` | 175 | Memory consolidation | After execution: updates visitor traits, totems, consolidates short-term → long-term memory. |
 
 ### Pipeline — Supporting Modules
@@ -212,6 +222,8 @@ Next.js app. Two pages: public shop window + operator dashboard.
 | `tests/test_cortex_timeout.py` | LLM call timeout handling |
 | `tests/test_cortex_soak.py` | Extended cortex stress test |
 | `tests/test_validator.py` | Response validation rules |
+| `tests/test_basal_ganglia.py` | Basal ganglia stub passthrough |
+| `tests/test_body.py` | Body action execution and event emission |
 | `tests/test_hypothalamus.py` | Drive math correctness |
 | `tests/test_embed.py` | Embedding pipeline |
 | `tests/test_embed_cold.py` | Cold embedding batch process |
@@ -244,7 +256,10 @@ heartbeat_server.py
   │     │     ├── prompt_assembler.py
   │     │     └── llm_logger.py
   │     ├── pipeline/validator.py (pure logic, imports re + models.pipeline)
-  │     ├── pipeline/executor.py
+  │     ├── pipeline/basal_ganglia.py (pure logic, imports models.pipeline + models.state)
+  │     ├── pipeline/body.py
+  │     │     └── pipeline/action_registry.py
+  │     ├── pipeline/output.py
   │     │     └── pipeline/hippocampus_write.py
   │     ├── pipeline/arbiter.py
   │     ├── pipeline/ambient.py
@@ -275,8 +290,8 @@ TCP server, HTTP API, WebSocket server, sprite generation worker, and dashboard 
 
 **Future fix:** Extract `api/rest.py`, `api/websocket.py`, `api/tcp.py`, `workers/sprite_worker.py`.
 
-### 3. ~~No interface contracts between pipeline stages~~ (RESOLVED — TASK-004)
-Pipeline stages now use typed dataclasses (`CortexOutput`, `ValidatedOutput`, `ExecutionResult`) defined in `models/pipeline.py`. The main cognitive pipeline (cortex → validator → executor) passes typed objects; maintenance/sleep calls remain dict-based.
+### 3. ~~No interface contracts between pipeline stages~~ (RESOLVED — TASK-004, extended TASK-008)
+Pipeline stages now use typed dataclasses (`CortexOutput`, `ValidatedOutput`, `MotorPlan`, `BodyOutput`, `CycleOutput`) defined in `models/pipeline.py`. The cognitive pipeline (cortex → validator → basal ganglia → body → output) passes typed objects; maintenance/sleep calls remain dict-based.
 
 ### 4. Engagement is a forced singleton
 `EngagementState` holds one visitor slot. When a visitor connects, `heartbeat_server.py` immediately forces `status='engaged'` — the shopkeeper has no say. She can't ignore a visitor, prefer one over another, or be aware of multiple visitors. The thalamus always routes visitor events as `engage` cycle type.
@@ -310,13 +325,14 @@ The validator strips out-of-character behavior silently. There is no mechanism f
 
 | Area | Files | Lines |
 |------|-------|-------|
-| Core engine (*.py root) | 17 | ~7,623 |
-| Pipeline (pipeline/*.py) | 24 | ~4,389 |
+| Core engine (*.py root) | 17 | ~7,626 |
+| Pipeline (pipeline/*.py) | 28 | ~4,746 |
 | Config | 5 | ~396 |
-| Models | 4 | ~357 |
+| Models | 4 | ~414 |
 | Scripts | 3 | ~455 |
-| Tests | 21 | ~3,067 |
-| Frontend (window/src/) | 28 | ~2,490 |
-| Docs (*.md) | 12 | ~7,048 |
+| Tests | 22 | ~3,206 |
+| Frontend (window/src/) | 27 | ~2,328 |
+| Docs (*.md) | 12 | ~7,046 |
 | Deploy | 5 | ~367 |
-| **Total** | **~119** | **~26,192** | **~118** | **~26,009** | **~115** | **~25,185** | **~114** | **~23,736** | **~114** | **~23,731** | **~114** | **~23,717** | **~104** | **~19,800** |
+| Other | 15 | ~373 |
+| **Total** | **~138** | **~26,957** |
