@@ -260,32 +260,59 @@
 
 ---
 
-### TASK-011: Body Phase 4 — Habits
+### TASK-011a: Body Phase 4a — Habit tracking + formation
 **Status:** BACKLOG
 **Priority:** Medium
 **Depends on:** TASK-010
 **Design doc:** `body-spec-v2.md` §2.2 (Habit System), §10 Phase 4
-**Description:** Repeated patterns crystallize into reflexes that skip cortex.
+**Description:** Track repeated action patterns and form habits with nonlinear strength curves.
 - `track_action_pattern()` in output processing: after every executed action, check if habit should form or strengthen. Second occurrence in similar context → habit at 0.1. Nonlinear strength curve (fast 0→0.4, medium 0.4→0.6, slow 0.6→0.8).
-- `check_habits()` in heartbeat BEFORE cortex call: if strong habit matches (strength ≥ 0.6), return MotorPlan directly. Cortex skipped entirely — reflex, not thought.
 - Trigger context is coarse-grained: energy band, mood band, mode, time band, visitor_present. Too specific = habits never form.
 - Migration: add `habits` table to `010_body.sql`.
+- DB CRUD for habits (get, upsert, delete, list).
 **Scope (files you may touch):**
-- `pipeline/basal_ganglia.py` (add `check_habits()`)
 - `pipeline/output.py` (add `track_action_pattern()`)
-- `heartbeat.py` (add habit check before cortex call in `run_cycle`)
 - `db.py` (add habit functions — at END of file)
 - `migrations/010_body.sql` (add habits table)
 - `models/pipeline.py` (add habit-related dataclasses)
-- `terminal.py` (add `habits` peek command)
 **Scope (files you may NOT touch):**
 - `pipeline/cortex.py`
 - `pipeline/validator.py`
 - `pipeline/sensorium.py`
+- `pipeline/basal_ganglia.py`
+- `heartbeat.py`
+- `heartbeat_server.py`
+- `terminal.py`
+- `window/`
+**Tests:** Add `tests/test_habits.py`: after N repetitions of same action in same context, habit forms. Habit strength follows nonlinear curve.
+**Definition of done:** Habits form from repeated behavior. Strength curve works. Habits table populated with correct trigger context.
+
+---
+
+### TASK-011b: Body Phase 4b — Habit auto-fire in basal ganglia
+**Status:** BACKLOG
+**Priority:** Medium
+**Depends on:** TASK-011a
+**Design doc:** `body-spec-v2.md` §2.2 (Habit System), §10 Phase 4
+**Description:** Strong habits bypass cortex entirely — reflexes, not thoughts.
+- `check_habits()` in basal ganglia BEFORE cortex call: if strong habit matches (strength ≥ 0.6), return MotorPlan directly. Cortex skipped entirely — reflex, not thought.
+- Trigger context matching against current state (energy band, mood band, mode, time band, visitor_present).
+- `habits` peek command in terminal.
+**Scope (files you may touch):**
+- `pipeline/basal_ganglia.py` (add `check_habits()`)
+- `heartbeat.py` (add habit check before cortex call in `run_cycle`)
+- `terminal.py` (add `habits` peek command)
+- `tests/` (extend habit tests)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `pipeline/validator.py`
+- `pipeline/sensorium.py`
+- `pipeline/output.py`
+- `db.py`
 - `heartbeat_server.py`
 - `window/`
-**Tests:** Add `tests/test_habits.py`: after N repetitions of same action in same context, habit forms. After strength ≥ 0.6, habit auto-fires and cortex is skipped. Habit strength follows nonlinear curve.
-**Definition of done:** Habits form from repeated behavior. Strong habits skip cortex (cost savings). `habits` peek command shows all habits with strength and trigger context.
+**Tests:** Extend `tests/test_habits.py`: after strength ≥ 0.6, habit auto-fires and cortex is skipped. Peek command shows all habits with strength and trigger context.
+**Definition of done:** Strong habits skip cortex (cost savings). `habits` peek command shows all habits with strength and trigger context.
 
 ---
 
@@ -374,7 +401,7 @@
 ### TASK-015: Body Phase 5 — Dashboard panels
 **Status:** BACKLOG
 **Priority:** Low
-**Depends on:** TASK-011 (habits complete)
+**Depends on:** TASK-011b (habits complete)
 **Design doc:** `body-spec-v2.md` §9
 **Description:** Add two new dashboard panels:
 - **Body Panel:** Capability grid (green/yellow/grey for enabled+ready/cooling/disabled), energy spent today vs budget, actions executed today by type.
