@@ -456,6 +456,27 @@ Fix: (1) Extract+validate `Authorization: Bearer` header on all `_http_dashboard
 
 ---
 
+### TASK-020: Post-review cleanup (009 + 012)
+**Status:** BACKLOG
+**Priority:** Low
+**Description:** Minor items from code reviews:
+- Extract 0.5 salience threshold in thalamus.py to named constant
+- Update ARCHITECTURE.md debt item #4 (engagement no longer forced)
+- Add test_engagement_choice.py to ARCHITECTURE.md test table
+- Fix summary table Total row
+- Double save_drives_state in output.py — consolidate to single call
+- Stale module descriptions in ARCHITECTURE.md
+**Scope (files you may touch):**
+- `thalamus.py`
+- `output.py`
+- `ARCHITECTURE.md`
+**Scope (files you may NOT touch):**
+- Everything else
+**Tests:** Existing tests pass.
+**Definition of done:** All nits resolved.
+
+---
+
 ## Completed Tasks
 
 _None yet._
