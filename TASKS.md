@@ -128,7 +128,7 @@
 ---
 
 ### TASK-007: Sleep tuning — reflective not summarizing
-**Status:** READY
+**Status:** DONE (2026-02-14)
 **Priority:** Medium
 **Depends on:** Nothing (standalone)
 **Description:** Two changes to `sleep.py`:
