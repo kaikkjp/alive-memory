@@ -1,5 +1,8 @@
 /**
  * Auth state manager with cross-component session expiry signaling.
+ *
+ * Stores server-issued session tokens (not passwords) in sessionStorage.
+ * Tokens are obtained from POST /api/dashboard/auth and expire after 24h.
  */
 
 type AuthListener = () => void;
@@ -18,10 +21,10 @@ class AuthManager {
 
   /**
    * Signal that the session has expired (401 received).
-   * Clears password and notifies all listeners.
+   * Clears token and notifies all listeners.
    */
   signalSessionExpired(): void {
-    sessionStorage.removeItem('dashboard_password');
+    sessionStorage.removeItem('dashboard_token');
     this.listeners.forEach((listener) => listener());
   }
 
@@ -29,28 +32,28 @@ class AuthManager {
    * Check if user is authenticated.
    */
   isAuthenticated(): boolean {
-    return !!sessionStorage.getItem('dashboard_password');
+    return !!sessionStorage.getItem('dashboard_token');
   }
 
   /**
-   * Get stored password (if any).
+   * Get stored session token (if any).
    */
-  getPassword(): string | null {
-    return sessionStorage.getItem('dashboard_password');
+  getToken(): string | null {
+    return sessionStorage.getItem('dashboard_token');
   }
 
   /**
-   * Store password after successful login.
+   * Store session token after successful login.
    */
-  setPassword(password: string): void {
-    sessionStorage.setItem('dashboard_password', password);
+  setToken(token: string): void {
+    sessionStorage.setItem('dashboard_token', token);
   }
 
   /**
-   * Clear password (logout).
+   * Clear token (logout).
    */
-  clearPassword(): void {
-    sessionStorage.removeItem('dashboard_password');
+  clearToken(): void {
+    sessionStorage.removeItem('dashboard_token');
     this.listeners.forEach((listener) => listener());
   }
 }

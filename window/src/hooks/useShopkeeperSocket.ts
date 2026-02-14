@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { authManager } from '@/lib/auth-manager';
 import type {
   SceneLayers,
   TextEntry,
@@ -46,6 +47,11 @@ export function useShopkeeperSocket(): ShopkeeperState & {
     wsRef.current = ws;
 
     ws.onopen = () => {
+      // Send dashboard auth if token is available
+      const token = authManager.getToken();
+      if (token) {
+        ws.send(JSON.stringify({ type: 'auth', token }));
+      }
       setConnected(true);
       reconnectDelay.current = RECONNECT_BASE_MS;
     };

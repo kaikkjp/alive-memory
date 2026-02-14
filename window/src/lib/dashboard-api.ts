@@ -13,12 +13,12 @@ export async function dashboardFetch(
   path: string,
   options: RequestInit = {}
 ): Promise<Response> {
-  // Add Authorization header if password is stored
-  const password = authManager.getPassword();
+  // Add Authorization header if session token is stored
+  const token = authManager.getToken();
   const headers = new Headers(options.headers);
 
-  if (password && !path.endsWith('/auth')) {
-    headers.set('Authorization', `Bearer ${password}`);
+  if (token && !path.endsWith('/auth')) {
+    headers.set('Authorization', `Bearer ${token}`);
   }
 
   const res = await fetch(`${API_BASE}${path}`, {
@@ -26,7 +26,7 @@ export async function dashboardFetch(
     headers,
   });
 
-  // Handle auth failures (expired/invalid password)
+  // Handle auth failures (expired/invalid token)
   if (res.status === 401) {
     // Signal session expiry to all subscribers (same-tab fix)
     authManager.signalSessionExpired();

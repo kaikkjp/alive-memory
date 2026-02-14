@@ -328,13 +328,13 @@ Metacognitive monitor in `pipeline/output.py` compares executed behavior against
 
 | Area | Files | Lines |
 |------|-------|-------|
-| Core engine (*.py root) | 17 | ~8,147 |
-| Pipeline (pipeline/*.py) | 29 | ~5,560 |
+| Core engine (*.py root) | 17 | ~8,289 |
+| Pipeline (pipeline/*.py) | 29 | ~5,554 |
 | Config | 5 | ~415 |
 | Models | 4 | ~511 |
 | Scripts | 3 | ~455 |
-| Tests | 29 | ~5,520 |
-| Frontend (window/src/) | 28 | ~2,490 |
-| Docs (*.md) | 12 | ~7,216 |
+| Tests | 30 | ~5,797 |
+| Frontend (window/src/) | 28 | ~2,493 |
+| Docs (*.md) | 12 | ~7,213 |
 | Deploy | 6 | ~471 |
-| **Total** | **~155** | **~31,916** |
+| **Total** | **~156** | **~32,329** |

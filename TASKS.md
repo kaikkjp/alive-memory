@@ -453,7 +453,7 @@
 ---
 
 ### TASK-018: Dashboard and WebSocket authentication enforcement
-**Status:** BACKLOG
+**Status:** DONE (2026-02-14)
 **Priority:** High
 **Description:** Security audit found that dashboard HTTP endpoints (`/api/dashboard/*`) have NO server-side auth enforcement — the `DASHBOARD_PASSWORD` is validated by `/api/dashboard/auth` but never checked on data endpoints. WebSocket connections (port 8765) are also unauthenticated. Any client can connect and receive full application state.
 Fix: (1) Extract+validate `Authorization: Bearer` header on all `_http_dashboard_*` handlers. (2) Require a valid token on WebSocket handshake. (3) Refuse to start (or warn loudly) if `DASHBOARD_PASSWORD` is unset.

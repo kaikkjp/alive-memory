@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { dashboardApi } from '@/lib/dashboard-api';
+import { authManager } from '@/lib/auth-manager';
 import VitalsPanel from '@/components/dashboard/VitalsPanel';
 import DrivesPanel from '@/components/dashboard/DrivesPanel';
 import CostsPanel from '@/components/dashboard/CostsPanel';
@@ -17,10 +19,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Check if already authenticated (password in sessionStorage)
-    const stored = sessionStorage.getItem('dashboard_password');
-    if (stored) {
-      setPassword(stored);
+    // Check if already authenticated (token in sessionStorage)
+    if (authManager.isAuthenticated()) {
       setAuthenticated(true);
     }
   }, []);
@@ -31,16 +31,10 @@ export default function DashboardPage() {
     setLoading(true);
 
     try {
-      const res = await fetch('http://localhost:8080/api/dashboard/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password }),
-      });
+      const data = await dashboardApi.auth(password);
 
-      const data = await res.json();
-
-      if (data.authenticated) {
-        sessionStorage.setItem('dashboard_password', password);
+      if (data.authenticated && data.token) {
+        authManager.setToken(data.token);
         setAuthenticated(true);
       } else {
         setError('Invalid password');
