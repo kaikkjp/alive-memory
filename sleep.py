@@ -18,7 +18,7 @@ from pipeline.hippocampus_write import hippocampus_consolidate
 from config.identity import IDENTITY_COMPACT
 
 MAX_SLEEP_REFLECTIONS = 7
-MIN_SLEEP_SALIENCE = 0.4
+MIN_SLEEP_SALIENCE = 0.65
 MAX_MOMENT_RETRIES = 3
 COLD_SEARCH_ENABLED = os.getenv('COLD_SEARCH_ENABLED', 'false').lower() == 'true'
 
@@ -57,6 +57,7 @@ async def sleep_cycle() -> bool:
 
     # 2. Reflect on each moment (crash-safe: each is its own transaction)
     all_reflections = []
+    journal_entry_ids = []
     processed_count = 0
     for moment in moments:
         # Poison moment protection
@@ -88,8 +89,16 @@ async def sleep_cycle() -> bool:
                 'reflection': reflection,
             })
 
-            # d. Write to hot memory + mark processed (atomic)
+            # d. Write individual journal entry + hot memory + mark processed (atomic)
             async with db.transaction():
+                reflection_text = reflection.get('reflection', '')
+                if reflection_text:
+                    journal_id = await db.insert_journal(
+                        content=reflection_text,
+                        mood='reflective',
+                        tags=['sleep_reflection', moment.moment_type] + (moment.tags or []),
+                    )
+                    journal_entry_ids.append(journal_id)
                 for update in reflection.get('memory_updates', []):
                     await hippocampus_consolidate(update, moment.visitor_id)
                 await db.mark_day_memory_processed(moment.id)
@@ -106,8 +115,8 @@ async def sleep_cycle() -> bool:
         print("[Sleep] All moments failed — deferring for retry.")
         return False
 
-    # 3. Write daily summary
-    await write_daily_summary(moments, all_reflections)
+    # 3. Write daily summary (lightweight index, not narrative)
+    await write_daily_summary(moments, all_reflections, journal_entry_ids)
 
     # 4. Trait stability review (unchanged)
     await review_trait_stability()
@@ -215,33 +224,24 @@ async def sleep_reflect(moment, hot_context: dict, cold_echoes: list) -> dict:
     return await cortex_call_reflect(system=system, prompt=user_message, max_tokens=800)
 
 
-async def write_daily_summary(moments: list, reflections: list) -> None:
-    """Compile all reflections into a daily summary."""
-    reflection_texts = []
-    for r in reflections:
-        text = r['reflection'].get('reflection', '')
-        if text:
-            reflection_texts.append(text)
+async def write_daily_summary(moments: list, reflections: list,
+                              journal_entry_ids: list) -> None:
+    """Write a lightweight daily summary index.
 
-    # Write a consolidated journal entry from reflections
-    if reflection_texts:
-        journal_text = " ".join(reflection_texts)
-        journal_id = await db.insert_journal(
-            content=journal_text,
-            mood='reflective',
-            tags=['daily', 'sleep_cycle', 'consolidation'],
-        )
-    else:
-        journal_id = None
-
+    The daily summary is now an index (date, moment count, moment IDs,
+    journal entry IDs, emotional arc) — NOT a concatenated narrative.
+    Individual reflections are already stored as separate journal entries.
+    """
     days_alive = await db.get_days_alive()
     today_jst = clock.now().date().isoformat()
+    moment_ids = [m.id for m in moments]
 
     await db.insert_daily_summary({
         'day_number': days_alive,
         'date': today_jst,
-        'journal_entry_id': journal_id,
-        'summary_bullets': reflection_texts,
+        'moment_count': len(moments),
+        'moment_ids': moment_ids,
+        'journal_entry_ids': journal_entry_ids,
         'emotional_arc': compute_emotional_arc_from_moments(moments),
         'notable_totems': extract_totems_from_reflections(reflections),
     })

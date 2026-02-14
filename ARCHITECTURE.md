@@ -287,10 +287,8 @@ This is load-bearing: `heartbeat.py`, `heartbeat_server.py`, `terminal.py`, `pip
 
 **Future fix:** Replace singleton with multi-slot visitor presence. `visitor_connect` becomes a perception routed through sensorium → thalamus → arbiter like anything else. Engagement becomes her choice, modulated by drives and visitor familiarity. See `body-spec-v2.md` for the basal ganglia architecture that enables this.
 
-### 5. Sleep consolidation summarizes instead of reflecting
-`sleep.py` correctly does per-moment reflection with cold memory reference, producing individual `memory_updates` via `hippocampus_consolidate()`. However, `write_daily_summary()` then concatenates all reflections into one journal blob, losing the individual moment structure. Day recording and sleep reflection thresholds are both 0.4 — no additional filtering at night, so too many low-salience moments get LLM calls.
-
-**Future fix:** Raise `MIN_SLEEP_SALIENCE` to 0.6-0.7. Write each reflection as its own journal entry. Make daily summary a lightweight index, not a narrative.
+### 5. ~~Sleep consolidation summarizes instead of reflecting~~ (RESOLVED — TASK-007)
+Fixed in TASK-007. `MIN_SLEEP_SALIENCE` raised from 0.4 to 0.65. Each moment's reflection is now written as its own journal entry. Daily summary is a lightweight index (moment count, moment IDs, journal entry IDs, emotional arc) — not a concatenated narrative.
 
 ### 6. No metacognitive monitoring
 The validator strips out-of-character behavior silently. There is no mechanism for the shopkeeper to *notice* when she deviates from her self-concept. Inconsistency is filtered rather than processed.
@@ -314,13 +312,13 @@ The validator strips out-of-character behavior silently. There is no mechanism f
 
 | Area | Files | Lines |
 |------|-------|-------|
-| Core engine (*.py root) | 17 | ~7,514 |
-| Pipeline (pipeline/*.py) | 24 | ~4,397 |
+| Core engine (*.py root) | 17 | ~7,622 |
+| Pipeline (pipeline/*.py) | 24 | ~4,389 |
 | Config | 5 | ~396 |
 | Models | 3 | ~188 |
-| Scripts | 2 | ~323 |
-| Tests | 20 | ~2,655 |
-| Frontend (window/src/) | 27 | ~2,312 |
-| Docs (*.md) | 12 | ~7,033 |
+| Scripts | 3 | ~455 |
+| Tests | 21 | ~3,067 |
+| Frontend (window/src/) | 28 | ~2,490 |
+| Docs (*.md) | 12 | ~7,035 |
 | Deploy | 5 | ~367 |
-| **Total** | **~115** | **~25,185** | **~114** | **~23,736** | **~114** | **~23,731** | **~114** | **~23,717** | **~104** | **~19,800** |
+| **Total** | **~118** | **~26,009** | **~115** | **~25,185** | **~114** | **~23,736** | **~114** | **~23,731** | **~114** | **~23,717** | **~104** | **~19,800** |

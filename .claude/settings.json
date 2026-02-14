@@ -1,12 +1,4 @@
 {
-  "env": {
-    "ANTHROPIC_BASE_URL": "https://openrouter.ai/api",
-    "ANTHROPIC_AUTH_TOKEN": "<YOUR_OPENROUTER_API_KEY>",
-    "ANTHROPIC_API_KEY": "",
-    "ANTHROPIC_MODEL": "anthropic/claude-opus-4-6",
-    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": 1,
-    "API_TIMEOUT_MS": "3000000"
-  },
   "permissions": {
     "allow": [
       "Read",
