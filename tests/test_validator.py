@@ -4,7 +4,6 @@ import pipeline.validator as validator
 from pipeline.validator import (
     validate,
     disclosure_gate,
-    canonical_consistency_check,
     entropy_check,
 )
 from models.pipeline import (
@@ -104,44 +103,6 @@ class TestDisclosureGate:
     def test_preserves_normal_dialogue(self):
         text = "The light is nice today."
         assert disclosure_gate(text) == text
-
-
-class TestCanonicalConsistency:
-    """canonical_consistency_check removes trait-contradicting sentences."""
-
-    def test_flags_glasses_denial(self):
-        text = "I don't wear glasses."
-        cleaned, contradiction = canonical_consistency_check(text)
-        assert contradiction is not None
-        assert 'glasses' in contradiction.lower()
-
-    def test_flags_do_not_wear_glasses(self):
-        text = "I do not wear glasses."
-        cleaned, contradiction = canonical_consistency_check(text)
-        assert contradiction is not None
-
-    def test_preserves_normal_dialogue(self):
-        text = "The rain is nice today."
-        cleaned, contradiction = canonical_consistency_check(text)
-        assert cleaned == text
-        assert contradiction is None
-
-    def test_removes_only_offending_sentence(self):
-        text = "The light is nice today. I don't wear glasses. But the tea is warm."
-        cleaned, contradiction = canonical_consistency_check(text)
-        assert "light" in cleaned
-        assert "tea" in cleaned
-        assert "glasses" not in cleaned
-
-    def test_silence_and_ellipsis_passthrough(self):
-        cleaned, contradiction = canonical_consistency_check("...")
-        assert cleaned == "..."
-        assert contradiction is None
-
-    def test_empty_string_passthrough(self):
-        cleaned, contradiction = canonical_consistency_check("")
-        assert cleaned == ""
-        assert contradiction is None
 
 
 class TestEntropyCheck:

@@ -217,7 +217,7 @@ class ActionDecision:
     target: Optional[str] = None
     impulse: float = 1.0
     priority: float = 1.0
-    status: str = 'approved'        # 'approved' | 'suppressed' | 'incapable' | 'deferred'
+    status: str = 'approved'        # 'approved' | 'suppressed' | 'incapable' | 'deferred' | 'inhibited'
     suppression_reason: Optional[str] = None
     source: str = 'cortex'          # 'cortex' | 'habit'
     detail: dict = field(default_factory=dict)  # original action detail for body execution
@@ -260,3 +260,20 @@ class CycleOutput:
     memory_update_failures: int = 0
     resonance_applied: bool = False
     pool_outcome: Optional[str] = None
+
+
+# ── Inhibition + Metacognitive dataclasses (Phase 3) ──
+
+@dataclass
+class InhibitionCheck:
+    """Result of Gate 6 inhibition lookup."""
+    suppress: bool = False
+    reason: Optional[str] = None
+    inhibition_id: Optional[str] = None
+
+
+@dataclass
+class SelfConsistencyResult:
+    """Result of metacognitive monitor check."""
+    consistent: bool = True
+    conflicts: list[str] = field(default_factory=list)

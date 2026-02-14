@@ -1,4 +1,10 @@
-"""Validator — two-stage: schema + physics/policy/entropy. No LLM."""
+"""Validator — two-stage: schema + physics/policy/entropy. No LLM.
+
+Character-rule enforcement (canonical traits, voice rules) has been moved
+to the metacognitive monitor in pipeline/output.py (Phase 3). The validator
+now handles format/schema checks only. Character violations are detected
+after the fact, not prevented.
+"""
 
 import re
 from models.pipeline import (
@@ -8,15 +14,6 @@ from models.pipeline import (
 
 # Entropy state (module-level)
 _recent_openings: list[str] = []
-
-# Canonical physical traits — things she cannot deny about herself.
-# Each entry: (denial pattern, canonical truth to inject as internal reminder).
-CANONICAL_TRAITS = [
-    (re.compile(r"\b(i\s+do\s+not|i\s+don.?t|don.?t|no|never)\s+(wear|have|own)\s+glasses\b", re.I),
-     "You wear glasses. Round, thin-framed."),
-    (re.compile(r"\bi.?m\s+not\s+(short|small|petite)\b", re.I),
-     "You're on the shorter side."),
-]
 
 
 def validate(cortex_output: CortexOutput, state: ValidatorState) -> ValidatedOutput:
@@ -88,20 +85,6 @@ def validate(cortex_output: CortexOutput, state: ValidatorState) -> ValidatedOut
     dialogue = disclosure_gate(dialogue)
     result.dialogue = dialogue
 
-    # Stage 2: Canonical consistency — remove contradicting sentences only
-    dialogue = result.dialogue or ''
-    cleaned, contradiction = canonical_consistency_check(dialogue)
-    if contradiction:
-        result.dialogue = cleaned
-        result.canonical_contradiction = contradiction
-
-    # Stage 2: Voice guardrails from character bible
-    dialogue = result.dialogue or ''
-    dialogue, voice_adjustments = enforce_voice_rules(dialogue, state.trust_level, result.expression)
-    result.dialogue = dialogue
-    if voice_adjustments:
-        result.voice_adjustments = voice_adjustments
-
     # Stage 2: Entropy check
     result = entropy_check(result)
 
@@ -130,76 +113,6 @@ def disclosure_gate(text: str) -> str:
             text = re.sub(re.escape(phrase), '...', text, count=1, flags=re.IGNORECASE)
 
     return text
-
-
-def canonical_consistency_check(dialogue: str) -> tuple[str, str | None]:
-    """Check dialogue against canonical physical traits.
-
-    Returns (cleaned_dialogue, contradiction_detail_or_None).
-    Removes only the offending sentence(s), preserving the rest.
-    """
-    if not dialogue or dialogue == '...':
-        return dialogue, None
-
-    # Split into sentences (handles ., !, ? and ellipsis boundaries)
-    sentences = re.split(r'(?<=[.!?])\s+', dialogue)
-    contradiction = None
-
-    cleaned = []
-    for sentence in sentences:
-        flagged = False
-        for pattern, truth in CANONICAL_TRAITS:
-            if pattern.search(sentence):
-                contradiction = truth
-                flagged = True
-                break
-        if not flagged:
-            cleaned.append(sentence)
-
-    result = ' '.join(cleaned).strip() if cleaned else '...'
-    return result, contradiction
-
-
-def enforce_voice_rules(dialogue: str, trust_level: str, expression: str) -> tuple[str, list[str]]:
-    """Enforce non-negotiable voice rules deterministically."""
-    adjustments: list[str] = []
-    if not dialogue or dialogue == '...':
-        return dialogue, adjustments
-
-    text = dialogue
-
-    # No "haha"/"lol" style assistant-ish laughter.
-    laughter_pattern = re.compile(r'\b(?:haha+|lol+)\b', re.IGNORECASE)
-    if laughter_pattern.search(text):
-        text = laughter_pattern.sub('...', text)
-        adjustments.append('removed_laughter')
-
-    # Exclamation marks are only allowed when expression is "surprised".
-    if expression != 'surprised' and '!' in text:
-        text = re.sub(r'!+', '.', text)
-        adjustments.append('removed_exclamation')
-
-    # Hard sentence cap by trust level.
-    max_sentences = {
-        'stranger': 3,
-        'returner': 5,
-        'regular': 5,
-    }.get(trust_level)
-
-    if max_sentences is not None:
-        sentences = [
-            s.strip()
-            for s in re.findall(r'[^.!?]+[.!?]?', text)
-            if s.strip() and s.strip(' .!?')
-        ]
-        if len(sentences) > max_sentences:
-            text = ' '.join(sentences[:max_sentences]).strip()
-            adjustments.append(f'sentence_cap_{max_sentences}')
-
-    text = re.sub(r'\s+', ' ', text).strip()
-    if not text:
-        text = '...'
-    return text, adjustments
 
 
 def entropy_check(output: ValidatedOutput) -> ValidatedOutput:
