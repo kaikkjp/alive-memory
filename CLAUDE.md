@@ -34,6 +34,8 @@ Note any pre-existing failures. You are not responsible for those — but you mu
 ### Step 4: Do the work
 Implement the task. Stay within scope. If you discover a bug in an out-of-scope file, document it in `TASKS.md` as a new task with its own scope — do NOT fix it now.
 
+**Plan Mode for High-Priority tasks:** If the task is marked `Priority: High`, use Plan Mode (Shift+Tab twice) before writing any code. Draft a plan showing which files you'll change, what each change does, and the order of operations. Show the plan. Wait for operator approval before proceeding. This prevents costly mistakes on critical-path work.
+
 ### Step 5: Run tests (after)
 ```bash
 python -m pytest tests/ -v

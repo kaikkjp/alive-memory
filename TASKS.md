@@ -19,7 +19,7 @@
 ## Task Queue
 
 ### TASK-001: Wire threads into window_state broadcast
-**Status:** READY
+**Status:** BACKLOG
 **Priority:** Low
 **Description:** `window_state.py:129` has a TODO: threads are hardcoded to empty list. Wire up `db.get_active_threads()` and include in the WebSocket broadcast so the dashboard ThreadsPanel shows real data.
 **Scope (files you may touch):**

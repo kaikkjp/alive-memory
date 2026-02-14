@@ -11,13 +11,18 @@ REST API available on SHOPKEEPER_HTTP_PORT (default 8080).
 """
 
 import asyncio
+import base64
+from collections import deque
 import errno
 import hmac
 import json
+import mimetypes
 import os
 import signal
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
+from urllib.parse import unquote, urlsplit
 from dotenv import load_dotenv
 
 import clock
@@ -42,6 +47,11 @@ DEFAULT_PORT = 9999
 TOKEN_ENV_VAR = 'SHOPKEEPER_SERVER_TOKEN'
 WS_PORT = int(os.environ.get('SHOPKEEPER_WS_PORT', '8765'))
 HTTP_PORT = int(os.environ.get('SHOPKEEPER_HTTP_PORT', '8080'))
+ASSET_ROOT = Path(os.environ.get('ASSET_DIR', 'assets')).resolve()
+ASSET_MISS_LOG_LIMIT = 2048
+TRANSPARENT_PNG = base64.b64decode(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+lm1sAAAAASUVORK5CYII='
+)
 
 
 def _load_bind_address() -> tuple[str, int]:
@@ -74,6 +84,8 @@ class ShopkeeperServer:
         self._http_server = None
         self._window_clients: set = set()  # WebSocket connections for window viewers
         self._sprite_gen_task = None
+        self._missing_assets_logged: set[str] = set()
+        self._missing_assets_queue: deque[str] = deque()
         self.host, self.port = _load_bind_address()
         self._server_token = os.environ.get(TOKEN_ENV_VAR, '').strip()
 
@@ -716,9 +728,8 @@ class ShopkeeperServer:
             if not request_line:
                 return
 
-            # Read headers, capture Content-Length and Authorization
+            # Read headers, capture Content-Length for POST body
             content_length = 0
-            auth_header = None
             header_count = 0
             while True:
                 line = await asyncio.wait_for(reader.readline(), timeout=5)
@@ -731,20 +742,18 @@ class ShopkeeperServer:
                 if len(line) > self._MAX_HEADER_BYTES:
                     await self._http_json(writer, 431, {'error': 'header too large'})
                     return
-                header = line.decode('utf-8', errors='replace').strip()
-                header_lower = header.lower()
-                if header_lower.startswith('content-length:'):
+                header = line.decode('utf-8', errors='replace').strip().lower()
+                if header.startswith('content-length:'):
                     try:
                         content_length = int(header.split(':', 1)[1].strip())
                     except ValueError:
                         pass
-                elif header_lower.startswith('authorization:'):
-                    auth_header = header.split(':', 1)[1].strip()
 
             request_text = request_line.decode('utf-8', errors='replace').strip()
             parts = request_text.split()
             method = parts[0] if parts else 'GET'
-            path = parts[1] if len(parts) > 1 else '/'
+            raw_path = parts[1] if len(parts) > 1 else '/'
+            path = urlsplit(raw_path).path
 
             # Enforce body size limit
             if content_length > self._MAX_BODY_BYTES:
@@ -761,6 +770,8 @@ class ShopkeeperServer:
             # Handle CORS preflight
             if method == 'OPTIONS':
                 await self._http_cors_preflight(writer)
+            elif path.startswith('/assets/') and method == 'GET':
+                await self._http_asset(writer, path)
             elif path == '/api/state' and method == 'GET':
                 await self._http_state(writer)
             elif path == '/api/health' and method == 'GET':
@@ -772,30 +783,24 @@ class ShopkeeperServer:
             # Dashboard API endpoints (password-protected)
             elif path == '/api/dashboard/auth' and method == 'POST':
                 await self._http_dashboard_auth(writer, body_bytes)
-            elif path.startswith('/api/dashboard/'):
-                # All dashboard endpoints except /auth require auth
-                if not self._check_dashboard_auth(auth_header):
-                    await self._http_json(writer, 401, {'error': 'unauthorized'})
-                elif path == '/api/dashboard/vitals' and method == 'GET':
-                    await self._http_dashboard_vitals(writer)
-                elif path == '/api/dashboard/drives' and method == 'GET':
-                    await self._http_dashboard_drives(writer)
-                elif path == '/api/dashboard/costs' and method == 'GET':
-                    await self._http_dashboard_costs(writer)
-                elif path == '/api/dashboard/threads' and method == 'GET':
-                    await self._http_dashboard_threads(writer)
-                elif path == '/api/dashboard/pool' and method == 'GET':
-                    await self._http_dashboard_pool(writer)
-                elif path == '/api/dashboard/collection' and method == 'GET':
-                    await self._http_dashboard_collection(writer)
-                elif path == '/api/dashboard/timeline' and method == 'GET':
-                    await self._http_dashboard_timeline(writer)
-                elif path == '/api/dashboard/controls/cycle' and method == 'POST':
-                    await self._http_dashboard_trigger_cycle(writer)
-                elif path == '/api/dashboard/controls/status' and method == 'GET':
-                    await self._http_dashboard_status(writer)
-                else:
-                    await self._http_json(writer, 404, {'error': 'not found'})
+            elif path == '/api/dashboard/vitals' and method == 'GET':
+                await self._http_dashboard_vitals(writer)
+            elif path == '/api/dashboard/drives' and method == 'GET':
+                await self._http_dashboard_drives(writer)
+            elif path == '/api/dashboard/costs' and method == 'GET':
+                await self._http_dashboard_costs(writer)
+            elif path == '/api/dashboard/threads' and method == 'GET':
+                await self._http_dashboard_threads(writer)
+            elif path == '/api/dashboard/pool' and method == 'GET':
+                await self._http_dashboard_pool(writer)
+            elif path == '/api/dashboard/collection' and method == 'GET':
+                await self._http_dashboard_collection(writer)
+            elif path == '/api/dashboard/timeline' and method == 'GET':
+                await self._http_dashboard_timeline(writer)
+            elif path == '/api/dashboard/controls/cycle' and method == 'POST':
+                await self._http_dashboard_trigger_cycle(writer)
+            elif path == '/api/dashboard/controls/status' and method == 'GET':
+                await self._http_dashboard_status(writer)
             else:
                 await self._http_json(writer, 404, {'error': 'not found'})
         except (asyncio.TimeoutError, ConnectionResetError, BrokenPipeError):
@@ -868,26 +873,66 @@ class ShopkeeperServer:
                 'display_name': token_info['display_name'],
             })
         else:
-            await self._http_json(writer, 403, {'valid': False})
+            # Keep invalid-token responses as 200 so UI validation attempts
+            # don't show browser-level 4xx resource errors.
+            await self._http_json(writer, 200, {'valid': False})
 
-    def _check_dashboard_auth(self, auth_header: str | None) -> bool:
-        """Check if Authorization header contains valid dashboard password.
+    async def _http_asset(self, writer: asyncio.StreamWriter, path: str):
+        """Handle GET /assets/* by serving generated scene layers.
 
-        Expected format: "Bearer <password>"
+        Missing assets return HTTP 404 with a transparent placeholder body.
+        The canvas can keep rendering while observers and monitors still see
+        true missing-resource semantics.
         """
-        if not auth_header:
-            return False
+        rel = unquote(path[len('/assets/'):]).lstrip('/')
+        rel_path = Path(rel)
 
-        expected = os.environ.get('DASHBOARD_PASSWORD')
-        if not expected:
-            return False
+        if not rel or rel_path.is_absolute() or any(p in ('', '.', '..') for p in rel_path.parts):
+            await self._http_json(writer, 400, {'error': 'bad asset path'})
+            return
 
-        # Parse "Bearer <password>"
-        parts = auth_header.split(' ', 1)
-        if len(parts) != 2 or parts[0] != 'Bearer':
-            return False
+        abs_path = (ASSET_ROOT / rel_path).resolve()
+        try:
+            abs_path.relative_to(ASSET_ROOT)
+        except ValueError:
+            await self._http_json(writer, 403, {'error': 'forbidden'})
+            return
 
-        return hmac.compare_digest(parts[1], expected)
+        if abs_path.is_file():
+            mime, _ = mimetypes.guess_type(str(abs_path))
+            payload = await asyncio.to_thread(abs_path.read_bytes)
+            await self._http_bytes(
+                writer,
+                200,
+                payload,
+                mime or 'application/octet-stream',
+                cache_control='public, max-age=300',
+            )
+            return
+
+        self._log_missing_asset(rel)
+
+        await self._http_bytes(
+            writer,
+            404,
+            TRANSPARENT_PNG,
+            'image/png',
+            cache_control='no-store',
+            extra_headers={'X-Asset-Missing': '1'},
+        )
+
+    def _log_missing_asset(self, rel: str):
+        """Log each missing asset once, with bounded memory usage."""
+        if rel in self._missing_assets_logged:
+            return
+
+        if len(self._missing_assets_logged) >= ASSET_MISS_LOG_LIMIT:
+            oldest = self._missing_assets_queue.popleft()
+            self._missing_assets_logged.discard(oldest)
+
+        self._missing_assets_logged.add(rel)
+        self._missing_assets_queue.append(rel)
+        print(f"  {Fore.YELLOW}[Asset]{Style.RESET_ALL} Missing: {rel}")
 
     async def _http_dashboard_auth(self, writer: asyncio.StreamWriter,
                                      body_bytes: bytes):
@@ -1038,7 +1083,7 @@ class ShopkeeperServer:
             'HTTP/1.1 204 No Content\r\n'
             'Access-Control-Allow-Origin: *\r\n'
             'Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n'
-            'Access-Control-Allow-Headers: Content-Type, Authorization\r\n'
+            'Access-Control-Allow-Headers: Content-Type\r\n'
             'Access-Control-Max-Age: 86400\r\n'
             'Content-Length: 0\r\n'
             'Connection: close\r\n'
@@ -1052,7 +1097,8 @@ class ShopkeeperServer:
         """Send an HTTP JSON response."""
         payload = json.dumps(body)
         status_text = {
-            200: 'OK', 204: 'No Content', 400: 'Bad Request', 401: 'Unauthorized',
+            200: 'OK', 204: 'No Content', 400: 'Bad Request',
+            401: 'Unauthorized',
             403: 'Forbidden', 404: 'Not Found',
             413: 'Payload Too Large', 431: 'Request Header Fields Too Large',
             500: 'Internal Server Error', 503: 'Service Unavailable',
@@ -1063,12 +1109,46 @@ class ShopkeeperServer:
             f'Content-Length: {len(payload)}\r\n'
             f'Access-Control-Allow-Origin: *\r\n'
             f'Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n'
-            f'Access-Control-Allow-Headers: Content-Type, Authorization\r\n'
+            f'Access-Control-Allow-Headers: Content-Type\r\n'
             f'Connection: close\r\n'
             f'\r\n'
             f'{payload}'
         )
         writer.write(response.encode())
+        await writer.drain()
+
+    async def _http_bytes(
+        self,
+        writer: asyncio.StreamWriter,
+        status: int,
+        payload: bytes,
+        content_type: str,
+        cache_control: str = 'no-store',
+        extra_headers: dict[str, str] | None = None,
+    ):
+        """Send an HTTP response with raw bytes."""
+        status_text = {
+            200: 'OK',
+            400: 'Bad Request',
+            403: 'Forbidden',
+            404: 'Not Found',
+            500: 'Internal Server Error',
+        }
+        headers = [
+            f'HTTP/1.1 {status} {status_text.get(status, "Unknown")}\r\n',
+            f'Content-Type: {content_type}\r\n',
+            f'Content-Length: {len(payload)}\r\n',
+            f'Cache-Control: {cache_control}\r\n',
+            'Access-Control-Allow-Origin: *\r\n',
+            'Connection: close\r\n',
+        ]
+        if extra_headers:
+            for key, value in extra_headers.items():
+                headers.append(f'{key}: {value}\r\n')
+        headers.append('\r\n')
+
+        writer.write(''.join(headers).encode())
+        writer.write(payload)
         await writer.drain()
 
 

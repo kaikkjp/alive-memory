@@ -86,6 +86,7 @@ async def build_initial_state(clock_now: datetime = None) -> dict:
     engagement = await db.get_engagement_state()
     fragments = await db.get_recent_text_fragments(limit=8)
     shelf_items = await db.get_shelf_assignments()
+    active_threads = await db.get_active_threads(limit=5)
 
     # Build ambient dict from room state
     ambient = {
@@ -126,7 +127,7 @@ async def build_initial_state(clock_now: datetime = None) -> dict:
             ],
         },
         'state': {
-            'threads': [],  # TODO: wire up when thread system exists
+            'threads': _serialize_threads(active_threads),
             'weather_diegetic': ambient.get('diegetic', ''),
             'time_label': get_time_label(clock_now),
             'status': status,
@@ -150,6 +151,8 @@ async def build_cycle_broadcast(
 
     Lighter than build_initial_state — uses cycle_log for text.
     """
+    active_threads = await db.get_active_threads(limit=5)
+
     layers = await build_scene_layers(
         drives=drives,
         ambient=ambient,
@@ -170,6 +173,7 @@ async def build_cycle_broadcast(
             ),
         },
         'state': {
+            'threads': _serialize_threads(active_threads),
             'weather_diegetic': (
                 ambient.get('diegetic', '') if ambient else ''
             ),
@@ -211,6 +215,18 @@ def build_status_message(status: str, message: str) -> dict:
 
 
 # ─── Helpers ───
+
+def _serialize_threads(threads) -> list[dict]:
+    """Serialize Thread objects to ThreadInfo dicts for the frontend."""
+    return [
+        {
+            'id': t.id,
+            'title': t.title,
+            'status': t.status,
+        }
+        for t in threads
+    ]
+
 
 def _weather_diegetic(weather: str) -> str:
     """Convert weather code to diegetic description."""
