@@ -261,7 +261,7 @@
 ---
 
 ### TASK-011a: Body Phase 4a — Habit tracking + formation
-**Status:** BACKLOG
+**Status:** DONE (2026-02-14)
 **Priority:** Medium
 **Depends on:** TASK-010
 **Design doc:** `body-spec-v2.md` §2.2 (Habit System), §10 Phase 4
@@ -373,7 +373,7 @@
 ---
 
 ### TASK-014: Engagement Phase 3 — choice-based engagement via drives and basal ganglia
-**Status:** BACKLOG
+**Status:** DONE (2026-02-14)
 **Priority:** Medium
 **Depends on:** TASK-009 (basal ganglia selection) + TASK-013 (multi-slot visitors)
 **Description:** Full integration of visitor choice with the drive system and basal ganglia.

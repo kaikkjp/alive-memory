@@ -277,3 +277,15 @@ class SelfConsistencyResult:
     """Result of metacognitive monitor check."""
     consistent: bool = True
     conflicts: list[str] = field(default_factory=list)
+
+
+# ── Habit tracking dataclass (Phase 4) ──
+
+@dataclass
+class HabitEntry:
+    """A tracked action pattern that can strengthen into a habit."""
+    id: str = ''
+    action: str = ''
+    trigger_context: str = '{}'
+    strength: float = 0.1
+    repetition_count: int = 1

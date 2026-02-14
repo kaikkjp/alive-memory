@@ -2549,3 +2549,89 @@ async def update_visitor_present(visitor_id: str, **kwargs):
 async def clear_all_visitors_present():
     """Clear all visitor presence records (used on server startup)."""
     await _exec_write("DELETE FROM visitors_present")
+
+
+# ── Habits (Phase 4, TASK-011a) ──
+
+async def create_habit(action: str, trigger_context: str,
+                       strength: float = 0.1) -> str:
+    """Create a new habit entry. Returns the habit id."""
+    import uuid
+    habit_id = str(uuid.uuid4())[:12]
+    now = clock.now_utc()
+    await _exec_write(
+        """INSERT INTO habits
+           (id, action, trigger_context, strength, repetition_count,
+            formed_at, last_triggered)
+           VALUES (?, ?, ?, ?, 1, ?, ?)""",
+        (habit_id, action, trigger_context, strength, now, now),
+    )
+    return habit_id
+
+
+async def get_habits_for_action(action: str) -> list[dict]:
+    """Get all habits for a specific action type."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT id, action, trigger_context, strength,
+                  repetition_count, formed_at, last_triggered
+           FROM habits
+           WHERE action = ?
+           ORDER BY strength DESC""",
+        (action,),
+    )
+    rows = await cursor.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def find_matching_habit(action: str, trigger_context: str) -> dict | None:
+    """Find an existing habit matching action and trigger context."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT id, action, trigger_context, strength,
+                  repetition_count, formed_at, last_triggered
+           FROM habits
+           WHERE action = ? AND trigger_context = ?
+           LIMIT 1""",
+        (action, trigger_context),
+    )
+    row = await cursor.fetchone()
+    return dict(row) if row else None
+
+
+async def update_habit(habit_id: str, **kwargs) -> None:
+    """Update habit fields (strength, repetition_count, last_triggered)."""
+    if not kwargs:
+        return
+    allowed = {'strength', 'repetition_count', 'last_triggered'}
+    sets = []
+    vals = []
+    for k, v in kwargs.items():
+        if k in allowed:
+            sets.append(f"{k} = ?")
+            vals.append(v)
+    if not sets:
+        return
+    vals.append(habit_id)
+    await _exec_write(
+        f"UPDATE habits SET {', '.join(sets)} WHERE id = ?",
+        tuple(vals),
+    )
+
+
+async def delete_habit(habit_id: str) -> None:
+    """Delete a habit."""
+    await _exec_write("DELETE FROM habits WHERE id = ?", (habit_id,))
+
+
+async def get_all_habits() -> list[dict]:
+    """Get all habits for peek/debug commands."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT id, action, trigger_context, strength,
+                  repetition_count, formed_at, last_triggered
+           FROM habits
+           ORDER BY strength DESC""",
+    )
+    rows = await cursor.fetchall()
+    return [dict(r) for r in rows]

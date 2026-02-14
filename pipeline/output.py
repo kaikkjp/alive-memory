@@ -9,7 +9,7 @@ inhibition formation, metacognitive monitoring.
 
 Phase 2: Action logging, drive adjustments, self-reflection seeds.
 Phase 3: Inhibition formation + metacognitive monitor.
-Phase 4 will add: habit pattern tracking.
+Phase 4: Habit pattern tracking — every executed action strengthens habits.
 """
 
 import json
@@ -176,6 +176,10 @@ async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
     if motor_plan and body_output.executed:
         cortex_feelings = validated.internal_monologue or ''
         await _update_inhibitions(motor_plan, body_output, cortex_feelings)
+
+    # ── Habit tracking (Phase 4) ──
+    if motor_plan and body_output.executed:
+        await _track_action_patterns(motor_plan, body_output)
 
     # ── Metacognitive monitor (Phase 3) ──
     consistency = await _check_self_consistency(validated)
@@ -357,6 +361,63 @@ async def _maybe_form_inhibition(decision: ActionDecision,
                 await db.delete_inhibition(existing['id'])
             else:
                 await db.update_inhibition(existing['id'], strength=new_strength)
+
+
+# ── Habit tracking (Phase 4) ──
+
+def _build_habit_context(decision: ActionDecision) -> str:
+    """Build trigger context for habit matching.
+
+    Coarse-grained like inhibition patterns so habits generalize
+    across similar situations rather than being hyper-specific.
+    """
+    return json.dumps({
+        'visitor_present': bool(decision.target and decision.target.startswith('visitor')),
+    })
+
+
+async def _track_action_patterns(motor_plan: MotorPlan,
+                                  body_output: BodyOutput) -> None:
+    """Track every executed action as a habit pattern.
+
+    Called after every cycle. Strengthens existing habits or creates new ones.
+    Nonlinear curve: fast growth 0→0.4, slow growth 0.6→0.8, cap at 0.9.
+    """
+    try:
+        for action_result in body_output.executed:
+            if not action_result.success:
+                continue
+
+            # Find matching decision from motor_plan
+            decision = None
+            for d in motor_plan.actions:
+                if d.action == action_result.action:
+                    decision = d
+                    break
+            if not decision:
+                continue
+
+            context_json = _build_habit_context(decision)
+            await _track_single_action(decision.action, context_json)
+    except Exception as e:
+        print(f"  [HabitTrack] Error tracking action patterns: {e}")
+
+
+async def _track_single_action(action: str, context_json: str) -> None:
+    """Track a single action — strengthen existing habit or create new one."""
+    existing = await db.find_matching_habit(action, context_json)
+    if existing:
+        new_count = existing['repetition_count'] + 1
+        # Nonlinear: fast 0→0.4, slow 0.6→0.8, cap at 0.9
+        new_strength = min(0.9, existing['strength'] + 0.15 * (1.0 - existing['strength']))
+        await db.update_habit(
+            existing['id'],
+            strength=new_strength,
+            repetition_count=new_count,
+            last_triggered=clock.now_utc(),
+        )
+    else:
+        await db.create_habit(action, context_json, strength=0.1)
 
 
 # ── Metacognitive monitor (Phase 3) ──
