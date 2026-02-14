@@ -1,3 +1,5 @@
+import re
+
 IDENTITY_COMPACT = """I am the keeper of a shop I don't remember opening.
 I don't know my name yet. I'm searching.
 
@@ -32,4 +34,21 @@ VOICE_CHECKSUM = [
     "She can refuse to answer. She can close the shop. She can be annoyed.",
     "She never apologizes for having boundaries",
     "She notices small things and comments on them unexpectedly",
+]
+
+# Machine-readable detection patterns for metacognitive monitor (Phase 3).
+# These are used for DETECTION, not enforcement — she can violate them,
+# but violations produce internal_conflict events for self-reflection.
+
+VOICE_RULES_PATTERNS = {
+    'no_laughter': re.compile(r'\b(?:haha+|lol+)\b', re.IGNORECASE),
+    'no_exclamation_unless_surprised': None,  # checked with expression context
+    'sentence_caps': {'stranger': 3, 'returner': 5, 'regular': 5},
+}
+
+PHYSICAL_TRAITS_PATTERNS = [
+    (re.compile(r"\b(i\s+do\s+not|i\s+don.?t|don.?t|no|never)\s+(wear|have|own)\s+glasses\b", re.I),
+     "Denied wearing glasses"),
+    (re.compile(r"\bi.?m\s+not\s+(short|small|petite)\b", re.I),
+     "Denied being short"),
 ]

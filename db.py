@@ -2370,3 +2370,118 @@ async def get_action_log(limit: int = 50, status_filter: str = None,
     )
     rows = await cursor.fetchall()
     return [dict(r) for r in rows]
+
+
+# ── Inhibitions (Phase 3) ──
+
+async def create_inhibition(action: str, pattern: str, reason: str,
+                            strength: float = 0.3) -> str:
+    """Create a new learned inhibition. Returns the inhibition id."""
+    import uuid
+    inhibition_id = str(uuid.uuid4())[:12]
+    await _exec_write(
+        """INSERT INTO inhibitions
+           (id, action, pattern, reason, strength)
+           VALUES (?, ?, ?, ?, ?)""",
+        (inhibition_id, action, pattern, reason, strength),
+    )
+    return inhibition_id
+
+
+async def get_inhibitions_for_action(action: str) -> list[dict]:
+    """Get inhibitions for a specific action, strength >= 0.2."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT id, action, pattern, reason, strength,
+                  formed_at, last_triggered, trigger_count
+           FROM inhibitions
+           WHERE action = ? AND strength >= 0.2
+           ORDER BY strength DESC""",
+        (action,),
+    )
+    rows = await cursor.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def update_inhibition(inhibition_id: str, **kwargs) -> None:
+    """Update inhibition fields (strength, last_triggered, trigger_count)."""
+    if not kwargs:
+        return
+    allowed = {'strength', 'last_triggered', 'trigger_count'}
+    sets = []
+    vals = []
+    for k, v in kwargs.items():
+        if k in allowed:
+            sets.append(f"{k} = ?")
+            vals.append(v)
+    if not sets:
+        return
+    vals.append(inhibition_id)
+    await _exec_write(
+        f"UPDATE inhibitions SET {', '.join(sets)} WHERE id = ?",
+        tuple(vals),
+    )
+
+
+async def delete_inhibition(inhibition_id: str) -> None:
+    """Delete an inhibition (when strength drops below 0.05)."""
+    await _exec_write("DELETE FROM inhibitions WHERE id = ?", (inhibition_id,))
+
+
+async def find_matching_inhibition(action: str, pattern_json: str) -> dict | None:
+    """Find an existing inhibition matching action and pattern."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT id, action, pattern, reason, strength,
+                  formed_at, last_triggered, trigger_count
+           FROM inhibitions
+           WHERE action = ? AND pattern = ?
+           LIMIT 1""",
+        (action, pattern_json),
+    )
+    row = await cursor.fetchone()
+    return dict(row) if row else None
+
+
+async def get_recent_inhibitions(limit: int = 5,
+                                 min_strength: float = 0.2) -> list[dict]:
+    """Get recent inhibitions for cortex context injection."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT action, strength, trigger_count, reason, formed_at
+           FROM inhibitions
+           WHERE strength >= ?
+           ORDER BY strength DESC, trigger_count DESC
+           LIMIT ?""",
+        (min_strength, limit),
+    )
+    rows = await cursor.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def get_all_inhibitions() -> list[dict]:
+    """Get all inhibitions for peek command."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT id, action, pattern, reason, strength,
+                  formed_at, last_triggered, trigger_count
+           FROM inhibitions
+           ORDER BY strength DESC""",
+    )
+    rows = await cursor.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def get_recent_internal_conflicts(limit: int = 5) -> list[dict]:
+    """Get recent internal_conflict moments from day_memories."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT id, ts, salience, summary, tags
+           FROM day_memories
+           WHERE moment_type = 'internal_conflict'
+           ORDER BY ts DESC
+           LIMIT ?""",
+        (limit,),
+    )
+    rows = await cursor.fetchall()
+    return [dict(r) for r in rows]

@@ -5,14 +5,17 @@ Question it answers: "Which of these intentions should fire, and which should
 be suppressed?"
 
 Phase 2: Full selection gates (1-5). Multi-intention input, priority-sorted
-output. No inhibition yet (Gate 6 is Phase 3). No habits yet (Phase 4).
+output. Phase 3: Gate 6 (learned inhibition). No habits yet (Phase 4).
 """
 
+import json
+import random
 from collections import Counter
 
 import clock
+import db
 from models.pipeline import (
-    Intention, ValidatedOutput, ActionDecision, MotorPlan,
+    Intention, ValidatedOutput, ActionDecision, MotorPlan, InhibitionCheck,
 )
 from models.state import DrivesState
 from pipeline.action_registry import ACTION_REGISTRY, check_prerequisites
@@ -34,11 +37,66 @@ def _calculate_priority(intention: Intention, drives: DrivesState,
     return min(base, 1.0)
 
 
+def _matches_pattern(pattern_json: str, context: dict) -> bool:
+    """Check if a stored inhibition pattern matches the current context.
+
+    Pattern is coarse-grained: mode, visitor_present. Broad matching
+    ensures inhibitions generalize rather than being too specific.
+    """
+    try:
+        pattern = json.loads(pattern_json)
+    except (json.JSONDecodeError, TypeError):
+        return True  # malformed pattern → match conservatively
+
+    # Each key in the pattern must match the context
+    for key, val in pattern.items():
+        if key not in context:
+            continue  # missing context key = don't filter on it
+        if context[key] != val:
+            return False
+    return True
+
+
+async def _check_inhibition(action_name: str, context: dict) -> InhibitionCheck:
+    """Gate 6: Check if any learned inhibition applies. Pure DB lookup."""
+    try:
+        inhibitions = await db.get_inhibitions_for_action(action_name)
+    except Exception:
+        return InhibitionCheck()  # graceful degradation
+
+    for inhib in inhibitions:
+        if inhib['strength'] < 0.2:
+            continue  # too weak to matter
+
+        if not _matches_pattern(inhib['pattern'], context):
+            continue
+
+        # Probabilistic — stronger inhibitions suppress more reliably
+        if random.random() < inhib['strength']:
+            # Update tracking
+            try:
+                await db.update_inhibition(
+                    inhib['id'],
+                    last_triggered=clock.now_utc().isoformat(),
+                    trigger_count=inhib['trigger_count'] + 1,
+                )
+            except Exception:
+                pass  # tracking failure shouldn't block gating
+
+            return InhibitionCheck(
+                suppress=True,
+                reason=inhib['reason'],
+                inhibition_id=inhib['id'],
+            )
+
+    return InhibitionCheck()
+
+
 async def select_actions(validated: ValidatedOutput, drives: DrivesState,
                          context: dict = None) -> MotorPlan:
     """Select which intentions fire this cycle.
 
-    Processes validated.intentions through 5 gates. Actions that pass all
+    Processes validated.intentions through 6 gates. Actions that pass all
     gates are sorted by priority. Actions rejected at any gate are logged
     as suppressed with reason.
 
@@ -111,6 +169,14 @@ async def select_actions(validated: ValidatedOutput, drives: DrivesState,
                 f'Too tired (need {capability.energy_cost:.2f}, '
                 f'have {energy_remaining:.2f})'
             )
+            decisions.append(decision)
+            continue
+
+        # Gate 6: Inhibition (learned from experience)
+        inhibition = await _check_inhibition(action_name, context)
+        if inhibition.suppress:
+            decision.status = 'inhibited'
+            decision.suppression_reason = f'Learned: {inhibition.reason}'
             decisions.append(decision)
             continue
 

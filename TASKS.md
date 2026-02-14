@@ -213,7 +213,7 @@
 ---
 
 ### TASK-010: Body Phase 3 — Inhibition + Metacognitive Monitor
-**Status:** BACKLOG
+**Status:** DONE (2026-02-14)
 **Priority:** High
 **Depends on:** TASK-009
 **Design doc:** `body-spec-v2.md` §2.2 (Inhibition System), plus new metacognitive monitor design

@@ -23,3 +23,18 @@ CREATE INDEX IF NOT EXISTS idx_action_log_cycle ON action_log(cycle_id);
 CREATE INDEX IF NOT EXISTS idx_action_log_action ON action_log(action);
 CREATE INDEX IF NOT EXISTS idx_action_log_status ON action_log(status);
 CREATE INDEX IF NOT EXISTS idx_action_log_date ON action_log(created_at);
+
+-- Inhibitions (learned behavioral constraints — Phase 3)
+CREATE TABLE IF NOT EXISTS inhibitions (
+    id TEXT PRIMARY KEY,
+    action TEXT NOT NULL,
+    pattern TEXT NOT NULL,           -- JSON: trigger conditions
+    reason TEXT NOT NULL,            -- JSON seed, not narrative
+    strength REAL NOT NULL DEFAULT 0.3,
+    formed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_triggered TIMESTAMP,
+    trigger_count INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_inhibitions_action ON inhibitions(action);
+CREATE INDEX IF NOT EXISTS idx_inhibitions_strength ON inhibitions(strength);
