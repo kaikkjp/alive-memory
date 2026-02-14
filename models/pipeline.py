@@ -14,6 +14,15 @@ from typing import Optional
 
 
 @dataclass
+class Intention:
+    """A single intention from cortex with impulse strength (Phase 2)."""
+    action: str = ''
+    target: Optional[str] = None
+    content: str = ''
+    impulse: float = 0.5
+
+
+@dataclass
 class ActionRequest:
     """A single action requested by cortex."""
     type: str = ''
@@ -47,6 +56,7 @@ class CortexOutput:
     actions: list[ActionRequest] = field(default_factory=list)
     memory_updates: list[MemoryUpdate] = field(default_factory=list)
     next_cycle_hints: list[str] = field(default_factory=list)
+    intentions: list['Intention'] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, raw: dict) -> 'CortexOutput':
@@ -59,6 +69,28 @@ class CortexOutput:
             MemoryUpdate(type=m.get('type', ''), content=m.get('content', {}))
             for m in raw.get('memory_updates', [])
         ]
+        # Phase 2: parse intentions[] if present
+        raw_intentions = raw.get('intentions', [])
+        intentions = [
+            Intention(
+                action=i.get('action', ''),
+                target=i.get('target'),
+                content=i.get('content', ''),
+                impulse=float(i.get('impulse', 0.5)),
+            )
+            for i in raw_intentions
+        ]
+        # Backward compat: synthesize intentions from actions[] if no intentions[]
+        if not intentions and actions:
+            intentions = [
+                Intention(
+                    action=a.type,
+                    target=a.detail.get('target'),
+                    content=a.detail.get('text', ''),
+                    impulse=1.0,
+                )
+                for a in actions
+            ]
         return cls(
             internal_monologue=raw.get('internal_monologue', ''),
             dialogue=raw.get('dialogue'),
@@ -70,6 +102,7 @@ class CortexOutput:
             actions=actions,
             memory_updates=memory_updates,
             next_cycle_hints=raw.get('next_cycle_hints', []),
+            intentions=intentions,
         )
 
 
@@ -98,6 +131,7 @@ class ValidatedOutput:
     actions: list[ActionRequest] = field(default_factory=list)
     memory_updates: list[MemoryUpdate] = field(default_factory=list)
     next_cycle_hints: list[str] = field(default_factory=list)
+    intentions: list[Intention] = field(default_factory=list)
 
     # ── Validation metadata ──
     approved_actions: list[ActionRequest] = field(default_factory=list)
@@ -125,6 +159,7 @@ class ValidatedOutput:
             actions=list(cortex.actions),
             memory_updates=list(cortex.memory_updates),
             next_cycle_hints=list(cortex.next_cycle_hints),
+            intentions=list(cortex.intentions),
         )
 
     def to_dict(self) -> dict:
@@ -185,6 +220,7 @@ class ActionDecision:
     status: str = 'approved'        # 'approved' | 'suppressed' | 'incapable' | 'deferred'
     suppression_reason: Optional[str] = None
     source: str = 'cortex'          # 'cortex' | 'habit'
+    detail: dict = field(default_factory=dict)  # original action detail for body execution
 
 
 @dataclass

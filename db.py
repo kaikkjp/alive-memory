@@ -2301,3 +2301,72 @@ async def count_cycle_logs() -> int:
     cursor = await conn.execute("SELECT COUNT(*) FROM cycle_log")
     row = await cursor.fetchone()
     return row[0] if row else 0
+
+
+# ── Action Log (Phase 2) ──
+
+async def log_action(cycle_id: str, action: str, status: str,
+                     source: str = 'cortex', impulse: float = None,
+                     priority: float = None, content: str = None,
+                     target: str = None, suppression_reason: str = None,
+                     energy_cost: float = None, success: bool = None,
+                     error: str = None) -> None:
+    """Log an action decision or execution result to action_log."""
+    import uuid
+    action_id = str(uuid.uuid4())[:12]
+    await _exec_write(
+        """INSERT INTO action_log
+           (id, cycle_id, action, status, source, impulse, priority,
+            content, target, suppression_reason, energy_cost, success, error)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (action_id, cycle_id, action, status, source, impulse, priority,
+         content, target, suppression_reason, energy_cost, success, error),
+    )
+
+
+async def get_recent_suppressions(limit: int = 10,
+                                  min_impulse: float = 0.3) -> list[dict]:
+    """Get recently suppressed actions above impulse threshold."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT action, impulse, suppression_reason, content, target,
+                  created_at
+           FROM action_log
+           WHERE status IN ('suppressed', 'incapable', 'deferred')
+           AND impulse >= ?
+           ORDER BY created_at DESC
+           LIMIT ?""",
+        (min_impulse, limit),
+    )
+    rows = await cursor.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def get_action_log(limit: int = 50, status_filter: str = None,
+                         action_filter: str = None) -> list[dict]:
+    """Get recent action log entries with optional filters."""
+    conn = await get_db()
+    conditions = []
+    params = []
+    if status_filter:
+        conditions.append("status = ?")
+        params.append(status_filter)
+    if action_filter:
+        conditions.append("action = ?")
+        params.append(action_filter)
+
+    where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+    params.append(limit)
+
+    cursor = await conn.execute(
+        f"""SELECT id, cycle_id, action, status, source, impulse, priority,
+                   content, target, suppression_reason, energy_cost,
+                   success, error, created_at
+            FROM action_log
+            {where}
+            ORDER BY created_at DESC
+            LIMIT ?""",
+        tuple(params),
+    )
+    rows = await cursor.fetchall()
+    return [dict(r) for r in rows]

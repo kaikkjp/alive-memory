@@ -789,13 +789,23 @@ class Heartbeat:
             'next_cycle_hints': validated.next_cycle_hints,
             'resonance': validated.resonance,
             '_entropy_warning': validated.entropy_warning,
+            'intentions_count': len(validated.intentions),
+        }
+
+        # Build context for basal ganglia gate checks
+        bg_context = {
+            'visitor_present': visitor_id is not None,
+            'turn_count': engagement.turn_count,
+            'mode': mode,
+            'cycle_type': routing.cycle_type,
         }
 
         async with db.transaction():
             await db.save_drives_state(drives)
-            motor_plan = await select_actions(validated, drives)
+            motor_plan = await select_actions(validated, drives, context=bg_context)
             body_output = await execute_body(motor_plan, validated, visitor_id, cycle_id=cycle_id)
-            await process_output(body_output, validated, visitor_id)
+            await process_output(body_output, validated, visitor_id,
+                                 motor_plan=motor_plan, cycle_id=cycle_id)
             for event in unread:
                 await db.inbox_mark_read(event.id)
             await db.log_cycle(log)
