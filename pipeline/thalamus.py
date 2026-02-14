@@ -41,7 +41,10 @@ async def route(
     elif focus.p_type == 'visitor_disconnect':
         cycle_type = 'idle'  # she's alone now — reflect, don't engage
     elif focus.p_type == 'visitor_silence':
-        cycle_type = 'engage'  # silence is still part of conversation
+        # Silence competes via salience: high-salience silence (she's invested
+        # in the conversation) stays engage. Low-salience silence (boring
+        # conversation, she's absorbed) drifts to idle.
+        cycle_type = 'engage' if focus.salience >= 0.4 else 'idle'
     elif focus.p_type == 'fidget_mismatch':
         cycle_type = 'engage'  # visitor referenced a fidget — she's in conversation
     elif focus.p_type == 'ambient_discovery':

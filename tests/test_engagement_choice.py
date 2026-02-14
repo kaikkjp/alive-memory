@@ -1,9 +1,15 @@
-"""Tests for TASK-012: visitor_connect as perception, not state change.
+"""Tests for TASK-012 + TASK-014: engagement choice.
+
+TASK-012: visitor_connect as perception, not state change.
+TASK-014: choice-based engagement via drives and basal ganglia.
 
 Verifies:
 - Sensorium: visitor_connect salience factors in trust, social hunger, absorption
 - Thalamus: visitor_connect competes instead of auto-winning engage routing
+- Thalamus: visitor_silence salience-gated (TASK-014)
 - Executor: engagement state set on speak, not on connect
+- Basal ganglia: visitor-directed priority modulation (TASK-014)
+- Cortex: multi-visitor prompt context (TASK-014)
 """
 
 import pytest
@@ -13,9 +19,12 @@ from datetime import datetime, timezone
 
 from models.state import DrivesState, EngagementState, Visitor
 from models.event import Event
-from models.pipeline import ValidatedOutput, ActionRequest, MemoryUpdate
+from models.pipeline import (
+    ValidatedOutput, ActionRequest, MemoryUpdate, Intention, ActionDecision,
+)
 from pipeline.sensorium import calculate_connect_salience, Perception
 from pipeline.thalamus import route
+from pipeline.basal_ganglia import _calculate_priority, _is_visitor_target
 
 
 # ── Sensorium: calculate_connect_salience ──
@@ -303,3 +312,241 @@ class TestEngagementChoiceIntegration:
         )
         salience = calculate_connect_salience(drives, 'familiar')
         assert salience >= 0.5, f"Expected salience >= 0.5 for familiar, got {salience}"
+
+
+# ── TASK-014: Visitor target parsing ──
+
+class TestVisitorTargetParsing:
+    """_is_visitor_target correctly parses target strings."""
+
+    def test_specific_visitor(self):
+        is_v, vid = _is_visitor_target('visitor:v1')
+        assert is_v is True
+        assert vid == 'v1'
+
+    def test_generic_visitor(self):
+        is_v, vid = _is_visitor_target('visitor')
+        assert is_v is True
+        assert vid is None
+
+    def test_non_visitor_shelf(self):
+        is_v, vid = _is_visitor_target('shelf')
+        assert is_v is False
+        assert vid is None
+
+    def test_none_target(self):
+        is_v, vid = _is_visitor_target(None)
+        assert is_v is False
+        assert vid is None
+
+    def test_self_target(self):
+        is_v, vid = _is_visitor_target('self')
+        assert is_v is False
+        assert vid is None
+
+    def test_visitor_with_long_id(self):
+        is_v, vid = _is_visitor_target('visitor:abc-123-def')
+        assert is_v is True
+        assert vid == 'abc-123-def'
+
+
+# ── TASK-014: Visitor-directed priority modulation ──
+
+class TestVisitorDirectedPriority:
+    """Basal ganglia priority modulated by trust, interest, and drives."""
+
+    def test_familiar_over_stranger_with_social_hunger(self):
+        """Familiar visitor gets higher priority than stranger, same impulse."""
+        drives = DrivesState(social_hunger=0.7, energy=0.8)
+        context = {
+            'visitor_trust': {'v1': 'familiar', 'v2': 'stranger'},
+            'visitor_features': {},
+        }
+
+        i_familiar = Intention(action='speak', target='visitor:v1', impulse=0.6)
+        i_stranger = Intention(action='speak', target='visitor:v2', impulse=0.6)
+
+        p_familiar = _calculate_priority(i_familiar, drives, 0.15, context)
+        p_stranger = _calculate_priority(i_stranger, drives, 0.15, context)
+
+        assert p_familiar > p_stranger, (
+            f"Familiar ({p_familiar}) should outprioritize stranger ({p_stranger})"
+        )
+
+    def test_interesting_stranger_beats_boring_returner(self):
+        """Stranger asking a question with high impulse beats returner with low impulse."""
+        drives = DrivesState(social_hunger=0.5, curiosity=0.7, energy=0.8)
+        context = {
+            'visitor_trust': {'v1': 'returner', 'v2': 'stranger'},
+            'visitor_features': {
+                'v2': {'contains_question': True},
+            },
+        }
+
+        # Returner says something boring (low impulse)
+        i_returner = Intention(action='speak', target='visitor:v1', impulse=0.3)
+        # Stranger asks an interesting question (high impulse)
+        i_stranger = Intention(action='speak', target='visitor:v2', impulse=0.7)
+
+        p_returner = _calculate_priority(i_returner, drives, 0.15, context)
+        p_stranger = _calculate_priority(i_stranger, drives, 0.15, context)
+
+        assert p_stranger > p_returner, (
+            f"Interesting stranger ({p_stranger}) should beat boring returner ({p_returner})"
+        )
+
+    def test_disengage_when_expression_need_high(self):
+        """High expression_need + low impulse conversation = dampened speak priority."""
+        drives = DrivesState(
+            social_hunger=0.3, expression_need=0.8, energy=0.8,
+        )
+        context = {
+            'visitor_trust': {'v1': 'stranger'},
+            'visitor_features': {},
+        }
+
+        # Low impulse speak (boring conversation)
+        i_speak = Intention(action='speak', target='visitor:v1', impulse=0.3)
+        # Journal writing intention
+        i_journal = Intention(action='write_journal', target='journal', impulse=0.6)
+
+        p_speak = _calculate_priority(i_speak, drives, 0.15, context)
+        p_journal = _calculate_priority(i_journal, drives, 0.05, context)
+
+        assert p_journal > p_speak, (
+            f"Journal ({p_journal}) should beat dampened speak ({p_speak})"
+        )
+
+    def test_social_hunger_boosts_visitor_actions(self):
+        """High social hunger significantly boosts visitor-directed priority."""
+        drives_hungry = DrivesState(social_hunger=0.9, energy=0.8)
+        drives_sated = DrivesState(social_hunger=0.1, energy=0.8)
+
+        intention = Intention(action='speak', target='visitor:v1', impulse=0.5)
+
+        p_hungry = _calculate_priority(intention, drives_hungry, 0.15)
+        p_sated = _calculate_priority(intention, drives_sated, 0.15)
+
+        assert p_hungry > p_sated, (
+            f"Hungry ({p_hungry}) should exceed sated ({p_sated})"
+        )
+
+    def test_generic_visitor_target_still_boosted(self):
+        """Plain 'visitor' target (no ID) still gets social hunger boost."""
+        drives = DrivesState(social_hunger=0.8, energy=0.8)
+        intention = Intention(action='speak', target='visitor', impulse=0.5)
+
+        p = _calculate_priority(intention, drives, 0.15)
+
+        # Should include social hunger boost: 0.5 + 0.8*0.3 = 0.74
+        assert p > 0.7, f"Expected > 0.7 with social hunger boost, got {p}"
+
+
+# ── TASK-014: Visitor silence routing ──
+
+class TestVisitorSilenceRouting:
+    """visitor_silence salience-gated: boring silence → idle, invested → engage."""
+
+    @pytest.mark.asyncio
+    async def test_low_salience_silence_routes_idle(self):
+        """Low salience visitor_silence → idle (boring conversation, she drifts)."""
+        perceptions = [
+            Perception(
+                p_type='visitor_silence',
+                source='visitor:v1',
+                ts=datetime.now(timezone.utc),
+                content='Silence.',
+                features={},
+                salience=0.2,
+            ),
+        ]
+        drives = DrivesState()
+        engagement = EngagementState(status='engaged', visitor_id='v1')
+
+        with patch('pipeline.thalamus.db') as mock_db:
+            mock_db.get_flashbulb_count_today = AsyncMock(return_value=0)
+            routing = await route(perceptions, drives, engagement)
+
+        assert routing.cycle_type == 'idle'
+
+    @pytest.mark.asyncio
+    async def test_high_salience_silence_routes_engage(self):
+        """High salience visitor_silence → engage (invested in conversation)."""
+        perceptions = [
+            Perception(
+                p_type='visitor_silence',
+                source='visitor:v1',
+                ts=datetime.now(timezone.utc),
+                content='Silence.',
+                features={},
+                salience=0.6,
+            ),
+        ]
+        drives = DrivesState()
+        engagement = EngagementState(status='engaged', visitor_id='v1')
+
+        with patch('pipeline.thalamus.db') as mock_db:
+            mock_db.get_flashbulb_count_today = AsyncMock(return_value=0)
+            routing = await route(perceptions, drives, engagement)
+
+        assert routing.cycle_type == 'engage'
+
+    @pytest.mark.asyncio
+    async def test_borderline_silence_routes_engage(self):
+        """Salience at threshold (0.4) → engage."""
+        perceptions = [
+            Perception(
+                p_type='visitor_silence',
+                source='visitor:v1',
+                ts=datetime.now(timezone.utc),
+                content='Silence.',
+                features={},
+                salience=0.4,
+            ),
+        ]
+        drives = DrivesState()
+        engagement = EngagementState(status='engaged', visitor_id='v1')
+
+        with patch('pipeline.thalamus.db') as mock_db:
+            mock_db.get_flashbulb_count_today = AsyncMock(return_value=0)
+            routing = await route(perceptions, drives, engagement)
+
+        assert routing.cycle_type == 'engage'
+
+
+# ── TASK-014: Multi-visitor basal ganglia selection ──
+
+class TestMultiVisitorSelection:
+    """When multiple speak intentions target different visitors, priority sorts them."""
+
+    @pytest.mark.asyncio
+    async def test_highest_priority_visitor_wins(self):
+        """With two speak intentions, highest priority gets approved first."""
+        from pipeline.basal_ganglia import select_actions
+
+        validated = ValidatedOutput(
+            intentions=[
+                Intention(action='speak', target='visitor:v1', content='Hi', impulse=0.6),
+                Intention(action='speak', target='visitor:v2', content='Hello', impulse=0.8),
+            ],
+            approved_actions=[
+                ActionRequest(type='speak', detail={'text': 'Hi', 'target': 'visitor:v1'}),
+                ActionRequest(type='speak', detail={'text': 'Hello', 'target': 'visitor:v2'}),
+            ],
+        )
+        drives = DrivesState(social_hunger=0.5, energy=0.8)
+        context = {
+            'visitor_present': True,
+            'visitor_trust': {'v1': 'stranger', 'v2': 'familiar'},
+            'visitor_features': {},
+        }
+
+        with patch('pipeline.basal_ganglia.db') as mock_db:
+            mock_db.get_inhibitions_for_action = AsyncMock(return_value=[])
+            plan = await select_actions(validated, drives, context)
+
+        # Both approved but only one speak per cycle (max_per_cycle=1)
+        approved_speaks = [a for a in plan.actions if a.action == 'speak']
+        assert len(approved_speaks) == 1
+        # v2 (familiar, higher impulse) should win
+        assert approved_speaks[0].target == 'visitor:v2'

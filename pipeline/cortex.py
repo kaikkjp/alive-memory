@@ -122,7 +122,7 @@ EXPRESS YOUR INTENTIONS — what you want to do right now.
 You may have multiple impulses. List them all. You don't need to choose.
 Each intention has:
   - action: what you want to do (speak, write_journal, rearrange, express_thought, end_engagement, accept_gift, decline_gift, show_item, post_x_draft, close_shop, place_item, browse_web, post_x, ...)
-  - target: who/what it's directed at (visitor, shelf, journal, self, web, x_timeline) or null
+  - target: who/what it's directed at. Use "visitor:ID" when multiple visitors are present (e.g. "visitor:v1"), or just "visitor" if only one. Other targets: shelf, journal, self, web, x_timeline, or null
   - content: the substance (what you'd say, write, search for, post)
   - impulse: how strongly you feel this (0.0-1.0)
 
@@ -147,7 +147,7 @@ OUTPUT SCHEMA:
   "intentions": [
     {{
       "action": "speak|write_journal|rearrange|express_thought|end_engagement|accept_gift|decline_gift|show_item|post_x_draft|close_shop|place_item|browse_web|post_x",
-      "target": "visitor|shelf|journal|self|web|x_timeline",
+      "target": "visitor|visitor:ID|shelf|journal|self|web|x_timeline",
       "content": "what you'd say, write, or do",
       "impulse": 0.8
     }}
@@ -197,6 +197,7 @@ async def cortex_call(
     visitor: Visitor = None,
     gift_metadata: dict = None,
     self_state: str = None,
+    visitors_present: list = None,
 ) -> CortexOutput:
     """The one LLM call. Build prompt pack, call model, return structured response."""
 
@@ -333,6 +334,17 @@ async def cortex_call(
                 if t.trait_key not in seen_keys:
                     parts.append(f"  {t.trait_key}: {t.trait_value}")
                     seen_keys.add(t.trait_key)
+
+    # Multi-visitor presence context (TASK-014)
+    if visitors_present and len(visitors_present) > 1:
+        parts.append("\nVISITORS PRESENT:")
+        for vp in visitors_present:
+            vid = vp.get('id', '?')
+            name = vp.get('name') or 'unnamed'
+            trust = vp.get('trust_level', 'stranger')
+            status = vp.get('status', 'browsing')
+            parts.append(f"  [{vid}] {name} — {trust}, {status}")
+        parts.append("  → Use target \"visitor:ID\" to direct actions at a specific person.")
 
     # Constraints
     parts.append(f"\nTOKEN BUDGET: {routing.token_budget}")

@@ -5,7 +5,9 @@ Question it answers: "Which of these intentions should fire, and which should
 be suppressed?"
 
 Phase 2: Full selection gates (1-5). Multi-intention input, priority-sorted
-output. Phase 3: Gate 6 (learned inhibition). No habits yet (Phase 4).
+output. Phase 3: Gate 6 (learned inhibition). Phase 3b (TASK-014):
+Visitor-directed priority modulation — trust, interest, drive-based selection
+when multiple visitors are present. No habits yet (Phase 4).
 """
 
 import json
@@ -21,14 +23,69 @@ from models.state import DrivesState
 from pipeline.action_registry import ACTION_REGISTRY, check_prerequisites
 
 
-def _calculate_priority(intention: Intention, drives: DrivesState,
-                        energy_cost: float) -> float:
-    """Priority calculation per body-spec-v2.md §2.2."""
-    base = intention.impulse
+# ── Trust-based priority boost for visitor-directed actions ──
+_TRUST_PRIORITY_BONUS = {
+    'stranger': 0.0,
+    'returner': 0.05,
+    'regular': 0.10,
+    'familiar': 0.15,
+}
 
-    # Social drive boosts visitor-directed actions
-    if intention.target == 'visitor':
-        base += drives.social_hunger * 0.2
+
+def _is_visitor_target(target: str | None) -> tuple[bool, str | None]:
+    """Parse a target string into (is_visitor, visitor_id).
+
+    Returns:
+        (True, 'v1')  for 'visitor:v1'
+        (True, None)  for 'visitor'
+        (False, None) for anything else (shelf, journal, self, None, etc.)
+    """
+    if not target:
+        return (False, None)
+    if target.startswith('visitor:'):
+        return (True, target.split(':', 1)[1])
+    if target == 'visitor':
+        return (True, None)
+    return (False, None)
+
+
+def _calculate_priority(intention: Intention, drives: DrivesState,
+                        energy_cost: float, context: dict = None) -> float:
+    """Priority calculation per body-spec-v2.md §2.2.
+
+    Phase 3b: visitor-directed priority modulated by trust, interest, and
+    competing drives. When multiple visitors are present, this determines
+    who she addresses.
+    """
+    if context is None:
+        context = {}
+
+    base = intention.impulse
+    is_visitor, visitor_id = _is_visitor_target(intention.target)
+
+    if is_visitor:
+        # Social drive boosts visitor-directed actions (increased from 0.2)
+        base += drives.social_hunger * 0.3
+
+        # Trust boost — familiar faces pull harder
+        visitor_trust = context.get('visitor_trust', {})
+        if visitor_id and visitor_id in visitor_trust:
+            trust_level = visitor_trust[visitor_id]
+        else:
+            trust_level = 'stranger'
+        base += _TRUST_PRIORITY_BONUS.get(trust_level, 0.0)
+
+        # Conversation interest — questions, gifts, personal content
+        visitor_features = context.get('visitor_features', {})
+        if visitor_id and visitor_id in visitor_features:
+            feats = visitor_features[visitor_id]
+            if feats.get('contains_question') or feats.get('contains_gift') \
+                    or feats.get('contains_personal_question'):
+                base += 0.1
+
+        # Active disengagement — if she's absorbed and conversation is dull
+        if drives.expression_need > 0.7 and intention.impulse < 0.4:
+            base *= 0.5
 
     # Low energy dampens costly actions
     if energy_cost > 0.1 and drives.energy < 0.3:
@@ -182,7 +239,7 @@ async def select_actions(validated: ValidatedOutput, drives: DrivesState,
 
         # Passed all gates — calculate priority
         decision.priority = _calculate_priority(
-            intention, drives, capability.energy_cost
+            intention, drives, capability.energy_cost, context
         )
         decision.status = 'approved'
         decision.detail = _find_matching_detail(action_name, validated)
