@@ -6,9 +6,30 @@ __pycache__
 .env.*
 !.env.example
 data/
+backups/
 .venv/
 venv/
 .vscode/
 .idea/
 .DS_Store
 .claude/
+
+# Frontend build artifacts (rebuilt in nginx.Dockerfile)
+window/node_modules/
+window/.next/
+window/out/
+
+# Docs, tests, deploy scripts not needed in runtime image
+docs/
+tests/
+deploy/
+nginx/
+scripts/
+ARCHITECTURE.md
+CLAUDE.md
+DEPLOY_VPS.md
+README.md
+TASKS.md
+simulate.py
+generate_token.py
+bugs-and-fixes.md
