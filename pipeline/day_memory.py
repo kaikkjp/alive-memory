@@ -59,6 +59,10 @@ def compute_moment_salience(result: dict, ctx: dict) -> float:
     """Deterministic salience from cycle signals."""
     score = 0.0
 
+    # Internal conflict always worth remembering (Phase 3)
+    if ctx.get('has_internal_conflict'):
+        score += 0.4
+
     # Resonance is the strongest signal
     if result.get('resonance'):
         score += 0.4
@@ -98,6 +102,10 @@ def compute_moment_salience(result: dict, ctx: dict) -> float:
 
 def classify_moment(result: dict, ctx: dict) -> str:
     """Classify the moment type. Returns highest-priority match."""
+    # Internal conflict is highest priority (Phase 3)
+    if ctx.get('has_internal_conflict'):
+        return 'internal_conflict'
+
     if result.get('resonance'):
         return 'resonance'
 
@@ -131,6 +139,12 @@ def classify_moment(result: dict, ctx: dict) -> str:
 def build_moment_summary(result: dict, ctx: dict) -> str:
     """Build a diegetic 1-3 sentence summary. Deterministic. No LLM."""
     parts = []
+
+    # Internal conflict summary (Phase 3)
+    if ctx.get('has_internal_conflict'):
+        conflict_desc = ctx.get('internal_conflict_description', 'something felt off')
+        parts.append(f"I noticed something about myself: {conflict_desc}.")
+        return " ".join(parts[:4])
 
     # Who was there
     visitor_name = ctx.get('visitor_name')

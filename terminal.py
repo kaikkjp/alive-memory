@@ -163,7 +163,7 @@ def show_banner():
 
 JST = timezone(timedelta(hours=9))
 
-PEEK_COMMANDS = ('journal', 'drives', 'collection', 'backroom', 'status', 'totems', 'events', 'threads', 'weather', 'pool', 'body', 'suppressed', 'action-log')
+PEEK_COMMANDS = ('journal', 'drives', 'collection', 'backroom', 'status', 'totems', 'events', 'threads', 'weather', 'pool', 'body', 'suppressed', 'action-log', 'inhibitions')
 
 
 def _fmt_time(dt) -> str:
@@ -233,6 +233,8 @@ async def handle_peek(cmd: str) -> bool:
         await _peek_suppressed()
     elif cmd == 'action-log':
         await _peek_action_log()
+    elif cmd == 'inhibitions':
+        await _peek_inhibitions()
     else:
         return False
     return True
@@ -544,6 +546,40 @@ async def _peek_action_log():
         reason = e.get('suppression_reason', '')
         reason_str = f"  {Fore.WHITE}{reason}{Style.RESET_ALL}" if reason else ""
         print(f"  {Fore.CYAN}{ts}{Style.RESET_ALL}  {icon} {status:<12} {action:<18} imp:{impulse:.1f}{reason_str}")
+    print()
+
+
+async def _peek_inhibitions():
+    """Show learned inhibitions."""
+    try:
+        inhibitions = await db.get_all_inhibitions()
+    except Exception:
+        print(f"\n  {Fore.WHITE}(No inhibitions table yet.){Style.RESET_ALL}\n")
+        return
+
+    if not inhibitions:
+        print(f"\n  {Fore.WHITE}(No learned inhibitions.){Style.RESET_ALL}\n")
+        return
+
+    print()
+    print(f"  {Fore.YELLOW}── Learned Inhibitions ──{Style.RESET_ALL}")
+    for inh in inhibitions:
+        action = inh.get('action', '?')
+        strength = inh.get('strength', 0) or 0
+        triggers = inh.get('trigger_count', 0) or 0
+        formed = _fmt_date(inh.get('formed_at'))
+
+        # Color by strength
+        if strength >= 0.6:
+            color = Fore.RED
+        elif strength >= 0.3:
+            color = Fore.YELLOW
+        else:
+            color = Fore.WHITE
+
+        bar = _bar(strength)
+        print(f"  {color}{action:<20}{Style.RESET_ALL}  {bar} {strength:.2f}  "
+              f"triggers:{triggers}  formed:{formed}")
     print()
 
 

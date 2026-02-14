@@ -4,23 +4,41 @@ Position: after Body.
 Question it answers: "What changed in the world because of what she did?"
 
 Handles: memory consolidation, pool status updates, drive adjustments,
-engagement state updates, action logging, suppression reflection seeds.
+engagement state updates, action logging, suppression reflection seeds,
+inhibition formation, metacognitive monitoring.
 
-Phase 2: Full implementation with action logging, drive adjustments from
-outcomes, and self-reflection seed injection for suppressed high-impulse
-actions.
-Phase 3 will add: inhibition formation, metacognitive monitoring.
+Phase 2: Action logging, drive adjustments, self-reflection seeds.
+Phase 3: Inhibition formation + metacognitive monitor.
 Phase 4 will add: habit pattern tracking.
 """
+
+import json
+import re
 
 import clock
 from models.event import Event
 from models.pipeline import (
     ValidatedOutput, MotorPlan, BodyOutput, CycleOutput,
+    ActionDecision, SelfConsistencyResult,
 )
 from pipeline.action_registry import ACTION_REGISTRY
 from pipeline.hippocampus_write import hippocampus_consolidate
 import db
+
+
+# ── Negative feeling patterns for inhibition signal detection ──
+# These are matched against internal_monologue to detect self-assessed
+# negative outcomes. No LLM call — the cortex already told us.
+NEGATIVE_FEELING_PATTERNS = [
+    r"shouldn't have",
+    r"regret",
+    r"too much",
+    r"wrong thing to say",
+    r"uncomfortable",
+    r"pushed too hard",
+    r"felt wrong",
+    r"wished I hadn't",
+]
 
 
 async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
@@ -29,7 +47,8 @@ async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
     """Process post-action side effects.
 
     Memory consolidation, pool updates, drive adjustments, engagement state,
-    action logging, and suppression reflection seeds.
+    action logging, suppression reflection seeds, inhibition updates,
+    and metacognitive self-consistency checks.
     All within the caller's transaction boundary.
     """
     result = CycleOutput(body_output=body_output, motor_plan=motor_plan)
@@ -146,6 +165,16 @@ async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
     if motor_plan:
         await _inject_reflection_seed(motor_plan)
 
+    # ── Inhibition updates (Phase 3) ──
+    if motor_plan and body_output.executed:
+        cortex_feelings = validated.internal_monologue or ''
+        await _update_inhibitions(motor_plan, body_output, cortex_feelings)
+
+    # ── Metacognitive monitor (Phase 3) ──
+    consistency = await _check_self_consistency(validated)
+    if not consistency.consistent:
+        await _emit_internal_conflict(consistency, validated)
+
     return result
 
 
@@ -225,3 +254,164 @@ async def _inject_reflection_seed(motor_plan: MotorPlan) -> None:
         ))
     except Exception as e:
         print(f"  [ReflectionSeed] Failed to inject: {e}")
+
+
+# ── Inhibition system (Phase 3) ──
+
+def _detect_negative_signal(cortex_feelings: str) -> bool:
+    """Detect negative outcome signals from cortex internal monologue.
+
+    Internal signals: pattern match on feelings the cortex expressed.
+    External signals (visitor left quickly) require heartbeat.py changes
+    and will be added in a future task.
+    """
+    for pattern in NEGATIVE_FEELING_PATTERNS:
+        if re.search(pattern, cortex_feelings, re.IGNORECASE):
+            return True
+    return False
+
+
+def _detect_positive_signal(action_result) -> bool:
+    """Detect positive outcome signals from action results."""
+    # Journal write completed (expression is healthy)
+    if action_result.action in ('write_journal',) and action_result.success:
+        return True
+    return False
+
+
+def _extract_pattern(decision: ActionDecision, context: dict) -> str:
+    """Extract coarse-grained context pattern for inhibition matching.
+
+    Deliberately broad so inhibitions generalize.
+    """
+    return json.dumps({
+        'mode': context.get('mode', 'unknown'),
+        'visitor_present': context.get('visitor_present', False),
+    })
+
+
+def _extract_inhibition_seed(decision: ActionDecision, context: dict) -> str:
+    """Structured seed for inhibition reason. Cortex narrates this naturally."""
+    return json.dumps({
+        'action': decision.action,
+        'target': decision.target,
+        'context_mode': context.get('mode'),
+        'trigger': 'self_assessment',
+    })
+
+
+async def _update_inhibitions(motor_plan: MotorPlan, body_output: BodyOutput,
+                              cortex_feelings: str) -> None:
+    """Check executed actions for negative/positive signals and form/weaken inhibitions."""
+    try:
+        negative = _detect_negative_signal(cortex_feelings)
+
+        for action_result in body_output.executed:
+            positive = _detect_positive_signal(action_result)
+
+            # Find the matching decision from motor_plan
+            decision = None
+            for d in motor_plan.actions:
+                if d.action == action_result.action:
+                    decision = d
+                    break
+            if not decision:
+                continue
+
+            await _maybe_form_inhibition(decision, negative, positive)
+    except Exception as e:
+        print(f"  [Inhibition] Error updating inhibitions: {e}")
+
+
+async def _maybe_form_inhibition(decision: ActionDecision,
+                                 negative: bool, positive: bool) -> None:
+    """Form, strengthen, or weaken inhibitions based on signals."""
+    pattern_json = json.dumps({
+        'mode': 'unknown',
+        'visitor_present': decision.target == 'visitor',
+    })
+
+    if negative:
+        existing = await db.find_matching_inhibition(decision.action, pattern_json)
+        if existing:
+            new_strength = min(existing['strength'] + 0.15, 1.0)
+            await db.update_inhibition(
+                existing['id'],
+                strength=new_strength,
+                trigger_count=existing['trigger_count'] + 1,
+            )
+        else:
+            await db.create_inhibition(
+                action=decision.action,
+                pattern=pattern_json,
+                reason=json.dumps({
+                    'action': decision.action,
+                    'target': decision.target,
+                    'trigger': 'self_assessment',
+                }),
+                strength=0.3,
+            )
+
+    elif positive:
+        existing = await db.find_matching_inhibition(decision.action, pattern_json)
+        if existing:
+            new_strength = max(existing['strength'] - 0.1, 0.0)
+            if new_strength < 0.05:
+                await db.delete_inhibition(existing['id'])
+            else:
+                await db.update_inhibition(existing['id'], strength=new_strength)
+
+
+# ── Metacognitive monitor (Phase 3) ──
+
+async def _check_self_consistency(validated: ValidatedOutput) -> SelfConsistencyResult:
+    """Compare executed output against voice rules and physical traits.
+
+    Detects inconsistencies AFTER the fact — does not prevent them.
+    Divergences become internal_conflict events for reflection.
+    """
+    from config.identity import VOICE_RULES_PATTERNS, PHYSICAL_TRAITS_PATTERNS
+
+    conflicts = []
+    dialogue = validated.dialogue or ''
+
+    if not dialogue or dialogue == '...':
+        return SelfConsistencyResult()
+
+    # Check physical trait contradictions
+    for pattern, desc in PHYSICAL_TRAITS_PATTERNS:
+        if pattern.search(dialogue):
+            conflicts.append(desc)
+
+    # Check voice rule: no laughter
+    if VOICE_RULES_PATTERNS['no_laughter'].search(dialogue):
+        conflicts.append("Used 'haha/lol' instead of describing the feeling")
+
+    # Check voice rule: no exclamation unless surprised
+    if validated.expression != 'surprised' and '!' in dialogue:
+        conflicts.append("Used exclamation mark without being surprised")
+
+    return SelfConsistencyResult(
+        consistent=len(conflicts) == 0,
+        conflicts=conflicts,
+    )
+
+
+async def _emit_internal_conflict(consistency: SelfConsistencyResult,
+                                  validated: ValidatedOutput) -> None:
+    """Emit an internal_conflict event to inbox for next cycle's reflection."""
+    try:
+        conflict_desc = '; '.join(consistency.conflicts)
+        await db.append_event(Event(
+            event_type='internal_conflict',
+            source='self',
+            payload={
+                'conflicts': consistency.conflicts,
+                'dialogue_excerpt': (validated.dialogue or '')[:200],
+                'expression': validated.expression,
+                'description': conflict_desc,
+            },
+        ))
+        print(f"  [Metacognitive] Internal conflict detected: {conflict_desc}")
+    except Exception as e:
+        print(f"  [Metacognitive] Failed to emit conflict: {e}")

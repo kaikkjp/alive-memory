@@ -131,6 +131,10 @@ If you feel nothing, return an empty list. Silence is an action too.
 
 {recent_suppressions}
 
+{recent_inhibitions}
+
+{recent_conflicts}
+
 OUTPUT SCHEMA:
 {{
   "internal_monologue": "your private thoughts (20-50 words)",
@@ -222,6 +226,30 @@ async def cortex_call(
     except Exception:
         pass  # graceful degradation if table doesn't exist yet
 
+    # Build recent inhibitions context (Phase 3)
+    recent_inhibitions_text = ''
+    try:
+        recent_inhibs = await db.get_recent_inhibitions(limit=5, min_strength=0.2)
+        if recent_inhibs:
+            lines = ['THINGS YOU\'VE LEARNED NOT TO DO:']
+            for inh in recent_inhibs:
+                lines.append(f"  - {inh['action']} (learned {inh['trigger_count']} times)")
+            recent_inhibitions_text = '\n'.join(lines)
+    except Exception:
+        pass  # graceful degradation if table doesn't exist yet
+
+    # Build recent conflicts context (Phase 3)
+    recent_conflicts_text = ''
+    try:
+        recent_conflicts = await db.get_recent_internal_conflicts(limit=3)
+        if recent_conflicts:
+            lines = ['THINGS YOU NOTICED ABOUT YOURSELF:']
+            for c in recent_conflicts:
+                lines.append(f"  - {c['summary']}")
+            recent_conflicts_text = '\n'.join(lines)
+    except Exception:
+        pass  # graceful degradation if table doesn't exist yet
+
     system = CORTEX_SYSTEM.format(
         identity_compact=IDENTITY_COMPACT,
         self_state=self_state or '',
@@ -229,6 +257,8 @@ async def cortex_call(
         feelings_text=drives_to_feeling(drives),
         max_sentences=max_sentences,
         recent_suppressions=recent_suppressions_text,
+        recent_inhibitions=recent_inhibitions_text,
+        recent_conflicts=recent_conflicts_text,
     )
 
     # Build user message (the "moment")
