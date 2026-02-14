@@ -21,7 +21,9 @@ from pipeline.thalamus import route
 from pipeline.hippocampus import recall
 from pipeline.cortex import cortex_call
 from pipeline.validator import validate
-from pipeline.executor import execute
+from pipeline.basal_ganglia import select_actions
+from pipeline.body import execute_body, END_ENGAGEMENT_LINES
+from pipeline.output import process_output
 from pipeline.enrich import fetch_url_metadata
 from pipeline.arbiter import (
     ArbiterFocus, decide_cycle_focus, update_arbiter_after_cycle,
@@ -791,7 +793,9 @@ class Heartbeat:
 
         async with db.transaction():
             await db.save_drives_state(drives)
-            await execute(validated, visitor_id, cycle_id=cycle_id)
+            motor_plan = await select_actions(validated, drives)
+            body_output = await execute_body(motor_plan, validated, visitor_id, cycle_id=cycle_id)
+            await process_output(body_output, validated, visitor_id)
             for event in unread:
                 await db.inbox_mark_read(event.id)
             await db.log_cycle(log)
@@ -805,7 +809,6 @@ class Heartbeat:
         # ── STAGE: End Engagement (if she ended the conversation) ──
         for action in approved:
             if action.type == 'end_engagement':
-                from pipeline.executor import END_ENGAGEMENT_LINES
                 reason = action.detail.get('reason', 'natural')
                 farewell = END_ENGAGEMENT_LINES.get(reason, END_ENGAGEMENT_LINES['natural'])
                 await self._emit_stage('end_engagement', {

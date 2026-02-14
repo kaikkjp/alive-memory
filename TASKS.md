@@ -19,7 +19,7 @@
 ## Task Queue
 
 ### TASK-001: Wire threads into window_state broadcast
-**Status:** BACKLOG
+**Status:** DONE (2026-02-14)
 **Priority:** Low
 **Description:** `window_state.py:129` has a TODO: threads are hardcoded to empty list. Wire up `db.get_active_threads()` and include in the WebSocket broadcast so the dashboard ThreadsPanel shows real data.
 **Scope (files you may touch):**
@@ -147,7 +147,7 @@
 ---
 
 ### TASK-008: Body Phase 1 — Refactor (zero behavior change)
-**Status:** BACKLOG
+**Status:** DONE (2026-02-14)
 **Priority:** High
 **Depends on:** TASK-004 (typed pipeline contracts)
 **Design doc:** `body-spec-v2.md` §10, Phase 1
