@@ -279,13 +279,35 @@ class SelfConsistencyResult:
     conflicts: list[str] = field(default_factory=list)
 
 
-# ── Habit tracking dataclass (Phase 4) ──
+# ── Habit tracking dataclasses (Phase 4) ──
+
+@dataclass
+class TriggerContext:
+    """Coarse-grained context for habit matching.
+
+    Deliberately broad so habits generalize across similar situations.
+    Shared by habit tracking (011a) and habit auto-fire (011b).
+    """
+    energy_band: str = 'mid'        # low | mid | high
+    mood_band: str = 'neutral'      # negative | neutral | positive
+    mode: str = 'idle'              # idle | engaged | reading | thread | sleep
+    time_band: str = 'afternoon'    # morning | afternoon | evening | night
+    visitor_present: bool = False
+
+    def to_key(self) -> str:
+        """Canonical string for exact match in DB."""
+        return (f"energy:{self.energy_band}|mood:{self.mood_band}"
+                f"|mode:{self.mode}|time:{self.time_band}"
+                f"|visitor:{str(self.visitor_present).lower()}")
+
 
 @dataclass
 class HabitEntry:
     """A tracked action pattern that can strengthen into a habit."""
     id: str = ''
     action: str = ''
-    trigger_context: str = '{}'
+    trigger_context: str = ''
     strength: float = 0.1
     repetition_count: int = 1
+    formed_at: str = ''
+    last_triggered: str = ''

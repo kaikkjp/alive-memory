@@ -365,15 +365,17 @@ async def _maybe_form_inhibition(decision: ActionDecision,
 
 # ── Habit tracking (Phase 4) ──
 
-def _build_habit_context(decision: ActionDecision) -> str:
-    """Build trigger context for habit matching.
+HABIT_STRENGTH_CAP = 0.9
 
-    Coarse-grained like inhibition patterns so habits generalize
-    across similar situations rather than being hyper-specific.
-    """
-    return json.dumps({
-        'visitor_present': bool(decision.target and decision.target.startswith('visitor')),
-    })
+
+def _habit_delta(current_strength: float) -> float:
+    """Piecewise strength increment: fast 0→0.4, medium 0.4→0.6, slow 0.6+."""
+    if current_strength < 0.4:
+        return 0.12
+    elif current_strength < 0.6:
+        return 0.06
+    else:
+        return 0.03
 
 
 async def _track_action_patterns(motor_plan: MotorPlan,
@@ -381,9 +383,16 @@ async def _track_action_patterns(motor_plan: MotorPlan,
     """Track every executed action as a habit pattern.
 
     Called after every cycle. Strengthens existing habits or creates new ones.
-    Nonlinear curve: fast growth 0→0.4, slow growth 0.6→0.8, cap at 0.9.
+    Piecewise curve: fast 0→0.4, medium 0.4→0.6, slow 0.6→0.9.
     """
     try:
+        from pipeline.context_bands import compute_trigger_context
+
+        drives = await db.get_drives_state()
+        engagement = await db.get_engagement_state()
+        ctx = compute_trigger_context(drives, engagement)
+        trigger_key = ctx.to_key()
+
         for action_result in body_output.executed:
             if not action_result.success:
                 continue
@@ -397,19 +406,18 @@ async def _track_action_patterns(motor_plan: MotorPlan,
             if not decision:
                 continue
 
-            context_json = _build_habit_context(decision)
-            await _track_single_action(decision.action, context_json)
+            await _track_single_action(decision.action, trigger_key)
     except Exception as e:
         print(f"  [HabitTrack] Error tracking action patterns: {e}")
 
 
-async def _track_single_action(action: str, context_json: str) -> None:
+async def _track_single_action(action: str, trigger_key: str) -> None:
     """Track a single action — strengthen existing habit or create new one."""
-    existing = await db.find_matching_habit(action, context_json)
+    existing = await db.find_matching_habit(action, trigger_key)
     if existing:
         new_count = existing['repetition_count'] + 1
-        # Nonlinear: fast 0→0.4, slow 0.6→0.8, cap at 0.9
-        new_strength = min(0.9, existing['strength'] + 0.15 * (1.0 - existing['strength']))
+        new_strength = min(HABIT_STRENGTH_CAP,
+                           existing['strength'] + _habit_delta(existing['strength']))
         await db.update_habit(
             existing['id'],
             strength=new_strength,
@@ -417,7 +425,7 @@ async def _track_single_action(action: str, context_json: str) -> None:
             last_triggered=clock.now_utc(),
         )
     else:
-        await db.create_habit(action, context_json, strength=0.1)
+        await db.create_habit(action, trigger_key, strength=0.1)
 
 
 # ── Metacognitive monitor (Phase 3) ──
