@@ -243,7 +243,7 @@ heartbeat_server.py
   │     │     ├── config/identity.py
   │     │     ├── prompt_assembler.py
   │     │     └── llm_logger.py
-  │     ├── pipeline/validator.py (pure logic, no imports except re)
+  │     ├── pipeline/validator.py (pure logic, imports re + models.pipeline)
   │     ├── pipeline/executor.py
   │     │     └── pipeline/hippocampus_write.py
   │     ├── pipeline/arbiter.py
@@ -275,10 +275,8 @@ TCP server, HTTP API, WebSocket server, sprite generation worker, and dashboard 
 
 **Future fix:** Extract `api/rest.py`, `api/websocket.py`, `api/tcp.py`, `workers/sprite_worker.py`.
 
-### 3. No interface contracts between pipeline stages
-Pipeline stages communicate through dicts and implicit conventions rather than typed protocols. An agent modifying cortex output format can silently break validator and executor.
-
-**Future fix:** Define `CortexOutput`, `ValidatedOutput` dataclasses in `models/` and enforce at boundaries.
+### 3. ~~No interface contracts between pipeline stages~~ (RESOLVED — TASK-004)
+Pipeline stages now use typed dataclasses (`CortexOutput`, `ValidatedOutput`, `ExecutionResult`) defined in `models/pipeline.py`. The main cognitive pipeline (cortex → validator → executor) passes typed objects; maintenance/sleep calls remain dict-based.
 
 ### 4. Engagement is a forced singleton
 `EngagementState` holds one visitor slot. When a visitor connects, `heartbeat_server.py` immediately forces `status='engaged'` — the shopkeeper has no say. She can't ignore a visitor, prefer one over another, or be aware of multiple visitors. The thalamus always routes visitor events as `engage` cycle type.
@@ -312,13 +310,13 @@ The validator strips out-of-character behavior silently. There is no mechanism f
 
 | Area | Files | Lines |
 |------|-------|-------|
-| Core engine (*.py root) | 17 | ~7,622 |
+| Core engine (*.py root) | 17 | ~7,623 |
 | Pipeline (pipeline/*.py) | 24 | ~4,389 |
 | Config | 5 | ~396 |
-| Models | 3 | ~188 |
+| Models | 4 | ~357 |
 | Scripts | 3 | ~455 |
 | Tests | 21 | ~3,067 |
 | Frontend (window/src/) | 28 | ~2,490 |
-| Docs (*.md) | 12 | ~7,035 |
+| Docs (*.md) | 12 | ~7,048 |
 | Deploy | 5 | ~367 |
-| **Total** | **~118** | **~26,009** | **~115** | **~25,185** | **~114** | **~23,736** | **~114** | **~23,731** | **~114** | **~23,717** | **~104** | **~19,800** |
+| **Total** | **~119** | **~26,192** | **~118** | **~26,009** | **~115** | **~25,185** | **~114** | **~23,736** | **~114** | **~23,731** | **~114** | **~23,717** | **~104** | **~19,800** |

@@ -29,6 +29,7 @@ _mock_db.insert_llm_call_log = unittest.mock.AsyncMock(return_value=None)
 sys.modules.setdefault("db", _mock_db)
 
 from models.state import DrivesState
+from models.pipeline import CortexOutput
 from pipeline.sensorium import Perception
 from pipeline.thalamus import RoutingDecision
 
@@ -166,7 +167,8 @@ async def test_soak_200_cycles_no_leak_no_hang():
                     drives=_drives(),
                 )
 
-                if result.get("dialogue") == "Mm.":
+                assert isinstance(result, CortexOutput)
+                if result.dialogue == "Mm.":
                     success_count += 1
                 else:
                     fallback_count += 1

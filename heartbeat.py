@@ -12,6 +12,7 @@ from db import JST
 import clock
 from models.event import Event
 from models.state import DrivesState
+from models.pipeline import ValidatorState, ValidatedOutput
 from pipeline.sensorium import build_perceptions, Perception
 from pipeline.gates import perception_gate
 from pipeline.affect import apply_affect_lens
@@ -724,37 +725,37 @@ class Heartbeat:
         )
 
         # 9. Validate
-        state = {
-            'hands_held_item': visitor.hands_state if visitor else None,
-            'cycle_type': routing.cycle_type,
-            'energy': drives.energy,
-            'turn_count': engagement.turn_count,
-            'trust_level': visitor.trust_level if visitor else 'stranger',
-        }
-        validated = validate(cortex_output, state)
+        val_state = ValidatorState(
+            hands_held_item=visitor.hands_state if visitor else None,
+            cycle_type=routing.cycle_type,
+            energy=drives.energy,
+            turn_count=engagement.turn_count,
+            trust_level=visitor.trust_level if visitor else 'stranger',
+        )
+        validated = validate(cortex_output, val_state)
 
         # Pass pool_id through for executor pool status tracking
         if focus_context and focus_context.payload and focus_context.payload.get('pool_id'):
-            validated['_focus_pool_id'] = focus_context.payload['pool_id']
+            validated.focus_pool_id = focus_context.payload['pool_id']
 
         # Journal deferred — the desire to write builds up
-        if validated.get('_journal_deferred'):
+        if validated.journal_deferred:
             drives.expression_need = min(1.0, drives.expression_need + 0.15)
 
         # ── STAGE: Cortex ──
         await self._emit_stage('cortex', {
-            'internal_monologue': validated.get('internal_monologue', ''),
-            'resonance': validated.get('resonance', False),
+            'internal_monologue': validated.internal_monologue,
+            'resonance': validated.resonance,
         })
 
         # ── STAGE: Actions ──
-        approved = validated.get('_approved_actions', [])
-        dropped = validated.get('_dropped_actions', [])
+        approved = validated.approved_actions
+        dropped = validated.dropped_actions
         if approved or dropped:
             await self._emit_stage('actions', {
-                'approved': [a.get('type', '') for a in approved],
-                'dropped': [{'reason': d['reason']} for d in dropped],
-                '_entropy_warning': validated.get('_entropy_warning'),
+                'approved': [a.type for a in approved],
+                'dropped': [{'reason': d.reason} for d in dropped],
+                '_entropy_warning': validated.entropy_warning,
             })
 
         # 10. Execute + mark inbox read + log cycle — all in one transaction
@@ -776,16 +777,16 @@ class Heartbeat:
             'routing_focus': routing.cycle_type,
             'token_budget': routing.token_budget,
             'memory_count': len(memory_chunks),
-            'internal_monologue': validated.get('internal_monologue', ''),
-            'dialogue': validated.get('dialogue'),
-            'expression': validated.get('expression', 'neutral'),
-            'body_state': validated.get('body_state', 'sitting'),
-            'gaze': validated.get('gaze', 'at_visitor'),
-            'actions': [a.get('type', '') for a in approved],
-            'dropped': [{'reason': d['reason']} for d in dropped],
-            'next_cycle_hints': validated.get('next_cycle_hints', []),
-            'resonance': validated.get('resonance', False),
-            '_entropy_warning': validated.get('_entropy_warning'),
+            'internal_monologue': validated.internal_monologue,
+            'dialogue': validated.dialogue,
+            'expression': validated.expression,
+            'body_state': validated.body_state,
+            'gaze': validated.gaze,
+            'actions': [a.type for a in approved],
+            'dropped': [{'reason': d.reason} for d in dropped],
+            'next_cycle_hints': validated.next_cycle_hints,
+            'resonance': validated.resonance,
+            '_entropy_warning': validated.entropy_warning,
         }
 
         async with db.transaction():
@@ -797,15 +798,15 @@ class Heartbeat:
 
         # ── STAGE: Dialogue (last) ──
         await self._emit_stage('dialogue', {
-            'dialogue': validated.get('dialogue'),
-            'expression': validated.get('expression', 'neutral'),
+            'dialogue': validated.dialogue,
+            'expression': validated.expression,
         })
 
         # ── STAGE: End Engagement (if she ended the conversation) ──
         for action in approved:
-            if action.get('type') == 'end_engagement':
+            if action.type == 'end_engagement':
                 from pipeline.executor import END_ENGAGEMENT_LINES
-                reason = action.get('detail', {}).get('reason', 'natural')
+                reason = action.detail.get('reason', 'natural')
                 farewell = END_ENGAGEMENT_LINES.get(reason, END_ENGAGEMENT_LINES['natural'])
                 await self._emit_stage('end_engagement', {
                     'reason': reason,
@@ -841,7 +842,7 @@ class Heartbeat:
                 drives_before=drives_before, drives_after=drives,
                 unread=unread, routing=routing, validated=validated,
             )
-            await maybe_record_moment(validated, cycle_context)
+            await maybe_record_moment(validated.to_dict(), cycle_context)
         except Exception as e:
             # Day memory failure must not break the main cycle
             print(f"  [DayMemory] Error recording moment: {e}")
@@ -897,7 +898,7 @@ class Heartbeat:
         drives_after,
         unread: list,
         routing,
-        validated: dict,
+        validated: ValidatedOutput,
     ) -> dict:
         """Build the cycle_context dict for day memory moment extraction.
 

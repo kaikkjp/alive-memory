@@ -10,6 +10,7 @@ import httpx
 from datetime import datetime, timezone
 import clock
 from models.state import DrivesState, Visitor
+from models.pipeline import CortexOutput
 from pipeline.thalamus import RoutingDecision
 from pipeline.sensorium import Perception
 from pipeline.hypothalamus import drives_to_feeling
@@ -172,7 +173,7 @@ async def cortex_call(
     visitor: Visitor = None,
     gift_metadata: dict = None,
     self_state: str = None,
-) -> dict:
+) -> CortexOutput:
     """The one LLM call. Build prompt pack, call model, return structured response."""
 
     client = _get_client()
@@ -322,7 +323,7 @@ async def cortex_call(
 
     try:
         result = json.loads(text)
-        return result
+        return CortexOutput.from_dict(result)
     except json.JSONDecodeError:
         return fallback_response()
 
@@ -407,20 +408,17 @@ Return JSON: {{"journal": "your entry", "summary": {{"summary_bullets": ["..."],
         }
 
 
-def fallback_response() -> dict:
+def fallback_response() -> CortexOutput:
     """Fallback when Cortex output can't be parsed."""
-    return {
-        'internal_monologue': 'Something went wrong with my thoughts. Starting over.',
-        'dialogue': '...',
-        'dialogue_language': 'en',
-        'expression': 'thinking',
-        'body_state': 'sitting',
-        'gaze': 'down',
-        'resonance': False,
-        'actions': [],
-        'memory_updates': [],
-        'next_cycle_hints': [],
-    }
+    return CortexOutput(
+        internal_monologue='Something went wrong with my thoughts. Starting over.',
+        dialogue='...',
+        dialogue_language='en',
+        expression='thinking',
+        body_state='sitting',
+        gaze='down',
+        resonance=False,
+    )
 
 
 # ── Sleep Reflection ──
