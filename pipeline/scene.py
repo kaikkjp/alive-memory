@@ -8,7 +8,8 @@ import random
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timedelta, timezone
 
-from models.state import DrivesState, EngagementState
+import clock
+from models.state import DrivesState, EngagementState, RoomState
 
 JST = timezone(timedelta(hours=9))
 
@@ -128,6 +129,95 @@ def _get_outfit(weather: str, energy: float) -> str:
     """Outfit selection. Simple for launch — always apronA."""
     # Future: she can choose outfits, store in DB
     return 'apronA'
+
+
+# ─── Sprite state resolution (for scene compositor) ───
+
+# Valid sprite states for the scene compositor layer system
+SPRITE_STATES = ('surprised', 'tired', 'engaged', 'curious', 'focused', 'thinking')
+
+# Cycle types that indicate focused work
+_FOCUSED_CYCLE_TYPES = {'thread_work', 'arranging', 'creative', 'consume', 'express'}
+
+
+def resolve_sprite_state(
+    drives: DrivesState,
+    engagement: EngagementState,
+    room_state: RoomState,
+    recent_events: list[dict],
+) -> str:
+    """Resolve the current sprite state from live pipeline state.
+
+    Priority order (highest first):
+      surprised  — unexpected event in last 2 cycles
+      tired      — energy < 30%
+      engaged    — has_visitor AND in conversation
+      curious    — has_visitor AND not yet engaged
+      focused    — thread_work / arranging / creative cycle type
+      thinking   — default idle
+
+    Args:
+        drives: Current DrivesState
+        engagement: Current EngagementState
+        room_state: Current RoomState (for activity context)
+        recent_events: List of recent event dicts (most recent first),
+                       each with at least 'event_type' key.
+                       Typically the last ~5 events from the event log.
+    """
+    # surprised: unexpected event in recent events (last 2 cycle windows)
+    surprise_types = {'visitor_connect', 'gift_received', 'unexpected_sound', 'anomaly'}
+    for evt in recent_events[:5]:
+        etype = evt.get('event_type', '')
+        if etype in surprise_types:
+            return 'surprised'
+
+    # tired: energy below 30%
+    if drives.energy < 0.30:
+        return 'tired'
+
+    # engaged: visitor present AND actively in conversation
+    has_visitor = engagement.status == 'engaged' and engagement.visitor_id is not None
+    if has_visitor:
+        return 'engaged'
+
+    # curious: visitor present but not yet engaged (browsing state)
+    visitor_browsing = engagement.status != 'engaged' and engagement.visitor_id is not None
+    if visitor_browsing:
+        return 'curious'
+
+    # focused: currently doing thread work, arranging, or creative cycle
+    current_activity = getattr(room_state, 'current_activity', None) or ''
+    if current_activity in _FOCUSED_CYCLE_TYPES:
+        return 'focused'
+
+    # thinking: default idle
+    return 'thinking'
+
+
+def resolve_time_of_day() -> str:
+    """Resolve time-of-day from clock.py for scene compositor.
+
+    JST-based time bands (per TASK-021b spec):
+      morning   — 06:00-10:59
+      afternoon — 11:00-16:59
+      evening   — 17:00-19:59
+      night     — 20:00-05:59
+
+    Note: These bands differ slightly from get_time_of_day() which uses
+    the legacy layer-system boundaries (morning 6-12, afternoon 12-17,
+    evening 17-21, night 21-6). The compositor bands are tuned for
+    outdoor scenery lighting transitions.
+    """
+    jst_now = clock.now()
+    hour = jst_now.hour
+    if 6 <= hour < 11:
+        return 'morning'
+    elif 11 <= hour < 17:
+        return 'afternoon'
+    elif 17 <= hour < 20:
+        return 'evening'
+    else:
+        return 'night'
 
 
 # ─── Character sprite resolution ───

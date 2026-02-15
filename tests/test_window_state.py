@@ -1,7 +1,8 @@
-"""Tests for window_state.py — thread wiring in broadcast payloads.
+"""Tests for window_state.py — thread wiring and scene state in broadcast payloads.
 
 Verifies that db.get_active_threads() data appears in both
 build_initial_state() and build_cycle_broadcast() payloads.
+Also verifies sprite_state and time_of_day fields in broadcasts.
 """
 
 import sys
@@ -32,6 +33,8 @@ class _FakeLayers:
 _mock_scene = MagicMock()
 _mock_scene.build_scene_layers = AsyncMock(return_value=_FakeLayers())
 _mock_scene.get_time_of_day = MagicMock(return_value='morning')
+_mock_scene.resolve_sprite_state = MagicMock(return_value='thinking')
+_mock_scene.resolve_time_of_day = MagicMock(return_value='afternoon')
 sys.modules["pipeline.scene"] = _mock_scene
 
 from models.state import DrivesState, RoomState, EngagementState, Thread
@@ -83,6 +86,7 @@ def _setup_db_mocks(threads=None):
     _mock_db.get_recent_text_fragments = AsyncMock(return_value=[])
     _mock_db.get_shelf_assignments = AsyncMock(return_value=[])
     _mock_db.get_active_threads = AsyncMock(return_value=threads or [])
+    _mock_db.get_recent_events = AsyncMock(return_value=[])
 
 
 # ── Tests ──
@@ -166,3 +170,101 @@ async def test_thread_serialization_only_includes_id_title_status():
 
     for t in result['state']['threads']:
         assert set(t.keys()) == {'id', 'title', 'status'}
+
+
+# ── Scene compositor field tests ──
+
+VALID_SPRITE_STATES = {'surprised', 'tired', 'engaged', 'curious', 'focused', 'thinking'}
+VALID_TIME_OF_DAY = {'morning', 'afternoon', 'evening', 'night'}
+
+
+@pytest.mark.asyncio
+async def test_initial_state_contains_sprite_state():
+    """build_initial_state includes sprite_state in state."""
+    _setup_db_mocks()
+    _mock_scene.resolve_sprite_state.return_value = 'thinking'
+
+    result = await window_state.build_initial_state(
+        clock_now=datetime(2026, 2, 14, 10, 0, 0, tzinfo=timezone.utc)
+    )
+
+    assert 'sprite_state' in result['state']
+    assert result['state']['sprite_state'] in VALID_SPRITE_STATES
+
+
+@pytest.mark.asyncio
+async def test_initial_state_contains_time_of_day():
+    """build_initial_state includes time_of_day in state."""
+    _setup_db_mocks()
+    _mock_scene.resolve_time_of_day.return_value = 'afternoon'
+
+    result = await window_state.build_initial_state(
+        clock_now=datetime(2026, 2, 14, 10, 0, 0, tzinfo=timezone.utc)
+    )
+
+    assert 'time_of_day' in result['state']
+    assert result['state']['time_of_day'] in VALID_TIME_OF_DAY
+
+
+@pytest.mark.asyncio
+async def test_cycle_broadcast_contains_sprite_state():
+    """build_cycle_broadcast includes sprite_state in state."""
+    _setup_db_mocks()
+    _mock_scene.resolve_sprite_state.return_value = 'engaged'
+
+    result = await window_state.build_cycle_broadcast(
+        cycle_log={'routing_focus': 'idle'},
+        drives=_make_drives(),
+        ambient={'condition': 'clear', 'diegetic': ''},
+        focus=None,
+        engagement=_make_engagement(),
+        clock_now=datetime(2026, 2, 14, 10, 0, 0, tzinfo=timezone.utc),
+    )
+
+    assert 'sprite_state' in result['state']
+    assert result['state']['sprite_state'] in VALID_SPRITE_STATES
+
+
+@pytest.mark.asyncio
+async def test_cycle_broadcast_contains_time_of_day():
+    """build_cycle_broadcast includes time_of_day in state."""
+    _setup_db_mocks()
+    _mock_scene.resolve_time_of_day.return_value = 'evening'
+
+    result = await window_state.build_cycle_broadcast(
+        cycle_log={'routing_focus': 'idle'},
+        drives=_make_drives(),
+        ambient={'condition': 'clear', 'diegetic': ''},
+        focus=None,
+        engagement=_make_engagement(),
+        clock_now=datetime(2026, 2, 14, 10, 0, 0, tzinfo=timezone.utc),
+    )
+
+    assert 'time_of_day' in result['state']
+    assert result['state']['time_of_day'] in VALID_TIME_OF_DAY
+
+
+@pytest.mark.asyncio
+async def test_sprite_state_value_matches_resolver():
+    """sprite_state value comes from resolve_sprite_state."""
+    _setup_db_mocks()
+    _mock_scene.resolve_sprite_state.return_value = 'surprised'
+
+    result = await window_state.build_initial_state(
+        clock_now=datetime(2026, 2, 14, 10, 0, 0, tzinfo=timezone.utc)
+    )
+
+    assert result['state']['sprite_state'] == 'surprised'
+
+
+@pytest.mark.asyncio
+async def test_time_of_day_value_matches_resolver():
+    """time_of_day value comes from resolve_time_of_day."""
+    _setup_db_mocks()
+    _mock_scene.resolve_time_of_day.return_value = 'night'
+
+    result = await window_state.build_initial_state(
+        clock_now=datetime(2026, 2, 14, 10, 0, 0, tzinfo=timezone.utc)
+    )
+
+    assert result['state']['time_of_day'] == 'night'

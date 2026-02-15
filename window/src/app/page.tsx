@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useShopkeeperSocket } from '@/hooks/useShopkeeperSocket';
 import { useSceneTransition } from '@/hooks/useSceneTransition';
@@ -18,7 +18,7 @@ import {
 } from '@/lib/scene-constants';
 
 const SPRITE_STATES: SpriteState[] = [
-  'engaged', 'tired', 'thinking', 'curious', 'surprised', 'focused',
+  'surprised', 'tired', 'engaged', 'curious', 'focused', 'thinking',
 ];
 const TIME_OF_DAY_OPTIONS: TimeOfDay[] = [
   'morning', 'afternoon', 'evening', 'night',
@@ -114,6 +114,19 @@ function LiveWindow() {
 
   const weather = activeLayers?.weather ?? '';
 
+  // Scene compositor state from WebSocket payload
+  const spriteState: SpriteState = useMemo(() => {
+    const ws = windowState?.sprite_state;
+    if (ws && SPRITE_STATES.includes(ws)) return ws;
+    return DEFAULT_SPRITE_STATE;
+  }, [windowState?.sprite_state]);
+
+  const timeOfDay: TimeOfDay = useMemo(() => {
+    const ws = windowState?.time_of_day;
+    if (ws && TIME_OF_DAY_OPTIONS.includes(ws)) return ws;
+    return DEFAULT_TIME_OF_DAY;
+  }, [windowState?.time_of_day]);
+
   return (
     <div
       className={`window-layout ${chatOpen ? 'window-layout--chat-open' : ''}`}
@@ -121,6 +134,8 @@ function LiveWindow() {
       {/* Main scene area */}
       <main className="window-main">
         <SceneCanvas
+          spriteState={spriteState}
+          timeOfDay={timeOfDay}
           activeLayers={activeLayers}
           prevLayers={prevLayers}
           opacity={opacity}

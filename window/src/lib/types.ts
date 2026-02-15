@@ -45,12 +45,30 @@ export interface ThreadInfo {
   status: string;
 }
 
+// ─── Scene Compositor Types ───
+
+export type SpriteState =
+  | 'surprised'
+  | 'tired'
+  | 'engaged'
+  | 'curious'
+  | 'focused'
+  | 'thinking';
+
+export type TimeOfDay =
+  | 'morning'
+  | 'afternoon'
+  | 'evening'
+  | 'night';
+
 export interface WindowState {
   threads: ThreadInfo[];
   weather_diegetic: string;
   time_label: string;
   status: 'awake' | 'sleeping' | 'resting';
   visitor_present: boolean;
+  sprite_state: SpriteState;
+  time_of_day: TimeOfDay;
 }
 
 // ─── WebSocket Messages ───
@@ -110,11 +128,6 @@ export interface VisitorDisconnect {
   type: 'visitor_disconnect';
   token: string;
 }
-
-// ─── Scene compositor types ───
-
-export type SpriteState = 'engaged' | 'tired' | 'thinking' | 'curious' | 'surprised' | 'focused';
-export type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'night';
 
 // ─── Aggregated client state ───
 
