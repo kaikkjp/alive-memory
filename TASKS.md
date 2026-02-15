@@ -963,7 +963,7 @@ Fix: (1) Extract+validate `Authorization: Bearer` header on all `_http_dashboard
 ---
 
 ### TASK-032: Tag actions as reflexive vs generative in action registry
-**Status:** READY
+**Status:** DONE (2026-02-16)
 **Priority:** High
 **Depends on:** TASK-011b (habit auto-fire)
 **Description:** Habit auto-fire currently skips cortex for all actions, but generative actions (write_journal, speak, post_x_draft) need LLM output to produce meaningful results. A journaling habit that skips the brain writes nothing.

@@ -19,6 +19,7 @@ import clock
 import db
 from models.pipeline import (
     Intention, ValidatedOutput, ActionDecision, MotorPlan, InhibitionCheck,
+    HabitBoost,
 )
 from models.state import DrivesState, EngagementState
 from pipeline.action_registry import ACTION_REGISTRY, check_prerequisites
@@ -152,12 +153,15 @@ async def _check_inhibition(action_name: str, context: dict) -> InhibitionCheck:
 
 
 async def check_habits(drives: DrivesState,
-                       engagement: EngagementState) -> MotorPlan | None:
-    """Check if a strong habit should auto-fire, bypassing cortex.
+                       engagement: EngagementState) -> MotorPlan | HabitBoost | None:
+    """Check if a strong habit should fire.
 
     Called BEFORE cortex. If a habit matches the current context with
-    strength >= 0.6, returns a single-action MotorPlan directly.
-    Cortex is skipped entirely — this is reflex, not thought.
+    strength >= 0.6:
+    - Reflexive action (generative=False): returns MotorPlan directly.
+      Cortex is skipped entirely — reflex, not thought.
+    - Generative action (generative=True): returns HabitBoost.
+      Cortex still runs, but the habit nudges impulse (+0.3) for that action.
 
     Returns None if no habit qualifies, letting the normal pipeline proceed.
     """
@@ -176,6 +180,15 @@ async def check_habits(drives: DrivesState,
         return None
 
     strongest = max(matches, key=lambda h: h['strength'])
+
+    # Check if the action is generative (needs LLM output)
+    cap = ACTION_REGISTRY.get(strongest['action'])
+    if cap and cap.generative:
+        return HabitBoost(
+            action=strongest['action'],
+            strength=strongest['strength'],
+            habit_id=strongest['id'],
+        )
 
     return MotorPlan(
         actions=[ActionDecision(

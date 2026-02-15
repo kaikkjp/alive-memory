@@ -1,6 +1,7 @@
 """Tests for pipeline/basal_ganglia.py — Phase 2 multi-intention selection."""
 
 import pytest
+from unittest.mock import AsyncMock, patch
 from models.pipeline import (
     Intention, ValidatedOutput, ActionRequest, DroppedAction,
     ActionDecision, MotorPlan,
@@ -10,6 +11,13 @@ from pipeline.basal_ganglia import select_actions, _calculate_priority
 
 
 # ── Fixtures ──
+
+@pytest.fixture(autouse=True)
+def mock_db():
+    """Mock db module so Gate 6 (inhibition check) doesn't hit real DB."""
+    with patch('pipeline.basal_ganglia.db') as m:
+        m.get_inhibitions_for_action = AsyncMock(return_value=[])
+        yield m
 
 @pytest.fixture
 def drives():
