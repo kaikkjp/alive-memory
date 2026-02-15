@@ -52,17 +52,30 @@ python -m pytest tests/ -v
 ## Project Structure
 
 ```
-heartbeat_server.py     # TCP server — persistent background process
+heartbeat_server.py     # TCP + HTTP + WebSocket server
 heartbeat.py            # Cognitive cycle engine (perception → routing → LLM → action)
 terminal.py             # CLI visitor interface + debug dashboard
-db.py                   # SQLite persistence layer
+sleep.py                # End-of-day reflection + memory consolidation
+prompt_assembler.py     # Builds system prompt for cortex
 seed.py                 # Initial data for a fresh database
+
+api/
+  dashboard_routes.py   # Dashboard HTTP endpoint handlers
+
+db/                     # SQLite persistence (package)
+  connection.py         # DB setup, migrations, transactions
+  events.py             # Event store, inbox
+  state.py              # Room, drives, engagement state
+  memory.py             # Visitors, traits, totems, journal, cold search
+  content.py            # Threads, content pool, arbiter
+  analytics.py          # Cycle log, LLM costs, actions, habits
 
 config/
   identity.py           # Character profile + voice rules
 
 models/
   event.py              # Event dataclass
+  pipeline.py           # Typed contracts between pipeline stages
   state.py              # State models (room, drives, visitors, etc.)
 
 pipeline/
@@ -70,17 +83,23 @@ pipeline/
   gates.py              # Perception filtering
   thalamus.py           # Routing decisions (engage / idle / rest)
   cortex.py             # LLM call (Claude Sonnet)
-  validator.py          # Response validation + canonical trait checks
-  executor.py           # Action execution
+  validator.py          # Response format/schema validation
+  basal_ganglia.py      # Multi-intention action selection (Gates 1-6)
+  body.py               # Action execution
+  output.py             # Post-action processing + metacognitive monitor
+  action_registry.py    # Action capabilities, energy costs, cooldowns
   hypothalamus.py       # Drive math (deterministic)
   hippocampus.py        # Memory recall
   hippocampus_write.py  # Memory consolidation
   affect.py             # Emotional lens
+  arbiter.py            # Attention allocation across channels
+  context_bands.py      # Coarse-grained trigger context for habit matching
+  day_memory.py         # Flashbulb moment recording
   sanitize.py           # Input sanitization
   enrich.py             # URL metadata fetching
   ack.py                # Instant acknowledgments
 
-tests/                  # pytest test suite
+tests/                  # pytest test suite (420+ tests)
 ```
 
 ## Architecture
@@ -88,11 +107,19 @@ tests/                  # pytest test suite
 Single LLM call per cognitive cycle (`pipeline/cortex.py`). Everything else is deterministic — drives math, routing, validation, memory retrieval. The shopkeeper runs on an async heartbeat loop that processes events from an inbox queue.
 
 ```
-Events → Inbox → Sensorium → Gates → Thalamus → Cortex → Validator → Executor
-                                                             ↑
-                                              Hippocampus (memory recall)
-                                              Hypothalamus (drive state)
-                                              Affect (emotional lens)
+Events → Inbox → Sensorium → Gates → Affect → Hypothalamus → Thalamus
+                                                                  │
+                                           Hippocampus (recall) ←─┘
+                                                  │
+                                               Cortex (LLM)
+                                                  │
+                                              Validator
+                                                  │
+                                           Basal Ganglia (select)
+                                                  │
+                                               Body (execute)
+                                                  │
+                                               Output → Hippocampus Write
 ```
 
 ## Data
