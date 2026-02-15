@@ -9,6 +9,39 @@ def clamp(v: float, lo: float = 0.0, hi: float = 1.0) -> float:
     return max(lo, min(hi, v))
 
 
+# ─── Homeostatic equilibria ───
+# Each drive has a natural resting point it returns to when not actively
+# pushed by events or time. Prevents permanent saturation at 0% or 100%.
+# NOTE: These values are character assertions — they define who she is at rest.
+# curiosity=0.50 means she's a moderately curious person by nature.
+# Tuning these changes her personality, not just her behavior.
+DRIVE_EQUILIBRIA = {
+    'social_hunger':   0.45,   # comfortable alone, but not a recluse
+    'curiosity':       0.50,   # naturally curious
+    'expression_need': 0.35,   # expresses when moved, not constantly
+    'rest_need':       0.25,   # generally rested, tiredness builds from activity
+    'energy':          0.70,   # alert by default
+    'mood_valence':    0.05,   # slightly positive neutral (range: -1 to 1)
+    'mood_arousal':    0.30,   # calm baseline
+}
+
+HOMEOSTATIC_PULL_RATE = 0.15  # strength per hour — how fast drives revert
+
+
+def _homeostatic_pull(current: float, equilibrium: float,
+                      elapsed_hours: float,
+                      lo: float = 0.0, hi: float = 1.0) -> float:
+    """Pull a drive toward its equilibrium point.
+
+    Proportional spring: further from equilibrium = stronger pull.
+    At extremes (distance ~0.5-1.0), pull is ~0.075-0.15/hr,
+    which competes meaningfully with time-based forces (+0.03-0.06/hr).
+    Near equilibrium, pull vanishes, letting natural variation emerge.
+    """
+    delta = (equilibrium - current) * HOMEOSTATIC_PULL_RATE * elapsed_hours
+    return clamp(current + delta, lo, hi)
+
+
 async def update_drives(
     drives: DrivesState,
     elapsed_hours: float,
@@ -36,6 +69,25 @@ async def update_drives(
     else:
         new.rest_need = clamp(new.rest_need + 0.03 * elapsed_hours)
 
+    # ─── Homeostatic pull (prevents drive saturation) ───
+    # Each drive is pulled toward its equilibrium. Further from equilibrium
+    # = stronger pull. This counterbalances the unidirectional time forces
+    # above and prevents drives from permanently clamping at 0% or 100%.
+    new.social_hunger = _homeostatic_pull(
+        new.social_hunger, DRIVE_EQUILIBRIA['social_hunger'], elapsed_hours)
+    new.curiosity = _homeostatic_pull(
+        new.curiosity, DRIVE_EQUILIBRIA['curiosity'], elapsed_hours)
+    new.expression_need = _homeostatic_pull(
+        new.expression_need, DRIVE_EQUILIBRIA['expression_need'], elapsed_hours)
+    new.rest_need = _homeostatic_pull(
+        new.rest_need, DRIVE_EQUILIBRIA['rest_need'], elapsed_hours)
+    new.energy = _homeostatic_pull(
+        new.energy, DRIVE_EQUILIBRIA['energy'], elapsed_hours)
+    new.mood_valence = _homeostatic_pull(
+        new.mood_valence, DRIVE_EQUILIBRIA['mood_valence'], elapsed_hours, -1.0, 1.0)
+    new.mood_arousal = _homeostatic_pull(
+        new.mood_arousal, DRIVE_EQUILIBRIA['mood_arousal'], elapsed_hours)
+
     # Event-based changes
     for event in events:
         if event.event_type == 'visitor_speech':
@@ -59,13 +111,19 @@ async def update_drives(
         new.energy = clamp(new.energy + 0.05)                 # energy boost
         new.mood_valence = clamp(new.mood_valence + 0.1, -1.0, 1.0)
 
-    # Rest recovery only during rest cycles (no events and enough elapsed time)
-    if not events and elapsed_hours > 0.5:
-        new.rest_need = clamp(new.rest_need - 0.1 * elapsed_hours)
-        new.energy = clamp(new.energy + 0.08 * elapsed_hours)
+    # NOTE: Rest recovery gate removed (TASK-024). The old gate required
+    # `not events and elapsed_hours > 0.5`, which was impossible with
+    # frequent cycle intervals (~3 min). Homeostatic pull now handles
+    # continuous rest/energy recovery via equilibria (rest_need=0.25,
+    # energy=0.70).
 
     # Generate feelings text
     feelings = drives_to_feeling(new)
+
+    print(f"  [Hypothalamus] Drives: soc={new.social_hunger:.2f} cur={new.curiosity:.2f} "
+          f"exp={new.expression_need:.2f} rest={new.rest_need:.2f} nrg={new.energy:.2f} "
+          f"val={new.mood_valence:.2f} aro={new.mood_arousal:.2f} "
+          f"(elapsed={elapsed_hours:.3f}h, events={len(events)})")
 
     return new, feelings
 
