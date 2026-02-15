@@ -586,6 +586,26 @@ async def get_day_memory(
     return [_row_to_day_memory(r) for r in rows]
 
 
+async def get_day_memory_dashboard(
+    limit: int = 20,
+    days: int = 7,
+    min_salience: float = 0.3,
+) -> list:
+    """Get recent day memory for dashboard display (rolling window, includes processed)."""
+    conn = await _connection.get_db()
+    now_jst = clock.now()
+    window_start_jst = now_jst - timedelta(days=days)
+    window_start_utc = window_start_jst.astimezone(timezone.utc).isoformat()
+    cursor = await conn.execute(
+        """SELECT * FROM day_memory
+           WHERE salience >= ? AND ts >= ?
+           ORDER BY ts DESC LIMIT ?""",
+        (min_salience, window_start_utc, limit)
+    )
+    rows = await cursor.fetchall()
+    return [_row_to_day_memory(r) for r in rows]
+
+
 async def get_unprocessed_day_memory(
     min_salience: float = 0.4,
     limit: int = 7,
