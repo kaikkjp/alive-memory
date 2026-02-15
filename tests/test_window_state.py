@@ -103,8 +103,15 @@ async def test_initial_state_contains_threads():
 
     state_threads = result['state']['threads']
     assert len(state_threads) == 2
-    assert state_threads[0] == {'id': 't-001', 'title': 'Why do old books smell sweet?', 'status': 'active'}
-    assert state_threads[1] == {'id': 't-002', 'title': 'Rearranging the poetry shelf', 'status': 'open'}
+    assert state_threads[0]['id'] == 't-001'
+    assert state_threads[0]['title'] == 'Why do old books smell sweet?'
+    assert state_threads[0]['status'] == 'active'
+    assert state_threads[0]['thread_type'] == 'question'
+    assert state_threads[0]['tags'] == []
+    assert state_threads[0]['touch_count'] == 0
+    assert state_threads[1]['id'] == 't-002'
+    assert state_threads[1]['title'] == 'Rearranging the poetry shelf'
+    assert state_threads[1]['status'] == 'open'
 
 
 @pytest.mark.asyncio
@@ -159,8 +166,8 @@ async def test_cycle_broadcast_empty_threads():
 
 
 @pytest.mark.asyncio
-async def test_thread_serialization_only_includes_id_title_status():
-    """Serialized threads contain only id, title, status — no extra fields."""
+async def test_thread_serialization_includes_expected_fields():
+    """Serialized threads contain id, title, status, thread_type, tags, touch_count, last_touched."""
     threads = _make_threads()
     _setup_db_mocks(threads=threads)
 
@@ -168,8 +175,9 @@ async def test_thread_serialization_only_includes_id_title_status():
         clock_now=datetime(2026, 2, 14, 10, 0, 0, tzinfo=timezone.utc)
     )
 
+    expected_keys = {'id', 'title', 'status', 'thread_type', 'tags', 'touch_count', 'last_touched'}
     for t in result['state']['threads']:
-        assert set(t.keys()) == {'id', 'title', 'status'}
+        assert set(t.keys()) == expected_keys
 
 
 # ── Scene compositor field tests ──

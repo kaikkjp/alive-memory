@@ -740,7 +740,7 @@ Fix: (1) Extract+validate `Authorization: Bearer` header on all `_http_dashboard
 ---
 
 ### TASK-023: Fix Threads panel — surface thread titles and summaries
-**Status:** BACKLOG
+**Status:** DONE (2026-02-16)
 **Priority:** Medium
 **Description:** All 7 threads show "..." with status "open" but no title or content. Each thread should display meaningful information.
 **Acceptance criteria:**
