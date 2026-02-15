@@ -224,6 +224,30 @@ class TestScoreBounds:
         assert s == 1.0
 
 
+class TestJournalNoSalienceBoost:
+    """write_journal no longer inflates salience — content speaks for itself."""
+
+    def test_write_journal_no_bonus(self):
+        """write_journal action alone contributes only action_diversity, not +0.08."""
+        s_base = compute_moment_salience(_base_result(), _base_ctx())
+        s_journal = compute_moment_salience(
+            _base_result(actions=[{'type': 'write_journal'}]),
+            _base_ctx(),
+        )
+        # Only action_diversity bonus (0.05), no self-expression bonus
+        assert abs((s_journal - s_base) - 0.05) < 0.001
+
+    def test_post_x_draft_still_gets_bonus(self):
+        """post_x_draft retains the +0.08 self-expression boost."""
+        s_base = compute_moment_salience(_base_result(), _base_ctx())
+        s_post = compute_moment_salience(
+            _base_result(actions=[{'type': 'post_x_draft'}]),
+            _base_ctx(),
+        )
+        # action_diversity (0.05) + self-expression (0.08) = 0.13
+        assert abs((s_post - s_base) - 0.13) < 0.001
+
+
 class TestOldFlatScoreFixed:
     """Verify the specific bug scenario is fixed: resonance+journal != always 0.55."""
 

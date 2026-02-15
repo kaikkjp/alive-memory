@@ -157,6 +157,40 @@ class TestExecuteSingleAction:
         mock_db.insert_journal.assert_called_once()
 
     @pytest.mark.asyncio
+    async def test_write_journal_empty_text_skips(self, mock_db, _patch_body_deps):
+        """write_journal with empty detail.text skips the journal write entirely."""
+        _, _, mock_relief = _patch_body_deps
+        action = ActionRequest(type='write_journal', detail={})
+        result = await _execute_single_action(action, visitor_id=None, monologue='Some thought')
+        assert result.action == 'write_journal'
+        assert result.success is True
+        assert 'journal_skipped_no_content' in result.side_effects
+        assert 'journal_entry_created' not in result.side_effects
+        mock_db.insert_journal.assert_not_called()
+        # Should get half relief (write_journal_skipped), not full relief
+        mock_relief.assert_called_once_with('write_journal_skipped')
+
+    @pytest.mark.asyncio
+    async def test_write_journal_whitespace_text_skips(self, mock_db, _patch_body_deps):
+        """write_journal with whitespace-only detail.text skips the journal write."""
+        _, _, mock_relief = _patch_body_deps
+        action = ActionRequest(type='write_journal', detail={'text': '   '})
+        result = await _execute_single_action(action, visitor_id=None)
+        assert result.success is True
+        assert 'journal_skipped_no_content' in result.side_effects
+        mock_db.insert_journal.assert_not_called()
+        mock_relief.assert_called_once_with('write_journal_skipped')
+
+    @pytest.mark.asyncio
+    async def test_write_journal_with_text_gets_full_relief(self, _patch_body_deps):
+        """write_journal with actual text gets full relief, not skipped relief."""
+        _, _, mock_relief = _patch_body_deps
+        action = ActionRequest(type='write_journal', detail={'text': 'Real journal content.'})
+        result = await _execute_single_action(action, visitor_id=None)
+        assert 'journal_entry_created' in result.side_effects
+        mock_relief.assert_called_once_with('write_journal')
+
+    @pytest.mark.asyncio
     async def test_end_engagement(self, mock_db):
         action = ActionRequest(type='end_engagement', detail={'reason': 'natural'})
         result = await _execute_single_action(action, visitor_id='v1')

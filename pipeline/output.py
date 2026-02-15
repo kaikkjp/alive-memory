@@ -334,8 +334,10 @@ def _detect_negative_signal(cortex_feelings: str) -> bool:
 
 def _detect_positive_signal(action_result) -> bool:
     """Detect positive outcome signals from action results."""
-    # Journal write completed (expression is healthy)
-    if action_result.action in ('write_journal',) and action_result.success:
+    # Journal write completed (expression is healthy) — only if she actually wrote
+    if (action_result.action == 'write_journal'
+            and action_result.success
+            and 'journal_entry_created' in action_result.side_effects):
         return True
     return False
 

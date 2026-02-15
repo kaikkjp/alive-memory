@@ -169,7 +169,7 @@ async def _execute_single_action(action: ActionRequest, visitor_id: str,
             result.side_effects.append('event_emitted')
 
         elif action_type == 'write_journal':
-            journal_text = detail.get('text', '') or monologue
+            journal_text = (detail.get('text', '') or '').strip()
             if journal_text:
                 await db.insert_journal(
                     content=journal_text,
@@ -186,7 +186,12 @@ async def _execute_single_action(action: ActionRequest, visitor_id: str,
                     )
                 except Exception as e:
                     print(f"  [TextFragment] Failed to write journal fragment: {e}")
-            await apply_expression_relief('write_journal')
+                await apply_expression_relief('write_journal')
+            else:
+                # No distinct journal content — monologue already captured in cycle_log.
+                # Half drive relief: she intended to write but had nothing new to say.
+                await apply_expression_relief('write_journal_skipped')
+                result.side_effects.append('journal_skipped_no_content')
 
         elif action_type == 'post_x_draft':
             await db.append_event(Event(
