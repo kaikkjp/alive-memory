@@ -205,8 +205,7 @@ async def handle_pool(server, writer: asyncio.StreamWriter,
     if not check_dashboard_auth(authorization):
         await server._http_json(writer, 401, {'error': 'unauthorized'})
         return
-    from pipeline.day_memory import DayMemoryEntry
-    moments = await db.get_day_memory(limit=20)
+    moments = await db.get_day_memory_dashboard(limit=20)
     pool = [{
         'id': m.id,
         'summary': m.summary,

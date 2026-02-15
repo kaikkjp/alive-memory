@@ -76,6 +76,7 @@ from db.memory import (
     get_cycle_by_id,
     get_daily_summary_for_today,
     get_day_memory,
+    get_day_memory_dashboard,
     get_days_alive,
     get_flashbulb_count_today,
     get_latest_trait,
