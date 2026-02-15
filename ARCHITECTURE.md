@@ -4,7 +4,7 @@
 >
 > This is NOT the design/philosophy doc (see `character-bible.md` and `shopkeeper-v14-blueprint.md` for that). This is "what files do what, what depends on what, and what you're allowed to touch."
 
-Last updated: 2026-02-14
+Last updated: 2026-02-15
 
 ---
 
@@ -46,16 +46,23 @@ Terminal/Web Client
 
 | File | Lines | What it does |
 |------|-------|-------------|
-| `heartbeat_server.py` | 1453 | **Main process.** TCP server for terminal clients, HTTP REST API for dashboard, WebSocket for window frontend, sprite generation worker. Start with `python heartbeat_server.py`. |
-| `terminal.py` | 1074 | CLI visitor interface + debug commands. Connects to heartbeat_server via TCP. Start with `python terminal.py --connect`. |
+| `heartbeat_server.py` | 1211 | **Main process.** TCP server for terminal clients, HTTP REST API for dashboard, WebSocket for window frontend, sprite generation worker. Dashboard routes delegated to `api/dashboard_routes.py`. Start with `python heartbeat_server.py`. |
+| `terminal.py` | 1116 | CLI visitor interface + debug commands. Connects to heartbeat_server via TCP. Start with `python terminal.py --connect`. |
 | `simulate.py` | 230 | Offline simulation runner. Runs N cycles without a server, useful for testing. |
+
+### API Layer
+
+| File | Lines | What it does |
+|------|-------|-------------|
+| `api/__init__.py` | 1 | Package marker. |
+| `api/dashboard_routes.py` | 284 | Dashboard HTTP endpoint handlers extracted from `heartbeat_server.py` (TASK-002). All `/api/dashboard/*` routes delegate here. |
 
 ### Core Engine
 
 | File | Lines | What it does | Depends on |
 |------|-------|-------------|------------|
-| `heartbeat.py` | 1004 | **The brain's clock.** Runs the main async loop: sleep → wake → process inbox → run cycle → sleep. Contains the `Heartbeat` class with `run_cycle()`, `run_silence_cycle()`, sleep scheduling, fidget behaviors. | db, all pipeline/*, sleep, clock |
-| `db/` | ~3,400 | **All persistence.** Package with 7 modules: `connection.py` (DB setup, migrations, transactions), `events.py` (event store, inbox), `state.py` (room/drives/engagement state), `memory.py` (visitors, traits, totems, collection, journal, day memory, cold search), `content.py` (threads, content pool, arbiter), `analytics.py` (cycle log, LLM costs, actions, habits). `__init__.py` re-exports everything for backward compatibility. SQLite + aiosqlite. | models/*, clock |
+| `heartbeat.py` | 1087 | **The brain's clock.** Runs the main async loop: sleep → wake → process inbox → run cycle → sleep. Contains the `Heartbeat` class with `run_cycle()`, `run_silence_cycle()`, sleep scheduling, fidget behaviors. | db, all pipeline/*, sleep, clock |
+| `db/` | ~3,111 | **All persistence.** Package with 7 modules: `connection.py` (DB setup, migrations, transactions), `events.py` (event store, inbox), `state.py` (room/drives/engagement state), `memory.py` (visitors, traits, totems, collection, journal, day memory, cold search), `content.py` (threads, content pool, arbiter), `analytics.py` (cycle log, LLM costs, actions, habits). `__init__.py` re-exports everything for backward compatibility. SQLite + aiosqlite. | models/*, clock |
 | `clock.py` | 78 | Time abstraction. Returns real time normally, simulated time during `simulate.py`. | — |
 | `seed.py` | 85 | Initial database seeding for fresh instances. | db |
 
@@ -96,9 +103,9 @@ Events → Inbox → Sensorium → Gates → Affect → Hypothalamus → Thalamu
 | `pipeline/hippocampus.py` | 180 | Memory recall | Retrieves relevant memories (journal, totems, visitor history, collection) for context injection. |
 | `pipeline/cortex.py` | 589 | **LLM call** | The ONE Claude API call per cycle. Assembles prompt, calls Sonnet, parses structured response (speech, body, internal monologue, intentions). |
 | `pipeline/validator.py` | 131 | Validation | Checks cortex output format/schema. Character-rule enforcement moved to metacognitive monitor in output.py. |
-| `pipeline/basal_ganglia.py` | 352 | Action selection | Multi-intention selection from cortex intentions[]. Gates 1-6: capability, enabled, prerequisites, cooldown, energy, inhibition. Strongest intention fires, others suppressed with reasons. |
+| `pipeline/basal_ganglia.py` | 395 | Action selection | Multi-intention selection from cortex intentions[]. Gates 1-6: capability, enabled, prerequisites, cooldown, energy, inhibition. Strongest intention fires, others suppressed with reasons. |
 | `pipeline/body.py` | 248 | Action execution | Executes approved actions from the motor plan: dialogue emission, body state broadcast, journal writes, room changes, gift handling. |
-| `pipeline/output.py` | 483 | Output processing | Post-action side effects: memory consolidation, drive adjustments, engagement state, action logging, suppression reflection, inhibition formation, habit tracking, metacognitive monitoring. |
+| `pipeline/output.py` | 485 | Output processing | Post-action side effects: memory consolidation, drive adjustments, engagement state, action logging, suppression reflection, inhibition formation, habit tracking, metacognitive monitoring. |
 | `pipeline/action_registry.py` | 219 | Action registry | `ActionCapability` dataclass and `ACTION_REGISTRY` dict defining all actions the body can perform, their energy costs, cooldowns, and prerequisites. |
 | `pipeline/executor.py` | 53 | ~~Action execution~~ | **DEPRECATED.** Backward-compat wrapper that delegates to `basal_ganglia` → `body` → `output`. |
 | `pipeline/hippocampus_write.py` | 156 | Memory consolidation | After execution: updates visitor traits, totems, consolidates short-term → long-term memory. |
@@ -130,7 +137,7 @@ Events → Inbox → Sensorium → Gates → Affect → Hypothalamus → Thalamu
 | `config/prompts.yaml` | 335 | Image generation prompt fragments (style, palette, character description, shop description). |
 | `config/identity.py` | 54 | Character identity constants (name, voice rules, personality checksum, machine-readable patterns for metacognitive monitor). |
 | `config/location.py` | 13 | Physical location constants (Daikanyama, Tokyo). |
-| `config/feeds.py` | 11 | RSS feed URLs for ambient content ingestion. |
+| `config/feeds.py` | 13 | RSS feed URLs for ambient content ingestion. |
 
 ### Sleep System
 
@@ -142,8 +149,8 @@ Events → Inbox → Sensorium → Gates → Affect → Hypothalamus → Thalamu
 
 | File | Lines | What it does |
 |------|-------|-------------|
-| `feed_ingester.py` | 144 | RSS feed polling → content pool. Runs periodically. |
-| `ingest.py` | 82 | Manual content ingestion (CLI tool). |
+| `feed_ingester.py` | 157 | RSS feed polling → content pool. Runs periodically. |
+| `ingest.py` | 89 | Manual content ingestion (CLI tool). |
 
 ### Utility Scripts & Tools
 
@@ -151,17 +158,17 @@ Events → Inbox → Sensorium → Gates → Affect → Hypothalamus → Thalamu
 |------|-------|-------------|
 | `generate_token.py` | 92 | CLI tool to generate invite tokens for chat access. |
 | `timeline.py` | 91 | Timeline event formatting/display utilities. |
-| `llm_logger.py` | 82 | LLM call cost/token logging to DB. |
-| `scripts/update_docs.py` | 231 | Post-merge doc updater. Scans codebase, refreshes ARCHITECTURE.md summary table, reports undocumented files. |
+| `llm_logger.py` | 112 | LLM call cost/token logging to DB. |
+| `scripts/update_docs.py` | 235 | Post-merge doc updater. Scans codebase, refreshes ARCHITECTURE.md summary table, reports undocumented files. |
 | `scripts/backfill_embeddings.py` | 88 | Batch-embeds historical conversations/monologues for cold memory search. |
 
 ### Visual System
 
 | File | Lines | What it does |
 |------|-------|-------------|
-| `compositing.py` | 117 | Layer compositing: background + shop + items + character sprite → final scene image. |
+| `compositing.py` | 126 | Layer compositing: background + shop + items + character sprite → final scene image. |
 | `window_state.py` | 240 | Builds the full state object broadcast to window frontend via WebSocket. |
-| `bootstrap_assets.py` | 138 | Initial asset generation (backgrounds, shop interiors) on first run. |
+| `bootstrap_assets.py` | 163 | Initial asset generation (backgrounds, shop interiors) on first run. |
 
 ### Frontend — `window/`
 
@@ -190,6 +197,10 @@ Next.js app. Two pages: public shop window + operator dashboard.
 | `src/lib/types.ts` | TypeScript type definitions |
 | `src/lib/auth-manager.ts` | Chat token auth |
 | `src/lib/particles.ts` | Ambient particle effects |
+
+### Standalone Tools — `my-agent/`
+
+Separate Node.js code assistant built on OpenRouter SDK. Not part of the Shopkeeper runtime. Contains `agent.ts`, `cli.ts`, `tools.ts`.
 
 ### Data Models
 
@@ -232,6 +243,9 @@ Next.js app. Two pages: public shop window + operator dashboard.
 | `tests/test_embed.py` | Embedding pipeline |
 | `tests/test_embed_cold.py` | Cold embedding batch process |
 | `tests/test_cold_memory_e2e.py` | End-to-end cold memory flow |
+| `tests/test_cors.py` | CORS origin filtering and configuration |
+| `tests/test_dashboard_auth.py` | Dashboard authentication tokens and HTTP header enforcement |
+| `tests/test_dashboard_routes.py` | Dashboard REST endpoint response shapes |
 | `tests/test_habits.py` | Habit formation, strength curve, trigger context matching |
 | `tests/test_image_gen.py` | Image generation |
 | `tests/test_llm_logger.py` | LLM call logging |
@@ -253,8 +267,9 @@ Next.js app. Two pages: public shop window + operator dashboard.
 
 ```
 heartbeat_server.py
+  ├── api/dashboard_routes.py
   ├── heartbeat.py
-  │     ├── db.py ← EVERYTHING touches this
+  │     ├── db/ ← EVERYTHING touches this (package)
   │     ├── pipeline/sensorium.py
   │     ├── pipeline/gates.py
   │     ├── pipeline/affect.py
@@ -290,15 +305,13 @@ window/ (Next.js) ← connects via WebSocket + HTTP to heartbeat_server
 
 ## Known Architectural Debt
 
-### 1. `db.py` is a god module (2,637 lines, 100+ functions)
-Every module imports `db`. Any change to db.py risks breaking anything. This is the #1 source of merge conflicts when multiple agents work simultaneously.
+### 1. ~~`db.py` is a god module~~ (RESOLVED — TASK-003)
+Split into `db/` package with 7 modules: `connection.py`, `events.py`, `state.py`, `memory.py`, `content.py`, `analytics.py`, plus `__init__.py` re-exporting everything for backward compatibility. Zero import changes required elsewhere.
 
-**Future fix:** Split into `db/events.py`, `db/state.py`, `db/memory.py`, `db/content.py`, `db/analytics.py` with a thin `db/__init__.py` re-exporting for backward compat.
+### 2. `heartbeat_server.py` mixes too many concerns (1,211 lines)
+TCP server, HTTP API, WebSocket server, and sprite generation worker in one file/class. Dashboard HTTP routes extracted to `api/dashboard_routes.py` (TASK-002), but TCP, WebSocket, and sprite worker remain.
 
-### 2. `heartbeat_server.py` mixes too many concerns (1,453 lines)
-TCP server, HTTP API, WebSocket server, sprite generation worker, and dashboard endpoints in one file/class.
-
-**Future fix:** Extract `api/rest.py`, `api/websocket.py`, `api/tcp.py`, `workers/sprite_worker.py`.
+**Future fix:** Extract `api/websocket.py`, `api/tcp.py`, `workers/sprite_worker.py`.
 
 ### 3. ~~No interface contracts between pipeline stages~~ (RESOLVED — TASK-004, extended TASK-008)
 Pipeline stages now use typed dataclasses (`CortexOutput`, `ValidatedOutput`, `MotorPlan`, `BodyOutput`, `CycleOutput`) defined in `models/pipeline.py`. The cognitive pipeline (cortex → validator → basal ganglia → body → output) passes typed objects; maintenance/sleep calls remain dict-based.
@@ -327,16 +340,19 @@ Metacognitive monitor in `pipeline/output.py` compares executed behavior against
 
 ## File Count & Size Summary
 
+> Tracked files only (`git ls-files`). Excludes untracked local files.
+
 | Area | Files | Lines |
 |------|-------|-------|
-| Core engine (*.py root) | 17 | ~5,779 |
+| Core engine (*.py root) | 16 | ~5,676 |
 | Pipeline (pipeline/*.py) | 29 | ~5,603 |
-| API | 2 | ~285 |
+| DB (db/*.py) | 7 | ~3,111 |
+| API (api/*.py) | 2 | ~285 |
 | Config | 5 | ~415 |
 | Models | 4 | ~518 |
-| Scripts | 3 | ~455 |
+| Scripts | 2 | ~323 |
 | Tests | 33 | ~6,731 |
-| Frontend (window/src/) | 28 | ~2,493 |
-| Docs (*.md) | 12 | ~7,348 |
-| Deploy | 7 | ~525 |
-| **Total** | **~173** | **~34,509** |
+| Frontend (window/src/) | 29 | ~2,961 |
+| Docs (*.md) | 20 | ~7,698 |
+| Deploy | 13 | ~866 |
+| **Total** | **~160** | **~34,187** |

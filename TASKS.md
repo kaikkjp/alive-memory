@@ -114,7 +114,7 @@
 ---
 
 ### TASK-006: Post-merge documentation sweep
-**Status:** BACKLOG (run after every other task)
+**Status:** DONE (2026-02-15)
 **Priority:** Routine
 **Description:** Run `python scripts/update_docs.py` and review ARCHITECTURE.md for accuracy. Update any module descriptions that have changed. Add any new files to the module map.
 **Scope (files you may touch):**
@@ -572,6 +572,22 @@ Fix: (1) Extract+validate `Authorization: Bearer` header on all `_http_dashboard
 - Everything else
 **Tests:** Existing tests pass.
 **Definition of done:** All nits resolved.
+
+---
+
+### TASK-021: Fix update_docs.py to use tracked files only
+**Status:** BACKLOG
+**Priority:** Low
+**Description:** Two bugs in `scripts/update_docs.py`:
+1. `os.walk()` scans the filesystem and picks up untracked files (e.g. `visitor_sim.py`, untracked `docs/*.md`), inflating summary counts. Should use `git ls-files` instead.
+2. The Total row regex `\| \*\*Total\*\*.*?\|` matches only up to the first `|` after `**Total**`, leaving the rest of the old row intact. Each run appends new columns to the Total row instead of replacing it. Fix: use a greedy match to end of line.
+3. `db/` package is classified as "Other" because `classify_file()` has no rule for `db/` paths. Add a `db/` classification.
+**Scope (files you may touch):**
+- `scripts/update_docs.py`
+**Scope (files you may NOT touch):**
+- Everything else
+**Tests:** Run `python scripts/update_docs.py` twice — summary table should be identical both times. Total row should have exactly 3 columns.
+**Definition of done:** Summary counts reflect tracked files only. Total row doesn't grow on repeated runs. `db/` appears as its own area.
 
 ---
 
