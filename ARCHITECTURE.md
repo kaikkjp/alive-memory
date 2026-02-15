@@ -161,6 +161,8 @@ Events → Inbox → Sensorium → Gates → Affect → Hypothalamus → Thalamu
 | `llm_logger.py` | 112 | LLM call cost/token logging to DB. |
 | `scripts/update_docs.py` | 235 | Post-merge doc updater. Scans codebase, refreshes ARCHITECTURE.md summary table, reports undocumented files. |
 | `scripts/backfill_embeddings.py` | 88 | Batch-embeds historical conversations/monologues for cold memory search. |
+| `scripts/slice_counter.py` | 68 | Asset prep: slices counter foreground from `shop-back.png` (transparent above 72%, 6px fade). |
+| `scripts/cut_window_mask.py` | 48 | Asset prep: prepares shop interior image from `shop-back.png` (future: window transparency masks). |
 
 ### Visual System
 
@@ -179,7 +181,7 @@ Next.js app. Two pages: public shop window + operator dashboard.
 | `next.config.ts` | Next.js build configuration |
 | `src/app/page.tsx` | Shop window page — scene canvas + text stream + chat |
 | `src/app/dashboard/page.tsx` | Operator dashboard — 8 panels |
-| `src/components/SceneCanvas.tsx` | Canvas renderer for composited scene |
+| `src/components/SceneCanvas.tsx` | 6-layer scene compositor (scenery, shop interior, character sprite, counter foreground, vignette, dust particles) with legacy canvas fallback |
 | `src/components/TextStream.tsx` | Live activity text stream |
 | `src/components/ChatGate.tsx` | Token-gated chat entry |
 | `src/components/ChatPanel.tsx` | Visitor chat interface |
@@ -197,6 +199,7 @@ Next.js app. Two pages: public shop window + operator dashboard.
 | `src/lib/types.ts` | TypeScript type definitions |
 | `src/lib/auth-manager.ts` | Chat token auth |
 | `src/lib/particles.ts` | Ambient particle effects |
+| `src/lib/scene-constants.ts` | Scene composition constants (canvas dims, character position, z-indexes, sprite map, gradient fallbacks) |
 
 ### Standalone Tools — `my-agent/`
 
@@ -350,9 +353,9 @@ Metacognitive monitor in `pipeline/output.py` compares executed behavior against
 | API (api/*.py) | 2 | ~285 |
 | Config | 5 | ~415 |
 | Models | 4 | ~518 |
-| Scripts | 2 | ~323 |
+| Scripts | 5 | ~571 |
 | Tests | 35 | ~7,201 |
 | Frontend (window/src/) | 30 | ~2,961 |
 | Docs (*.md) | 20 | ~7,698 |
 | Deploy | 13 | ~866 |
-| **Total** | **~163** | **~34,657** |
+| **Total** | **~170** | **~35,206** |

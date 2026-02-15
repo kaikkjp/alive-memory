@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useShopkeeperSocket } from '@/hooks/useShopkeeperSocket';
 import { useSceneTransition } from '@/hooks/useSceneTransition';
 import SceneCanvas from '@/components/SceneCanvas';
@@ -10,8 +11,75 @@ import ActivityOverlay from '@/components/ActivityOverlay';
 import ConnectionIndicator from '@/components/ConnectionIndicator';
 import ChatGate from '@/components/ChatGate';
 import ChatPanel from '@/components/ChatPanel';
+import type { SpriteState, TimeOfDay } from '@/lib/types';
+import {
+  DEFAULT_SPRITE_STATE,
+  DEFAULT_TIME_OF_DAY,
+} from '@/lib/scene-constants';
+
+const SPRITE_STATES: SpriteState[] = [
+  'engaged', 'tired', 'thinking', 'curious', 'surprised', 'focused',
+];
+const TIME_OF_DAY_OPTIONS: TimeOfDay[] = [
+  'morning', 'afternoon', 'evening', 'night',
+];
 
 export default function WindowPage() {
+  const searchParams = useSearchParams();
+  const debugScene = searchParams.get('debug') === 'scene';
+
+  if (debugScene) {
+    return <DebugSceneViewer />;
+  }
+
+  return <LiveWindow />;
+}
+
+// ─── Debug scene viewer (dev only) ───
+
+function DebugSceneViewer() {
+  const [spriteState, setSpriteState] = useState<SpriteState>(DEFAULT_SPRITE_STATE);
+  const [timeOfDay, setTimeOfDay] = useState<TimeOfDay>(DEFAULT_TIME_OF_DAY);
+
+  return (
+    <div style={{ maxWidth: 960, margin: '0 auto', padding: 16 }}>
+      <div style={{ marginBottom: 12, display: 'flex', gap: 16, alignItems: 'center' }}>
+        <label>
+          Sprite:{' '}
+          <select
+            value={spriteState}
+            onChange={(e) => setSpriteState(e.target.value as SpriteState)}
+            style={{ padding: '4px 8px' }}
+          >
+            {SPRITE_STATES.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Time:{' '}
+          <select
+            value={timeOfDay}
+            onChange={(e) => setTimeOfDay(e.target.value as TimeOfDay)}
+            style={{ padding: '4px 8px' }}
+          >
+            {TIME_OF_DAY_OPTIONS.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+        </label>
+        <span style={{ opacity: 0.5, fontSize: 13 }}>
+          ?debug=scene
+        </span>
+      </div>
+      <SceneCanvas spriteState={spriteState} timeOfDay={timeOfDay} />
+    </div>
+  );
+}
+
+// ─── Live window (production) ───
+
+function LiveWindow() {
   const {
     layers,
     textEntries,

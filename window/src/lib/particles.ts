@@ -37,12 +37,12 @@ function createSnowParticles(width: number, height: number): Particle[] {
 }
 
 function createDustParticles(width: number, height: number): Particle[] {
-  return Array.from({ length: 15 }, () => ({
+  return Array.from({ length: 35 }, () => ({
     x: Math.random() * width,
     y: Math.random() * height,
     vx: -0.2 + Math.random() * 0.4,
-    vy: -0.1 + Math.random() * 0.2,
-    opacity: 0.05 + Math.random() * 0.1,
+    vy: -0.15 + Math.random() * 0.1,
+    opacity: 0.05 + Math.random() * 0.25,
     size: 1.5 + Math.random() * 2,
   }));
 }
@@ -124,7 +124,7 @@ export function drawParticles(
         ctx.fill();
         break;
       case 'dust':
-        ctx.fillStyle = 'rgba(255, 235, 180, 1)';
+        ctx.fillStyle = 'rgba(255, 210, 150, 1)';
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         ctx.fill();

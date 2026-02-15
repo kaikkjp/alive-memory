@@ -111,6 +111,11 @@ export interface VisitorDisconnect {
   token: string;
 }
 
+// ─── Scene compositor types ───
+
+export type SpriteState = 'engaged' | 'tired' | 'thinking' | 'curious' | 'surprised' | 'focused';
+export type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'night';
+
 // ─── Aggregated client state ───
 
 export interface ShopkeeperState {
