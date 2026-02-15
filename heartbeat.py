@@ -12,7 +12,7 @@ from db import JST
 import clock
 from models.event import Event
 from models.state import DrivesState
-from models.pipeline import ValidatorState, ValidatedOutput
+from models.pipeline import ValidatorState, ValidatedOutput, MotorPlan, HabitBoost
 from pipeline.sensorium import build_perceptions, Perception
 from pipeline.gates import perception_gate
 from pipeline.affect import apply_affect_lens
@@ -726,8 +726,14 @@ class Heartbeat:
             'memory_count': len(memory_chunks),
         })
 
-        # ── Habit auto-fire: strong habits bypass cortex entirely ──
-        habit_plan = await check_habits(drives, engagement)
+        # ── Habit check: reflexive habits auto-fire, generative habits boost ──
+        habit_result = await check_habits(drives, engagement)
+        habit_boost = None  # set if generative habit matched
+        if isinstance(habit_result, HabitBoost):
+            habit_boost = habit_result
+            print(f"  [Heartbeat] Habit boost (generative): {habit_boost.action} "
+                  f"(strength {habit_boost.strength:.2f})")
+        habit_plan = habit_result if isinstance(habit_result, MotorPlan) else None
         if habit_plan:
             print(f"  [Heartbeat] Habit auto-fire: {habit_plan.actions[0].action}")
             await self._emit_stage('cortex', {
@@ -817,6 +823,15 @@ class Heartbeat:
         # 7b. Self-state: what she was just doing (deterministic, no LLM)
         self_state = await build_self_state(visitor, unread)
 
+        # 7c. Habit boost: generative habit nudges cortex instead of bypassing it
+        if habit_boost:
+            nudge = (f"\n  You feel drawn to {habit_boost.action.replace('_', ' ')}"
+                     f" — it's becoming a habit.")
+            if self_state:
+                self_state += nudge
+            else:
+                self_state = 'RIGHT NOW:' + nudge
+
         # 8. Cortex (THE LLM CALL)
         conversation = []
         if visitor_id:
@@ -840,6 +855,13 @@ class Heartbeat:
         # Pass pool_id through for executor pool status tracking
         if focus_context and focus_context.payload and focus_context.payload.get('pool_id'):
             validated.focus_pool_id = focus_context.payload['pool_id']
+
+        # 9b. Habit boost: add +0.3 impulse to matching intention
+        if habit_boost and validated.intentions:
+            for intention in validated.intentions:
+                if intention.action == habit_boost.action:
+                    intention.impulse = min(1.0, intention.impulse + 0.3)
+                    break
 
         # Journal deferred — the desire to write builds up
         if validated.journal_deferred:

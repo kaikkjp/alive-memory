@@ -302,6 +302,18 @@ class TriggerContext:
 
 
 @dataclass
+class HabitBoost:
+    """Returned when a generative habit matches but can't auto-fire.
+
+    Instead of skipping cortex, this nudges the cortex call: the habit
+    boosts impulse (+0.3) for the action rather than bypassing cortex.
+    """
+    action: str = ''
+    strength: float = 0.0
+    habit_id: str = ''
+
+
+@dataclass
 class HabitEntry:
     """A tracked action pattern that can strengthen into a habit."""
     id: str = ''
