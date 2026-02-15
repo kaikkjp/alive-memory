@@ -27,6 +27,7 @@ from api.dashboard_routes import (
     handle_trigger_cycle,
     handle_status,
     handle_content_pool,
+    handle_consumption_history,
 )
 
 
@@ -348,6 +349,93 @@ class TestContentPoolRoute(unittest.TestCase):
         self.assertEqual(data['by_type'], [])
         self.assertEqual(data['recent'], [])
         self.assertIsNone(data['oldest_age_hours'])
+
+
+class TestConsumptionHistoryRoute(unittest.TestCase):
+    """Test handle_consumption_history() endpoint handler (TASK-028)."""
+
+    def setUp(self):
+        _dashboard_tokens.clear()
+
+    def tearDown(self):
+        _dashboard_tokens.clear()
+
+    def test_consumption_history_unauthorized(self):
+        server = _make_server()
+        writer = MagicMock()
+        _run(handle_consumption_history(server, writer, ''))
+        args = server._http_json.call_args
+        self.assertEqual(args[0][1], 401)
+
+    @patch('api.dashboard_routes.db')
+    def test_consumption_history_returns_entries(self, mock_db):
+        mock_db.get_consumption_history = AsyncMock(return_value=[
+            {
+                'id': 'abc-123',
+                'title': 'Test article about AI',
+                'source_type': 'rss_headline',
+                'consumed_at': '2026-02-16T01:00:00+00:00',
+                'outcomes': ['memory'],
+            },
+            {
+                'id': 'def-456',
+                'title': 'A good book link',
+                'source_type': 'url',
+                'consumed_at': '2026-02-15T20:00:00+00:00',
+                'outcomes': ['collection', 'thread'],
+            },
+        ])
+        server = _make_server()
+        writer = MagicMock()
+        token = _create_dashboard_token()
+        auth = f'Bearer {token}'
+        _run(handle_consumption_history(server, writer, auth))
+        args = server._http_json.call_args
+        self.assertEqual(args[0][1], 200)
+        data = args[0][2]
+        self.assertIn('entries', data)
+        self.assertEqual(len(data['entries']), 2)
+        self.assertEqual(data['entries'][0]['outcomes'], ['memory'])
+        self.assertEqual(data['entries'][1]['outcomes'], ['collection', 'thread'])
+
+    @patch('api.dashboard_routes.db')
+    def test_consumption_history_empty(self, mock_db):
+        mock_db.get_consumption_history = AsyncMock(return_value=[])
+        server = _make_server()
+        writer = MagicMock()
+        token = _create_dashboard_token()
+        auth = f'Bearer {token}'
+        _run(handle_consumption_history(server, writer, auth))
+        args = server._http_json.call_args
+        self.assertEqual(args[0][1], 200)
+        data = args[0][2]
+        self.assertEqual(data['entries'], [])
+
+    @patch('api.dashboard_routes.db')
+    def test_consumption_history_entry_shape(self, mock_db):
+        """Each entry has required fields: id, title, source_type, consumed_at, outcomes."""
+        mock_db.get_consumption_history = AsyncMock(return_value=[
+            {
+                'id': 'test-1',
+                'title': 'Short title',
+                'source_type': 'text',
+                'consumed_at': '2026-02-16T02:00:00+00:00',
+                'outcomes': ['no output'],
+            },
+        ])
+        server = _make_server()
+        writer = MagicMock()
+        token = _create_dashboard_token()
+        auth = f'Bearer {token}'
+        _run(handle_consumption_history(server, writer, auth))
+        data = server._http_json.call_args[0][2]
+        entry = data['entries'][0]
+        self.assertIn('id', entry)
+        self.assertIn('title', entry)
+        self.assertIn('source_type', entry)
+        self.assertIn('consumed_at', entry)
+        self.assertIn('outcomes', entry)
+        self.assertIsInstance(entry['outcomes'], list)
 
 
 class TestBackwardCompatImports(unittest.TestCase):
