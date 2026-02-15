@@ -282,3 +282,37 @@ async def handle_status(server, writer: asyncio.StreamWriter,
         'shop_status': room.shop_status,
         'active_visitor': engagement.visitor_id,
     })
+
+
+async def handle_body(server, writer: asyncio.StreamWriter,
+                      authorization: str):
+    """Handle GET /api/dashboard/body — return body capabilities and energy."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+    capabilities = await db.get_action_capabilities()
+    energy = await db.get_energy_budget()
+    actions_today = await db.get_actions_today()
+    await server._http_json(writer, 200, {
+        'capabilities': capabilities,
+        'energy': energy,
+        'actions_today': actions_today,
+    })
+
+
+async def handle_behavioral(server, writer: asyncio.StreamWriter,
+                             authorization: str):
+    """Handle GET /api/dashboard/behavioral — return habits, inhibitions, suppressions."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+    habits = await db.get_top_habits(limit=5)
+    inhibitions = await db.get_active_inhibitions()
+    suppressions = await db.get_recent_suppressions_dashboard(limit=10, min_impulse=0.5)
+    habit_skips_today = await db.get_habit_skip_count_today()
+    await server._http_json(writer, 200, {
+        'habits': habits,
+        'inhibitions': inhibitions,
+        'suppressions': suppressions,
+        'habit_skips_today': habit_skips_today,
+    })

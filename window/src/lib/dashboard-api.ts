@@ -97,4 +97,14 @@ export const dashboardApi = {
     });
     return res.json();
   },
+
+  async getBody() {
+    const res = await dashboardFetch('/api/dashboard/body');
+    return res.json();
+  },
+
+  async getBehavioral() {
+    const res = await dashboardFetch('/api/dashboard/behavioral');
+    return res.json();
+  },
 };
