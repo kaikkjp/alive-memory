@@ -34,7 +34,7 @@ Note any pre-existing failures. You are not responsible for those — but you mu
 ### Step 4: Do the work
 Implement the task. Stay within scope. If you discover a bug in an out-of-scope file, document it in `TASKS.md` as a new task with its own scope — do NOT fix it now.
 
-**Plan Mode for High-Priority tasks:** If the task is marked `Priority: High`, use Plan Mode (Shift+Tab twice) before writing any code. Draft a plan showing which files you'll change, what each change does, and the order of operations. Show the plan. Wait for operator approval before proceeding. This prevents costly mistakes on critical-path work.
+**Plan Mode for sensitive tasks:** If the task is marked `Priority: High`, OR touches `db.py`, OR touches any `pipeline/*` file, use Plan Mode (Shift+Tab twice) before writing any code. Draft a plan showing which files you'll change, what each change does, and the order of operations. Show the plan. Wait for operator approval before proceeding.
 
 ### Step 5: Run tests (after)
 ```bash
@@ -57,7 +57,10 @@ git add -A
 git commit -m "feat: <task title> [TASK-XXX]"
 ```
 
-### Step 9: Code review (MANDATORY before merge)
+### Step 9: Chain or Stop
+Follow the **Task Chaining** rules below. Either pick up the next task or stop and report.
+
+### Step 10: Code review (MANDATORY before merge)
 Do NOT merge to main without a review pass. Request a code-reviewer agent review:
 - **Scope check:** all changed files must be in the task's scope
 - **Tests pass**
@@ -65,13 +68,61 @@ Do NOT merge to main without a review pass. Request a code-reviewer agent review
 
 If you ARE the code-reviewer: output a `VERDICT: PASS` or `VERDICT: FAIL`. No merge without `VERDICT: PASS`.
 
-### Step 10: Clear context
+### Step 11: Clear context
 Run `/clear` before starting any new task.
+
+---
+
+## Task Chaining
+
+After completing a task (Step 8), check if you should continue or stop.
+
+### When to chain (pick up the next task):
+1. Another task in TASKS.md has status `READY`
+2. Its scope does NOT overlap with files you just modified (no shared files)
+3. You have not already completed 3 tasks this session
+4. All tests passed after your just-completed task
+
+If all four conditions are met: pick up the next `READY` task. No need to ask the operator — the `READY` status IS permission.
+
+### When to STOP:
+- No task has status `READY` → stop, report completion
+- Next `READY` task's scope overlaps with files you just changed → stop, let operator verify first
+- You've completed 3 tasks this session → stop for operator review
+- ANY test failed → stop immediately, do not chain
+- You're unsure about scope overlap → stop and ask
+
+### Operator's role:
+The operator pre-loads chains by setting multiple tasks to `READY` before a session. If only one task is `READY`, you do that task and stop. The operator controls the chain, not the agent.
+
+---
+
+## Sub-Agent Rules
+
+### Allowed sub-agent uses:
+- Code review (Step 10)
+- Running the full test suite while you continue editing
+- Generating boilerplate (e.g. TypeScript types from Python dataclasses)
+- File moves / renames that don't require judgment
+- Doc updates (`scripts/update_docs.py`)
+
+### Prohibited sub-agent uses:
+- Modifying `pipeline/*` files (cognitive architecture — requires full context)
+- Changing `prompt_assembler.py` or `config/identity.py` (affects LLM behavior)
+- Any change that affects LLM call content or frequency
+- `db.py` modifications (merge conflict risk)
+- Parallel edits to the same file
+
+### General:
+- Do NOT parallelize file edits on the same file
+- Background test runs with Ctrl+B when they're slow
+
+---
 
 ## Critical Rules
 
 ### DO NOT touch these files unless your task explicitly requires it:
-- `db.py` — God module, 2291 lines. Changes here risk breaking everything. If your task requires a new DB function, add it at the END of the file only.
+- `db.py` — God module, 2600+ lines. Changes here risk breaking everything. If your task requires a new DB function, add it at the END of the file only. Full refactor is TASK-003 — do not attempt outside that task.
 - `heartbeat.py` — The brain's main loop. Extremely sensitive to race conditions. See `bugs-and-fixes.md` for examples of what goes wrong.
 - `config/identity.py` — Character soul. Changes alter her personality.
 - `config/prompts.yaml` — Visual identity. Changes alter her appearance.
@@ -79,10 +130,11 @@ Run `/clear` before starting any new task.
 
 ### Pipeline modification rules:
 - Each pipeline stage has a single responsibility. Don't merge stages.
-- `pipeline/validator.py` is pure logic (imports only `re`). Keep it that way.
+- `pipeline/validator.py` checks format/schema ONLY. Character-rule enforcement is in the metacognitive monitor (`pipeline/output.py`).
 - `pipeline/sanitize.py` is pure logic. Keep it that way.
 - If you add a new pipeline stage, add it to the flow in `heartbeat.py` `run_cycle()` and document it in `ARCHITECTURE.md`.
-- Cortex output format changes MUST be reflected in validator.py AND executor.py simultaneously.
+- The cognitive pipeline is: Cortex → Validator → Basal Ganglia → Body → Output. Changes to this chain must be reflected across all stages simultaneously.
+- `pipeline/executor.py` is **DEPRECATED**. Use `pipeline/basal_ganglia.py` → `pipeline/body.py` → `pipeline/output.py`.
 
 ### Database rules:
 - All DB access goes through `db.py`. Never use raw aiosqlite elsewhere.
@@ -99,17 +151,19 @@ Run `/clear` before starting any new task.
 ## Common Tasks
 
 ### "Add a new action the shopkeeper can take"
-1. Add action type to cortex prompt in `prompt_assembler.py`
-2. Add validation rule in `pipeline/validator.py`
-3. Add execution logic in `pipeline/executor.py`
-4. Add any DB persistence in `db.py` (at end of file)
-5. Add test in `tests/`
+1. Add `ActionCapability` entry in `pipeline/action_registry.py`
+2. Add action type to cortex prompt in `prompt_assembler.py`
+3. Add validation rule in `pipeline/validator.py` (format/schema only)
+4. Add execution logic in `pipeline/body.py`
+5. Add any DB persistence in `db.py` (at end of file)
+6. Add test in `tests/`
 
 ### "Add a new dashboard panel"
 1. Create component in `window/src/components/dashboard/`
 2. Add API endpoint in `heartbeat_server.py` (in the dashboard routes section)
 3. Add API client function in `window/src/lib/dashboard-api.ts`
 4. Add panel to `window/src/app/dashboard/page.tsx`
+5. Add TypeScript types in `window/src/lib/types.ts`
 
 ### "Fix a bug in the cognitive cycle"
 1. Read `bugs-and-fixes.md` for patterns of known race conditions
@@ -170,16 +224,11 @@ python simulate.py --cycles 10
 
 ## What NOT to Do
 
-- Don't refactor db.py into smaller modules (planned but not now — too risky mid-flight)
+- Don't refactor db.py outside of TASK-003 — too risky unless that's the active task
 - Don't add new pip dependencies without documenting in requirements.txt
 - Don't change the single-LLM-call-per-cycle architecture
 - Don't add direct API calls in pipeline stages (only cortex.py calls the LLM)
 - Don't use `time.time()` or `datetime.now()` — use `clock.now()` for simulation compat
 - Don't add print statements without `[ModuleName]` prefix
 - Don't modify the character bible or identity without owner approval
-
-## Sub-Agent Rules
-
-- Use sub-agents for: code review (Step 9), test runs, doc updates
-- Do NOT parallelize file edits on the same file
-- Background test runs with Ctrl+B when they're slow
+- Don't use `pipeline/executor.py` for new code — it's deprecated
