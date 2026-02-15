@@ -51,6 +51,29 @@ WS_PORT = int(os.environ.get('SHOPKEEPER_WS_PORT', '8765'))
 HTTP_PORT = int(os.environ.get('SHOPKEEPER_HTTP_PORT', '8080'))
 ASSET_ROOT = Path(os.environ.get('ASSET_DIR', 'assets')).resolve()
 ASSET_MISS_LOG_LIMIT = 2048
+
+# CORS: allowed origins (comma-separated).  Empty / unset → wildcard for dev.
+_CORS_ALLOWED_ORIGINS: set[str] = set()
+_cors_raw = os.environ.get('CORS_ALLOWED_ORIGINS', '').strip()
+if _cors_raw:
+    _CORS_ALLOWED_ORIGINS = {o.strip().rstrip('/') for o in _cors_raw.split(',') if o.strip()}
+
+
+def _cors_origin_for(request_origin: str) -> str:
+    """Return the Access-Control-Allow-Origin value for a request.
+
+    If CORS_ALLOWED_ORIGINS is configured, echo the origin only when it
+    appears in the allowlist.  Otherwise fall back to ``*`` (dev mode).
+    """
+    if not _CORS_ALLOWED_ORIGINS:
+        return '*'
+    # Normalise: strip trailing slash for comparison
+    normalised = request_origin.rstrip('/') if request_origin else ''
+    if normalised in _CORS_ALLOWED_ORIGINS:
+        return request_origin  # echo back the exact origin
+    return ''  # not allowed — omit the header
+
+
 TRANSPARENT_PNG = base64.b64decode(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+lm1sAAAAASUVORK5CYII='
 )
@@ -152,6 +175,7 @@ class ShopkeeperServer:
         self._sprite_gen_task = None
         self._missing_assets_logged: set[str] = set()
         self._missing_assets_queue: deque[str] = deque()
+        self._current_origin = ''  # set per-request in _handle_http
         self.host, self.port = _load_bind_address()
         self._server_token = os.environ.get(TOKEN_ENV_VAR, '').strip()
 
@@ -815,9 +839,10 @@ class ShopkeeperServer:
             if not request_line:
                 return
 
-            # Read headers, capture Content-Length and Authorization
+            # Read headers, capture Content-Length, Authorization, and Origin
             content_length = 0
             authorization = ''
+            self._current_origin = ''
             header_count = 0
             while True:
                 line = await asyncio.wait_for(reader.readline(), timeout=5)
@@ -839,6 +864,8 @@ class ShopkeeperServer:
                         pass
                 elif header_lower.startswith('authorization:'):
                     authorization = header.split(':', 1)[1].strip()
+                elif header_lower.startswith('origin:'):
+                    self._current_origin = header.split(':', 1)[1].strip()
 
             request_text = request_line.decode('utf-8', errors='replace').strip()
             parts = request_text.split()
@@ -925,12 +952,16 @@ class ShopkeeperServer:
             state = await build_initial_state()
             layers = state.get('layers', {})
             png_bytes = composite_scene(layers)
+            allowed = _cors_origin_for(getattr(self, '_current_origin', ''))
+            cors_header = f'Access-Control-Allow-Origin: {allowed}\r\n' if allowed else ''
+            vary_header = 'Vary: Origin\r\n' if allowed and allowed != '*' else ''
             response = (
                 'HTTP/1.1 200 OK\r\n'
                 'Content-Type: image/png\r\n'
                 f'Content-Length: {len(png_bytes)}\r\n'
                 'Cache-Control: public, max-age=300\r\n'
-                'Access-Control-Allow-Origin: *\r\n'
+                f'{cors_header}'
+                f'{vary_header}'
                 'Connection: close\r\n'
                 '\r\n'
             )
@@ -1219,17 +1250,21 @@ class ShopkeeperServer:
 
     async def _http_cors_preflight(self, writer: asyncio.StreamWriter):
         """Handle OPTIONS preflight for CORS."""
-        response = (
-            'HTTP/1.1 204 No Content\r\n'
-            'Access-Control-Allow-Origin: *\r\n'
-            'Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n'
-            'Access-Control-Allow-Headers: Content-Type, Authorization\r\n'
-            'Access-Control-Max-Age: 86400\r\n'
-            'Content-Length: 0\r\n'
-            'Connection: close\r\n'
-            '\r\n'
-        )
-        writer.write(response.encode())
+        allowed = _cors_origin_for(getattr(self, '_current_origin', ''))
+        headers = [
+            'HTTP/1.1 204 No Content\r\n',
+            'Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n',
+            'Access-Control-Allow-Headers: Content-Type, Authorization\r\n',
+            'Access-Control-Max-Age: 86400\r\n',
+            'Content-Length: 0\r\n',
+            'Connection: close\r\n',
+        ]
+        if allowed:
+            headers.insert(1, f'Access-Control-Allow-Origin: {allowed}\r\n')
+            if allowed != '*':
+                headers.insert(2, 'Vary: Origin\r\n')
+        headers.append('\r\n')
+        writer.write(''.join(headers).encode())
         await writer.drain()
 
     async def _http_json(self, writer: asyncio.StreamWriter,
@@ -1241,15 +1276,24 @@ class ShopkeeperServer:
             401: 'Unauthorized',
             403: 'Forbidden', 404: 'Not Found',
             413: 'Payload Too Large', 431: 'Request Header Fields Too Large',
+            429: 'Too Many Requests',
             500: 'Internal Server Error', 503: 'Service Unavailable',
         }
+        allowed = _cors_origin_for(getattr(self, '_current_origin', ''))
+        cors_headers = ''
+        if allowed:
+            cors_headers = (
+                f'Access-Control-Allow-Origin: {allowed}\r\n'
+                f'Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n'
+                f'Access-Control-Allow-Headers: Content-Type, Authorization\r\n'
+            )
+            if allowed != '*':
+                cors_headers += 'Vary: Origin\r\n'
         response = (
             f'HTTP/1.1 {status} {status_text.get(status, "Unknown")}\r\n'
             f'Content-Type: application/json\r\n'
             f'Content-Length: {len(payload)}\r\n'
-            f'Access-Control-Allow-Origin: *\r\n'
-            f'Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n'
-            f'Access-Control-Allow-Headers: Content-Type, Authorization\r\n'
+            f'{cors_headers}'
             f'Connection: close\r\n'
             f'\r\n'
             f'{payload}'
@@ -1274,14 +1318,18 @@ class ShopkeeperServer:
             404: 'Not Found',
             500: 'Internal Server Error',
         }
+        allowed = _cors_origin_for(getattr(self, '_current_origin', ''))
         headers = [
             f'HTTP/1.1 {status} {status_text.get(status, "Unknown")}\r\n',
             f'Content-Type: {content_type}\r\n',
             f'Content-Length: {len(payload)}\r\n',
             f'Cache-Control: {cache_control}\r\n',
-            'Access-Control-Allow-Origin: *\r\n',
             'Connection: close\r\n',
         ]
+        if allowed:
+            headers.insert(4, f'Access-Control-Allow-Origin: {allowed}\r\n')
+            if allowed != '*':
+                headers.insert(5, 'Vary: Origin\r\n')
         if extra_headers:
             for key, value in extra_headers.items():
                 headers.append(f'{key}: {value}\r\n')
