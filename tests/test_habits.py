@@ -391,12 +391,12 @@ class TestCheckHabits:
 
     @pytest.mark.asyncio
     async def test_strong_habit_matching_context_returns_motor_plan(self):
-        """Habit at strength >= 0.6 with matching trigger context returns a MotorPlan."""
+        """Reflexive habit at strength >= 0.6 with matching context returns MotorPlan."""
         drives = _make_drives(energy=0.5, mood_valence=0.0)
         engagement = _make_engagement(status='none')
 
         matching_habit = {
-            'id': 'hab_001', 'action': 'write_journal',
+            'id': 'hab_001', 'action': 'rearrange',
             'trigger_context': 'energy:mid|mood:neutral|mode:idle|time:afternoon|visitor:false',
             'strength': 0.7, 'repetition_count': 10,
             'formed_at': '2026-01-01', 'last_triggered': '2026-02-01',
@@ -410,9 +410,10 @@ class TestCheckHabits:
             result = await check_habits(drives, engagement)
 
             assert result is not None
+            assert isinstance(result, MotorPlan)
             assert result.habit_fired is True
             assert len(result.actions) == 1
-            assert result.actions[0].action == 'write_journal'
+            assert result.actions[0].action == 'rearrange'
             assert result.actions[0].source == 'habit'
 
     @pytest.mark.asyncio
@@ -439,19 +440,19 @@ class TestCheckHabits:
 
     @pytest.mark.asyncio
     async def test_multiple_matching_habits_strongest_wins(self):
-        """When multiple habits match, the strongest one fires."""
+        """When multiple reflexive habits match, the strongest one fires."""
         drives = _make_drives(energy=0.5, mood_valence=0.0)
         engagement = _make_engagement(status='none')
 
         trigger = 'energy:mid|mood:neutral|mode:idle|time:afternoon|visitor:false'
         habits = [
-            {'id': 'hab_a', 'action': 'speak', 'trigger_context': trigger,
+            {'id': 'hab_a', 'action': 'rearrange', 'trigger_context': trigger,
              'strength': 0.65, 'repetition_count': 8,
              'formed_at': '2026-01-01', 'last_triggered': '2026-02-01'},
-            {'id': 'hab_b', 'action': 'write_journal', 'trigger_context': trigger,
+            {'id': 'hab_b', 'action': 'express_thought', 'trigger_context': trigger,
              'strength': 0.8, 'repetition_count': 15,
              'formed_at': '2026-01-01', 'last_triggered': '2026-02-01'},
-            {'id': 'hab_c', 'action': 'arrange_shelf', 'trigger_context': trigger,
+            {'id': 'hab_c', 'action': 'end_engagement', 'trigger_context': trigger,
              'strength': 0.7, 'repetition_count': 10,
              'formed_at': '2026-01-01', 'last_triggered': '2026-02-01'},
         ]
@@ -464,7 +465,8 @@ class TestCheckHabits:
             result = await check_habits(drives, engagement)
 
             assert result is not None
-            assert result.actions[0].action == 'write_journal'
+            assert isinstance(result, MotorPlan)
+            assert result.actions[0].action == 'express_thought'
             assert result.actions[0].impulse == 0.8
 
     @pytest.mark.asyncio
@@ -545,12 +547,12 @@ class TestCheckHabits:
 
     @pytest.mark.asyncio
     async def test_motor_plan_structure(self):
-        """Verify the returned MotorPlan has correct structure."""
+        """Verify the returned MotorPlan has correct structure for reflexive habit."""
         drives = _make_drives(energy=0.5, mood_valence=0.0)
         engagement = _make_engagement(status='none')
 
         habit = {
-            'id': 'hab_struct', 'action': 'speak',
+            'id': 'hab_struct', 'action': 'rearrange',
             'trigger_context': 'energy:mid|mood:neutral|mode:idle|time:afternoon|visitor:false',
             'strength': 0.75, 'repetition_count': 12,
             'formed_at': '2026-01-01', 'last_triggered': '2026-02-01',
@@ -563,6 +565,7 @@ class TestCheckHabits:
 
             result = await check_habits(drives, engagement)
 
+            assert isinstance(result, MotorPlan)
             assert result.habit_fired is True
             assert result.suppressed == []
             assert result.energy_budget == drives.energy
@@ -571,3 +574,266 @@ class TestCheckHabits:
             assert action.source == 'habit'
             assert action.impulse == 0.75
             assert action.priority == 0.75
+
+
+# ── Reflexive vs Generative Habit Tests (TASK-032) ──
+
+from models.pipeline import HabitBoost
+
+
+class TestReflexiveVsGenerativeHabits:
+    """check_habits() splits on generative flag: reflexive auto-fires,
+    generative returns HabitBoost instead of MotorPlan."""
+
+    @pytest.mark.asyncio
+    async def test_reflexive_habit_autofires(self):
+        """Rearrange (generative=False) at strength 0.6 returns MotorPlan."""
+        drives = _make_drives(energy=0.5, mood_valence=0.0)
+        engagement = _make_engagement(status='none')
+
+        habit = {
+            'id': 'hab_reflex', 'action': 'rearrange',
+            'trigger_context': 'energy:mid|mood:neutral|mode:idle|time:afternoon|visitor:false',
+            'strength': 0.6, 'repetition_count': 8,
+            'formed_at': '2026-01-01', 'last_triggered': '2026-02-01',
+        }
+
+        with patch('pipeline.basal_ganglia.db') as mock_db, \
+             patch('pipeline.context_bands.clock') as mock_clock:
+            mock_db.get_all_habits = AsyncMock(return_value=[habit])
+            mock_clock.now.return_value = MagicMock(hour=14)
+
+            result = await check_habits(drives, engagement)
+
+            assert isinstance(result, MotorPlan)
+            assert result.habit_fired is True
+            assert result.actions[0].action == 'rearrange'
+
+    @pytest.mark.asyncio
+    async def test_generative_habit_boosts_impulse(self):
+        """Write_journal (generative=True) at strength 0.6 returns HabitBoost,
+        NOT MotorPlan — cortex must still run."""
+        drives = _make_drives(energy=0.5, mood_valence=0.0)
+        engagement = _make_engagement(status='none')
+
+        habit = {
+            'id': 'hab_gen', 'action': 'write_journal',
+            'trigger_context': 'energy:mid|mood:neutral|mode:idle|time:afternoon|visitor:false',
+            'strength': 0.7, 'repetition_count': 12,
+            'formed_at': '2026-01-01', 'last_triggered': '2026-02-01',
+        }
+
+        with patch('pipeline.basal_ganglia.db') as mock_db, \
+             patch('pipeline.context_bands.clock') as mock_clock:
+            mock_db.get_all_habits = AsyncMock(return_value=[habit])
+            mock_clock.now.return_value = MagicMock(hour=14)
+
+            result = await check_habits(drives, engagement)
+
+            assert isinstance(result, HabitBoost)
+            assert result.action == 'write_journal'
+            assert result.strength == 0.7
+            assert result.habit_id == 'hab_gen'
+
+    @pytest.mark.asyncio
+    async def test_speak_habit_returns_boost(self):
+        """Speak (generative=True) at strength 0.8 returns HabitBoost."""
+        drives = _make_drives(energy=0.5, mood_valence=0.0)
+        engagement = _make_engagement(status='none')
+
+        habit = {
+            'id': 'hab_speak', 'action': 'speak',
+            'trigger_context': 'energy:mid|mood:neutral|mode:idle|time:afternoon|visitor:false',
+            'strength': 0.8, 'repetition_count': 15,
+            'formed_at': '2026-01-01', 'last_triggered': '2026-02-01',
+        }
+
+        with patch('pipeline.basal_ganglia.db') as mock_db, \
+             patch('pipeline.context_bands.clock') as mock_clock:
+            mock_db.get_all_habits = AsyncMock(return_value=[habit])
+            mock_clock.now.return_value = MagicMock(hour=14)
+
+            result = await check_habits(drives, engagement)
+
+            assert isinstance(result, HabitBoost)
+            assert result.action == 'speak'
+
+    @pytest.mark.asyncio
+    async def test_express_thought_reflexive_autofires(self):
+        """Express_thought (generative=False) at strength 0.65 returns MotorPlan."""
+        drives = _make_drives(energy=0.5, mood_valence=0.0)
+        engagement = _make_engagement(status='none')
+
+        habit = {
+            'id': 'hab_expr', 'action': 'express_thought',
+            'trigger_context': 'energy:mid|mood:neutral|mode:idle|time:afternoon|visitor:false',
+            'strength': 0.65, 'repetition_count': 9,
+            'formed_at': '2026-01-01', 'last_triggered': '2026-02-01',
+        }
+
+        with patch('pipeline.basal_ganglia.db') as mock_db, \
+             patch('pipeline.context_bands.clock') as mock_clock:
+            mock_db.get_all_habits = AsyncMock(return_value=[habit])
+            mock_clock.now.return_value = MagicMock(hour=14)
+
+            result = await check_habits(drives, engagement)
+
+            assert isinstance(result, MotorPlan)
+            assert result.actions[0].action == 'express_thought'
+
+    @pytest.mark.asyncio
+    async def test_post_x_draft_returns_boost(self):
+        """Post_x_draft (generative=True) at strength 0.75 returns HabitBoost."""
+        drives = _make_drives(energy=0.5, mood_valence=0.0)
+        engagement = _make_engagement(status='none')
+
+        habit = {
+            'id': 'hab_post', 'action': 'post_x_draft',
+            'trigger_context': 'energy:mid|mood:neutral|mode:idle|time:afternoon|visitor:false',
+            'strength': 0.75, 'repetition_count': 10,
+            'formed_at': '2026-01-01', 'last_triggered': '2026-02-01',
+        }
+
+        with patch('pipeline.basal_ganglia.db') as mock_db, \
+             patch('pipeline.context_bands.clock') as mock_clock:
+            mock_db.get_all_habits = AsyncMock(return_value=[habit])
+            mock_clock.now.return_value = MagicMock(hour=14)
+
+            result = await check_habits(drives, engagement)
+
+            assert isinstance(result, HabitBoost)
+            assert result.action == 'post_x_draft'
+
+    @pytest.mark.asyncio
+    async def test_strongest_generative_vs_reflexive(self):
+        """When strongest habit is generative, returns HabitBoost even if
+        weaker reflexive habits exist."""
+        drives = _make_drives(energy=0.5, mood_valence=0.0)
+        engagement = _make_engagement(status='none')
+
+        trigger = 'energy:mid|mood:neutral|mode:idle|time:afternoon|visitor:false'
+        habits = [
+            {'id': 'hab_r', 'action': 'rearrange', 'trigger_context': trigger,
+             'strength': 0.65, 'repetition_count': 8,
+             'formed_at': '2026-01-01', 'last_triggered': '2026-02-01'},
+            {'id': 'hab_g', 'action': 'write_journal', 'trigger_context': trigger,
+             'strength': 0.8, 'repetition_count': 15,
+             'formed_at': '2026-01-01', 'last_triggered': '2026-02-01'},
+        ]
+
+        with patch('pipeline.basal_ganglia.db') as mock_db, \
+             patch('pipeline.context_bands.clock') as mock_clock:
+            mock_db.get_all_habits = AsyncMock(return_value=habits)
+            mock_clock.now.return_value = MagicMock(hour=14)
+
+            result = await check_habits(drives, engagement)
+
+            # Strongest is write_journal (0.8) which is generative → HabitBoost
+            assert isinstance(result, HabitBoost)
+            assert result.action == 'write_journal'
+
+    @pytest.mark.asyncio
+    async def test_unknown_action_treated_as_reflexive(self):
+        """If an action isn't in ACTION_REGISTRY, treat as reflexive (auto-fire)."""
+        drives = _make_drives(energy=0.5, mood_valence=0.0)
+        engagement = _make_engagement(status='none')
+
+        habit = {
+            'id': 'hab_unknown', 'action': 'unknown_action',
+            'trigger_context': 'energy:mid|mood:neutral|mode:idle|time:afternoon|visitor:false',
+            'strength': 0.7, 'repetition_count': 10,
+            'formed_at': '2026-01-01', 'last_triggered': '2026-02-01',
+        }
+
+        with patch('pipeline.basal_ganglia.db') as mock_db, \
+             patch('pipeline.context_bands.clock') as mock_clock:
+            mock_db.get_all_habits = AsyncMock(return_value=[habit])
+            mock_clock.now.return_value = MagicMock(hour=14)
+
+            result = await check_habits(drives, engagement)
+
+            # Unknown action → cap is None → not generative → MotorPlan
+            assert isinstance(result, MotorPlan)
+
+
+class TestHabitBoostInPrompt:
+    """Verify that HabitBoost produces the right nudge text for cortex context."""
+
+    def test_habit_boost_text_appended_to_self_state(self):
+        """When habit_boost is present, self_state gets a nudge line."""
+        from models.pipeline import HabitBoost
+
+        boost = HabitBoost(action='write_journal', strength=0.7, habit_id='hab_001')
+        self_state = 'RIGHT NOW:\n  You are sitting.'
+
+        # Simulate the logic from heartbeat.py
+        nudge = (f"\n  You feel drawn to {boost.action.replace('_', ' ')}"
+                 f" — it's becoming a habit.")
+        result = self_state + nudge
+
+        assert 'write journal' in result
+        assert "it's becoming a habit" in result
+
+    def test_habit_boost_text_creates_self_state_if_none(self):
+        """When self_state is None, habit_boost creates a minimal self_state."""
+        from models.pipeline import HabitBoost
+
+        boost = HabitBoost(action='post_x_draft', strength=0.75, habit_id='hab_002')
+        self_state = None
+
+        nudge = (f"\n  You feel drawn to {boost.action.replace('_', ' ')}"
+                 f" — it's becoming a habit.")
+        if self_state:
+            result = self_state + nudge
+        else:
+            result = 'RIGHT NOW:' + nudge
+
+        assert result.startswith('RIGHT NOW:')
+        assert 'post x draft' in result
+        assert "it's becoming a habit" in result
+
+    def test_habit_boost_action_names_humanized(self):
+        """Underscored action names become readable in the nudge text."""
+        for action, expected in [
+            ('write_journal', 'write journal'),
+            ('post_x_draft', 'post x draft'),
+            ('speak', 'speak'),
+        ]:
+            boost = HabitBoost(action=action, strength=0.6, habit_id='h')
+            nudge = f"You feel drawn to {boost.action.replace('_', ' ')}"
+            assert expected in nudge
+
+    def test_habit_boost_adds_impulse_to_matching_intention(self):
+        """Deterministic +0.3 impulse boost applied to matching intention."""
+        from models.pipeline import Intention, ValidatedOutput
+
+        boost = HabitBoost(action='write_journal', strength=0.7, habit_id='h')
+        validated = ValidatedOutput()
+        validated.intentions = [
+            Intention(action='write_journal', impulse=0.5),
+            Intention(action='rearrange', impulse=0.6),
+        ]
+
+        # Simulate heartbeat.py logic
+        for intention in validated.intentions:
+            if intention.action == boost.action:
+                intention.impulse = min(1.0, intention.impulse + 0.3)
+                break
+
+        assert validated.intentions[0].impulse == pytest.approx(0.8)
+        assert validated.intentions[1].impulse == pytest.approx(0.6)  # unchanged
+
+    def test_habit_boost_impulse_capped_at_1(self):
+        """Impulse boost doesn't exceed 1.0."""
+        from models.pipeline import Intention, ValidatedOutput
+
+        boost = HabitBoost(action='speak', strength=0.8, habit_id='h')
+        validated = ValidatedOutput()
+        validated.intentions = [Intention(action='speak', impulse=0.9)]
+
+        for intention in validated.intentions:
+            if intention.action == boost.action:
+                intention.impulse = min(1.0, intention.impulse + 0.3)
+                break
+
+        assert validated.intentions[0].impulse == 1.0

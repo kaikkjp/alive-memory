@@ -57,6 +57,7 @@ class ActionCapability:
     max_per_cycle: int = 1
     requires: list[str] = field(default_factory=list)
     description: str = ''
+    generative: bool = False  # True = needs LLM output (speak, journal, post)
 
 
 ACTION_REGISTRY: dict[str, ActionCapability] = {
@@ -69,6 +70,7 @@ ACTION_REGISTRY: dict[str, ActionCapability] = {
         max_per_cycle=1,
         requires=['visitor_present'],
         description='Speak to the visitor',
+        generative=True,
     ),
     'write_journal': ActionCapability(
         name='write_journal',
@@ -78,6 +80,7 @@ ACTION_REGISTRY: dict[str, ActionCapability] = {
         max_per_cycle=1,
         requires=[],
         description='Write in journal',
+        generative=True,
     ),
     'rearrange': ActionCapability(
         name='rearrange',
@@ -132,6 +135,7 @@ ACTION_REGISTRY: dict[str, ActionCapability] = {
         max_per_cycle=1,
         requires=['visitor_present'],
         description='Show an item to the visitor',
+        generative=True,
     ),
     'post_x_draft': ActionCapability(
         name='post_x_draft',
@@ -141,6 +145,7 @@ ACTION_REGISTRY: dict[str, ActionCapability] = {
         max_per_cycle=1,
         requires=[],
         description='Draft a post for X',
+        generative=True,
     ),
     'close_shop': ActionCapability(
         name='close_shop',
@@ -179,6 +184,7 @@ ACTION_REGISTRY: dict[str, ActionCapability] = {
         max_per_cycle=1,
         requires=[],
         description='Post on X',
+        generative=True,
     ),
     'watch_video': ActionCapability(
         name='watch_video',
@@ -215,5 +221,6 @@ ACTION_REGISTRY: dict[str, ActionCapability] = {
         max_per_cycle=1,
         requires=[],
         description='Send a message',
+        generative=True,
     ),
 }
