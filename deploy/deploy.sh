@@ -32,11 +32,17 @@ npm run build
 cd ..
 
 # ─── Sync nginx config (if changed) ───
-echo "[deploy] Syncing nginx config..."
-if ! diff -q "${APP_DIR}/nginx/shopkeeper.conf" /etc/nginx/sites-available/shopkeeper &>/dev/null; then
+# Compare repo config against live config MINUS certbot-managed lines,
+# so we only re-deploy when our own config actually changed.
+echo "[deploy] Checking nginx config..."
+LIVE_STRIPPED=$(grep -v '# managed by Certbot' /etc/nginx/sites-available/shopkeeper 2>/dev/null | grep -v 'managed by Certbot' || true)
+REPO_STRIPPED=$(cat "${APP_DIR}/nginx/shopkeeper.conf")
+if [ "$REPO_STRIPPED" != "$LIVE_STRIPPED" ]; then
     sudo cp "${APP_DIR}/nginx/shopkeeper.conf" /etc/nginx/sites-available/shopkeeper
+    # Re-apply SSL cert (certbot adds listen 443, ssl_certificate directives)
+    sudo certbot --nginx -d "${DOMAIN}" --non-interactive --agree-tos --register-unsafely-without-email --redirect 2>/dev/null || true
     sudo nginx -t && sudo systemctl reload nginx
-    echo "[deploy] Nginx config updated and reloaded"
+    echo "[deploy] Nginx config updated, SSL re-applied, nginx reloaded"
 else
     echo "[deploy] Nginx config unchanged, skipping"
 fi
