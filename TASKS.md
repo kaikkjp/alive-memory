@@ -591,6 +591,132 @@ Fix: (1) Extract+validate `Authorization: Bearer` header on all `_http_dashboard
 
 ---
 
+### TASK-021a: Scene compositor component + asset pipeline
+**Status:** READY
+**Priority:** High
+**Depends on:** None (frontend-only, uses existing scaffolding)
+**Design doc:** `scene-config.json` (locked composition parameters)
+**Description:** Build the multi-layer scene compositor as a presentational React component and prepare all static assets. The compositor renders a 6-layer stack in a responsive viewport. No pipeline connection yet — accepts a `spriteState` prop and renders the correct sprite.
+
+**Layer stack (bottom to top):**
+- Layer 0: Outdoor scenery — dynamic background visible through shop windows. Time-of-day variants (morning, afternoon, evening, night). Sits BEHIND the shop interior. Requires `shop_back.png` window regions to have transparency or a window mask asset.
+- Layer 1: `shop_interior.png` — shop interior base with transparent/semi-transparent window areas so Layer 0 shows through.
+- Layer 2: Character sprite — swapped based on `spriteState` prop. Positioned per `scene-config.json` (x: 594, y: 213 at 1440×900, 55% canvas height). CSS filter for color grade (red 1.05, blue 0.92). Drop shadow (5,5 offset, 0.3 opacity, 6px blur).
+- Layer 3: Counter foreground — everything below y=72% of `shop_back.png`, with 6px fade at cut edge. Occludes character's lower body.
+- Layer 4: CSS radial-gradient vignette (35% transparent center, edge `rgba(8,6,4,0.65)`).
+- Layer 5: Canvas dust particles (35 particles, `rgba(255,210,150)`, max opacity 0.3, slow upward drift).
+
+**Implementation steps:**
+
+**Step 1 — Asset prep scripts.**
+- Create `scripts/slice_counter.py`: Load `shop_back.png`, make everything above y=72% transparent, apply 6px fade zone at cut edge, save as `public/assets/counter_foreground.png` (RGBA PNG). Run once, commit output.
+- Create `scripts/cut_window_mask.py`: Load `shop_back.png`, identify window regions, create a version where window areas are transparent so the outdoor scenery layer shows through. Save as `public/assets/shop_interior.png` (RGBA PNG). Alternative: if too complex for automated cutting, create a manually-painted alpha mask `public/assets/window_mask.png`.
+
+**Step 2 — Outdoor scenery assets.** Place time-of-day background variants in `public/assets/scenery/`: `morning.png`, `afternoon.png`, `evening.png`, `night.png`. Sized to fill the viewport (1440×900). If assets aren't ready yet, use CSS gradient fallbacks per time period.
+
+**Step 3 — SceneCanvas component.** Update `window/src/components/SceneCanvas.tsx`:
+- Render 1440×900 viewport with CSS `aspect-ratio: 16/10`, scales responsively.
+- All 6 layers as `position:absolute` children with explicit z-index.
+- Layer 0: `<img>` or `<div>` for outdoor scenery, full fill.
+- Layer 1: `<img>` for `shop_interior.png`, full fill.
+- Layer 2: `<img>` for current sprite, percentage-based positioning from `scene-config.json`. CSS filter for color grade. CSS drop-shadow. Crossfade via opacity 0.3s on swap.
+- Layer 3: `<img>` for `counter_foreground.png`, full fill.
+- Layer 4: `<div>` with CSS radial-gradient for vignette.
+- Layer 5: `<canvas>` for dust particles (≤35 particles, `requestAnimationFrame`).
+- Props: `spriteState: SpriteState`, `timeOfDay: TimeOfDay`.
+- All magic numbers from `scene-constants.ts` — no raw pixel values.
+
+**Step 4 — Sprite state type + constants.** Add `SpriteState` and `TimeOfDay` types to `window/src/lib/types.ts`. Create `window/src/lib/scene-constants.ts` — export all `scene-config.json` values as typed constants.
+
+**Step 5 — Verify composition.** Add a `?debug=scene` query param handler in `page.tsx` that renders SceneCanvas with a sprite state selector dropdown (dev only).
+
+**Sprite file map** (placed in `public/assets/sprites/`):
+- `engaged.png` → `char-1-cropped.png`
+- `tired.png` → `char-2-cropped.png`
+- `thinking.png` → `char-3-cropped.png`
+- `curious.png` → `char-4-cropped.png`
+- `surprised.png` → `char-5-cropped.png`
+- `focused.png` → `char-6-cropped.png`
+
+**Scope (files you may touch):**
+- `scripts/slice_counter.py` (new)
+- `scripts/cut_window_mask.py` (new)
+- `window/src/components/SceneCanvas.tsx` (rewrite)
+- `window/src/lib/scene-constants.ts` (new)
+- `window/src/lib/types.ts` (add `SpriteState`, `TimeOfDay` types)
+- `window/src/lib/compositor.ts` (update if needed)
+- `window/src/hooks/useParticles.ts` (update particle config)
+- `window/src/hooks/useSceneTransition.ts` (update for sprite crossfade)
+- `window/src/app/page.tsx` (add debug scene viewer behind query param)
+- `public/assets/` (new asset files)
+**Scope (files you may NOT touch):**
+- `pipeline/*` (no server-side changes)
+- `window_state.py`
+- `heartbeat_server.py`
+- `heartbeat.py`
+- `db.py`
+- `compositing.py`
+**Tests:**
+- Visual: SceneCanvas renders all 6 layers without layout shift on sprite swap.
+- Visual: Counter foreground correctly occludes sprite below y=72%.
+- Visual: Outdoor scenery visible through window regions of shop interior.
+- Visual: Dust particles render at ≤35 count, no frame drops.
+- Visual: Viewport scales responsively — test at 1440×900, 1024×640, 768×480.
+- Unit: `scene-constants.ts` exports match `scene-config.json` values.
+- `scripts/slice_counter.py` produces valid RGBA PNG with correct dimensions.
+**Definition of done:** SceneCanvas renders the full 6-layer composite with correct z-ordering. Sprite swaps crossfade without layout shift. Outdoor scenery shows through shop windows, changes with `timeOfDay` prop. Counter foreground occludes sprite naturally. Dust particles and vignette render as overlays. All positioning is percentage-based and responsive. Component works standalone with hardcoded props (no pipeline dependency). All z-indexes documented in `scene-constants.ts`.
+
+---
+
+### TASK-021b: Wire scene compositor to ALIVE pipeline state
+**Status:** BACKLOG
+**Priority:** High
+**Depends on:** TASK-021a (compositor component exists and works standalone)
+**Description:** Connect the scene compositor to live ALIVE pipeline state. Sprite resolution happens server-side in `pipeline/scene.py` (which already has access to drives, mood, activity, visitors). The resolved sprite state is broadcast via `window_state.py` WebSocket payload. Frontend reads it and passes to SceneCanvas. Time-of-day is derived server-side from `clock.py`.
+
+**Implementation steps:**
+
+**Step 1 — Server-side sprite resolution.** Update `pipeline/scene.py`:
+- Add `resolve_sprite_state(drives, engagement, room_state, recent_events) -> str`.
+- Priority order: surprised (unexpected event in last 2 cycles) > tired (energy < 30) > engaged (has_visitor AND in conversation) > curious (has_visitor AND not yet engaged) > focused (thread_work/arranging/creative cycle) > thinking (default idle).
+
+**Step 2 — Time-of-day resolution.** Add to `pipeline/scene.py`:
+- `resolve_time_of_day() -> str` using `clock.py`.
+- JST-based: morning (6-11), afternoon (11-17), evening (17-20), night (20-6).
+
+**Step 3 — Broadcast via window_state.** Update `window_state.py`:
+- Add `sprite_state: str` and `time_of_day: str` fields to broadcast payload.
+
+**Step 4 — TypeScript types.** Update `window/src/lib/types.ts`:
+- Add `sprite_state: SpriteState` and `time_of_day: TimeOfDay` to the WebSocket payload type.
+
+**Step 5 — Wire frontend.** Update `window/src/app/page.tsx`:
+- Read `sprite_state` and `time_of_day` from socket state, pass to `<SceneCanvas>`.
+- Remove debug hardcoding from TASK-021a (keep `?debug=scene` override).
+
+**Scope (files you may touch):**
+- `pipeline/scene.py` (add sprite + time resolution functions)
+- `window_state.py` (add fields to broadcast payload)
+- `window/src/lib/types.ts` (add fields to WebSocket payload type)
+- `window/src/app/page.tsx` (wire socket state → SceneCanvas props)
+- `window/src/hooks/useShopkeeperSocket.ts` (only if payload parsing needs update)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `pipeline/basal_ganglia.py`
+- `pipeline/output.py`
+- `heartbeat.py`
+- `heartbeat_server.py`
+- `db.py`
+- `window/src/components/SceneCanvas.tsx` (should work with props from 021a)
+- `compositing.py`
+**Tests:**
+- `tests/test_scene_sprite.py` (new): `resolve_sprite_state` returns correct state for each priority case. Surprised beats tired. Tired beats engaged. Curious requires visitor present but not engaged. Default is thinking.
+- `tests/test_window_state.py`: verify `sprite_state` and `time_of_day` appear in broadcast payload with valid values.
+- Integration: run heartbeat, connect WebSocket, verify `sprite_state` changes when drives/visitors change.
+**Definition of done:** Scene compositor shows the correct sprite based on live pipeline state. Outdoor scenery changes with real time of day. Sprite transitions happen smoothly when pipeline state changes. No client-side sprite resolution logic — all resolution is server-side. `?debug=scene` override still works for testing.
+
+---
+
 ## Completed Tasks
 
 _None yet._
