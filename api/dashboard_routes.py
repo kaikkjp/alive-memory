@@ -277,7 +277,7 @@ async def handle_status(server, writer: asyncio.StreamWriter,
     engagement = await db.get_engagement_state()
     room = await db.get_room_state()
     await server._http_json(writer, 200, {
-        'heartbeat_active': server.heartbeat._running if hasattr(server.heartbeat, '_running') else False,
+        'heartbeat_active': server.heartbeat.running,
         'engagement_status': engagement.status,
         'shop_status': room.shop_status,
         'active_visitor': engagement.visitor_id,
