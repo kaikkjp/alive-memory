@@ -786,7 +786,7 @@ Fix: (1) Extract+validate `Authorization: Bearer` header on all `_http_dashboard
 ---
 
 ### TASK-025: Investigate flat memory resonance scores
-**Status:** BACKLOG
+**Status:** DONE (2026-02-16)
 **Priority:** Medium
 **Description:** All visible memories show identical 55% resonance. No variance means retrieval has no signal.
 **Acceptance criteria:**
@@ -959,6 +959,42 @@ Fix: (1) Extract+validate `Authorization: Bearer` header on all `_http_dashboard
 - `sleep.py`
 **Tests:** Verify cost history endpoint returns 30-day daily breakdown. Chart renders without errors.
 **Definition of done:** Costs panel includes a 30-day trend chart with current day highlighted and trend direction indicator.
+
+---
+
+### TASK-032: Tag actions as reflexive vs generative in action registry
+**Status:** READY
+**Priority:** High
+**Depends on:** TASK-011b (habit auto-fire)
+**Description:** Habit auto-fire currently skips cortex for all actions, but generative actions (write_journal, speak, post_x_draft) need LLM output to produce meaningful results. A journaling habit that skips the brain writes nothing.
+
+Fix: Add a `generative: bool` field to `ActionCapability` in `pipeline/action_registry.py`. Tag each action:
+- Reflexive (`generative=False`): rearrange, end_engagement, express_thought — can auto-fire without cortex.
+- Generative (`generative=True`): write_journal, speak, post_x_draft — require cortex output.
+
+In `pipeline/basal_ganglia.py` `check_habits()`: if a matching habit's action is generative, do NOT auto-fire. Instead, inject a `habit_boost` into the cycle context so the cortex call includes it. The habit increases impulse for that action (+0.3 to base impulse) rather than bypassing cortex entirely.
+
+In `prompt_assembler.py`: if `habit_boost` is present, add a line to cortex context: "You feel drawn to [action] — it's becoming a habit." This gives cortex a nudge without forcing the action.
+
+**Scope (files you may touch):**
+- `pipeline/action_registry.py` (add `generative` field to ActionCapability, tag all actions)
+- `pipeline/basal_ganglia.py` (check_habits splits on generative flag)
+- `prompt_assembler.py` (inject habit_boost context)
+- `heartbeat.py` (pass habit_boost through to cortex call if needed)
+- `models/pipeline.py` (add habit_boost to CortexInput if needed)
+
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `pipeline/output.py`
+- `db.py`
+- `window/`
+
+**Tests:** Add to `tests/test_habits.py`:
+- test_reflexive_habit_autofires — rearrange habit at strength 0.6 skips cortex
+- test_generative_habit_boosts_impulse — write_journal habit at strength 0.6 does NOT skip cortex, instead adds habit_boost to cycle context
+- test_habit_boost_in_prompt — when habit_boost present, prompt assembler includes habit nudge text
+
+**Definition of done:** Generative actions never auto-fire. Strong generative habits boost impulse instead. Reflexive actions auto-fire as before. She tends to journal rather than reflexively journaling nothing.
 
 ---
 
