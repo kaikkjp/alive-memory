@@ -7,7 +7,8 @@ be suppressed?"
 Phase 2: Full selection gates (1-5). Multi-intention input, priority-sorted
 output. Phase 3: Gate 6 (learned inhibition). Phase 3b (TASK-014):
 Visitor-directed priority modulation — trust, interest, drive-based selection
-when multiple visitors are present. No habits yet (Phase 4).
+when multiple visitors are present. Phase 4 (TASK-011b): Habit auto-fire —
+strong habits bypass cortex entirely.
 """
 
 import json
@@ -19,8 +20,9 @@ import db
 from models.pipeline import (
     Intention, ValidatedOutput, ActionDecision, MotorPlan, InhibitionCheck,
 )
-from models.state import DrivesState
+from models.state import DrivesState, EngagementState
 from pipeline.action_registry import ACTION_REGISTRY, check_prerequisites
+from pipeline.context_bands import compute_trigger_context
 
 
 # ── Trust-based priority boost for visitor-directed actions ──
@@ -147,6 +149,47 @@ async def _check_inhibition(action_name: str, context: dict) -> InhibitionCheck:
             )
 
     return InhibitionCheck()
+
+
+async def check_habits(drives: DrivesState,
+                       engagement: EngagementState) -> MotorPlan | None:
+    """Check if a strong habit should auto-fire, bypassing cortex.
+
+    Called BEFORE cortex. If a habit matches the current context with
+    strength >= 0.6, returns a single-action MotorPlan directly.
+    Cortex is skipped entirely — this is reflex, not thought.
+
+    Returns None if no habit qualifies, letting the normal pipeline proceed.
+    """
+    ctx = compute_trigger_context(drives, engagement)
+    trigger_key = ctx.to_key()
+
+    try:
+        all_habits = await db.get_all_habits()
+    except Exception:
+        return None  # graceful degradation
+
+    matches = [h for h in all_habits
+               if h['strength'] >= 0.6 and h['trigger_context'] == trigger_key]
+
+    if not matches:
+        return None
+
+    strongest = max(matches, key=lambda h: h['strength'])
+
+    return MotorPlan(
+        actions=[ActionDecision(
+            action=strongest['action'],
+            source='habit',
+            impulse=strongest['strength'],
+            priority=strongest['strength'],
+            status='approved',
+            detail={},
+        )],
+        suppressed=[],
+        habit_fired=True,
+        energy_budget=drives.energy,
+    )
 
 
 async def select_actions(validated: ValidatedOutput, drives: DrivesState,

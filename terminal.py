@@ -163,7 +163,7 @@ def show_banner():
 
 JST = timezone(timedelta(hours=9))
 
-PEEK_COMMANDS = ('journal', 'drives', 'collection', 'backroom', 'status', 'totems', 'events', 'threads', 'weather', 'pool', 'body', 'suppressed', 'action-log', 'inhibitions', 'who')
+PEEK_COMMANDS = ('journal', 'drives', 'collection', 'backroom', 'status', 'totems', 'events', 'threads', 'weather', 'pool', 'body', 'suppressed', 'action-log', 'inhibitions', 'who', 'habits')
 
 
 def _fmt_time(dt) -> str:
@@ -237,6 +237,8 @@ async def handle_peek(cmd: str) -> bool:
         await _peek_inhibitions()
     elif cmd == 'who':
         await _peek_who()
+    elif cmd == 'habits':
+        await _peek_habits()
     else:
         return False
     return True
@@ -617,6 +619,46 @@ async def _peek_who():
         talking = " ← talking to" if engagement.visitor_id == vp.visitor_id else ""
         entered = _fmt_time(vp.entered_at) if vp.entered_at else "?"
         print(f"  {status_icon} {vp.visitor_id:<20} {vp.status:<16} entered: {entered}{Fore.CYAN}{talking}{Style.RESET_ALL}")
+    print()
+
+
+async def _peek_habits():
+    """Show all habits with action, trigger_context, strength, repetition_count, last_triggered."""
+    try:
+        habits = await db.get_all_habits()
+    except Exception:
+        print(f"\n  {Fore.WHITE}(No habits table yet.){Style.RESET_ALL}\n")
+        return
+
+    if not habits:
+        print(f"\n  {Fore.WHITE}(No habits formed yet.){Style.RESET_ALL}\n")
+        return
+
+    print()
+    print(f"  {Fore.YELLOW}── Habits ({len(habits)}) ──{Style.RESET_ALL}")
+    for h in habits:
+        action = h.get('action', '?')
+        strength = h.get('strength', 0) or 0
+        reps = h.get('repetition_count', 0) or 0
+        trigger = h.get('trigger_context', '?')
+        last = _fmt_time(h.get('last_triggered'))
+
+        # Color by strength: green >= 0.6 (auto-fires), yellow approaching, white weak
+        if strength >= 0.6:
+            color = Fore.GREEN
+            marker = ' ⚡'  # auto-fires
+        elif strength >= 0.4:
+            color = Fore.YELLOW
+            marker = ''
+        else:
+            color = Fore.WHITE
+            marker = ''
+
+        bar = _bar(strength)
+        print(f"  {color}{action:<20}{Style.RESET_ALL}  {bar} {strength:.2f}  "
+              f"reps:{reps}  last:{last}{marker}")
+        # Show trigger context on second line, compact
+        print(f"       {Fore.CYAN}{trigger}{Style.RESET_ALL}")
     print()
 
 

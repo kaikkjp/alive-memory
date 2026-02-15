@@ -21,7 +21,7 @@ from pipeline.thalamus import route
 from pipeline.hippocampus import recall
 from pipeline.cortex import cortex_call
 from pipeline.validator import validate
-from pipeline.basal_ganglia import select_actions
+from pipeline.basal_ganglia import select_actions, check_habits
 from pipeline.body import execute_body, END_ENGAGEMENT_LINES
 from pipeline.output import process_output
 from pipeline.enrich import fetch_url_metadata
@@ -725,6 +725,89 @@ class Heartbeat:
             'token_budget': routing.token_budget,
             'memory_count': len(memory_chunks),
         })
+
+        # ── Habit auto-fire: strong habits bypass cortex entirely ──
+        habit_plan = await check_habits(drives, engagement)
+        if habit_plan:
+            print(f"  [Heartbeat] Habit auto-fire: {habit_plan.actions[0].action}")
+            await self._emit_stage('cortex', {
+                'internal_monologue': '(habit — reflex, not thought)',
+                'resonance': False,
+            })
+            await self._emit_stage('actions', {
+                'approved': [a.action for a in habit_plan.actions],
+                'dropped': [],
+                '_entropy_warning': None,
+            })
+
+            habit_log = {
+                'id': cycle_id,
+                'mode': mode,
+                'drives': {
+                    'social_hunger': round(drives.social_hunger, 2),
+                    'curiosity': round(drives.curiosity, 2),
+                    'expression_need': round(drives.expression_need, 2),
+                    'rest_need': round(drives.rest_need, 2),
+                    'energy': round(drives.energy, 2),
+                    'mood_valence': round(drives.mood_valence, 2),
+                    'mood_arousal': round(drives.mood_arousal, 2),
+                },
+                'focus_salience': round(routing.focus.salience, 2) if routing.focus else 0,
+                'focus_type': routing.focus.p_type if routing.focus else 'none',
+                'routing_focus': routing.cycle_type,
+                'token_budget': 0,
+                'memory_count': len(memory_chunks),
+                'internal_monologue': '(habit — reflex, not thought)',
+                'dialogue': None,
+                'expression': 'neutral',
+                'body_state': 'sitting',
+                'gaze': 'away_thinking',
+                'actions': [a.action for a in habit_plan.actions],
+                'dropped': [],
+                'next_cycle_hints': [],
+                'resonance': False,
+                '_entropy_warning': None,
+                'intentions_count': 0,
+                'habit_fired': True,
+            }
+
+            # Build minimal validated for body/output compatibility
+            habit_validated = ValidatedOutput(
+                internal_monologue='(habit — reflex, not thought)',
+                expression='neutral',
+                body_state='sitting',
+                gaze='away_thinking',
+            )
+
+            async with db.transaction():
+                await db.save_drives_state(drives)
+                body_output = await execute_body(habit_plan, habit_validated,
+                                                 visitor_id, cycle_id=cycle_id)
+                await process_output(body_output, habit_validated, visitor_id,
+                                     motor_plan=habit_plan, cycle_id=cycle_id)
+                for event in unread:
+                    await db.inbox_mark_read(event.id)
+                await db.log_cycle(habit_log)
+
+            await self._emit_stage('dialogue', {
+                'dialogue': None,
+                'expression': 'neutral',
+            })
+
+            self._error_backoff = 5
+
+            for sub_id, q in list(self._cycle_log_subscribers.items()):
+                while q.full():
+                    try:
+                        q.get_nowait()
+                    except asyncio.QueueEmpty:
+                        break
+                try:
+                    q.put_nowait(habit_log)
+                except asyncio.QueueFull:
+                    pass
+
+            return habit_log
 
         # 7. URL enrichment (if gift detected — URLs captured before gate)
         gift_meta = None

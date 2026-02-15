@@ -1,8 +1,9 @@
-"""Tests for habit tracking — Phase 4 (TASK-011a).
+"""Tests for habit tracking — Phase 4 (TASK-011a + TASK-011b).
 
 Covers: TriggerContext canonical keys, piecewise strength curve,
 habit creation, strengthening, cap at 0.9, different contexts,
-timestamp management, and graceful error handling.
+timestamp management, graceful error handling, and habit auto-fire
+in basal ganglia (bypassing cortex).
 """
 
 import pytest
@@ -378,3 +379,195 @@ class TestTrackActionPatterns:
 
             # Should not raise
             await _track_action_patterns(motor, body)
+
+
+# ── Habit Auto-Fire Tests (TASK-011b) ──
+
+from pipeline.basal_ganglia import check_habits
+
+
+class TestCheckHabits:
+    """check_habits() fires strong habits, bypassing cortex."""
+
+    @pytest.mark.asyncio
+    async def test_strong_habit_matching_context_returns_motor_plan(self):
+        """Habit at strength >= 0.6 with matching trigger context returns a MotorPlan."""
+        drives = _make_drives(energy=0.5, mood_valence=0.0)
+        engagement = _make_engagement(status='none')
+
+        matching_habit = {
+            'id': 'hab_001', 'action': 'write_journal',
+            'trigger_context': 'energy:mid|mood:neutral|mode:idle|time:afternoon|visitor:false',
+            'strength': 0.7, 'repetition_count': 10,
+            'formed_at': '2026-01-01', 'last_triggered': '2026-02-01',
+        }
+
+        with patch('pipeline.basal_ganglia.db') as mock_db, \
+             patch('pipeline.context_bands.clock') as mock_clock:
+            mock_db.get_all_habits = AsyncMock(return_value=[matching_habit])
+            mock_clock.now.return_value = MagicMock(hour=14)
+
+            result = await check_habits(drives, engagement)
+
+            assert result is not None
+            assert result.habit_fired is True
+            assert len(result.actions) == 1
+            assert result.actions[0].action == 'write_journal'
+            assert result.actions[0].source == 'habit'
+
+    @pytest.mark.asyncio
+    async def test_weak_habit_returns_none(self):
+        """Habit at strength 0.59 does NOT auto-fire."""
+        drives = _make_drives(energy=0.5, mood_valence=0.0)
+        engagement = _make_engagement(status='none')
+
+        weak_habit = {
+            'id': 'hab_002', 'action': 'speak',
+            'trigger_context': 'energy:mid|mood:neutral|mode:idle|time:afternoon|visitor:false',
+            'strength': 0.59, 'repetition_count': 5,
+            'formed_at': '2026-01-01', 'last_triggered': '2026-02-01',
+        }
+
+        with patch('pipeline.basal_ganglia.db') as mock_db, \
+             patch('pipeline.context_bands.clock') as mock_clock:
+            mock_db.get_all_habits = AsyncMock(return_value=[weak_habit])
+            mock_clock.now.return_value = MagicMock(hour=14)
+
+            result = await check_habits(drives, engagement)
+
+            assert result is None
+
+    @pytest.mark.asyncio
+    async def test_multiple_matching_habits_strongest_wins(self):
+        """When multiple habits match, the strongest one fires."""
+        drives = _make_drives(energy=0.5, mood_valence=0.0)
+        engagement = _make_engagement(status='none')
+
+        trigger = 'energy:mid|mood:neutral|mode:idle|time:afternoon|visitor:false'
+        habits = [
+            {'id': 'hab_a', 'action': 'speak', 'trigger_context': trigger,
+             'strength': 0.65, 'repetition_count': 8,
+             'formed_at': '2026-01-01', 'last_triggered': '2026-02-01'},
+            {'id': 'hab_b', 'action': 'write_journal', 'trigger_context': trigger,
+             'strength': 0.8, 'repetition_count': 15,
+             'formed_at': '2026-01-01', 'last_triggered': '2026-02-01'},
+            {'id': 'hab_c', 'action': 'arrange_shelf', 'trigger_context': trigger,
+             'strength': 0.7, 'repetition_count': 10,
+             'formed_at': '2026-01-01', 'last_triggered': '2026-02-01'},
+        ]
+
+        with patch('pipeline.basal_ganglia.db') as mock_db, \
+             patch('pipeline.context_bands.clock') as mock_clock:
+            mock_db.get_all_habits = AsyncMock(return_value=habits)
+            mock_clock.now.return_value = MagicMock(hour=14)
+
+            result = await check_habits(drives, engagement)
+
+            assert result is not None
+            assert result.actions[0].action == 'write_journal'
+            assert result.actions[0].impulse == 0.8
+
+    @pytest.mark.asyncio
+    async def test_no_matching_context_returns_none(self):
+        """Habits exist but none match the current context → None."""
+        drives = _make_drives(energy=0.2, mood_valence=-0.5)  # low energy, negative mood
+        engagement = _make_engagement(status='none')
+
+        # This habit's trigger context won't match the drives above
+        mismatched_habit = {
+            'id': 'hab_003', 'action': 'speak',
+            'trigger_context': 'energy:high|mood:positive|mode:engaged|time:morning|visitor:true',
+            'strength': 0.9, 'repetition_count': 20,
+            'formed_at': '2026-01-01', 'last_triggered': '2026-02-01',
+        }
+
+        with patch('pipeline.basal_ganglia.db') as mock_db, \
+             patch('pipeline.context_bands.clock') as mock_clock:
+            mock_db.get_all_habits = AsyncMock(return_value=[mismatched_habit])
+            mock_clock.now.return_value = MagicMock(hour=23)  # night
+
+            result = await check_habits(drives, engagement)
+
+            assert result is None
+
+    @pytest.mark.asyncio
+    async def test_no_habits_returns_none(self):
+        """Empty habits table → None."""
+        drives = _make_drives()
+        engagement = _make_engagement()
+
+        with patch('pipeline.basal_ganglia.db') as mock_db, \
+             patch('pipeline.context_bands.clock') as mock_clock:
+            mock_db.get_all_habits = AsyncMock(return_value=[])
+            mock_clock.now.return_value = MagicMock(hour=14)
+
+            result = await check_habits(drives, engagement)
+
+            assert result is None
+
+    @pytest.mark.asyncio
+    async def test_db_error_returns_none(self):
+        """DB failure during habit check → None (graceful degradation)."""
+        drives = _make_drives()
+        engagement = _make_engagement()
+
+        with patch('pipeline.basal_ganglia.db') as mock_db, \
+             patch('pipeline.context_bands.clock') as mock_clock:
+            mock_db.get_all_habits = AsyncMock(side_effect=Exception("DB error"))
+            mock_clock.now.return_value = MagicMock(hour=14)
+
+            result = await check_habits(drives, engagement)
+
+            assert result is None
+
+    @pytest.mark.asyncio
+    async def test_exact_threshold_fires(self):
+        """Habit at exactly 0.6 should fire."""
+        drives = _make_drives(energy=0.5, mood_valence=0.0)
+        engagement = _make_engagement(status='none')
+
+        habit = {
+            'id': 'hab_edge', 'action': 'express_thought',
+            'trigger_context': 'energy:mid|mood:neutral|mode:idle|time:afternoon|visitor:false',
+            'strength': 0.6, 'repetition_count': 8,
+            'formed_at': '2026-01-01', 'last_triggered': '2026-02-01',
+        }
+
+        with patch('pipeline.basal_ganglia.db') as mock_db, \
+             patch('pipeline.context_bands.clock') as mock_clock:
+            mock_db.get_all_habits = AsyncMock(return_value=[habit])
+            mock_clock.now.return_value = MagicMock(hour=14)
+
+            result = await check_habits(drives, engagement)
+
+            assert result is not None
+            assert result.actions[0].action == 'express_thought'
+
+    @pytest.mark.asyncio
+    async def test_motor_plan_structure(self):
+        """Verify the returned MotorPlan has correct structure."""
+        drives = _make_drives(energy=0.5, mood_valence=0.0)
+        engagement = _make_engagement(status='none')
+
+        habit = {
+            'id': 'hab_struct', 'action': 'speak',
+            'trigger_context': 'energy:mid|mood:neutral|mode:idle|time:afternoon|visitor:false',
+            'strength': 0.75, 'repetition_count': 12,
+            'formed_at': '2026-01-01', 'last_triggered': '2026-02-01',
+        }
+
+        with patch('pipeline.basal_ganglia.db') as mock_db, \
+             patch('pipeline.context_bands.clock') as mock_clock:
+            mock_db.get_all_habits = AsyncMock(return_value=[habit])
+            mock_clock.now.return_value = MagicMock(hour=14)
+
+            result = await check_habits(drives, engagement)
+
+            assert result.habit_fired is True
+            assert result.suppressed == []
+            assert result.energy_budget == drives.energy
+            action = result.actions[0]
+            assert action.status == 'approved'
+            assert action.source == 'habit'
+            assert action.impulse == 0.75
+            assert action.priority == 0.75

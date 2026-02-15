@@ -971,10 +971,10 @@ async def get_recent_journal(limit: int = 2) -> list[JournalEntry]:
 async def insert_daily_summary(summary: dict):
     """Insert a lightweight daily summary index.
 
-    The summary_bullets column stores the index structure as JSON:
-    {"moment_count": N, "moment_ids": [...], "journal_entry_ids": [...]}
-    Individual reflections are stored as separate journal entries.
-    journal_entry_id is NULL (no single consolidated blob anymore).
+    The DB column ``summary_bullets`` (legacy name) stores the moment index
+    as JSON: {"moment_count": N, "moment_ids": [...], "journal_entry_ids": [...]}.
+    The ``journal_entry_id`` column is always NULL — individual reflections
+    are stored as separate journal entries since TASK-007.
     """
     now = clock.now_utc().isoformat()
     index_data = {
@@ -1359,8 +1359,12 @@ async def delete_stale_day_memory(max_age_days: int = 2) -> None:
     )
 
 
-async def get_daily_summary_for_today() -> Optional[dict]:
-    """Check if a daily summary already exists for today (JST)."""
+async def get_daily_summary_for_today() -> Optional[DailySummary]:
+    """Check if a daily summary already exists for today (JST).
+
+    Returns a DailySummary dataclass with the moment index unpacked
+    from the legacy ``summary_bullets`` JSON column.
+    """
     conn = await get_db()
     today_jst = clock.now().date().isoformat()
     cursor = await conn.execute(
@@ -1368,7 +1372,29 @@ async def get_daily_summary_for_today() -> Optional[dict]:
         (today_jst,)
     )
     row = await cursor.fetchone()
-    return dict(row) if row else None
+    if not row:
+        return None
+    return _row_to_daily_summary(row)
+
+
+def _row_to_daily_summary(row) -> DailySummary:
+    """Convert a DB row to a DailySummary dataclass.
+
+    The legacy ``summary_bullets`` column stores the moment index as JSON.
+    The legacy ``journal_entry_id`` column is always NULL.
+    """
+    index_data = json.loads(row['summary_bullets']) if row['summary_bullets'] else {}
+    return DailySummary(
+        id=row['id'],
+        day_number=row['day_number'],
+        date=row['date'],
+        moment_count=index_data.get('moment_count', 0),
+        moment_ids=index_data.get('moment_ids', []),
+        journal_entry_ids=index_data.get('journal_entry_ids', []),
+        emotional_arc=row['emotional_arc'],
+        notable_totems=json.loads(row['notable_totems']) if row['notable_totems'] else [],
+        created_at=datetime.fromisoformat(row['created_at']) if row['created_at'] else None,
+    )
 
 
 def _row_to_day_memory(row):

@@ -338,3 +338,81 @@ class SleepReflectiveJournalTests(unittest.IsolatedAsyncioTestCase):
 
         # Empty reflection → no journal entry written
         insert_journal_mock.assert_not_awaited()
+
+
+class DailySummaryRoundTripTests(unittest.IsolatedAsyncioTestCase):
+    """TASK-016: Verify DailySummary dataclass matches the new index schema."""
+
+    def test_daily_summary_has_index_fields(self):
+        """DailySummary should have moment_count, moment_ids, journal_entry_ids."""
+        from models.state import DailySummary
+        ds = DailySummary(id="ds1")
+        self.assertEqual(ds.moment_count, 0)
+        self.assertEqual(ds.moment_ids, [])
+        self.assertEqual(ds.journal_entry_ids, [])
+        self.assertIsNone(ds.emotional_arc)
+        self.assertEqual(ds.notable_totems, [])
+
+    def test_daily_summary_no_legacy_fields(self):
+        """DailySummary should NOT have the old summary_bullets or journal_entry_id fields."""
+        from models.state import DailySummary
+        ds = DailySummary(id="ds1")
+        self.assertFalse(hasattr(ds, 'summary_bullets'))
+        self.assertFalse(hasattr(ds, 'journal_entry_id'))
+
+    def test_daily_summary_round_trip_via_db_helper(self):
+        """_row_to_daily_summary should unpack the legacy summary_bullets JSON
+        into the new DailySummary dataclass fields."""
+        from db import _row_to_daily_summary
+        from models.state import DailySummary
+
+        # Simulate a DB row as a dict (sqlite3.Row-compatible)
+        index_json = json.dumps({
+            'moment_count': 3,
+            'moment_ids': ['m1', 'm2', 'm3'],
+            'journal_entry_ids': ['j1', 'j2', 'j3'],
+        })
+        row = {
+            'id': 'ds-abc',
+            'day_number': 42,
+            'date': '2026-02-14',
+            'journal_entry_id': None,
+            'summary_bullets': index_json,
+            'emotional_arc': 'conversation -> discovery',
+            'notable_totems': json.dumps(['Nujabes', 'rain']),
+            'created_at': '2026-02-14T03:30:00+00:00',
+        }
+
+        ds = _row_to_daily_summary(row)
+
+        self.assertIsInstance(ds, DailySummary)
+        self.assertEqual(ds.id, 'ds-abc')
+        self.assertEqual(ds.day_number, 42)
+        self.assertEqual(ds.date, '2026-02-14')
+        self.assertEqual(ds.moment_count, 3)
+        self.assertEqual(ds.moment_ids, ['m1', 'm2', 'm3'])
+        self.assertEqual(ds.journal_entry_ids, ['j1', 'j2', 'j3'])
+        self.assertEqual(ds.emotional_arc, 'conversation -> discovery')
+        self.assertEqual(ds.notable_totems, ['Nujabes', 'rain'])
+        self.assertIsNotNone(ds.created_at)
+
+    def test_daily_summary_round_trip_empty_index(self):
+        """_row_to_daily_summary handles NULL/empty summary_bullets gracefully."""
+        from db import _row_to_daily_summary
+
+        row = {
+            'id': 'ds-empty',
+            'day_number': 1,
+            'date': '2026-02-14',
+            'journal_entry_id': None,
+            'summary_bullets': None,
+            'emotional_arc': 'quiet',
+            'notable_totems': None,
+            'created_at': None,
+        }
+
+        ds = _row_to_daily_summary(row)
+        self.assertEqual(ds.moment_count, 0)
+        self.assertEqual(ds.moment_ids, [])
+        self.assertEqual(ds.journal_entry_ids, [])
+        self.assertEqual(ds.notable_totems, [])

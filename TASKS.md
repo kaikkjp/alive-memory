@@ -290,7 +290,7 @@
 ---
 
 ### TASK-011b: Body Phase 4b — Habit auto-fire in basal ganglia
-**Status:** BACKLOG
+**Status:** DONE (2026-02-14)
 **Priority:** Medium
 **Depends on:** TASK-011a
 **Design doc:** `body-spec-v2.md` §2.2 (Habit System), §10 Phase 4
@@ -424,7 +424,7 @@
 ---
 
 ### TASK-016: Reconcile DailySummary dataclass with new index schema
-**Status:** BACKLOG
+**Status:** DONE (2026-02-14)
 **Priority:** Low
 **Description:** TASK-007 changed daily_summary from narrative blob to lightweight index, but `DailySummary` dataclass in `models/state.py` and the `summary_bullets` column name still reflect the old shape. Rename field and update dataclass to match actual data.
 **Scope (files you may touch):**

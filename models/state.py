@@ -132,11 +132,18 @@ class JournalEntry:
 
 @dataclass
 class DailySummary:
+    """Lightweight daily summary index.
+
+    After TASK-007, daily summaries are indices (moment count, moment IDs,
+    journal entry IDs, emotional arc) — not concatenated narratives.
+    Individual reflections are stored as separate journal entries.
+    """
     id: str
     day_number: Optional[int] = None
     date: Optional[str] = None
-    journal_entry_id: Optional[str] = None
-    summary_bullets: list = field(default_factory=list)
+    moment_count: int = 0
+    moment_ids: list = field(default_factory=list)
+    journal_entry_ids: list = field(default_factory=list)
     emotional_arc: Optional[str] = None
     notable_totems: list = field(default_factory=list)
     created_at: Optional[datetime] = None
