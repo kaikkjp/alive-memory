@@ -36,7 +36,7 @@
 ---
 
 ### TASK-002: Split heartbeat_server.py HTTP routes into separate module
-**Status:** BACKLOG
+**Status:** READY
 **Priority:** Medium
 **Description:** `heartbeat_server.py` is 1092 lines mixing TCP, WebSocket, and HTTP concerns. Extract all `_http_dashboard_*` methods (lines 920-1070) into a new `api/dashboard_routes.py` module. The `ShopkeeperServer` class should delegate to it.
 **Scope (files you may touch):**
@@ -400,26 +400,97 @@
 
 ### TASK-015: Body Phase 5 — Dashboard panels
 **Status:** BACKLOG
-**Priority:** Low
-**Depends on:** TASK-011b (habits complete)
+**Priority:** Medium
+**Depends on:** TASK-002 (dashboard routes extracted), TASK-011b (habits complete)
 **Design doc:** `body-spec-v2.md` §9
-**Description:** Add two new dashboard panels:
-- **Body Panel:** Capability grid (green/yellow/grey for enabled+ready/cooling/disabled), energy spent today vs budget, actions executed today by type.
-- **Behavioral Panel:** Top 5 habits by strength with sparklines, active inhibitions (strongest first with trigger count), "She almost..." feed (suppressed actions with impulse > 0.5), habit cycles today (cortex-skipped count = cost savings).
+
+**Description:** Add two new dashboard panels showing body state and learned behaviors. All data sources already exist in the DB (action_log, habits, inhibitions tables from TASK-009/010/011). This is read-only data display — no pipeline changes.
+
+**Implementation steps (in order):**
+
+**Step 1 — DB query functions.** Add to end of `db.py`:
+- `get_actions_today(db) -> list[dict]` — query action_log for today (UTC), group by action_type, return [{type, count, total_energy}]
+- `get_action_capabilities(db) -> list[dict]` — read ACTION_REGISTRY, join with action_log for cooldown status, return [{action, enabled, ready, cooling_until, energy_cost}]
+- `get_top_habits(db, limit=5) -> list[dict]` — habits ordered by strength desc, return [{action, trigger_context, strength, last_fired, fire_count}]
+- `get_active_inhibitions(db) -> list[dict]` — inhibitions with strength > 0.05, ordered by strength desc, return [{action, context, strength, trigger_count, formed_at}]
+- `get_recent_suppressions(db, limit=10, min_impulse=0.5) -> list[dict]` — action_log where suppressed=true AND impulse >= min_impulse, ordered by timestamp desc, return [{action, impulse, reason, timestamp}]
+- `get_habit_skip_count_today(db) -> int` — count cycles today where habit auto-fired (cortex_skipped=true in cycle_log or equivalent marker)
+- `get_energy_budget(db) -> dict` — {spent_today, budget} from action_log + config
+
+**Step 2 — REST endpoints.** Add to dashboard routes (in `api/dashboard_routes.py` if TASK-002 is done, otherwise `heartbeat_server.py`):
+- `GET /api/dashboard/body` — returns JSON:
+  ```json
+  {
+    "capabilities": [{"action": "speak", "enabled": true, "ready": true, "cooling_until": null, "energy_cost": 1}],
+    "energy": {"spent_today": 42, "budget": 100},
+    "actions_today": [{"type": "speak", "count": 15, "total_energy": 15}]
+  }
+  ```
+- `GET /api/dashboard/behavioral` — returns JSON:
+  ```json
+  {
+    "habits": [{"action": "...", "trigger_context": {}, "strength": 0.72, "last_fired": "...", "fire_count": 8}],
+    "inhibitions": [{"action": "...", "context": "...", "strength": 0.35, "trigger_count": 3}],
+    "suppressions": [{"action": "...", "impulse": 0.7, "reason": "...", "timestamp": "..."}],
+    "habit_skips_today": 4
+  }
+  ```
+
+**Step 3 — TypeScript types.** Add to `window/src/lib/types.ts`:
+- `ActionCapabilityView` — {action, enabled, ready, cooling_until, energy_cost}
+- `BodyPanelData` — {capabilities: ActionCapabilityView[], energy: {spent_today, budget}, actions_today: {type, count, total_energy}[]}
+- `HabitView` — {action, trigger_context, strength, last_fired, fire_count}
+- `InhibitionView` — {action, context, strength, trigger_count}
+- `SuppressionView` — {action, impulse, reason, timestamp}
+- `BehavioralPanelData` — {habits: HabitView[], inhibitions: InhibitionView[], suppressions: SuppressionView[], habit_skips_today: number}
+
+**Step 4 — API client.** Add to `window/src/lib/dashboard-api.ts`:
+- `fetchBodyData(): Promise<BodyPanelData>`
+- `fetchBehavioralData(): Promise<BehavioralPanelData>`
+
+**Step 5 — React panels.**
+- `window/src/components/dashboard/BodyPanel.tsx`:
+  - Capability grid: rows for each action. Green dot = enabled+ready. Yellow dot = cooling down (show remaining seconds). Grey dot = disabled. Columns: action name, status dot, energy cost, times used today.
+  - Energy bar: horizontal bar showing spent/budget with percentage.
+  - Actions today: simple table sorted by count desc.
+  - Auto-refresh every 10s.
+
+- `window/src/components/dashboard/BehavioralPanel.tsx`:
+  - Top habits: table with strength shown as a colored bar (0-1 scale, green ≥0.6 = auto-fire territory). Columns: action, trigger context (compact), strength bar, fire count.
+  - Active inhibitions: table sorted by strength. Columns: action, context, strength, trigger count.
+  - "She almost..." feed: reverse-chronological list of suppressions. Each item shows action name, impulse strength, reason it was suppressed, how long ago. Style like an activity feed.
+  - Cost savings: single number showing habit-skip count today with label "Cortex calls saved by habits."
+  - Auto-refresh every 10s.
+
+**Step 6 — Wire into dashboard page.** Add both panels to `window/src/app/dashboard/page.tsx` in the grid layout. Place BodyPanel after the existing Drives panel. Place BehavioralPanel after BodyPanel.
+
 **Scope (files you may touch):**
+- `db.py` (add query functions — at END of file only)
+- `api/dashboard_routes.py` (if exists after TASK-002) OR `heartbeat_server.py` (if 002 not done)
 - `window/src/components/dashboard/BodyPanel.tsx` (new)
 - `window/src/components/dashboard/BehavioralPanel.tsx` (new)
-- `window/src/app/dashboard/page.tsx` (add panels)
-- `window/src/lib/dashboard-api.ts` (add API calls)
-- `window/src/lib/types.ts` (add TypeScript types)
-- `heartbeat_server.py` (add `_http_dashboard_body` and `_http_dashboard_behavioral` endpoints)
-- `db.py` (add query functions for action_log, habits, inhibitions — at END)
+- `window/src/app/dashboard/page.tsx`
+- `window/src/lib/dashboard-api.ts`
+- `window/src/lib/types.ts`
+
 **Scope (files you may NOT touch):**
 - `heartbeat.py`
-- `pipeline/*`
+- `pipeline/*` (all pipeline files)
 - `sleep.py`
-**Tests:** Verify endpoints return correct JSON. Panels render without errors.
-**Definition of done:** Dashboard shows body state and behavioral data. "She almost..." feed works.
+- `models/*`
+
+**Tests:**
+- `tests/test_dashboard_body.py`: verify `/api/dashboard/body` returns correct JSON shape. Test with empty action_log (fresh day). Test with seeded action_log entries.
+- `tests/test_dashboard_behavioral.py`: verify `/api/dashboard/behavioral` returns correct JSON shape. Test with no habits/inhibitions. Test with seeded data. Verify suppressions filter by min_impulse.
+- Verify existing dashboard tests still pass.
+
+**Definition of done:**
+- Both panels render on the dashboard without errors.
+- Endpoints return correct data from real DB tables.
+- Capability grid shows accurate ready/cooling/disabled status.
+- "She almost..." feed shows suppressed actions with impulse > 0.5.
+- Habit-skip cost savings counter works.
+- Auto-refresh doesn't break WebSocket or cause memory leaks.
 
 ---
 
