@@ -177,3 +177,9 @@ python simulate.py --cycles 10
 - Don't use `time.time()` or `datetime.now()` — use `clock.now()` for simulation compat
 - Don't add print statements without `[ModuleName]` prefix
 - Don't modify the character bible or identity without owner approval
+
+## Sub-Agent Rules
+
+- Use sub-agents for: code review (Step 9), test runs, doc updates
+- Do NOT parallelize file edits on the same file
+- Background test runs with Ctrl+B when they're slow
