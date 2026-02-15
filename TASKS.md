@@ -998,6 +998,33 @@ In `prompt_assembler.py`: if `habit_boost` is present, add a line to cortex cont
 
 ---
 
+### TASK-033: Wire feed ingestion into heartbeat loop + populate feed sources
+**Status:** READY
+**Priority:** High
+**Depends on:** TASK-027 (Feed dashboard panel)
+**Description:** `run_feed_ingestion()` in `feed_ingester.py` is fully built but never fires because `FEED_SOURCES` in `config/feeds.py` is empty (all commented out). The heartbeat loop already has the call site (lines 450-465 of `heartbeat.py`) that imports and calls `run_feed_ingestion()` on a 1-hour interval, and handles pool expiry + capping. But with an empty source list, nothing happens.
+
+Fix:
+1. Populate `FEED_SOURCES` in `config/feeds.py` with 3-5 real RSS feeds appropriate for the shopkeeper character (art, Tokyo culture, literature, antiques, curiosities).
+2. Verify that after one ingestion cycle, `content_pool` has >0 rows and the Content Pool dashboard panel shows items.
+
+The heartbeat wiring already exists — this task is about populating the config and verifying end-to-end flow.
+
+**Scope (files you may touch):**
+- `config/feeds.py` (populate FEED_SOURCES with real RSS feeds)
+
+**Scope (files you may NOT touch):**
+- `feed_ingester.py` (already complete)
+- `db/content.py` (already complete)
+- `heartbeat.py` (wiring already exists)
+- `pipeline/*`
+- `window/`
+
+**Tests:** Run `python -c "import asyncio; from feed_ingester import run_feed_ingestion; print(asyncio.run(run_feed_ingestion()))"` and verify return value > 0. Check `content_pool` table has rows. Content Pool dashboard panel shows items after ingestion.
+**Definition of done:** `FEED_SOURCES` contains 3-5 working RSS feeds. Feed ingestion runs successfully and populates the content pool. Dashboard reflects the ingested content.
+
+---
+
 ## Completed Tasks
 
 _None yet._
