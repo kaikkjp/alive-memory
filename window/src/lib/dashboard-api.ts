@@ -7,7 +7,7 @@
 import { authManager } from './auth-manager';
 
 const API_BASE =
-  process.env.NEXT_PUBLIC_DASHBOARD_API_URL || 'http://localhost:8080';
+  process.env.NEXT_PUBLIC_DASHBOARD_API_URL ?? '';
 
 export async function dashboardFetch(
   path: string,
