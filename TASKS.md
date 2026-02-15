@@ -669,7 +669,7 @@ Fix: (1) Extract+validate `Authorization: Bearer` header on all `_http_dashboard
 ---
 
 ### TASK-021b: Wire scene compositor to ALIVE pipeline state
-**Status:** BACKLOG
+**Status:** DONE (2026-02-16)
 **Priority:** High
 **Depends on:** TASK-021a (compositor component exists and works standalone)
 **Description:** Connect the scene compositor to live ALIVE pipeline state. Sprite resolution happens server-side in `pipeline/scene.py` (which already has access to drives, mood, activity, visitors). The resolved sprite state is broadcast via `window_state.py` WebSocket payload. Frontend reads it and passes to SceneCanvas. Time-of-day is derived server-side from `clock.py`.

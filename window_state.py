@@ -11,7 +11,7 @@ No LLM calls. All deterministic.
 from datetime import datetime, timezone, timedelta
 
 import db
-from pipeline.scene import build_scene_layers, get_time_of_day
+from pipeline.scene import build_scene_layers, get_time_of_day, resolve_sprite_state, resolve_time_of_day
 
 JST = timezone(timedelta(hours=9))
 
@@ -113,6 +113,10 @@ async def build_initial_state(clock_now: datetime = None) -> dict:
     else:
         status = 'awake'
 
+    # Resolve scene compositor fields
+    sprite_state = resolve_sprite_state(drives, engagement, room, [])
+    time_of_day = resolve_time_of_day()
+
     return {
         'type': 'scene_update',
         'layers': layers.to_dict(),
@@ -132,6 +136,8 @@ async def build_initial_state(clock_now: datetime = None) -> dict:
             'time_label': get_time_label(clock_now),
             'status': status,
             'visitor_present': engagement.status == 'engaged',
+            'sprite_state': sprite_state,
+            'time_of_day': time_of_day,
         },
         'timestamp': clock_now.isoformat(),
     }
@@ -163,6 +169,16 @@ async def build_cycle_broadcast(
         shop_status=shop_status,
     )
 
+    # Resolve scene compositor fields
+    room = await db.get_room_state()
+    recent_events = await db.get_recent_events(limit=5)
+    recent_event_dicts = [
+        {'event_type': getattr(e, 'event_type', ''), 'ts': getattr(e, 'ts', '')}
+        for e in recent_events
+    ]
+    sprite_state = resolve_sprite_state(drives, engagement, room, recent_event_dicts)
+    time_of_day = resolve_time_of_day()
+
     return {
         'type': 'scene_update',
         'layers': layers.to_dict(),
@@ -180,6 +196,8 @@ async def build_cycle_broadcast(
             'time_label': get_time_label(clock_now),
             'status': 'sleeping' if shop_status == 'closed' else 'awake',
             'visitor_present': engagement.status == 'engaged',
+            'sprite_state': sprite_state,
+            'time_of_day': time_of_day,
         },
         'timestamp': clock_now.isoformat(),
     }
