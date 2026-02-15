@@ -18,10 +18,8 @@ import hmac
 import json
 import mimetypes
 import os
-import secrets
 import signal
 import sys
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
@@ -41,6 +39,22 @@ from models.event import Event
 from pipeline.ack import on_visitor_message, on_visitor_connect, on_visitor_disconnect
 from pipeline.enrich import fetch_url_metadata
 from pipeline.sanitize import sanitize_input
+from api import dashboard_routes
+
+# Re-export dashboard auth functions for backward compatibility.
+# These now live in api.dashboard_routes but existing code/tests may
+# import them from heartbeat_server.
+_create_dashboard_token = dashboard_routes._create_dashboard_token
+_check_dashboard_token = dashboard_routes._check_dashboard_token
+_check_dashboard_auth = dashboard_routes.check_dashboard_auth
+_dashboard_tokens = dashboard_routes._dashboard_tokens
+_DASHBOARD_TOKEN_TTL = dashboard_routes._DASHBOARD_TOKEN_TTL
+_check_rate_limit = dashboard_routes._check_rate_limit
+_record_auth_attempt = dashboard_routes._record_auth_attempt
+_reset_auth_attempts = dashboard_routes._reset_auth_attempts
+_auth_attempts = dashboard_routes._auth_attempts
+_AUTH_MAX_ATTEMPTS = dashboard_routes._AUTH_MAX_ATTEMPTS
+_AUTH_WINDOW_SECONDS = dashboard_routes._AUTH_WINDOW_SECONDS
 
 colorama_init()
 
@@ -78,72 +92,6 @@ def _cors_origin_for(request_origin: str) -> str:
 TRANSPARENT_PNG = base64.b64decode(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+lm1sAAAAASUVORK5CYII='
 )
-
-# Dashboard session tokens: {token_str: expiry_timestamp}
-_dashboard_tokens: dict[str, float] = {}
-_DASHBOARD_TOKEN_TTL = 86400  # 24 hours
-
-
-def _create_dashboard_token() -> str:
-    """Generate session token, store with 24h expiry, prune expired."""
-    now = time.time()
-    expired = [t for t, exp in _dashboard_tokens.items() if exp < now]
-    for t in expired:
-        _dashboard_tokens.pop(t, None)
-    token = secrets.token_urlsafe(32)
-    _dashboard_tokens[token] = now + _DASHBOARD_TOKEN_TTL
-    return token
-
-
-def _check_dashboard_token(token: str) -> bool:
-    """Validate token against active set."""
-    if not token:
-        return False
-    expiry = _dashboard_tokens.get(token)
-    if expiry is None:
-        return False
-    if time.time() > expiry:
-        _dashboard_tokens.pop(token, None)
-        return False
-    return True
-
-
-def _check_dashboard_auth(authorization: str) -> bool:
-    """Extract Bearer token from Authorization header and validate."""
-    if not authorization:
-        return False
-    parts = authorization.split(None, 1)
-    if len(parts) != 2 or parts[0].lower() != 'bearer':
-        return False
-    return _check_dashboard_token(parts[1])
-
-
-# Rate limiting for dashboard login: {ip: [timestamp, ...]}
-_auth_attempts: dict[str, list[float]] = {}
-_AUTH_MAX_ATTEMPTS = 10
-_AUTH_WINDOW_SECONDS = 300  # 5 minutes
-
-
-def _check_rate_limit(client_ip: str) -> bool:
-    """Return True if request is allowed, False if rate-limited."""
-    now = time.time()
-    cutoff = now - _AUTH_WINDOW_SECONDS
-    attempts = _auth_attempts.get(client_ip, [])
-    # Prune old attempts outside the rolling window
-    attempts = [t for t in attempts if t > cutoff]
-    _auth_attempts[client_ip] = attempts
-    return len(attempts) < _AUTH_MAX_ATTEMPTS
-
-
-def _record_auth_attempt(client_ip: str) -> None:
-    """Record a failed auth attempt for rate limiting."""
-    _auth_attempts.setdefault(client_ip, []).append(time.time())
-
-
-def _reset_auth_attempts(client_ip: str) -> None:
-    """Clear rate-limit state after successful auth."""
-    _auth_attempts.pop(client_ip, None)
-
 
 def _load_bind_address() -> tuple[str, int]:
     """Load host/port from env with validation."""
@@ -991,29 +939,29 @@ class ShopkeeperServer:
                 await self._http_validate_token(writer, body_bytes)
             elif path == '/api/og' and method == 'GET':
                 await self._http_og_image(writer)
-            # Dashboard API endpoints (token-protected)
+            # Dashboard API endpoints (token-protected) — delegated to api.dashboard_routes
             elif path == '/api/dashboard/auth' and method == 'POST':
                 peername = writer.get_extra_info('peername')
                 client_ip = peername[0] if peername else 'unknown'
-                await self._http_dashboard_auth(writer, body_bytes, client_ip)
+                await dashboard_routes.handle_auth(self, writer, body_bytes, client_ip)
             elif path == '/api/dashboard/vitals' and method == 'GET':
-                await self._http_dashboard_vitals(writer, authorization)
+                await dashboard_routes.handle_vitals(self, writer, authorization)
             elif path == '/api/dashboard/drives' and method == 'GET':
-                await self._http_dashboard_drives(writer, authorization)
+                await dashboard_routes.handle_drives(self, writer, authorization)
             elif path == '/api/dashboard/costs' and method == 'GET':
-                await self._http_dashboard_costs(writer, authorization)
+                await dashboard_routes.handle_costs(self, writer, authorization)
             elif path == '/api/dashboard/threads' and method == 'GET':
-                await self._http_dashboard_threads(writer, authorization)
+                await dashboard_routes.handle_threads(self, writer, authorization)
             elif path == '/api/dashboard/pool' and method == 'GET':
-                await self._http_dashboard_pool(writer, authorization)
+                await dashboard_routes.handle_pool(self, writer, authorization)
             elif path == '/api/dashboard/collection' and method == 'GET':
-                await self._http_dashboard_collection(writer, authorization)
+                await dashboard_routes.handle_collection(self, writer, authorization)
             elif path == '/api/dashboard/timeline' and method == 'GET':
-                await self._http_dashboard_timeline(writer, authorization)
+                await dashboard_routes.handle_timeline(self, writer, authorization)
             elif path == '/api/dashboard/controls/cycle' and method == 'POST':
-                await self._http_dashboard_trigger_cycle(writer, authorization)
+                await dashboard_routes.handle_trigger_cycle(self, writer, authorization)
             elif path == '/api/dashboard/controls/status' and method == 'GET':
-                await self._http_dashboard_status(writer, authorization)
+                await dashboard_routes.handle_status(self, writer, authorization)
             else:
                 await self._http_json(writer, 404, {'error': 'not found'})
         except (asyncio.TimeoutError, ConnectionResetError, BrokenPipeError):
@@ -1150,196 +1098,6 @@ class ShopkeeperServer:
         self._missing_assets_logged.add(rel)
         self._missing_assets_queue.append(rel)
         print(f"  {Fore.YELLOW}[Asset]{Style.RESET_ALL} Missing: {rel}")
-
-    async def _http_dashboard_auth(self, writer: asyncio.StreamWriter,
-                                     body_bytes: bytes, client_ip: str):
-        """Handle POST /api/dashboard/auth — validate dashboard password."""
-        # Rate limiting: reject if too many failed attempts from this IP
-        if not _check_rate_limit(client_ip):
-            await self._http_json(writer, 429, {
-                'error': 'too many attempts, try again later',
-            })
-            return
-
-        try:
-            data = json.loads(body_bytes.decode('utf-8'))
-            password = data.get('password', '')
-            if not isinstance(password, str):
-                await self._http_json(writer, 400, {'error': 'bad request'})
-                return
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            await self._http_json(writer, 400, {'error': 'bad request'})
-            return
-
-        # Read password from environment (DASHBOARD_PASSWORD)
-        expected = os.environ.get('DASHBOARD_PASSWORD')
-        if not expected:
-            await self._http_json(writer, 503, {
-                'error': 'DASHBOARD_PASSWORD not configured',
-            })
-            return
-
-        if hmac.compare_digest(password, expected):
-            _reset_auth_attempts(client_ip)
-            token = _create_dashboard_token()
-            await self._http_json(writer, 200, {
-                'authenticated': True,
-                'token': token,
-            })
-        else:
-            _record_auth_attempt(client_ip)
-            await self._http_json(writer, 401, {'authenticated': False})
-
-    async def _http_dashboard_vitals(self, writer: asyncio.StreamWriter,
-                                      authorization: str):
-        """Handle GET /api/dashboard/vitals — return vitals panel data."""
-        if not _check_dashboard_auth(authorization):
-            await self._http_json(writer, 401, {'error': 'unauthorized'})
-            return
-        days_alive = await db.get_days_alive()
-        visitor_count_today = await db.get_visitor_count_today()
-        cycle_count = await db.get_flashbulb_count_today()
-        llm_calls_today = await db.get_llm_call_count_today()
-        cost_today = await db.get_llm_call_cost_today()
-
-        await self._http_json(writer, 200, {
-            'days_alive': days_alive,
-            'visitors_today': visitor_count_today,
-            'cycles_today': cycle_count,
-            'llm_calls_today': llm_calls_today,
-            'cost_today': cost_today,
-        })
-
-    async def _http_dashboard_drives(self, writer: asyncio.StreamWriter,
-                                     authorization: str):
-        """Handle GET /api/dashboard/drives — return drives state."""
-        if not _check_dashboard_auth(authorization):
-            await self._http_json(writer, 401, {'error': 'unauthorized'})
-            return
-        drives = await db.get_drives_state()
-        await self._http_json(writer, 200, {
-            'social_hunger': drives.social_hunger,
-            'curiosity': drives.curiosity,
-            'expression_need': drives.expression_need,
-            'rest_need': drives.rest_need,
-            'energy': drives.energy,
-            'mood_valence': drives.mood_valence,
-            'mood_arousal': drives.mood_arousal,
-            'updated_at': drives.updated_at.isoformat() if drives.updated_at else None,
-        })
-
-    async def _http_dashboard_costs(self, writer: asyncio.StreamWriter,
-                                    authorization: str):
-        """Handle GET /api/dashboard/costs — return cost tracking data."""
-        if not _check_dashboard_auth(authorization):
-            await self._http_json(writer, 401, {'error': 'unauthorized'})
-            return
-        summary = await db.get_llm_costs_summary()
-        daily = await db.get_llm_daily_costs(days=30)
-        await self._http_json(writer, 200, {
-            'summary': summary,
-            'daily': daily,
-        })
-
-    async def _http_dashboard_threads(self, writer: asyncio.StreamWriter,
-                                      authorization: str):
-        """Handle GET /api/dashboard/threads — return active conversation threads."""
-        if not _check_dashboard_auth(authorization):
-            await self._http_json(writer, 401, {'error': 'unauthorized'})
-            return
-        # Get recent cycle logs to show conversation activity
-        conn = await db.get_db()
-        cursor = await conn.execute(
-            """SELECT id, mode, dialogue, internal_monologue, ts
-               FROM cycle_log
-               WHERE dialogue IS NOT NULL AND dialogue != ''
-               ORDER BY ts DESC LIMIT 20"""
-        )
-        rows = await cursor.fetchall()
-        threads = [{
-            'id': r['id'],
-            'mode': r['mode'],
-            'dialogue': r['dialogue'],
-            'internal_monologue': r['internal_monologue'],
-            'ts': r['ts'],
-        } for r in rows]
-        await self._http_json(writer, 200, {'threads': threads})
-
-    async def _http_dashboard_pool(self, writer: asyncio.StreamWriter,
-                                   authorization: str):
-        """Handle GET /api/dashboard/pool — return day memory pool."""
-        if not _check_dashboard_auth(authorization):
-            await self._http_json(writer, 401, {'error': 'unauthorized'})
-            return
-        from pipeline.day_memory import DayMemoryEntry
-        moments = await db.get_day_memory(limit=20)
-        pool = [{
-            'id': m.id,
-            'summary': m.summary,
-            'salience': m.salience,
-            'moment_type': m.moment_type,
-            'visitor_id': m.visitor_id,
-            'ts': m.ts.isoformat(),
-        } for m in moments]
-        await self._http_json(writer, 200, {'pool': pool})
-
-    async def _http_dashboard_collection(self, writer: asyncio.StreamWriter,
-                                          authorization: str):
-        """Handle GET /api/dashboard/collection — return collection items."""
-        if not _check_dashboard_auth(authorization):
-            await self._http_json(writer, 401, {'error': 'unauthorized'})
-            return
-        items = await db.search_collection(query='', limit=20)
-        collection = [{
-            'id': item.id,
-            'title': item.title,
-            'item_type': item.item_type,
-            'location': item.location,
-            'origin': item.origin,
-            'her_feeling': item.her_feeling,
-            'created_at': item.created_at.isoformat() if item.created_at else None,
-        } for item in items]
-        await self._http_json(writer, 200, {'collection': collection})
-
-    async def _http_dashboard_timeline(self, writer: asyncio.StreamWriter,
-                                       authorization: str):
-        """Handle GET /api/dashboard/timeline — return recent events."""
-        if not _check_dashboard_auth(authorization):
-            await self._http_json(writer, 401, {'error': 'unauthorized'})
-            return
-        events = await db.get_recent_events(limit=50)
-        timeline = [{
-            'id': e.id,
-            'event_type': e.event_type,
-            'source': e.source,
-            'ts': e.ts.isoformat(),
-            'payload': e.payload,
-        } for e in events]
-        await self._http_json(writer, 200, {'timeline': timeline})
-
-    async def _http_dashboard_trigger_cycle(self, writer: asyncio.StreamWriter,
-                                              authorization: str):
-        """Handle POST /api/dashboard/controls/cycle — manually trigger a cycle."""
-        if not _check_dashboard_auth(authorization):
-            await self._http_json(writer, 401, {'error': 'unauthorized'})
-            return
-        await self.heartbeat.schedule_microcycle()
-        await self._http_json(writer, 200, {'triggered': True})
-
-    async def _http_dashboard_status(self, writer: asyncio.StreamWriter,
-                                     authorization: str):
-        """Handle GET /api/dashboard/controls/status — return heartbeat status."""
-        if not _check_dashboard_auth(authorization):
-            await self._http_json(writer, 401, {'error': 'unauthorized'})
-            return
-        engagement = await db.get_engagement_state()
-        room = await db.get_room_state()
-        await self._http_json(writer, 200, {
-            'heartbeat_active': self.heartbeat._running if hasattr(self.heartbeat, '_running') else False,
-            'engagement_status': engagement.status,
-            'shop_status': room.shop_status,
-            'active_visitor': engagement.visitor_id,
-        })
 
     async def _http_cors_preflight(self, writer: asyncio.StreamWriter):
         """Handle OPTIONS preflight for CORS."""

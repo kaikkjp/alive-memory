@@ -36,7 +36,7 @@
 ---
 
 ### TASK-002: Split heartbeat_server.py HTTP routes into separate module
-**Status:** READY
+**Status:** DONE (2026-02-15)
 **Priority:** Medium
 **Description:** `heartbeat_server.py` is 1092 lines mixing TCP, WebSocket, and HTTP concerns. Extract all `_http_dashboard_*` methods (lines 920-1070) into a new `api/dashboard_routes.py` module. The `ShopkeeperServer` class should delegate to it.
 **Scope (files you may touch):**
