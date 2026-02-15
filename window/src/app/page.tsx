@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useShopkeeperSocket } from '@/hooks/useShopkeeperSocket';
 import { useSceneTransition } from '@/hooks/useSceneTransition';
@@ -25,6 +25,14 @@ const TIME_OF_DAY_OPTIONS: TimeOfDay[] = [
 ];
 
 export default function WindowPage() {
+  return (
+    <Suspense>
+      <WindowPageInner />
+    </Suspense>
+  );
+}
+
+function WindowPageInner() {
   const searchParams = useSearchParams();
   const debugScene = searchParams.get('debug') === 'scene';
 
