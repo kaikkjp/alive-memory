@@ -399,7 +399,7 @@
 ---
 
 ### TASK-015: Body Phase 5 — Dashboard panels
-**Status:** BACKLOG
+**Status:** DONE (2026-02-15)
 **Priority:** Medium
 **Depends on:** TASK-002 (dashboard routes extracted), TASK-011b (habits complete)
 **Design doc:** `body-spec-v2.md` §9

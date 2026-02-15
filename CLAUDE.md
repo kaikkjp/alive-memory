@@ -36,6 +36,8 @@ Implement the task. Stay within scope. If you discover a bug in an out-of-scope 
 
 **Plan Mode for sensitive tasks:** If the task is marked `Priority: High`, OR touches `db.py`, OR touches any `pipeline/*` file, use Plan Mode (Shift+Tab twice) before writing any code. Draft a plan showing which files you'll change, what each change does, and the order of operations. Show the plan. Wait for operator approval before proceeding.
 
+Skip Plan Mode if the task spec already contains numbered implementation steps — follow those directly.
+
 ### Step 5: Run tests (after)
 ```bash
 python -m pytest tests/ -v

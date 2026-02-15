@@ -962,6 +962,10 @@ class ShopkeeperServer:
                 await dashboard_routes.handle_trigger_cycle(self, writer, authorization)
             elif path == '/api/dashboard/controls/status' and method == 'GET':
                 await dashboard_routes.handle_status(self, writer, authorization)
+            elif path == '/api/dashboard/body' and method == 'GET':
+                await dashboard_routes.handle_body(self, writer, authorization)
+            elif path == '/api/dashboard/behavioral' and method == 'GET':
+                await dashboard_routes.handle_behavioral(self, writer, authorization)
             else:
                 await self._http_json(writer, 404, {'error': 'not found'})
         except (asyncio.TimeoutError, ConnectionResetError, BrokenPipeError):

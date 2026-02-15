@@ -11,6 +11,8 @@ ensure_aiohttp_stub()
 from pipeline import cold_search as cold_search_mod
 from pipeline import embed_cold as embed_cold_mod
 import sleep
+from db import _row_to_daily_summary
+from models.state import DailySummary
 
 
 class _Tx:
@@ -345,7 +347,6 @@ class DailySummaryRoundTripTests(unittest.IsolatedAsyncioTestCase):
 
     def test_daily_summary_has_index_fields(self):
         """DailySummary should have moment_count, moment_ids, journal_entry_ids."""
-        from models.state import DailySummary
         ds = DailySummary(id="ds1")
         self.assertEqual(ds.moment_count, 0)
         self.assertEqual(ds.moment_ids, [])
@@ -355,7 +356,6 @@ class DailySummaryRoundTripTests(unittest.IsolatedAsyncioTestCase):
 
     def test_daily_summary_no_legacy_fields(self):
         """DailySummary should NOT have the old summary_bullets or journal_entry_id fields."""
-        from models.state import DailySummary
         ds = DailySummary(id="ds1")
         self.assertFalse(hasattr(ds, 'summary_bullets'))
         self.assertFalse(hasattr(ds, 'journal_entry_id'))
@@ -363,10 +363,7 @@ class DailySummaryRoundTripTests(unittest.IsolatedAsyncioTestCase):
     def test_daily_summary_round_trip_via_db_helper(self):
         """_row_to_daily_summary should unpack the legacy summary_bullets JSON
         into the new DailySummary dataclass fields."""
-        from db import _row_to_daily_summary
-        from models.state import DailySummary
-
-        # Simulate a DB row as a dict (sqlite3.Row-compatible)
+        # Uses module-level imports to avoid cross-test pollution
         index_json = json.dumps({
             'moment_count': 3,
             'moment_ids': ['m1', 'm2', 'm3'],
@@ -398,8 +395,7 @@ class DailySummaryRoundTripTests(unittest.IsolatedAsyncioTestCase):
 
     def test_daily_summary_round_trip_empty_index(self):
         """_row_to_daily_summary handles NULL/empty summary_bullets gracefully."""
-        from db import _row_to_daily_summary
-
+        # Uses module-level import to avoid cross-test pollution
         row = {
             'id': 'ds-empty',
             'day_number': 1,
