@@ -31,6 +31,16 @@ NEXT_PUBLIC_SITE_URL="https://${DOMAIN}" \
 npm run build
 cd ..
 
+# ─── Sync nginx config (if changed) ───
+echo "[deploy] Syncing nginx config..."
+if ! diff -q "${APP_DIR}/nginx/shopkeeper.conf" /etc/nginx/sites-available/shopkeeper &>/dev/null; then
+    sudo cp "${APP_DIR}/nginx/shopkeeper.conf" /etc/nginx/sites-available/shopkeeper
+    sudo nginx -t && sudo systemctl reload nginx
+    echo "[deploy] Nginx config updated and reloaded"
+else
+    echo "[deploy] Nginx config unchanged, skipping"
+fi
+
 # ─── Restart service ───
 echo "[deploy] Restarting shopkeeper service..."
 sudo systemctl restart shopkeeper
