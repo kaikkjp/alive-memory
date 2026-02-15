@@ -26,6 +26,7 @@ echo "[deploy] Installing Python dependencies..."
 # ─── Build frontend ───
 echo "[deploy] Building frontend..."
 cd window
+rm -rf node_modules .next
 npm ci --silent
 NEXT_PUBLIC_SITE_URL="https://${DOMAIN}" \
 npm run build
