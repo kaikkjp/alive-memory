@@ -186,3 +186,23 @@ export interface BehavioralPanelData {
   suppressions: SuppressionView[];
   habit_skips_today: number;
 }
+
+// ─── Dashboard: Content Pool Panel ───
+
+export interface ContentPoolTypeBreakdown {
+  source_type: string;
+  count: number;
+}
+
+export interface ContentPoolRecentItem {
+  title: string;
+  source_type: string;
+  added_at: string;
+}
+
+export interface ContentPoolData {
+  total: number;
+  by_type: ContentPoolTypeBreakdown[];
+  recent: ContentPoolRecentItem[];
+  oldest_age_hours: number | null;
+}

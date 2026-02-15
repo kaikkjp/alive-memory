@@ -966,6 +966,8 @@ class ShopkeeperServer:
                 await dashboard_routes.handle_body(self, writer, authorization)
             elif path == '/api/dashboard/behavioral' and method == 'GET':
                 await dashboard_routes.handle_behavioral(self, writer, authorization)
+            elif path == '/api/dashboard/content-pool' and method == 'GET':
+                await dashboard_routes.handle_content_pool(self, writer, authorization)
             else:
                 await self._http_json(writer, 404, {'error': 'not found'})
         except (asyncio.TimeoutError, ConnectionResetError, BrokenPipeError):

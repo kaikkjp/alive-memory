@@ -13,6 +13,7 @@ import TimelinePanel from '@/components/dashboard/TimelinePanel';
 import ControlsPanel from '@/components/dashboard/ControlsPanel';
 import BodyPanel from '@/components/dashboard/BodyPanel';
 import BehavioralPanel from '@/components/dashboard/BehavioralPanel';
+import ContentPoolPanel from '@/components/dashboard/ContentPoolPanel';
 
 export default function DashboardPage() {
   const [authenticated, setAuthenticated] = useState(false);
@@ -108,6 +109,7 @@ export default function DashboardPage() {
           <ThreadsPanel />
           <PoolPanel />
           <CollectionPanel />
+          <ContentPoolPanel />
           <TimelinePanel />
           <ControlsPanel />
         </div>

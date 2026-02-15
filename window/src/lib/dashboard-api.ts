@@ -107,4 +107,9 @@ export const dashboardApi = {
     const res = await dashboardFetch('/api/dashboard/behavioral');
     return res.json();
   },
+
+  async getContentPool() {
+    const res = await dashboardFetch('/api/dashboard/content-pool');
+    return res.json();
+  },
 };
