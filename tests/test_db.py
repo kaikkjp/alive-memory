@@ -207,3 +207,50 @@ class TestTransaction:
             e.payload.get('detail') == 'should_rollback'
             for e in events
         )
+
+
+class TestContentPoolDashboard:
+    """Content pool dashboard query function."""
+
+    @pytest.mark.asyncio
+    async def test_empty_pool_returns_zeros(self):
+        data = await db.get_content_pool_dashboard()
+        assert data['total'] == 0
+        assert data['by_type'] == []
+        assert data['recent'] == []
+        assert data['oldest_age_hours'] is None
+
+    @pytest.mark.asyncio
+    async def test_pool_with_items(self):
+        await db.add_to_content_pool(
+            fingerprint='fp1', source_type='rss_headline',
+            source_channel='tech_feed', content='Test article content',
+            title='Test Article',
+        )
+        await db.add_to_content_pool(
+            fingerprint='fp2', source_type='visitor_drop',
+            source_channel='visitor', content='A gift from a visitor',
+            title='Visitor Gift',
+        )
+        data = await db.get_content_pool_dashboard()
+        assert data['total'] == 2
+        assert len(data['by_type']) == 2
+        types = {t['source_type'] for t in data['by_type']}
+        assert 'rss_headline' in types
+        assert 'visitor_drop' in types
+        assert len(data['recent']) == 2
+        assert data['oldest_age_hours'] is not None
+        assert data['oldest_age_hours'] >= 0
+
+    @pytest.mark.asyncio
+    async def test_recent_items_have_required_fields(self):
+        await db.add_to_content_pool(
+            fingerprint='fp3', source_type='rss_headline',
+            source_channel='feed', content='Content', title='My Title',
+        )
+        data = await db.get_content_pool_dashboard()
+        item = data['recent'][0]
+        assert 'title' in item
+        assert 'source_type' in item
+        assert 'added_at' in item
+        assert item['title'] == 'My Title'

@@ -341,6 +341,16 @@ async def handle_body(server, writer: asyncio.StreamWriter,
     })
 
 
+async def handle_content_pool(server, writer: asyncio.StreamWriter,
+                               authorization: str):
+    """Handle GET /api/dashboard/content-pool — return content pool overview."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+    data = await db.get_content_pool_dashboard()
+    await server._http_json(writer, 200, data)
+
+
 async def handle_behavioral(server, writer: asyncio.StreamWriter,
                              authorization: str):
     """Handle GET /api/dashboard/behavioral — return habits, inhibitions, suppressions."""
