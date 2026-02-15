@@ -469,7 +469,7 @@ Fix: (1) Extract+validate `Authorization: Bearer` header on all `_http_dashboard
 ---
 
 ### TASK-019: Restrict CORS to production domain
-**Status:** BACKLOG
+**Status:** DONE (2026-02-15)
 **Priority:** Medium
 **Description:** Both nginx and the Python HTTP handler set `Access-Control-Allow-Origin: *`, allowing any website to make cross-origin API requests. Replace with specific domain allowlist.
 **Scope (files you may touch):**
