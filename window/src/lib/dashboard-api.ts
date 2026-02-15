@@ -112,4 +112,9 @@ export const dashboardApi = {
     const res = await dashboardFetch('/api/dashboard/content-pool');
     return res.json();
   },
+
+  async getFeed() {
+    const res = await dashboardFetch('/api/dashboard/feed');
+    return res.json();
+  },
 };

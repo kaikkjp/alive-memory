@@ -346,6 +346,16 @@ async def handle_content_pool(server, writer: asyncio.StreamWriter,
     await server._http_json(writer, 200, data)
 
 
+async def handle_feed(server, writer: asyncio.StreamWriter,
+                       authorization: str):
+    """Handle GET /api/dashboard/feed — return feed pipeline health."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+    data = await db.get_feed_pipeline_dashboard()
+    await server._http_json(writer, 200, data)
+
+
 async def handle_behavioral(server, writer: asyncio.StreamWriter,
                              authorization: str):
     """Handle GET /api/dashboard/behavioral — return habits, inhibitions, suppressions."""
