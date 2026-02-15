@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { dashboardApi } from '@/lib/dashboard-api';
 
 interface Status {
   heartbeat_active: boolean;
@@ -16,8 +17,7 @@ export default function ControlsPanel() {
 
   const fetchStatus = async () => {
     try {
-      const res = await fetch('http://localhost:8080/api/dashboard/controls/status');
-      const data = await res.json();
+      const data = await dashboardApi.getStatus();
       setStatus(data);
     } catch (err) {
       console.error('Failed to fetch status:', err);
@@ -29,9 +29,7 @@ export default function ControlsPanel() {
   const triggerCycle = async () => {
     setTriggering(true);
     try {
-      await fetch('http://localhost:8080/api/dashboard/controls/cycle', {
-        method: 'POST',
-      });
+      await dashboardApi.triggerCycle();
       // Refresh status after trigger
       await fetchStatus();
     } catch (err) {

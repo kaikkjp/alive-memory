@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { dashboardApi } from '@/lib/dashboard-api';
 
 interface Vitals {
   days_alive: number;
@@ -16,8 +17,7 @@ export default function VitalsPanel() {
 
   const fetchVitals = async () => {
     try {
-      const res = await fetch('http://localhost:8080/api/dashboard/vitals');
-      const data = await res.json();
+      const data = await dashboardApi.getVitals();
       setVitals(data);
     } catch (err) {
       console.error('Failed to fetch vitals:', err);

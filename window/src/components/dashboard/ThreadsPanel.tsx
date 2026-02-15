@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { dashboardApi } from '@/lib/dashboard-api';
 
 interface ThreadInfo {
   id: string;
@@ -21,8 +22,7 @@ export default function ThreadsPanel() {
 
   const fetchThreads = async () => {
     try {
-      const res = await fetch('http://localhost:8080/api/dashboard/threads');
-      const data = await res.json();
+      const data = await dashboardApi.getThreads();
       // Support both old format (cycle logs) and new format (thread objects)
       const raw = data.threads || [];
       setThreads(
