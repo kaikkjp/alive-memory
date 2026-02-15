@@ -14,6 +14,7 @@ import os
 import secrets
 import time
 
+import clock
 import db
 
 
@@ -276,8 +277,48 @@ async def handle_status(server, writer: asyncio.StreamWriter,
         return
     engagement = await db.get_engagement_state()
     room = await db.get_room_state()
+
+    # ─── Heartbeat liveness from actual cycle timestamps ───
+    # Expected max interval between cycles is ~600s (10 min).
+    # 1x interval → active, 2x → late, 3x → inactive.
+    _EXPECTED_INTERVAL = 600  # seconds
+    last_cycle_ts = None
+    seconds_since_last_cycle = None
+    heartbeat_status = 'inactive'
+
+    conn = await db.get_db()
+    cursor = await conn.execute(
+        "SELECT ts FROM cycle_log ORDER BY ts DESC LIMIT 1"
+    )
+    row = await cursor.fetchone()
+    if row and row['ts']:
+        from datetime import datetime, timezone
+        try:
+            ts_str = row['ts']
+            # Parse ISO format timestamp (stored as UTC)
+            if ts_str.endswith('+00:00') or ts_str.endswith('Z'):
+                last_cycle_dt = datetime.fromisoformat(ts_str.replace('Z', '+00:00'))
+            else:
+                last_cycle_dt = datetime.fromisoformat(ts_str).replace(tzinfo=timezone.utc)
+            last_cycle_ts = ts_str
+            now_utc = clock.now_utc()
+            seconds_since_last_cycle = (now_utc - last_cycle_dt).total_seconds()
+
+            if seconds_since_last_cycle <= _EXPECTED_INTERVAL:
+                heartbeat_status = 'active'
+            elif seconds_since_last_cycle <= _EXPECTED_INTERVAL * 3:
+                heartbeat_status = 'late'
+            else:
+                heartbeat_status = 'inactive'
+        except (ValueError, TypeError):
+            pass  # malformed timestamp — fall through to inactive
+
     await server._http_json(writer, 200, {
         'heartbeat_active': server.heartbeat.running,
+        'heartbeat_status': heartbeat_status,
+        'last_cycle_ts': last_cycle_ts,
+        'seconds_since_last_cycle': round(seconds_since_last_cycle) if seconds_since_last_cycle is not None else None,
+        'expected_interval': _EXPECTED_INTERVAL,
         'engagement_status': engagement.status,
         'shop_status': room.shop_status,
         'active_visitor': engagement.visitor_id,

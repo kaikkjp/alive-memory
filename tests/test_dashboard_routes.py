@@ -201,7 +201,91 @@ class TestProtectedRoutes(unittest.TestCase):
         room.shop_status = 'open'
         mock_db.get_engagement_state = AsyncMock(return_value=engagement)
         mock_db.get_room_state = AsyncMock(return_value=room)
+        # Mock db.get_db() → conn.execute() → cursor.fetchone()
+        mock_cursor = MagicMock()
+        mock_cursor.fetchone = AsyncMock(return_value=None)
+        mock_conn = MagicMock()
+        mock_conn.execute = AsyncMock(return_value=mock_cursor)
+        mock_db.get_db = AsyncMock(return_value=mock_conn)
         self._assert_authorized(handle_status)
+
+
+class TestHeartbeatStatus(unittest.TestCase):
+    """Test heartbeat status reflects actual cycle timestamps (TASK-022)."""
+
+    def setUp(self):
+        _dashboard_tokens.clear()
+
+    def tearDown(self):
+        _dashboard_tokens.clear()
+
+    def _get_status_response(self, mock_db, ts_str):
+        """Helper: call handle_status with mocked cycle_log ts, return JSON body."""
+        server = _make_server()
+        writer = MagicMock()
+        token = _create_dashboard_token()
+        auth = f'Bearer {token}'
+
+        engagement = MagicMock()
+        engagement.status = 'none'
+        engagement.visitor_id = None
+        room = MagicMock()
+        room.shop_status = 'open'
+        mock_db.get_engagement_state = AsyncMock(return_value=engagement)
+        mock_db.get_room_state = AsyncMock(return_value=room)
+
+        if ts_str is None:
+            row = None
+        else:
+            row = {'ts': ts_str}
+        mock_cursor = MagicMock()
+        mock_cursor.fetchone = AsyncMock(return_value=row)
+        mock_conn = MagicMock()
+        mock_conn.execute = AsyncMock(return_value=mock_cursor)
+        mock_db.get_db = AsyncMock(return_value=mock_conn)
+
+        _run(handle_status(server, writer, auth))
+        return server._http_json.call_args[0][2]
+
+    @patch('api.dashboard_routes.db')
+    def test_active_when_recent_cycle(self, mock_db):
+        """Cycle within 1 expected interval → active."""
+        from datetime import datetime, timezone, timedelta
+        recent_ts = (datetime.now(timezone.utc) - timedelta(seconds=60)).isoformat()
+        body = self._get_status_response(mock_db, recent_ts)
+        self.assertEqual(body['heartbeat_status'], 'active')
+        self.assertIsNotNone(body['seconds_since_last_cycle'])
+        self.assertLessEqual(body['seconds_since_last_cycle'], 600)
+
+    @patch('api.dashboard_routes.db')
+    def test_late_when_stale_cycle(self, mock_db):
+        """Cycle within 2 expected intervals → late."""
+        from datetime import datetime, timezone, timedelta
+        stale_ts = (datetime.now(timezone.utc) - timedelta(seconds=900)).isoformat()
+        body = self._get_status_response(mock_db, stale_ts)
+        self.assertEqual(body['heartbeat_status'], 'late')
+
+    @patch('api.dashboard_routes.db')
+    def test_inactive_when_no_recent_cycle(self, mock_db):
+        """No cycle within 3 expected intervals → inactive."""
+        from datetime import datetime, timezone, timedelta
+        old_ts = (datetime.now(timezone.utc) - timedelta(seconds=2000)).isoformat()
+        body = self._get_status_response(mock_db, old_ts)
+        self.assertEqual(body['heartbeat_status'], 'inactive')
+
+    @patch('api.dashboard_routes.db')
+    def test_inactive_when_no_cycles_exist(self, mock_db):
+        """No cycle_log entries → inactive, seconds_since null."""
+        body = self._get_status_response(mock_db, None)
+        self.assertEqual(body['heartbeat_status'], 'inactive')
+        self.assertIsNone(body['seconds_since_last_cycle'])
+        self.assertIsNone(body['last_cycle_ts'])
+
+    @patch('api.dashboard_routes.db')
+    def test_response_includes_expected_interval(self, mock_db):
+        """Response always includes expected_interval for frontend calculation."""
+        body = self._get_status_response(mock_db, None)
+        self.assertEqual(body['expected_interval'], 600)
 
 
 class TestBackwardCompatImports(unittest.TestCase):

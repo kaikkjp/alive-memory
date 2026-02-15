@@ -718,7 +718,7 @@ Fix: (1) Extract+validate `Authorization: Bearer` header on all `_http_dashboard
 ---
 
 ### TASK-022: Fix heartbeat status indicator
-**Status:** BACKLOG
+**Status:** DONE (2026-02-16)
 **Priority:** High
 **Description:** The "Heartbeat" field in the Controls panel shows "Inactive" even while cycles are actively running. Read actual heartbeat/cron state (e.g., last cycle timestamp vs expected interval) and display accurate status.
 **Acceptance criteria:**
