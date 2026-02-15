@@ -439,7 +439,7 @@
 ---
 
 ### TASK-017: Verify unengaged visitor timeout path
-**Status:** BACKLOG
+**Status:** DONE (2026-02-15)
 **Priority:** Medium
 **Depends on:** TASK-012
 **Description:** After TASK-012, a visitor can connect but never be engaged (salience < 0.5). Verify that heartbeat_server.py has a connection timeout that disconnects unengaged visitors after a reasonable period (e.g. 5 minutes). If not, add one. Without this, a visitor could sit in the shop forever with no interaction and no cleanup.

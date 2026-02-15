@@ -46,7 +46,7 @@ Terminal/Web Client
 
 | File | Lines | What it does |
 |------|-------|-------------|
-| `heartbeat_server.py` | 1170 | **Main process.** TCP server for terminal clients, HTTP REST API for dashboard, WebSocket for window frontend, sprite generation worker. Start with `python heartbeat_server.py`. |
+| `heartbeat_server.py` | 1453 | **Main process.** TCP server for terminal clients, HTTP REST API for dashboard, WebSocket for window frontend, sprite generation worker. Start with `python heartbeat_server.py`. |
 | `terminal.py` | 1074 | CLI visitor interface + debug commands. Connects to heartbeat_server via TCP. Start with `python terminal.py --connect`. |
 | `simulate.py` | 230 | Offline simulation runner. Runs N cycles without a server, useful for testing. |
 
@@ -242,6 +242,7 @@ Next.js app. Two pages: public shop window + operator dashboard.
 | `tests/test_metacognitive.py` | Self-consistency detection, internal conflict events |
 | `tests/test_multi_visitor.py` | Multi-visitor presence, attention allocation |
 | `tests/test_sleep_cold_memory.py` | Sleep + cold memory integration |
+| `tests/test_visitor_timeout.py` | Unengaged visitor idle timeout cleanup |
 | `tests/test_window_state.py` | Window state broadcast payload |
 | `tests/test_backfill_embeddings.py` | Embedding backfill script |
 | `tests/soak_live.py` | Live soak test (manual) |
@@ -294,7 +295,7 @@ Every module imports `db`. Any change to db.py risks breaking anything. This is 
 
 **Future fix:** Split into `db/events.py`, `db/state.py`, `db/memory.py`, `db/content.py`, `db/analytics.py` with a thin `db/__init__.py` re-exporting for backward compat.
 
-### 2. `heartbeat_server.py` mixes too many concerns (1,170 lines)
+### 2. `heartbeat_server.py` mixes too many concerns (1,453 lines)
 TCP server, HTTP API, WebSocket server, sprite generation worker, and dashboard endpoints in one file/class.
 
 **Future fix:** Extract `api/rest.py`, `api/websocket.py`, `api/tcp.py`, `workers/sprite_worker.py`.
@@ -328,13 +329,13 @@ Metacognitive monitor in `pipeline/output.py` compares executed behavior against
 
 | Area | Files | Lines |
 |------|-------|-------|
-| Core engine (*.py root) | 18 | ~8,589 |
+| Core engine (*.py root) | 18 | ~8,684 |
 | Pipeline (pipeline/*.py) | 29 | ~5,603 |
 | Config | 5 | ~415 |
 | Models | 4 | ~518 |
 | Scripts | 3 | ~455 |
-| Tests | 31 | ~6,165 |
+| Tests | 32 | ~6,428 |
 | Frontend (window/src/) | 28 | ~2,493 |
 | Docs (*.md) | 12 | ~7,222 |
 | Deploy | 7 | ~525 |
-| **Total** | **~137** | **~31,985** |
+| **Total** | **~138** | **~32,343** |

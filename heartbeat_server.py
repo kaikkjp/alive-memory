@@ -51,6 +51,7 @@ WS_PORT = int(os.environ.get('SHOPKEEPER_WS_PORT', '8765'))
 HTTP_PORT = int(os.environ.get('SHOPKEEPER_HTTP_PORT', '8080'))
 ASSET_ROOT = Path(os.environ.get('ASSET_DIR', 'assets')).resolve()
 ASSET_MISS_LOG_LIMIT = 2048
+VISITOR_IDLE_TIMEOUT = 300  # 5 minutes — unengaged visitors cleaned up after this
 
 # CORS: allowed origins (comma-separated).  Empty / unset → wildcard for dev.
 _CORS_ALLOWED_ORIGINS: set[str] = set()
@@ -173,6 +174,7 @@ class ShopkeeperServer:
         self._http_server = None
         self._window_clients: set = set()  # WebSocket connections for window viewers
         self._sprite_gen_task = None
+        self._visitor_timeout_task = None
         self._missing_assets_logged: set[str] = set()
         self._missing_assets_queue: deque[str] = deque()
         self._current_origin = ''  # set per-request in _handle_http
@@ -220,6 +222,9 @@ class ShopkeeperServer:
             print(f"  {Fore.CYAN}[SpriteGen]{Style.RESET_ALL} Worker started.")
         except ImportError:
             print(f"  {Fore.YELLOW}[SpriteGen]{Style.RESET_ALL} Skipped (missing dependencies).")
+
+        # Start visitor idle timeout checker
+        self._visitor_timeout_task = asyncio.create_task(self._visitor_timeout_loop())
 
         # Start heartbeat — she begins living
         await self.heartbeat.start()
@@ -278,6 +283,14 @@ class ShopkeeperServer:
         """Graceful shutdown."""
         print(f"\n  {Fore.CYAN}[Server]{Style.RESET_ALL} Shutting down...")
         await self.heartbeat.stop()
+
+        # Stop visitor timeout checker
+        if self._visitor_timeout_task:
+            self._visitor_timeout_task.cancel()
+            try:
+                await self._visitor_timeout_task
+            except asyncio.CancelledError:
+                pass
 
         # Stop sprite gen worker
         if self._sprite_gen_task:
@@ -403,6 +416,9 @@ class ShopkeeperServer:
                     text = sanitize_input(msg.get('text', ''))
                     if not text:
                         continue
+
+                    # Update last_activity for idle timeout tracking
+                    await db.update_visitor_present(visitor_id, last_activity=clock.now().isoformat())
 
                     # Log conversation
                     await db.append_conversation(visitor_id, 'visitor', text)
@@ -658,6 +674,80 @@ class ShopkeeperServer:
                 pass
 
 
+    # ─── Visitor idle timeout ───
+
+    async def _visitor_timeout_loop(self):
+        """Periodic check: disconnect unengaged visitors idle beyond VISITOR_IDLE_TIMEOUT."""
+        while True:
+            try:
+                await asyncio.sleep(60)  # check every minute
+                await self._check_visitor_timeouts()
+            except asyncio.CancelledError:
+                return
+            except Exception as e:
+                print(f"  [Server] Visitor timeout check error: {e}")
+
+    async def _check_visitor_timeouts(self):
+        """Clean up visitors who have been idle too long without engagement."""
+        visitors = await db.get_visitors_present()
+        if not visitors:
+            return
+
+        engagement = await db.get_engagement_state()
+        now = clock.now()
+
+        for v in visitors:
+            # Skip visitors the shopkeeper is actively engaged with
+            if engagement.visitor_id == v.visitor_id:
+                continue
+
+            # Parse last_activity timestamp
+            last_active = v.last_activity
+            if last_active is None:
+                last_active = v.entered_at
+            if last_active is None:
+                continue
+
+            # Ensure timezone-aware comparison
+            if isinstance(last_active, str):
+                last_active = datetime.fromisoformat(last_active)
+            if last_active.tzinfo is None:
+                last_active = last_active.replace(tzinfo=timezone.utc)
+
+            idle_seconds = (now - last_active).total_seconds()
+            if idle_seconds < VISITOR_IDLE_TIMEOUT:
+                continue
+
+            # Timed out — clean up
+            print(f"  {Fore.YELLOW}[Server]{Style.RESET_ALL} "
+                  f"Visitor {v.visitor_id} timed out after "
+                  f"{int(idle_seconds)}s idle (unengaged)")
+
+            # Remove from presence table
+            await db.remove_visitor_present(v.visitor_id)
+
+            # Create disconnect event so the pipeline knows
+            disconnect_event = Event(
+                event_type='visitor_disconnect',
+                source=f'visitor:{v.visitor_id}',
+                payload={'reason': 'idle_timeout'},
+            )
+            await on_visitor_disconnect(disconnect_event)
+
+            # Close TCP connection if one exists
+            writer = self.connections.pop(v.visitor_id, None)
+            if writer:
+                self.heartbeat.unsubscribe_cycle_logs(v.visitor_id)
+                try:
+                    await self._send(writer, {
+                        'type': 'timeout_disconnect',
+                        'body': 'The shop grows quiet. You drift away.',
+                    })
+                    writer.close()
+                    await writer.wait_closed()
+                except Exception:
+                    pass
+
     # ─── WebSocket handler (window viewers) ───
 
     async def _handle_window_client(self, websocket):
@@ -731,6 +821,9 @@ class ShopkeeperServer:
 
         # Track visitor presence (multi-slot) — idempotent via INSERT OR REPLACE
         await db.add_visitor_present(visitor_id, 'websocket')
+
+        # Update last_activity for idle timeout tracking
+        await db.update_visitor_present(visitor_id, last_activity=clock.now().isoformat())
 
         # Write visitor speech as text fragment (visible to all window viewers)
         from window_state import build_text_fragment_message
