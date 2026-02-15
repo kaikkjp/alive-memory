@@ -717,6 +717,251 @@ Fix: (1) Extract+validate `Authorization: Bearer` header on all `_http_dashboard
 
 ---
 
+### TASK-022: Fix heartbeat status indicator
+**Status:** BACKLOG
+**Priority:** High
+**Description:** The "Heartbeat" field in the Controls panel shows "Inactive" even while cycles are actively running. Read actual heartbeat/cron state (e.g., last cycle timestamp vs expected interval) and display accurate status.
+**Acceptance criteria:**
+- If last cycle fired within 1 expected interval → show "Active" (green)
+- If last cycle fired within 2 intervals → show "Late" (yellow)
+- If no cycle within 3 intervals → show "Inactive" (red)
+- Display time since last cycle next to status
+**Scope (files you may touch):**
+- `window/src/components/dashboard/ControlsPanel.tsx` (or equivalent Controls panel component)
+- `api/dashboard_routes.py` (heartbeat status endpoint)
+- `heartbeat_server.py` (if dashboard routes not yet extracted)
+**Scope (files you may NOT touch):**
+- `heartbeat.py`
+- `db.py`
+- `pipeline/*`
+**Tests:** Verify heartbeat status reflects actual cycle state. Active cycles show "Active" (green). Stale cycles show correct degraded status.
+**Definition of done:** Controls panel shows real-time heartbeat status with color-coded indicator and time since last cycle.
+
+---
+
+### TASK-023: Fix Threads panel — surface thread titles and summaries
+**Status:** BACKLOG
+**Priority:** Medium
+**Description:** All 7 threads show "..." with status "open" but no title or content. Each thread should display meaningful information.
+**Acceptance criteria:**
+- Each thread displays its title (or first ~60 chars of its seed content if no title field exists)
+- Each thread displays thread type or topic tag if available
+- Each thread displays message count or last activity timestamp
+- If title/summary fields are null in DB, investigate whether cycle processing is supposed to write them and fix the write path
+**Scope (files you may touch):**
+- `window/src/components/dashboard/ThreadsPanel.tsx`
+- `api/dashboard_routes.py` (threads endpoint)
+- `heartbeat_server.py` (if dashboard routes not yet extracted)
+- `window_state.py` (if thread data shape in broadcast needs updating)
+**Scope (files you may NOT touch):**
+- `heartbeat.py`
+- `pipeline/*` (unless thread write path fix is required — document scope expansion first)
+**Tests:** Verify threads endpoint returns title/type/activity data. Panel renders thread titles instead of "...".
+**Definition of done:** ThreadsPanel shows real thread titles, types/tags, and activity timestamps instead of placeholder content.
+
+---
+
+### TASK-024: Investigate drive boundary clamping
+**Status:** BACKLOG
+**Priority:** High
+**Description:** Curiosity pinned at 100%, Expression Need at 0%, Rest Need at 100%. Drives appear to not decay or recharge after cycles.
+**Acceptance criteria:**
+- Trace the drive update path: cycle completes → drive modulation function → DB write
+- Confirm modulation is actually executing (add logging if needed)
+- Confirm updated values are written to DB, not just held in memory
+- After fix: trigger 3 manual cycles, verify at least 2 drive values change between cycles
+- No drive should remain at 0% or 100% for more than 3 consecutive cycles under normal operation
+**Scope (files you may touch):**
+- `pipeline/output.py` (drive modulation logic)
+- `pipeline/hypothalamus.py` (drive computation)
+- `db.py` (drive state read/write — at END of file only)
+- `models/state.py` (DrivesState if schema needs fixing)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `heartbeat_server.py`
+- `window/`
+**Tests:** Add/update tests verifying drive values change after cycle execution. No drive stays pinned at boundary for >3 consecutive cycles.
+**Definition of done:** Drive values modulate correctly after each cycle. Dashboard shows varying drive levels.
+
+---
+
+### TASK-025: Investigate flat memory resonance scores
+**Status:** BACKLOG
+**Priority:** Medium
+**Description:** All visible memories show identical 55% resonance. No variance means retrieval has no signal.
+**Acceptance criteria:**
+- Determine if resonance is calculated at creation time (static) or at retrieval time (contextual)
+- If static: fix the scoring function — it should factor in content type, emotional valence, drive alignment, recency
+- If contextual: fix the query context being passed — it may be empty or identical each time
+- After fix: memory pool should show at least 3 distinct resonance values across entries
+- Document how resonance is calculated (formula/factors) in a code comment
+**Scope (files you may touch):**
+- `pipeline/hippocampus.py` (memory retrieval/scoring)
+- `db.py` (memory query functions — at END of file only)
+- `api/dashboard_routes.py` (memory pool endpoint)
+- `heartbeat_server.py` (if dashboard routes not yet extracted)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `heartbeat.py`
+- `window/` (display should auto-update when data improves)
+**Tests:** Verify resonance scoring produces distinct values for memories with different content types, ages, and emotional valence.
+**Definition of done:** Memory pool shows varied resonance scores. Scoring formula is documented in code comments.
+
+---
+
+### TASK-026: Add Content Pool panel
+**Status:** BACKLOG
+**Priority:** Medium
+**Description:** New dashboard panel showing available unconsumed content. Data source: Feed/content tables — items that have been fetched but not yet ingested by a cycle.
+**Acceptance criteria:**
+- Panel title: "Content Pool"
+- Show: total items in pool
+- Show: breakdown by content type (article, image, music, quote, etc.)
+- Show: last 5 recently added items with title, type, and timestamp added
+- Show: age of oldest unconsumed item
+- Auto-refresh on same interval as other panels
+**Scope (files you may touch):**
+- `window/src/components/dashboard/ContentPoolPanel.tsx` (new)
+- `window/src/app/dashboard/page.tsx` (add panel to grid — middle row alongside Memory Pool and Collection)
+- `window/src/lib/dashboard-api.ts` (add fetch function)
+- `window/src/lib/types.ts` (add ContentPoolData type)
+- `api/dashboard_routes.py` (add `/api/dashboard/content-pool` endpoint)
+- `db.py` (add content pool query function — at END of file only)
+**Scope (files you may NOT touch):**
+- `heartbeat.py`
+- `pipeline/*`
+- `sleep.py`
+**Tests:** Verify `/api/dashboard/content-pool` returns correct JSON shape. Panel renders without errors.
+**Definition of done:** Content Pool panel displays in the dashboard middle row showing pool size, type breakdown, recent additions, and oldest item age.
+
+---
+
+### TASK-027: Add Feed Pipeline panel
+**Status:** BACKLOG
+**Priority:** Medium
+**Description:** New dashboard panel showing ingestion pipeline health. Data source: Feed pipeline state, job queue, error logs.
+**Acceptance criteria:**
+- Panel title: "Feed"
+- Show: pipeline status — Running / Paused / Error (with color indicator)
+- Show: queue depth (items waiting for processing)
+- Show: last successful ingestion timestamp
+- Show: failed items count in last 24h (if >0, show last error message)
+- Show: ingestion rate — items processed in last 24h
+- Auto-refresh on same interval as other panels
+**Scope (files you may touch):**
+- `window/src/components/dashboard/FeedPanel.tsx` (new)
+- `window/src/app/dashboard/page.tsx` (add panel to grid — bottom row alongside Timeline and Controls)
+- `window/src/lib/dashboard-api.ts` (add fetch function)
+- `window/src/lib/types.ts` (add FeedPanelData type)
+- `api/dashboard_routes.py` (add `/api/dashboard/feed` endpoint)
+- `db.py` (add feed pipeline query functions — at END of file only)
+**Scope (files you may NOT touch):**
+- `heartbeat.py`
+- `pipeline/*`
+- `sleep.py`
+**Tests:** Verify `/api/dashboard/feed` returns correct JSON shape. Panel renders without errors.
+**Definition of done:** Feed panel displays in the dashboard bottom row showing pipeline status, queue depth, ingestion stats, and error info.
+
+---
+
+### TASK-028: Add Consumption History panel
+**Status:** BACKLOG
+**Priority:** Medium
+**Description:** New dashboard panel showing what she consumed and what it produced. Data source: Ingestion logs joined with output records (memories, collection items, thread references).
+**Acceptance criteria:**
+- Panel title: "Consumption History"
+- Chronological list, most recent first
+- Each entry shows: timestamp, content type icon/label, source title (truncated to ~80 chars), outcome tag ("→ memory", "→ collection", "→ thread", "→ no output")
+- Show last 20 entries by default
+- If an item produced multiple outputs, show all outcome tags
+- Scrollable within panel
+**Scope (files you may touch):**
+- `window/src/components/dashboard/ConsumptionHistoryPanel.tsx` (new)
+- `window/src/app/dashboard/page.tsx` (add panel to grid — middle row, may need grid restructure)
+- `window/src/lib/dashboard-api.ts` (add fetch function)
+- `window/src/lib/types.ts` (add ConsumptionHistoryData type)
+- `api/dashboard_routes.py` (add `/api/dashboard/consumption-history` endpoint)
+- `db.py` (add consumption history query function — at END of file only)
+**Scope (files you may NOT touch):**
+- `heartbeat.py`
+- `pipeline/*`
+- `sleep.py`
+**Tests:** Verify `/api/dashboard/consumption-history` returns correct JSON shape with outcome tags. Panel renders and scrolls without errors.
+**Definition of done:** Consumption History panel shows chronological feed of ingested content with outcome tags, scrollable, auto-refreshing.
+
+---
+
+### TASK-029: Drive history sparklines
+**Status:** BACKLOG
+**Priority:** Low
+**Depends on:** TASK-024 (drives must actually be changing for sparklines to be meaningful)
+**Description:** Add inline 72h time-series mini-charts to each drive bar in the Drives panel.
+**Acceptance criteria:**
+- Small sparkline (~100x20px) next to each drive showing value over last 72h
+- Data from drive state history table (requires drive values to be logged per-cycle, not just current state — if not logged, add logging first)
+- Visual: thin line chart, no axes, just shape
+**Scope (files you may touch):**
+- `window/src/components/dashboard/DrivesPanel.tsx`
+- `window/src/lib/dashboard-api.ts` (add drive history fetch)
+- `window/src/lib/types.ts` (add DriveHistory type)
+- `api/dashboard_routes.py` (add `/api/dashboard/drive-history` endpoint)
+- `db.py` (add drive history query + possibly per-cycle logging — at END of file only)
+**Scope (files you may NOT touch):**
+- `heartbeat.py`
+- `pipeline/*` (unless per-cycle drive logging must be added to output.py)
+- `sleep.py`
+**Tests:** Verify drive history endpoint returns time-series data. Sparklines render without layout shift.
+**Definition of done:** Each drive bar has an inline sparkline showing 72h trend. Data is sourced from per-cycle drive state history.
+
+---
+
+### TASK-030: Cycle detail drill-down
+**Status:** BACKLOG
+**Priority:** Low
+**Description:** Click a timeline entry → expand or modal showing full cycle details.
+**Acceptance criteria:**
+- Shows: trigger type, active drives at cycle start, cortex prompt/output summary, actions taken, drive state after cycle
+- Accessible from Timeline panel entries
+- Read-only view, no mutations
+**Scope (files you may touch):**
+- `window/src/components/dashboard/TimelinePanel.tsx` (add click handler + expand/modal)
+- `window/src/components/dashboard/CycleDetailView.tsx` (new)
+- `window/src/lib/dashboard-api.ts` (add cycle detail fetch)
+- `window/src/lib/types.ts` (add CycleDetail type)
+- `api/dashboard_routes.py` (add `/api/dashboard/cycle/:id` endpoint)
+- `db.py` (add cycle detail query — at END of file only)
+**Scope (files you may NOT touch):**
+- `heartbeat.py`
+- `pipeline/*`
+- `sleep.py`
+**Tests:** Verify cycle detail endpoint returns correct JSON shape. Click interaction opens detail view. View is read-only.
+**Definition of done:** Timeline entries are clickable. Clicking opens a detail view showing full cycle information including trigger, drives, cortex summary, actions, and post-cycle state.
+
+---
+
+### TASK-031: Cost trend chart
+**Status:** BACKLOG
+**Priority:** Low
+**Description:** Add daily cost history chart to Costs panel.
+**Acceptance criteria:**
+- Bar or line chart showing daily cost for last 30 days
+- Current day highlighted
+- Shows trend direction (increasing/decreasing)
+**Scope (files you may touch):**
+- `window/src/components/dashboard/CostsPanel.tsx`
+- `window/src/lib/dashboard-api.ts` (add cost history fetch)
+- `window/src/lib/types.ts` (add CostHistory type)
+- `api/dashboard_routes.py` (add `/api/dashboard/cost-history` endpoint)
+- `db.py` (add cost history query — at END of file only)
+**Scope (files you may NOT touch):**
+- `heartbeat.py`
+- `pipeline/*`
+- `sleep.py`
+**Tests:** Verify cost history endpoint returns 30-day daily breakdown. Chart renders without errors.
+**Definition of done:** Costs panel includes a 30-day trend chart with current day highlighted and trend direction indicator.
+
+---
+
 ## Completed Tasks
 
 _None yet._
