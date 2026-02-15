@@ -61,12 +61,15 @@ git commit -m "feat: <task title> [TASK-XXX]"
 Follow the **Task Chaining** rules below. Either pick up the next task or stop and report.
 
 ### Step 10: Code review (MANDATORY before merge)
-Do NOT merge to main without a review pass. Request a code-reviewer agent review:
-- **Scope check:** all changed files must be in the task's scope
-- **Tests pass**
-- **No architectural violations**
-
-If you ARE the code-reviewer: output a `VERDICT: PASS` or `VERDICT: FAIL`. No merge without `VERDICT: PASS`.
+Spawn the code-reviewer sub-agent:
+```
+Use the code-reviewer agent to review changes for TASK-XXX.
+Check: (1) all changed files within scope in TASKS.md,
+(2) python -m pytest tests/ -v passes,
+(3) no architectural violations per ARCHITECTURE.md.
+Output VERDICT: PASS or VERDICT: FAIL with reasons.
+```
+Do not merge without `VERDICT: PASS`. If it flags issues, fix and re-request.
 
 ### Step 11: Clear context
 Run `/clear` before starting any new task.
