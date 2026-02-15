@@ -263,6 +263,9 @@ class TestEngagementOnSpeak:
                 status='none', visitor_id=None,
             ))
             mock_db.update_engagement_state = AsyncMock()
+            # Quiet cycle (no actions, dialogue='...') triggers drive relief
+            mock_db.get_drives_state = AsyncMock(return_value=DrivesState())
+            mock_db.save_drives_state = AsyncMock()
 
             from models.pipeline import BodyOutput
             body_output = BodyOutput()

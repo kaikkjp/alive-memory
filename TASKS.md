@@ -762,7 +762,7 @@ Fix: (1) Extract+validate `Authorization: Bearer` header on all `_http_dashboard
 ---
 
 ### TASK-024: Investigate drive boundary clamping
-**Status:** BACKLOG
+**Status:** DONE (2026-02-15)
 **Priority:** High
 **Description:** Curiosity pinned at 100%, Expression Need at 0%, Rest Need at 100%. Drives appear to not decay or recharge after cycles.
 **Acceptance criteria:**

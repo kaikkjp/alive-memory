@@ -23,7 +23,22 @@ from models.pipeline import (
 )
 from pipeline.action_registry import ACTION_REGISTRY
 from pipeline.hippocampus_write import hippocampus_consolidate
+from pipeline.hypothalamus import clamp
 import db
+
+
+# ── Action-inferred drive effects (TASK-024) ──
+# Successful actions inherently satisfy specific drives beyond what
+# EXPRESSION_RELIEF in hypothalamus.py already handles.
+# Tech debt: when action registry grows, these should pull from
+# registry metadata instead of being hardcoded here.
+ACTION_DRIVE_EFFECTS = {
+    'speak':          {'curiosity': -0.02},      # conversation provides novel input
+    'write_journal':  {'curiosity': -0.03},      # journaling processes thoughts
+    'post_x_draft':   {'curiosity': -0.02},      # creative output satisfies curiosity
+    'rearrange':      {'curiosity': -0.01},      # physical activity, mild curiosity
+    'end_engagement': {'rest_need': -0.03, 'energy': +0.02},  # social load lifted
+}
 
 
 # ── Negative feeling patterns for inhibition signal detection ──
@@ -103,8 +118,12 @@ async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
                     pool_item['source_event_id'], 'engaged', engaged_at=now
                 )
 
-    # ── Update drives (resonance + action outcomes in a single save) ──
-    needs_drives = validated.resonance or body_output.executed
+    # ── Update drives (resonance + action outcomes + action-inferred relief) ──
+    no_actions = not body_output.executed
+    no_dialogue = not validated.dialogue or validated.dialogue == '...'
+    is_quiet_cycle = no_actions and no_dialogue
+    needs_drives = (validated.resonance or body_output.executed
+                    or validated.memory_updates or is_quiet_cycle)
     if needs_drives:
         drives = await db.get_drives_state()
         drives_changed = False
@@ -113,6 +132,7 @@ async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
             drives.social_hunger = max(0.0, drives.social_hunger - 0.15)
             drives.energy = min(1.0, drives.energy + 0.05)
             drives.mood_valence = min(1.0, drives.mood_valence + 0.1)
+            drives.curiosity = clamp(drives.curiosity - 0.03)  # engaging conversation
             drives_changed = True
             result.resonance_applied = True
 
@@ -126,8 +146,36 @@ async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
                 drives.mood_valence = min(1.0, drives.mood_valence + 0.02 * len(successes))
                 drives_changed = True
 
+        # ── Action-inferred drive relief (TASK-024) ──
+        # Successful actions satisfy drives beyond mood. This ensures
+        # curiosity, rest_need, and energy respond to what she actually did.
+        if body_output.executed:
+            for action_result in body_output.executed:
+                if not action_result.success:
+                    continue
+                effects = ACTION_DRIVE_EFFECTS.get(action_result.action, {})
+                for field_name, delta in effects.items():
+                    current = getattr(drives, field_name)
+                    setattr(drives, field_name, clamp(current + delta))
+                    drives_changed = True
+
+        # Content engagement satisfies curiosity
+        if validated.memory_updates:
+            drives.curiosity = clamp(drives.curiosity - 0.04)
+            drives_changed = True
+
+        # Quiet cycles (no actions, no dialogue) provide mild rest
+        if is_quiet_cycle:
+            drives.rest_need = clamp(drives.rest_need - 0.03)
+            drives.energy = clamp(drives.energy + 0.02)
+            drives_changed = True
+
         if drives_changed:
             await db.save_drives_state(drives)
+            print(f"  [Output] Drives saved: soc={drives.social_hunger:.2f} "
+                  f"cur={drives.curiosity:.2f} exp={drives.expression_need:.2f} "
+                  f"rest={drives.rest_need:.2f} nrg={drives.energy:.2f} "
+                  f"val={drives.mood_valence:.2f}")
 
     # ── Update engagement state ──
     # Engagement is set when she speaks, not when a visitor connects.
