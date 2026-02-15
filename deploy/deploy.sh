@@ -31,21 +31,12 @@ NEXT_PUBLIC_SITE_URL="https://${DOMAIN}" \
 npm run build
 cd ..
 
-# ─── Sync nginx config (if changed) ───
-# Compare repo config against live config MINUS certbot-managed lines,
-# so we only re-deploy when our own config actually changed.
-echo "[deploy] Checking nginx config..."
-LIVE_STRIPPED=$(grep -v '# managed by Certbot' /etc/nginx/sites-available/shopkeeper 2>/dev/null | grep -v 'managed by Certbot' || true)
-REPO_STRIPPED=$(cat "${APP_DIR}/nginx/shopkeeper.conf")
-if [ "$REPO_STRIPPED" != "$LIVE_STRIPPED" ]; then
-    sudo cp "${APP_DIR}/nginx/shopkeeper.conf" /etc/nginx/sites-available/shopkeeper
-    # Re-apply SSL cert (certbot adds listen 443, ssl_certificate directives)
-    sudo certbot --nginx -d "${DOMAIN}" --non-interactive --agree-tos --register-unsafely-without-email --redirect 2>/dev/null || true
-    sudo nginx -t && sudo systemctl reload nginx
-    echo "[deploy] Nginx config updated, SSL re-applied, nginx reloaded"
-else
-    echo "[deploy] Nginx config unchanged, skipping"
-fi
+# ─── Nginx config ───
+# NOT auto-synced. Certbot manages SSL directives in the live config,
+# so overwriting it breaks HTTPS. To update nginx config manually:
+#   sudo cp /var/www/shopkeeper/nginx/shopkeeper.conf /etc/nginx/sites-available/shopkeeper
+#   sudo certbot --nginx -d shopkeeper.tokyo --non-interactive --agree-tos --register-unsafely-without-email --redirect
+#   sudo nginx -t && sudo systemctl reload nginx
 
 # ─── Restart service ───
 echo "[deploy] Restarting shopkeeper service..."
