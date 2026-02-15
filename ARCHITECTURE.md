@@ -28,7 +28,7 @@ Terminal/Web Client
 │  └────────────┘  │
 │                  │
 │  ┌────────────┐  │
-│  │   db.py    │  │  ← All SQLite persistence
+│  │    db/     │  │  ← All SQLite persistence (package)
 │  └────────────┘  │
 └──────────────────┘
        │
@@ -55,7 +55,7 @@ Terminal/Web Client
 | File | Lines | What it does | Depends on |
 |------|-------|-------------|------------|
 | `heartbeat.py` | 1004 | **The brain's clock.** Runs the main async loop: sleep → wake → process inbox → run cycle → sleep. Contains the `Heartbeat` class with `run_cycle()`, `run_silence_cycle()`, sleep scheduling, fidget behaviors. | db, all pipeline/*, sleep, clock |
-| `db.py` | 2637 | **All persistence.** 100+ functions for events, inbox, room state, drives, engagement, visitors, traits, totems, collection, journal, conversations, cycle logs, threads, content pool, cold memory, LLM cost tracking, shelf assignments, chat tokens, action log, inhibitions, habits. SQLite + aiosqlite. | models/*, clock |
+| `db/` | ~3,400 | **All persistence.** Package with 7 modules: `connection.py` (DB setup, migrations, transactions), `events.py` (event store, inbox), `state.py` (room/drives/engagement state), `memory.py` (visitors, traits, totems, collection, journal, day memory, cold search), `content.py` (threads, content pool, arbiter), `analytics.py` (cycle log, LLM costs, actions, habits). `__init__.py` re-exports everything for backward compatibility. SQLite + aiosqlite. | models/*, clock |
 | `clock.py` | 78 | Time abstraction. Returns real time normally, simulated time during `simulate.py`. | — |
 | `seed.py` | 85 | Initial database seeding for fresh instances. | db |
 
@@ -329,7 +329,7 @@ Metacognitive monitor in `pipeline/output.py` compares executed behavior against
 
 | Area | Files | Lines |
 |------|-------|-------|
-| Core engine (*.py root) | 18 | ~8,442 |
+| Core engine (*.py root) | 17 | ~5,779 |
 | Pipeline (pipeline/*.py) | 29 | ~5,603 |
 | API | 2 | ~285 |
 | Config | 5 | ~415 |
@@ -337,6 +337,6 @@ Metacognitive monitor in `pipeline/output.py` compares executed behavior against
 | Scripts | 3 | ~455 |
 | Tests | 33 | ~6,731 |
 | Frontend (window/src/) | 28 | ~2,493 |
-| Docs (*.md) | 12 | ~7,343 |
+| Docs (*.md) | 12 | ~7,348 |
 | Deploy | 7 | ~525 |
-| **Total** | **~141** | **~32,810** |
+| **Total** | **~173** | **~34,509** |

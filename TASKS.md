@@ -53,7 +53,7 @@
 ---
 
 ### TASK-003: Split db.py into submodules
-**Status:** BACKLOG
+**Status:** DONE (2026-02-15)
 **Priority:** High (but risky — schedule when no other work is in flight)
 **Description:** `db.py` is 2291 lines with 100+ functions. Split into:
 - `db/__init__.py` — re-exports everything (backward compat)
