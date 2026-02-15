@@ -174,6 +174,7 @@ def drives_to_feeling(d: DrivesState) -> str:
 EXPRESSION_RELIEF = {
     'action_speak':    {'expression_need': -0.05, 'social_hunger': -0.03},
     'write_journal':   {'expression_need': -0.12, 'rest_need': 0.02},
+    'write_journal_skipped': {'expression_need': -0.06},  # intended but nothing new to say
     'post_x_draft':    {'expression_need': -0.10, 'rest_need': 0.02},
     'rearrange':       {'expression_need': -0.06},
 }
