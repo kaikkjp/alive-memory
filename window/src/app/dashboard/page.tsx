@@ -15,6 +15,7 @@ import BodyPanel from '@/components/dashboard/BodyPanel';
 import BehavioralPanel from '@/components/dashboard/BehavioralPanel';
 import ContentPoolPanel from '@/components/dashboard/ContentPoolPanel';
 import FeedPanel from '@/components/dashboard/FeedPanel';
+import ConsumptionHistoryPanel from '@/components/dashboard/ConsumptionHistoryPanel';
 
 export default function DashboardPage() {
   const [authenticated, setAuthenticated] = useState(false);
@@ -112,6 +113,7 @@ export default function DashboardPage() {
           <CollectionPanel />
           <ContentPoolPanel />
           <FeedPanel />
+          <ConsumptionHistoryPanel />
           <TimelinePanel />
           <ControlsPanel />
         </div>

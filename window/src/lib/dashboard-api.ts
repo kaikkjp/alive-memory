@@ -117,4 +117,9 @@ export const dashboardApi = {
     const res = await dashboardFetch('/api/dashboard/feed');
     return res.json();
   },
+
+  async getConsumptionHistory() {
+    const res = await dashboardFetch('/api/dashboard/consumption-history');
+    return res.json();
+  },
 };

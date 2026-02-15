@@ -221,3 +221,17 @@ export interface FeedPanelData {
   last_error: string | null;
   rate_24h: number;
 }
+
+// ─── Dashboard: Consumption History Panel ───
+
+export interface ConsumptionHistoryEntry {
+  id: string;
+  title: string;
+  source_type: string;
+  consumed_at: string;
+  outcomes: string[];
+}
+
+export interface ConsumptionHistoryData {
+  entries: ConsumptionHistoryEntry[];
+}
