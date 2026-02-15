@@ -210,3 +210,14 @@ export interface ContentPoolData {
   recent: ContentPoolRecentItem[];
   oldest_age_hours: number | null;
 }
+
+// ─── Dashboard: Feed Panel ───
+
+export interface FeedPanelData {
+  status: 'running' | 'paused' | 'error';
+  queue_depth: number;
+  last_success_ts: string | null;
+  failed_24h: number;
+  last_error: string | null;
+  rate_24h: number;
+}

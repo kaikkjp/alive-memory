@@ -405,6 +405,95 @@ async def get_content_pool_dashboard() -> dict:
     }
 
 
+async def get_feed_pipeline_dashboard() -> dict:
+    """Get feed pipeline health overview for the dashboard panel.
+
+    Returns dict with:
+    - status: str — 'running' | 'paused' | 'error' (derived from recent ingestion activity)
+    - queue_depth: int — count of unseen items waiting for processing
+    - last_success_ts: str|None — ISO timestamp of most recent successful ingestion
+    - failed_24h: int — count of items that failed in last 24h
+    - last_error: str|None — most recent error message (if any failures)
+    - rate_24h: int — items ingested in last 24h
+    """
+    conn = await _connection.get_db()
+
+    # Queue depth: unseen items waiting for processing
+    cursor = await conn.execute(
+        "SELECT COUNT(*) FROM content_pool WHERE status = 'unseen'"
+    )
+    row = await cursor.fetchone()
+    queue_depth = row[0] if row else 0
+
+    # Last successful ingestion: most recently added item
+    cursor = await conn.execute(
+        "SELECT MAX(added_at) FROM content_pool"
+    )
+    row = await cursor.fetchone()
+    last_success_ts = row[0] if row and row[0] else None
+
+    # Items added in last 24h (ingestion rate)
+    cutoff_24h = (clock.now_utc() - timedelta(hours=24)).isoformat()
+    cursor = await conn.execute(
+        "SELECT COUNT(*) FROM content_pool WHERE added_at >= ?",
+        (cutoff_24h,)
+    )
+    row = await cursor.fetchone()
+    rate_24h = row[0] if row else 0
+
+    # Failed items in last 24h
+    cursor = await conn.execute(
+        "SELECT COUNT(*) FROM content_pool WHERE status = 'failed' AND added_at >= ?",
+        (cutoff_24h,)
+    )
+    row = await cursor.fetchone()
+    failed_24h = row[0] if row else 0
+
+    # Last error message from failed items
+    last_error = None
+    if failed_24h > 0:
+        cursor = await conn.execute(
+            """SELECT metadata FROM content_pool
+               WHERE status = 'failed' AND added_at >= ?
+               ORDER BY added_at DESC LIMIT 1""",
+            (cutoff_24h,)
+        )
+        row = await cursor.fetchone()
+        if row and row[0]:
+            try:
+                meta = json.loads(row[0])
+                last_error = meta.get('error', None)
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+    # Derive pipeline status from activity patterns
+    # If items were added in last 2h → running
+    # If items exist but none in last 2h → paused
+    # If failures in last 24h → error
+    if failed_24h > 0:
+        status = 'error'
+    elif last_success_ts:
+        try:
+            last_ts = datetime.fromisoformat(last_success_ts)
+            if last_ts.tzinfo is None:
+                last_ts = last_ts.replace(tzinfo=timezone.utc)
+            hours_since = (clock.now_utc() - last_ts).total_seconds() / 3600
+            status = 'running' if hours_since < 2 else 'paused'
+        except (ValueError, TypeError):
+            status = 'paused'
+    else:
+        status = 'paused'
+
+    return {
+        'status': status,
+        'queue_depth': queue_depth,
+        'last_success_ts': last_success_ts,
+        'failed_24h': failed_24h,
+        'last_error': last_error,
+        'rate_24h': rate_24h,
+    }
+
+
 def _row_to_pool_item(row) -> dict:
     """Convert a pool row to a dict."""
     d = dict(row)
