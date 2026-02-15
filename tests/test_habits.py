@@ -43,12 +43,23 @@ def _make_body_output(results):
     return BodyOutput(executed=results, energy_spent=0.1, events_emitted=0)
 
 
-def _make_drives(energy=0.5, mood_valence=0.0):
-    return DrivesState(energy=energy, mood_valence=mood_valence)
+def _make_drives(energy=0.5, mood_valence=0.0, expression_need=0.0,
+                 social_hunger=0.0):
+    return DrivesState(energy=energy, mood_valence=mood_valence,
+                       expression_need=expression_need,
+                       social_hunger=social_hunger)
 
 
 def _make_engagement(status='none', visitor_id=None):
     return EngagementState(status=status, visitor_id=visitor_id)
+
+
+@pytest.fixture(autouse=True)
+def _reset_habit_cooldown():
+    """Reset module-level cooldown state between tests."""
+    import pipeline.basal_ganglia as bg
+    bg._habit_fire_history.clear()
+    bg._habit_cycle_counter = 0
 
 
 # ── TriggerContext + Canonical Key Tests ──
@@ -441,7 +452,7 @@ class TestCheckHabits:
     @pytest.mark.asyncio
     async def test_multiple_matching_habits_strongest_wins(self):
         """When multiple reflexive habits match, the strongest one fires."""
-        drives = _make_drives(energy=0.5, mood_valence=0.0)
+        drives = _make_drives(energy=0.5, mood_valence=0.0, expression_need=0.5)
         engagement = _make_engagement(status='none')
 
         trigger = 'energy:mid|mood:neutral|mode:idle|time:afternoon|visitor:false'
@@ -524,8 +535,8 @@ class TestCheckHabits:
 
     @pytest.mark.asyncio
     async def test_exact_threshold_fires(self):
-        """Habit at exactly 0.6 should fire."""
-        drives = _make_drives(energy=0.5, mood_valence=0.0)
+        """Habit at exactly 0.6 should fire when drive gate is met."""
+        drives = _make_drives(energy=0.5, mood_valence=0.0, expression_need=0.5)
         engagement = _make_engagement(status='none')
 
         habit = {
@@ -613,7 +624,7 @@ class TestReflexiveVsGenerativeHabits:
     async def test_generative_habit_boosts_impulse(self):
         """Write_journal (generative=True) at strength 0.6 returns HabitBoost,
         NOT MotorPlan — cortex must still run."""
-        drives = _make_drives(energy=0.5, mood_valence=0.0)
+        drives = _make_drives(energy=0.5, mood_valence=0.0, expression_need=0.5)
         engagement = _make_engagement(status='none')
 
         habit = {
@@ -638,7 +649,7 @@ class TestReflexiveVsGenerativeHabits:
     @pytest.mark.asyncio
     async def test_speak_habit_returns_boost(self):
         """Speak (generative=True) at strength 0.8 returns HabitBoost."""
-        drives = _make_drives(energy=0.5, mood_valence=0.0)
+        drives = _make_drives(energy=0.5, mood_valence=0.0, social_hunger=0.5)
         engagement = _make_engagement(status='none')
 
         habit = {
@@ -661,7 +672,7 @@ class TestReflexiveVsGenerativeHabits:
     @pytest.mark.asyncio
     async def test_express_thought_reflexive_autofires(self):
         """Express_thought (generative=False) at strength 0.65 returns MotorPlan."""
-        drives = _make_drives(energy=0.5, mood_valence=0.0)
+        drives = _make_drives(energy=0.5, mood_valence=0.0, expression_need=0.5)
         engagement = _make_engagement(status='none')
 
         habit = {
@@ -684,7 +695,7 @@ class TestReflexiveVsGenerativeHabits:
     @pytest.mark.asyncio
     async def test_post_x_draft_returns_boost(self):
         """Post_x_draft (generative=True) at strength 0.75 returns HabitBoost."""
-        drives = _make_drives(energy=0.5, mood_valence=0.0)
+        drives = _make_drives(energy=0.5, mood_valence=0.0, expression_need=0.5)
         engagement = _make_engagement(status='none')
 
         habit = {
@@ -708,7 +719,7 @@ class TestReflexiveVsGenerativeHabits:
     async def test_strongest_generative_vs_reflexive(self):
         """When strongest habit is generative, returns HabitBoost even if
         weaker reflexive habits exist."""
-        drives = _make_drives(energy=0.5, mood_valence=0.0)
+        drives = _make_drives(energy=0.5, mood_valence=0.0, expression_need=0.5)
         engagement = _make_engagement(status='none')
 
         trigger = 'energy:mid|mood:neutral|mode:idle|time:afternoon|visitor:false'
@@ -837,3 +848,239 @@ class TestHabitBoostInPrompt:
                 break
 
         assert validated.intentions[0].impulse == 1.0
+
+
+# ── Drive-Gated Habit Tests ──
+
+from pipeline.basal_ganglia import (
+    _passes_drive_gate, _passes_cooldown_gate, _record_habit_fire,
+    HABIT_DRIVE_GATES, HABIT_COOLDOWN_CYCLES,
+)
+
+
+class TestDriveGating:
+    """Habits should only fire when the relevant drive supports the action."""
+
+    def test_write_journal_blocked_low_expression(self):
+        """write_journal requires expression_need > 0.2."""
+        drives = _make_drives(expression_need=0.1)
+        assert _passes_drive_gate('write_journal', drives) is False
+
+    def test_write_journal_passes_high_expression(self):
+        drives = _make_drives(expression_need=0.5)
+        assert _passes_drive_gate('write_journal', drives) is True
+
+    def test_write_journal_blocked_at_boundary(self):
+        """Exactly 0.2 does NOT pass (> not >=)."""
+        drives = _make_drives(expression_need=0.2)
+        assert _passes_drive_gate('write_journal', drives) is False
+
+    def test_express_thought_blocked_low_expression(self):
+        drives = _make_drives(expression_need=0.1)
+        assert _passes_drive_gate('express_thought', drives) is False
+
+    def test_express_thought_passes_high_expression(self):
+        drives = _make_drives(expression_need=0.4)
+        assert _passes_drive_gate('express_thought', drives) is True
+
+    def test_speak_blocked_low_social_hunger(self):
+        drives = _make_drives(social_hunger=0.2)
+        assert _passes_drive_gate('speak', drives) is False
+
+    def test_speak_passes_high_social_hunger(self):
+        drives = _make_drives(social_hunger=0.5)
+        assert _passes_drive_gate('speak', drives) is True
+
+    def test_rearrange_blocked_low_energy(self):
+        drives = _make_drives(energy=0.2)
+        assert _passes_drive_gate('rearrange', drives) is False
+
+    def test_rearrange_passes_high_energy(self):
+        drives = _make_drives(energy=0.5)
+        assert _passes_drive_gate('rearrange', drives) is True
+
+    def test_place_item_blocked_low_energy(self):
+        drives = _make_drives(energy=0.1)
+        assert _passes_drive_gate('place_item', drives) is False
+
+    def test_ungated_action_always_passes(self):
+        """Actions without a drive gate (e.g. end_engagement) always pass."""
+        drives = _make_drives(energy=0.1, expression_need=0.0, social_hunger=0.0)
+        assert _passes_drive_gate('end_engagement', drives) is True
+
+    def test_post_x_draft_blocked_low_expression(self):
+        drives = _make_drives(expression_need=0.1)
+        assert _passes_drive_gate('post_x_draft', drives) is False
+
+    @pytest.mark.asyncio
+    async def test_habit_skipped_when_drive_below_gate(self):
+        """Strong write_journal habit returns None when expression_need is low."""
+        drives = _make_drives(energy=0.5, mood_valence=0.0, expression_need=0.1)
+        engagement = _make_engagement(status='none')
+
+        habit = {
+            'id': 'hab_gated', 'action': 'write_journal',
+            'trigger_context': 'energy:mid|mood:neutral|mode:idle|time:afternoon|visitor:false',
+            'strength': 0.9, 'repetition_count': 20,
+            'formed_at': '2026-01-01', 'last_triggered': '2026-02-01',
+        }
+
+        with patch('pipeline.basal_ganglia.db') as mock_db, \
+             patch('pipeline.context_bands.clock') as mock_clock:
+            mock_db.get_all_habits = AsyncMock(return_value=[habit])
+            mock_clock.now.return_value = MagicMock(hour=14)
+
+            result = await check_habits(drives, engagement)
+
+            assert result is None
+
+    @pytest.mark.asyncio
+    async def test_fallback_to_weaker_habit_when_strongest_gated(self):
+        """If strongest habit is drive-gated, next-strongest that passes fires."""
+        drives = _make_drives(energy=0.5, mood_valence=0.0, expression_need=0.1)
+        engagement = _make_engagement(status='none')
+
+        trigger = 'energy:mid|mood:neutral|mode:idle|time:afternoon|visitor:false'
+        habits = [
+            # Strongest but gated (expression_need too low)
+            {'id': 'hab_1', 'action': 'write_journal', 'trigger_context': trigger,
+             'strength': 0.9, 'repetition_count': 20,
+             'formed_at': '2026-01-01', 'last_triggered': '2026-02-01'},
+            # Weaker but passes gate (rearrange needs energy > 0.3, we have 0.5)
+            {'id': 'hab_2', 'action': 'rearrange', 'trigger_context': trigger,
+             'strength': 0.7, 'repetition_count': 10,
+             'formed_at': '2026-01-01', 'last_triggered': '2026-02-01'},
+        ]
+
+        with patch('pipeline.basal_ganglia.db') as mock_db, \
+             patch('pipeline.context_bands.clock') as mock_clock:
+            mock_db.get_all_habits = AsyncMock(return_value=habits)
+            mock_clock.now.return_value = MagicMock(hour=14)
+
+            result = await check_habits(drives, engagement)
+
+            assert result is not None
+            assert isinstance(result, MotorPlan)
+            assert result.actions[0].action == 'rearrange'
+
+
+class TestCooldownGating:
+    """Same action can't habit-fire twice within HABIT_COOLDOWN_CYCLES cycles."""
+
+    def test_first_fire_always_passes(self):
+        assert _passes_cooldown_gate('write_journal') is True
+
+    def test_immediate_refire_blocked(self):
+        import pipeline.basal_ganglia as bg
+        bg._habit_cycle_counter = 5
+        _record_habit_fire('write_journal')
+        bg._habit_cycle_counter = 6
+        assert _passes_cooldown_gate('write_journal') is False
+
+    def test_refire_after_cooldown_passes(self):
+        import pipeline.basal_ganglia as bg
+        bg._habit_cycle_counter = 5
+        _record_habit_fire('write_journal')
+        bg._habit_cycle_counter = 5 + HABIT_COOLDOWN_CYCLES
+        assert _passes_cooldown_gate('write_journal') is True
+
+    def test_different_actions_independent_cooldowns(self):
+        import pipeline.basal_ganglia as bg
+        bg._habit_cycle_counter = 5
+        _record_habit_fire('write_journal')
+        bg._habit_cycle_counter = 6
+        # write_journal is on cooldown, but rearrange is not
+        assert _passes_cooldown_gate('write_journal') is False
+        assert _passes_cooldown_gate('rearrange') is True
+
+    @pytest.mark.asyncio
+    async def test_habit_blocked_by_cooldown_in_check_habits(self):
+        """check_habits returns None when action is on cooldown."""
+        import pipeline.basal_ganglia as bg
+
+        drives = _make_drives(energy=0.5, mood_valence=0.0, expression_need=0.5)
+        engagement = _make_engagement(status='none')
+
+        habit = {
+            'id': 'hab_cd', 'action': 'write_journal',
+            'trigger_context': 'energy:mid|mood:neutral|mode:idle|time:afternoon|visitor:false',
+            'strength': 0.9, 'repetition_count': 20,
+            'formed_at': '2026-01-01', 'last_triggered': '2026-02-01',
+        }
+
+        with patch('pipeline.basal_ganglia.db') as mock_db, \
+             patch('pipeline.context_bands.clock') as mock_clock:
+            mock_db.get_all_habits = AsyncMock(return_value=[habit])
+            mock_clock.now.return_value = MagicMock(hour=14)
+
+            # First call fires (cycle 1)
+            result1 = await check_habits(drives, engagement)
+            assert result1 is not None
+
+            # Second call blocked by cooldown (cycle 2)
+            result2 = await check_habits(drives, engagement)
+            assert result2 is None
+
+            # Third call also blocked (cycle 3)
+            result3 = await check_habits(drives, engagement)
+            assert result3 is None
+
+            # Fourth call passes — cooldown of 3 cycles elapsed
+            result4 = await check_habits(drives, engagement)
+            assert result4 is not None
+
+
+class TestCloseShopGating:
+    """close_shop habit should only fire if shop is actually open."""
+
+    @pytest.mark.asyncio
+    async def test_close_shop_blocked_when_already_closed(self):
+        drives = _make_drives(energy=0.8, mood_valence=0.5)
+        engagement = _make_engagement(status='none')
+
+        habit = {
+            'id': 'hab_close', 'action': 'close_shop',
+            'trigger_context': 'energy:high|mood:positive|mode:idle|time:night|visitor:false',
+            'strength': 0.9, 'repetition_count': 10,
+            'formed_at': '2026-01-01', 'last_triggered': '2026-02-01',
+        }
+
+        mock_room = MagicMock()
+        mock_room.shop_status = 'closed'
+
+        with patch('pipeline.basal_ganglia.db') as mock_db, \
+             patch('pipeline.context_bands.clock') as mock_clock:
+            mock_db.get_all_habits = AsyncMock(return_value=[habit])
+            mock_db.get_room_state = AsyncMock(return_value=mock_room)
+            mock_clock.now.return_value = MagicMock(hour=23)
+
+            result = await check_habits(drives, engagement)
+
+            assert result is None
+
+    @pytest.mark.asyncio
+    async def test_close_shop_allowed_when_open(self):
+        drives = _make_drives(energy=0.8, mood_valence=0.5)
+        engagement = _make_engagement(status='none')
+
+        habit = {
+            'id': 'hab_close', 'action': 'close_shop',
+            'trigger_context': 'energy:high|mood:positive|mode:idle|time:night|visitor:false',
+            'strength': 0.9, 'repetition_count': 10,
+            'formed_at': '2026-01-01', 'last_triggered': '2026-02-01',
+        }
+
+        mock_room = MagicMock()
+        mock_room.shop_status = 'open'
+
+        with patch('pipeline.basal_ganglia.db') as mock_db, \
+             patch('pipeline.context_bands.clock') as mock_clock:
+            mock_db.get_all_habits = AsyncMock(return_value=[habit])
+            mock_db.get_room_state = AsyncMock(return_value=mock_room)
+            mock_clock.now.return_value = MagicMock(hour=23)
+
+            result = await check_habits(drives, engagement)
+
+            assert result is not None
+            assert isinstance(result, MotorPlan)
+            assert result.actions[0].action == 'close_shop'

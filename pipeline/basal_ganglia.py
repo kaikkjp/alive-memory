@@ -152,12 +152,63 @@ async def _check_inhibition(action_name: str, context: dict) -> InhibitionCheck:
     return InhibitionCheck()
 
 
+# ── Drive gates for habit auto-fire ──
+# Habits should only fire when the relevant drive supports the action.
+# Without this, write_journal fires every cycle and drains curiosity to 0.
+HABIT_DRIVE_GATES: dict[str, tuple[str, float]] = {
+    'write_journal':   ('expression_need', 0.2),
+    'express_thought': ('expression_need', 0.2),
+    'post_x_draft':    ('expression_need', 0.2),
+    'speak':           ('social_hunger', 0.3),
+    'rearrange':       ('energy', 0.3),
+    'place_item':      ('energy', 0.3),
+}
+
+# Per-action cooldown: same action can't habit-fire twice within N cycles.
+HABIT_COOLDOWN_CYCLES = 3
+_habit_fire_history: dict[str, int] = {}  # action → cycle_number of last fire
+_habit_cycle_counter: int = 0
+
+
+def _passes_drive_gate(action: str, drives: DrivesState) -> bool:
+    """Check if the relevant drive supports this habit firing."""
+    gate = HABIT_DRIVE_GATES.get(action)
+    if gate is None:
+        return True  # no gate defined → always allowed
+    field, threshold = gate
+    return getattr(drives, field) > threshold
+
+
+async def _passes_shop_gate(action: str) -> bool:
+    """Check context gates that require DB lookups (e.g. shop status)."""
+    if action == 'close_shop':
+        try:
+            room = await db.get_room_state()
+            return room.shop_status == 'open'
+        except Exception:
+            return False  # can't verify → don't fire
+    return True
+
+
+def _passes_cooldown_gate(action: str) -> bool:
+    """Check if enough cycles have passed since last habit-fire of this action."""
+    last_fire = _habit_fire_history.get(action)
+    if last_fire is None:
+        return True
+    return (_habit_cycle_counter - last_fire) >= HABIT_COOLDOWN_CYCLES
+
+
+def _record_habit_fire(action: str) -> None:
+    """Record that this action habit-fired on the current cycle."""
+    _habit_fire_history[action] = _habit_cycle_counter
+
+
 async def check_habits(drives: DrivesState,
                        engagement: EngagementState) -> MotorPlan | HabitBoost | None:
     """Check if a strong habit should fire.
 
     Called BEFORE cortex. If a habit matches the current context with
-    strength >= 0.6:
+    strength >= 0.6 AND passes drive/cooldown gates:
     - Reflexive action (generative=False): returns MotorPlan directly.
       Cortex is skipped entirely — reflex, not thought.
     - Generative action (generative=True): returns HabitBoost.
@@ -165,6 +216,9 @@ async def check_habits(drives: DrivesState,
 
     Returns None if no habit qualifies, letting the normal pipeline proceed.
     """
+    global _habit_cycle_counter
+    _habit_cycle_counter += 1
+
     ctx = compute_trigger_context(drives, engagement)
     trigger_key = ctx.to_key()
 
@@ -179,30 +233,50 @@ async def check_habits(drives: DrivesState,
     if not matches:
         return None
 
-    strongest = max(matches, key=lambda h: h['strength'])
+    # Sort by strength descending, try each until one passes all gates
+    matches.sort(key=lambda h: h['strength'], reverse=True)
 
-    # Check if the action is generative (needs LLM output)
-    cap = ACTION_REGISTRY.get(strongest['action'])
-    if cap and cap.generative:
-        return HabitBoost(
-            action=strongest['action'],
-            strength=strongest['strength'],
-            habit_id=strongest['id'],
+    for habit in matches:
+        action = habit['action']
+
+        # Gate: drive state must support this action
+        if not _passes_drive_gate(action, drives):
+            continue
+
+        # Gate: per-action cooldown (safety net against rapid re-fire)
+        if not _passes_cooldown_gate(action):
+            continue
+
+        # Gate: context checks requiring DB (e.g. shop must be open)
+        if not await _passes_shop_gate(action):
+            continue
+
+        # All gates passed — record fire and return
+        _record_habit_fire(action)
+
+        cap = ACTION_REGISTRY.get(action)
+        if cap and cap.generative:
+            return HabitBoost(
+                action=action,
+                strength=habit['strength'],
+                habit_id=habit['id'],
+            )
+
+        return MotorPlan(
+            actions=[ActionDecision(
+                action=action,
+                source='habit',
+                impulse=habit['strength'],
+                priority=habit['strength'],
+                status='approved',
+                detail={},
+            )],
+            suppressed=[],
+            habit_fired=True,
+            energy_budget=drives.energy,
         )
 
-    return MotorPlan(
-        actions=[ActionDecision(
-            action=strongest['action'],
-            source='habit',
-            impulse=strongest['strength'],
-            priority=strongest['strength'],
-            status='approved',
-            detail={},
-        )],
-        suppressed=[],
-        habit_fired=True,
-        energy_budget=drives.energy,
-    )
+    return None  # all matching habits gated out
 
 
 async def select_actions(validated: ValidatedOutput, drives: DrivesState,

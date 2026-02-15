@@ -34,7 +34,7 @@ import db
 # registry metadata instead of being hardcoded here.
 ACTION_DRIVE_EFFECTS = {
     'speak':          {'curiosity': -0.02},      # conversation provides novel input
-    'write_journal':  {'curiosity': -0.03},      # journaling processes thoughts
+    'write_journal':  {'curiosity': -0.01},      # journaling mildly satisfies curiosity
     'post_x_draft':   {'curiosity': -0.02},      # creative output satisfies curiosity
     'rearrange':      {'curiosity': -0.01},      # physical activity, mild curiosity
     'end_engagement': {'rest_need': -0.03, 'energy': +0.02},  # social load lifted
@@ -159,9 +159,9 @@ async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
                     setattr(drives, field_name, clamp(current + delta))
                     drives_changed = True
 
-        # Content engagement satisfies curiosity
+        # Content engagement mildly satisfies curiosity
         if validated.memory_updates:
-            drives.curiosity = clamp(drives.curiosity - 0.04)
+            drives.curiosity = clamp(drives.curiosity - 0.02)
             drives_changed = True
 
         # Quiet cycles (no actions, no dialogue) provide mild rest
