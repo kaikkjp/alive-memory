@@ -26,6 +26,7 @@ from api.dashboard_routes import (
     handle_timeline,
     handle_trigger_cycle,
     handle_status,
+    handle_content_pool,
 )
 
 
@@ -286,6 +287,67 @@ class TestHeartbeatStatus(unittest.TestCase):
         """Response always includes expected_interval for frontend calculation."""
         body = self._get_status_response(mock_db, None)
         self.assertEqual(body['expected_interval'], 600)
+
+
+class TestContentPoolRoute(unittest.TestCase):
+    """Test handle_content_pool() endpoint handler."""
+
+    def setUp(self):
+        _dashboard_tokens.clear()
+
+    def tearDown(self):
+        _dashboard_tokens.clear()
+
+    def test_content_pool_unauthorized(self):
+        server = _make_server()
+        writer = MagicMock()
+        _run(handle_content_pool(server, writer, ''))
+        args = server._http_json.call_args
+        self.assertEqual(args[0][1], 401)
+
+    @patch('api.dashboard_routes.db')
+    def test_content_pool_authorized_returns_shape(self, mock_db):
+        mock_db.get_content_pool_dashboard = AsyncMock(return_value={
+            'total': 12,
+            'by_type': [{'source_type': 'rss_headline', 'count': 10},
+                        {'source_type': 'visitor_drop', 'count': 2}],
+            'recent': [{'title': 'Test article', 'source_type': 'rss_headline',
+                        'added_at': '2026-02-16T01:00:00+00:00'}],
+            'oldest_age_hours': 3.5,
+        })
+        server = _make_server()
+        writer = MagicMock()
+        token = _create_dashboard_token()
+        auth = f'Bearer {token}'
+        _run(handle_content_pool(server, writer, auth))
+        args = server._http_json.call_args
+        self.assertEqual(args[0][1], 200)
+        data = args[0][2]
+        self.assertEqual(data['total'], 12)
+        self.assertIsInstance(data['by_type'], list)
+        self.assertIsInstance(data['recent'], list)
+        self.assertEqual(data['oldest_age_hours'], 3.5)
+
+    @patch('api.dashboard_routes.db')
+    def test_content_pool_empty(self, mock_db):
+        mock_db.get_content_pool_dashboard = AsyncMock(return_value={
+            'total': 0,
+            'by_type': [],
+            'recent': [],
+            'oldest_age_hours': None,
+        })
+        server = _make_server()
+        writer = MagicMock()
+        token = _create_dashboard_token()
+        auth = f'Bearer {token}'
+        _run(handle_content_pool(server, writer, auth))
+        args = server._http_json.call_args
+        self.assertEqual(args[0][1], 200)
+        data = args[0][2]
+        self.assertEqual(data['total'], 0)
+        self.assertEqual(data['by_type'], [])
+        self.assertEqual(data['recent'], [])
+        self.assertIsNone(data['oldest_age_hours'])
 
 
 class TestBackwardCompatImports(unittest.TestCase):

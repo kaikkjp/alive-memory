@@ -810,7 +810,7 @@ Fix: (1) Extract+validate `Authorization: Bearer` header on all `_http_dashboard
 ---
 
 ### TASK-026: Add Content Pool panel
-**Status:** BACKLOG
+**Status:** DONE (2026-02-16)
 **Priority:** Medium
 **Description:** New dashboard panel showing available unconsumed content. Data source: Feed/content tables — items that have been fetched but not yet ingested by a cycle.
 **Acceptance criteria:**

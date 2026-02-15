@@ -347,6 +347,64 @@ async def get_unseen_news(min_salience: float = 0.3, limit: int = 5) -> list[dic
     return [_row_to_pool_item(r) for r in rows]
 
 
+async def get_content_pool_dashboard() -> dict:
+    """Get content pool overview for the dashboard panel.
+
+    Returns dict with:
+    - total: int — count of unconsumed (unseen) items
+    - by_type: list[dict] — [{source_type, count}] breakdown
+    - recent: list[dict] — last 5 added items [{title, source_type, added_at}]
+    - oldest_age_hours: float|None — hours since oldest unseen item was added
+    """
+    conn = await _connection.get_db()
+
+    # Total unseen
+    cursor = await conn.execute(
+        "SELECT COUNT(*) FROM content_pool WHERE status = 'unseen'"
+    )
+    row = await cursor.fetchone()
+    total = row[0] if row else 0
+
+    # Breakdown by source_type
+    cursor = await conn.execute(
+        """SELECT source_type, COUNT(*) as cnt FROM content_pool
+           WHERE status = 'unseen'
+           GROUP BY source_type ORDER BY cnt DESC"""
+    )
+    rows = await cursor.fetchall()
+    by_type = [{'source_type': r[0], 'count': r[1]} for r in rows]
+
+    # Last 5 recently added (any status — shows recent arrivals)
+    cursor = await conn.execute(
+        """SELECT title, source_type, added_at FROM content_pool
+           ORDER BY added_at DESC LIMIT 5"""
+    )
+    rows = await cursor.fetchall()
+    recent = [{'title': r[0] or '(untitled)', 'source_type': r[1],
+               'added_at': r[2]} for r in rows]
+
+    # Age of oldest unseen item
+    cursor = await conn.execute(
+        """SELECT MIN(added_at) FROM content_pool
+           WHERE status = 'unseen'"""
+    )
+    row = await cursor.fetchone()
+    oldest_age_hours = None
+    if row and row[0]:
+        oldest_ts = datetime.fromisoformat(row[0])
+        if oldest_ts.tzinfo is None:
+            oldest_ts = oldest_ts.replace(tzinfo=timezone.utc)
+        delta = clock.now_utc() - oldest_ts
+        oldest_age_hours = round(delta.total_seconds() / 3600, 1)
+
+    return {
+        'total': total,
+        'by_type': by_type,
+        'recent': recent,
+        'oldest_age_hours': oldest_age_hours,
+    }
+
+
 def _row_to_pool_item(row) -> dict:
     """Convert a pool row to a dict."""
     d = dict(row)

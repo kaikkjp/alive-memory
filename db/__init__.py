@@ -130,6 +130,7 @@ from db.content import (
     create_thread,
     expire_pool_items,
     get_active_threads,
+    get_content_pool_dashboard,
     get_dormant_threads,
     get_pool_item_by_id,
     get_pool_items,
