@@ -56,16 +56,52 @@ async def maybe_record_moment(cycle_result: dict, cycle_context: dict) -> None:
 
 
 def compute_moment_salience(result: dict, ctx: dict) -> float:
-    """Deterministic salience from cycle signals."""
+    """Deterministic salience scoring for day memory moments.
+
+    Resonance Formula (TASK-025):
+    ─────────────────────────────
+    Salience is computed at creation time from cycle signals. Each factor
+    contributes a continuous or boolean bonus to a 0.0–1.0 score:
+
+    BOOLEAN SIGNALS (rare, high-value events):
+      +0.40  internal_conflict — she noticed self-inconsistency
+      +0.30  had_contradiction — shift_candidate from previous cycle
+      +0.25  gift interaction  — accept_gift or decline_gift action
+      +0.10  dropped actions   — validator blocked something she wanted
+
+    CORTEX RESONANCE FLAG (common, scaled down to avoid flat scores):
+      +0.20  resonance: true from cortex (emotional resonance)
+
+    CONTINUOUS SIGNALS (produce per-moment variance):
+      0.00–0.25  drive delta  — max abs change across all drives, scaled
+                                linearly: delta * 0.83, capped at 0.25
+      0.00–0.15  trust bonus  — stranger=0, returner=0.05, regular=0.10,
+                                familiar=0.15
+      0.00–0.12  content richness — monologue word count / 500, capped 0.08
+                                  + dialogue word count / 400, capped 0.04
+                                  (longer/richer cycle output = higher salience)
+      0.00–0.10  action diversity — 0.05 per distinct action type, capped 0.10
+      +0.08      self-expression — write_journal or post_x_draft action
+      0.00–0.05  mode bonus   — engage=0.05, express=0.03, consume=0.02
+
+    Final score clamped to [0.0, 1.0].
+
+    These continuous factors ensure that even cycles with the same boolean
+    signals (e.g., resonance=True + journal_write) produce different salience
+    values based on emotional intensity, content depth, and action variety.
+    """
     score = 0.0
+
+    # ── Boolean signals: rare, high-value events ──
 
     # Internal conflict always worth remembering (Phase 3)
     if ctx.get('has_internal_conflict'):
         score += 0.4
 
-    # Resonance is the strongest signal
+    # Cortex resonance flag — scaled down from 0.4 to 0.2 because cortex
+    # sets this frequently; the old 0.4 dominated and flattened all scores
     if result.get('resonance'):
-        score += 0.4
+        score += 0.2
 
     # Contradictions are always interesting
     if ctx.get('had_contradiction'):
@@ -76,26 +112,51 @@ def compute_moment_salience(result: dict, ctx: dict) -> float:
            for a in result.get('actions', [])):
         score += 0.25
 
-    # Emotional peaks (large drive deltas)
+    # Validator dropped something (she wanted to but couldn't)
+    if result.get('_dropped_actions'):
+        score += 0.1
+
+    # ── Continuous signals: produce per-moment variance ──
+
+    # Emotional intensity: scale drive delta linearly (not threshold)
     drive_delta = ctx.get('max_drive_delta', 0.0)
-    if drive_delta > 0.3:
-        score += 0.2
+    score += min(0.25, drive_delta * 0.83)
 
     # Visitor trust level amplifies everything
     trust_bonus = {
         'stranger': 0.0, 'returner': 0.05,
-        'regular': 0.1, 'familiar': 0.15,
+        'regular': 0.10, 'familiar': 0.15,
     }
     score += trust_bonus.get(ctx.get('trust_level', 'stranger'), 0.0)
 
-    # Self-expression (journal, post)
+    # Content richness: longer monologue/dialogue = more salient
+    monologue = result.get('internal_monologue') or ''
+    dialogue = result.get('dialogue') or ''
+    monologue_words = len(monologue.split()) if monologue.strip() else 0
+    dialogue_words = len(dialogue.split()) if dialogue.strip() else 0
+    score += min(0.08, monologue_words / 500)
+    score += min(0.04, dialogue_words / 400)
+
+    # Action diversity: more distinct actions = richer cycle
+    action_types = set()
+    for a in result.get('actions', []):
+        a_type = a.get('type', '')
+        if a_type:
+            action_types.add(a_type)
+    score += min(0.10, len(action_types) * 0.05)
+
+    # Self-expression (journal, post) — reduced from 0.15 to 0.08
+    # since action_diversity already gives credit for having actions
     if any(a.get('type') in ('write_journal', 'post_x_draft')
            for a in result.get('actions', [])):
-        score += 0.15
+        score += 0.08
 
-    # Validator dropped something (she wanted to but couldn't)
-    if result.get('_dropped_actions'):
-        score += 0.1
+    # Mode-based base: some cycle types are inherently more interesting
+    mode = ctx.get('mode', '')
+    mode_bonus = {
+        'engage': 0.05, 'express': 0.03, 'consume': 0.02,
+    }
+    score += mode_bonus.get(mode, 0.0)
 
     return min(1.0, score)
 

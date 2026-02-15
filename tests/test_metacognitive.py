@@ -181,4 +181,4 @@ class TestDayMemoryInternalConflict:
             'max_drive_delta': 0.0,
         }
         salience = compute_moment_salience(result, ctx)
-        assert salience >= 0.8  # 0.4 (conflict) + 0.4 (resonance)
+        assert salience >= 0.6  # 0.4 (conflict) + 0.2 (resonance)
