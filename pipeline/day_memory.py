@@ -81,7 +81,7 @@ def compute_moment_salience(result: dict, ctx: dict) -> float:
                                   + dialogue word count / 400, capped 0.04
                                   (longer/richer cycle output = higher salience)
       0.00–0.10  action diversity — 0.05 per distinct action type, capped 0.10
-      +0.08      self-expression — write_journal or post_x_draft action
+      +0.08      self-expression — post_x_draft action (write_journal removed: content salience speaks for itself)
       0.00–0.05  mode bonus   — engage=0.05, express=0.03, consume=0.02
 
     Final score clamped to [0.0, 1.0].
@@ -145,9 +145,10 @@ def compute_moment_salience(result: dict, ctx: dict) -> float:
             action_types.add(a_type)
     score += min(0.10, len(action_types) * 0.05)
 
-    # Self-expression (journal, post) — reduced from 0.15 to 0.08
-    # since action_diversity already gives credit for having actions
-    if any(a.get('type') in ('write_journal', 'post_x_draft')
+    # Self-expression (post only) — write_journal removed because its content
+    # salience should speak for itself, not get a flat bonus that inflates
+    # every routine journal cycle. action_diversity already credits having actions.
+    if any(a.get('type') in ('post_x_draft',)
            for a in result.get('actions', [])):
         score += 0.08
 

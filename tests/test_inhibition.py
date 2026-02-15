@@ -83,7 +83,14 @@ class TestPositiveSignalDetection:
 
     def test_journal_write_positive(self):
         result = _make_action_result(action='write_journal', success=True)
+        result.side_effects.append('journal_entry_created')
         assert _detect_positive_signal(result) is True
+
+    def test_journal_skipped_not_positive(self):
+        """Skipped journal (no content) is not a positive signal."""
+        result = _make_action_result(action='write_journal', success=True)
+        result.side_effects.append('journal_skipped_no_content')
+        assert _detect_positive_signal(result) is False
 
     def test_failed_journal_not_positive(self):
         result = _make_action_result(action='write_journal', success=False)
