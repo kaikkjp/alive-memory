@@ -121,3 +121,50 @@ export interface ShopkeeperState {
   activityLabel: string;
   connected: boolean;
 }
+
+// ─── Dashboard: Body Panel ───
+
+export interface ActionCapabilityView {
+  action: string;
+  enabled: boolean;
+  ready: boolean;
+  cooling_until: string | null;
+  energy_cost: number;
+}
+
+export interface BodyPanelData {
+  capabilities: ActionCapabilityView[];
+  energy: { spent_today: number; budget: number };
+  actions_today: { type: string; count: number; total_energy: number }[];
+}
+
+// ─── Dashboard: Behavioral Panel ───
+
+export interface HabitView {
+  action: string;
+  trigger_context: string;
+  strength: number;
+  last_fired: string;
+  fire_count: number;
+}
+
+export interface InhibitionView {
+  action: string;
+  context: string;
+  strength: number;
+  trigger_count: number;
+}
+
+export interface SuppressionView {
+  action: string;
+  impulse: number;
+  reason: string;
+  timestamp: string;
+}
+
+export interface BehavioralPanelData {
+  habits: HabitView[];
+  inhibitions: InhibitionView[];
+  suppressions: SuppressionView[];
+  habit_skips_today: number;
+}

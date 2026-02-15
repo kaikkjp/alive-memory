@@ -11,6 +11,8 @@ import PoolPanel from '@/components/dashboard/PoolPanel';
 import CollectionPanel from '@/components/dashboard/CollectionPanel';
 import TimelinePanel from '@/components/dashboard/TimelinePanel';
 import ControlsPanel from '@/components/dashboard/ControlsPanel';
+import BodyPanel from '@/components/dashboard/BodyPanel';
+import BehavioralPanel from '@/components/dashboard/BehavioralPanel';
 
 export default function DashboardPage() {
   const [authenticated, setAuthenticated] = useState(false);
@@ -100,6 +102,8 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <VitalsPanel />
           <DrivesPanel />
+          <BodyPanel />
+          <BehavioralPanel />
           <CostsPanel />
           <ThreadsPanel />
           <PoolPanel />
