@@ -24,6 +24,10 @@ data/*.db-wal
 # OS
 .DS_Store
 
+# Generated/copied assets (reproduced by scripts, too large for git)
+assets/*.png
+window/public/assets/
+
 # Claude Code runtime
 .claude/worktrees/
 .claude/settings.local.json

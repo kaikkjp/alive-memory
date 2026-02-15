@@ -1,0 +1,38 @@
+{
+  "canvas": { "width": 1536, "height": 1024 },
+  "character": {
+    "x_pct": 0.39,
+    "y_pct": 0.21,
+    "height_pct": 0.55
+  },
+  "counter_cut_pct": 0.72,
+  "counter_fade_px": 6,
+  "vignette": {
+    "center_transparent_pct": 0.35,
+    "edge_color": "rgba(8,6,4,0.65)"
+  },
+  "dust": {
+    "count": 35,
+    "color": "rgba(255,210,150)",
+    "max_opacity": 0.3
+  },
+  "color_grade": {
+    "red": 1.05,
+    "blue": 0.92
+  },
+  "shadow": {
+    "offset_x": 5,
+    "offset_y": 5,
+    "opacity": 0.3,
+    "blur": 6
+  },
+  "sprite_crossfade_ms": 300,
+  "sprite_map": {
+    "engaged": "char-1-cropped.png",
+    "tired": "char-2-cropped.png",
+    "thinking": "char-3-cropped.png",
+    "curious": "char-4-cropped.png",
+    "surprised": "char-5-cropped.png",
+    "focused": "char-6-cropped.png"
+  }
+}

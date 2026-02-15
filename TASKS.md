@@ -592,7 +592,7 @@ Fix: (1) Extract+validate `Authorization: Bearer` header on all `_http_dashboard
 ---
 
 ### TASK-021a: Scene compositor component + asset pipeline
-**Status:** READY
+**Status:** DONE (2026-02-15)
 **Priority:** High
 **Depends on:** None (frontend-only, uses existing scaffolding)
 **Design doc:** `scene-config.json` (locked composition parameters)
