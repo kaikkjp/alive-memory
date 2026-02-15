@@ -182,25 +182,20 @@ async def handle_costs(server, writer: asyncio.StreamWriter,
 
 async def handle_threads(server, writer: asyncio.StreamWriter,
                          authorization: str):
-    """Handle GET /api/dashboard/threads — return active conversation threads."""
+    """Handle GET /api/dashboard/threads — return active threads from threads table."""
     if not check_dashboard_auth(authorization):
         await server._http_json(writer, 401, {'error': 'unauthorized'})
         return
-    conn = await db.get_db()
-    cursor = await conn.execute(
-        """SELECT id, mode, dialogue, internal_monologue, ts
-           FROM cycle_log
-           WHERE dialogue IS NOT NULL AND dialogue != ''
-           ORDER BY ts DESC LIMIT 20"""
-    )
-    rows = await cursor.fetchall()
+    active_threads = await db.get_active_threads(limit=20)
     threads = [{
-        'id': r['id'],
-        'mode': r['mode'],
-        'dialogue': r['dialogue'],
-        'internal_monologue': r['internal_monologue'],
-        'ts': r['ts'],
-    } for r in rows]
+        'id': t.id,
+        'title': t.title,
+        'status': t.status,
+        'thread_type': t.thread_type,
+        'tags': t.tags,
+        'touch_count': t.touch_count,
+        'last_touched': t.last_touched.isoformat() if t.last_touched else None,
+    } for t in active_threads]
     await server._http_json(writer, 200, {'threads': threads})
 
 

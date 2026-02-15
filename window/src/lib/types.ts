@@ -43,6 +43,10 @@ export interface ThreadInfo {
   id: string;
   title: string;
   status: string;
+  thread_type?: string;
+  tags?: string[];
+  touch_count?: number;
+  last_touched?: string | null;
 }
 
 // ─── Scene Compositor Types ───

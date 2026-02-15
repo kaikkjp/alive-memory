@@ -241,6 +241,10 @@ def _serialize_threads(threads) -> list[dict]:
             'id': t.id,
             'title': t.title,
             'status': t.status,
+            'thread_type': t.thread_type,
+            'tags': t.tags,
+            'touch_count': t.touch_count,
+            'last_touched': t.last_touched.isoformat() if t.last_touched else None,
         }
         for t in threads
     ]
