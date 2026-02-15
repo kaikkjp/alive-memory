@@ -180,7 +180,7 @@ Next.js app. Two pages: public shop window + operator dashboard.
 |------|-------------|
 | `next.config.ts` | Next.js build configuration |
 | `src/app/page.tsx` | Shop window page — scene canvas + text stream + chat |
-| `src/app/dashboard/page.tsx` | Operator dashboard — 8 panels |
+| `src/app/dashboard/page.tsx` | Operator dashboard — 13 panels |
 | `src/components/SceneCanvas.tsx` | 6-layer scene compositor (scenery, shop interior, character sprite, counter foreground, vignette, dust particles) with legacy canvas fallback |
 | `src/components/TextStream.tsx` | Live activity text stream |
 | `src/components/ChatGate.tsx` | Token-gated chat entry |
@@ -188,7 +188,7 @@ Next.js app. Two pages: public shop window + operator dashboard.
 | `src/components/StatePanel.tsx` | Current state display |
 | `src/components/ActivityOverlay.tsx` | "She is doing X" overlay |
 | `src/components/ConnectionIndicator.tsx` | WebSocket status |
-| `src/components/dashboard/*.tsx` | Dashboard panels (Vitals, Drives, Costs, Controls, Collection, Threads, Pool, Timeline) |
+| `src/components/dashboard/*.tsx` | Dashboard panels (Vitals, Drives, Costs, Controls, Collection, Threads, Pool, Timeline, Body, Behavioral, ContentPool, Feed, ConsumptionHistory) |
 | `src/app/layout.tsx` | Next.js root layout |
 | `src/hooks/useShopkeeperSocket.ts` | WebSocket connection hook |
 | `src/hooks/useSceneTransition.ts` | Scene crossfade transition logic |
@@ -347,14 +347,14 @@ Metacognitive monitor in `pipeline/output.py` compares executed behavior against
 
 | Area | Files | Lines |
 |------|-------|-------|
-| Core engine (*.py root) | 17 | ~5,831 |
+| Core engine (*.py root) | 17 | ~5,833 |
 | Pipeline (pipeline/*.py) | 29 | ~5,880 |
-| API | 2 | ~375 |
-| Config | 5 | ~415 |
+| API | 2 | ~384 |
+| Config | 5 | ~424 |
 | Models | 4 | ~530 |
 | Scripts | 5 | ~571 |
-| Tests | 39 | ~8,658 |
-| Frontend (window/src/) | 32 | ~3,475 |
-| Docs (*.md) | 25 | ~15,345 |
+| Tests | 39 | ~8,746 |
+| Frontend (window/src/) | 33 | ~3,624 |
+| Docs (*.md) | 25 | ~15,413 |
 | Deploy | 7 | ~551 |
-| **Total** | **~165** | **~41,631** | **~148** | **~33,417** |
+| **Total** | **~166** | **~41,956** | **~165** | **~41,631** | **~148** | **~33,417** |

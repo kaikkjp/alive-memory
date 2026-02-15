@@ -504,3 +504,84 @@ def _row_to_pool_item(row) -> dict:
             except (json.JSONDecodeError, TypeError):
                 d[json_key] = {} if json_key == 'metadata' else []
     return d
+
+
+# ── Consumption History (TASK-028) ──
+
+_STATUS_TO_OUTCOMES: dict[str, list[str]] = {
+    'accepted': ['collection'],
+    'reflected': ['memory'],
+    'engaged': ['thread'],
+    'seen': ['no output'],
+}
+
+
+async def get_consumption_history(limit: int = 20) -> list[dict]:
+    """Get recently consumed content pool items with outcome tags.
+
+    Returns list of dicts sorted by consumption time (most recent first):
+        {
+            'id': str,
+            'title': str,
+            'source_type': str,
+            'consumed_at': str (ISO timestamp),
+            'outcomes': list[str]  — e.g. ['memory'], ['collection', 'thread'], ['no output']
+        }
+    """
+    conn = await _connection.get_db()
+
+    # Items that were consumed (any status beyond 'unseen' and 'failed')
+    cursor = await conn.execute(
+        """SELECT id, title, source_type, status,
+                  seen_at, engaged_at, outcome_detail
+           FROM content_pool
+           WHERE status NOT IN ('unseen', 'failed')
+           ORDER BY COALESCE(engaged_at, seen_at) DESC
+           LIMIT ?""",
+        (limit,)
+    )
+    rows = await cursor.fetchall()
+
+    # Collect pool IDs to batch-check for thread creation
+    pool_ids = [r['id'] for r in rows]
+    thread_pool_ids: set[str] = set()
+    if pool_ids:
+        # Check if any threads reference these pool items via source_event_id
+        placeholders = ','.join('?' * len(pool_ids))
+        # Pool items link to events via source_event_id, threads link to events too
+        cursor = await conn.execute(
+            f"""SELECT DISTINCT cp.id
+                FROM content_pool cp
+                JOIN threads t ON t.source_event_id = cp.source_event_id
+                WHERE cp.id IN ({placeholders})
+                  AND cp.source_event_id IS NOT NULL""",
+            pool_ids,
+        )
+        thread_rows = await cursor.fetchall()
+        thread_pool_ids = {r[0] for r in thread_rows}
+
+    result = []
+    for row in rows:
+        status = row['status']
+        outcomes = list(_STATUS_TO_OUTCOMES.get(status, ['no output']))
+
+        # Enrich: if a thread was created from this item, add 'thread'
+        if row['id'] in thread_pool_ids and 'thread' not in outcomes:
+            outcomes.append('thread')
+
+        # If outcome_detail is set, it may override or supplement
+        if row['outcome_detail'] and 'no output' in outcomes:
+            outcomes.remove('no output')
+            outcomes.append('memory')
+
+        consumed_at = row['engaged_at'] or row['seen_at']
+
+        result.append({
+            'id': row['id'],
+            'title': (row['title'] or '(untitled)')[:80],
+            'source_type': row['source_type'] or 'unknown',
+            'consumed_at': consumed_at,
+            'outcomes': outcomes,
+        })
+
+    return result

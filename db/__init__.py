@@ -131,6 +131,7 @@ from db.content import (
     create_thread,
     expire_pool_items,
     get_active_threads,
+    get_consumption_history,
     get_content_pool_dashboard,
     get_dormant_threads,
     get_feed_pipeline_dashboard,

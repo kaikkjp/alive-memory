@@ -355,6 +355,16 @@ async def handle_feed(server, writer: asyncio.StreamWriter,
     await server._http_json(writer, 200, data)
 
 
+async def handle_consumption_history(server, writer: asyncio.StreamWriter,
+                                      authorization: str):
+    """Handle GET /api/dashboard/consumption-history — return consumed content with outcomes."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+    entries = await db.get_consumption_history(limit=20)
+    await server._http_json(writer, 200, {'entries': entries})
+
+
 async def handle_behavioral(server, writer: asyncio.StreamWriter,
                              authorization: str):
     """Handle GET /api/dashboard/behavioral — return habits, inhibitions, suppressions."""

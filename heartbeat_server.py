@@ -970,6 +970,8 @@ class ShopkeeperServer:
                 await dashboard_routes.handle_content_pool(self, writer, authorization)
             elif path == '/api/dashboard/feed' and method == 'GET':
                 await dashboard_routes.handle_feed(self, writer, authorization)
+            elif path == '/api/dashboard/consumption-history' and method == 'GET':
+                await dashboard_routes.handle_consumption_history(self, writer, authorization)
             else:
                 await self._http_json(writer, 404, {'error': 'not found'})
         except (asyncio.TimeoutError, ConnectionResetError, BrokenPipeError):
