@@ -12,6 +12,22 @@ import db
 MOMENT_THRESHOLD = 0.35
 MAX_DAY_MEMORIES = 30
 
+# Humanized action names for diegetic summaries (no system language in memories)
+ACTION_NAMES = {
+    'write_journal': 'write in my journal',
+    'post_x_draft': 'post something',
+    'rearrange': 'rearrange the collection',
+    'speak': 'say something',
+    'express_thought': 'express a thought',
+    'close_shop': 'close the shop',
+    'open_shop': 'open the shop',
+    'place_item': 'place an item',
+    'show_item': 'show something',
+    'end_engagement': 'step away',
+    'accept_gift': 'accept a gift',
+    'decline_gift': 'decline a gift',
+}
+
 
 @dataclass
 class DayMemoryEntry:
@@ -272,10 +288,13 @@ def build_moment_summary(result: dict, ctx: dict) -> str:
 
     # What was dropped (frustrated intent)
     for drop in result.get('_dropped_actions', [])[:1]:
-        parts.append(
-            f"I wanted to {drop.get('action', {}).get('type', '?')} "
-            f"but couldn't: {drop.get('reason', '?')}"
-        )
+        raw_type = drop.get('action', {}).get('type', '?')
+        human_name = ACTION_NAMES.get(raw_type, raw_type.replace('_', ' '))
+        reason = drop.get('reason', '')
+        if 'conversation' in reason:
+            parts.append(f"I wanted to {human_name} but I was with someone.")
+        else:
+            parts.append(f"I wanted to {human_name} but something held me back.")
 
     return " ".join(parts[:4])  # cap at 4 parts
 
