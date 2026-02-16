@@ -37,7 +37,7 @@ CHANNEL_TO_MODE = {
 
 # Hard caps per JST day
 DAILY_CAPS = {
-    'consume': 3,
+    'consume': 8,
     'news': 10,
     'thread': 8,
     'express': 6,
@@ -45,7 +45,7 @@ DAILY_CAPS = {
 
 # Per-channel cooldowns in seconds
 CHANNEL_COOLDOWNS = {
-    'consume': 7200,   # 2 hours
+    'consume': 1200,   # 20 min
     'news': 1800,      # 30 min
     'thread': 2700,    # 45 min
     'express': 7200,   # 2 hours
@@ -217,7 +217,7 @@ async def decide_cycle_focus(drives: DrivesState, arbiter_state: dict) -> Arbite
             and _cooldown_elapsed(arbiter_state.get('last_consume_ts'),
                                   CHANNEL_COOLDOWNS['consume'],
                                   drives.mood_arousal)
-            and drives.curiosity > 0.5):
+            and drives.curiosity > 0.35):
         from pipeline.discovery import select_consumption
         from models.state import Totem, CollectionItem
         totems = await db.get_all_totems(limit=20)
