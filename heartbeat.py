@@ -181,6 +181,8 @@ class Heartbeat:
         self._nap_budget_bonus: float = 0.0  # cumulative nap budget added today
         self._nap_budget_date: Optional[str] = None  # JST date for daily reset
         self._cycle_interval: int = self.INTERVAL_DEFAULT
+        self._last_resonance: bool = False  # previous cycle's resonance flag
+        self._recent_action_types: list[str] = []  # last 3 cycle primary actions
 
     def get_cycle_interval(self) -> int:
         """Return the current cycle interval in seconds."""
@@ -755,7 +757,13 @@ class Heartbeat:
         drives_before = drives.copy()  # snapshot for day_memory delta computation
         elapsed = (start_time - self._last_cycle_ts).total_seconds() / 3600.0
         self._last_cycle_ts = start_time
-        drives, feelings = await update_drives(drives, elapsed, unread)
+        cortex_flags = {}
+        if self._last_resonance:
+            cortex_flags['resonance'] = True
+        if self._recent_action_types and len(set(self._recent_action_types)) == len(self._recent_action_types):
+            # All recent actions are different — novelty
+            cortex_flags['action_variety'] = True
+        drives, feelings = await update_drives(drives, elapsed, unread, cortex_flags or None)
 
         # 3. Sensorium: events → perceptions
         perceptions = await build_perceptions(
@@ -1212,6 +1220,14 @@ class Heartbeat:
             '_entropy_warning': validated.entropy_warning,
             'intentions_count': len(validated.intentions),
         }
+
+        # Cache resonance for next cycle's hypothalamus
+        self._last_resonance = validated.resonance
+
+        # Track primary action type for variety detection
+        primary_action = approved[0].type if approved else routing.cycle_type
+        self._recent_action_types.append(primary_action)
+        self._recent_action_types = self._recent_action_types[-3:]
 
         # Build context for basal ganglia gate checks
         bg_context = {
