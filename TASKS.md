@@ -1026,7 +1026,7 @@ The heartbeat wiring already exists — this task is about populating the config
 ---
 
 ### TASK-034: Integrate markdown.new into feed enrichment pipeline
-**Status:** BACKLOG
+**Status:** DONE (2026-02-16)
 **Priority:** Medium
 **Depends on:** TASK-033 (feed pipeline live)
 **Description:** Replace or augment the current `fetch_readable_text()` in `pipeline/enrich.py` with markdown.new API calls. Current enrichment fetches raw HTML and extracts text — wasteful on tokens and blind to multimedia content.

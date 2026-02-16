@@ -2,6 +2,7 @@
 
 Runs as a periodic task inside heartbeat or as a standalone import.
 Idempotent: duplicate content is ignored via fingerprint uniqueness.
+Enriches URL items via markdown.new when available (TASK-034).
 """
 
 import hashlib
@@ -36,6 +37,36 @@ def canonicalize_content(source_type: str, content: str) -> str:
     content = content.lower().strip()
     content = re.sub(r'\s+', ' ', content)
     return content
+
+
+async def enrich_pool_item(pool_id: str, url: str) -> Optional[str]:
+    """Enrich a content pool item via markdown.new. Rate-limited per URL.
+
+    Checks if this URL was already enriched (dedup). If not, fetches via
+    markdown.new, detects content type, and stores enriched_text + content_type.
+
+    Returns content_type on success, None if already enriched or on failure.
+    """
+    from pipeline.enrich import fetch_via_markdown_new, detect_content_type
+
+    # Rate limiting: don't hit markdown.new more than once per URL
+    existing = await db.get_enriched_text_for_url(url)
+    if existing is not None:
+        logger.debug("[FeedIngester] URL already enriched, skipping: %s", url[:80])
+        return None
+
+    markdown_text = await fetch_via_markdown_new(url)
+    if not markdown_text:
+        return None
+
+    content_type = detect_content_type(markdown_text)
+    await db.update_pool_item(
+        pool_id,
+        enriched_text=markdown_text,
+        content_type=content_type,
+    )
+    logger.debug("[FeedIngester] Enriched %s as %s (%d chars)", url[:60], content_type, len(markdown_text))
+    return content_type
 
 
 async def ingest_from_file(filepath: str, tags: list[str] = None) -> int:
@@ -134,6 +165,7 @@ async def ingest_from_rss(feed_url: str, tags: list[str] = None) -> int:
 async def run_feed_ingestion() -> int:
     """Run one pass of all configured feed sources.
 
+    After ingesting RSS items, enriches URL items via markdown.new.
     Returns total items added.
     """
     from config.feeds import FEED_SOURCES
@@ -154,4 +186,29 @@ async def run_feed_ingestion() -> int:
         except Exception as e:
             logger.warning("Feed source error: %s — %s", source, e)
 
+    # Enrich newly added URL items via markdown.new
+    await _enrich_unseen_urls()
+
     return total
+
+
+async def _enrich_unseen_urls():
+    """Enrich unseen URL pool items that haven't been enriched yet."""
+    items = await db.get_pool_items(status='unseen', source_types=['url'], limit=20)
+    enriched = 0
+    for item in items:
+        url = item.get('content', '')
+        pool_id = item.get('id', '')
+        if not url or not pool_id:
+            continue
+        # Skip if already enriched
+        if item.get('enriched_text'):
+            continue
+        try:
+            result = await enrich_pool_item(pool_id, url)
+            if result:
+                enriched += 1
+        except Exception as e:
+            logger.debug("[FeedIngester] Enrichment failed for %s: %s", url[:60], e)
+    if enriched > 0:
+        logger.info("[FeedIngester] Enriched %d URL items via markdown.new", enriched)
