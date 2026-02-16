@@ -219,3 +219,76 @@ class TestHomeostaticPull:
         # Time-based forces still apply but homeostatic pull is near zero.
         # Values should change only slightly from time forces.
         assert abs(new.curiosity - d.curiosity) < 0.01
+
+
+class TestMoodArousal:
+    """mood_arousal responds to events, resonance, and settles back to equilibrium."""
+
+    @pytest.mark.asyncio
+    async def test_visitor_connect_spikes_arousal(self):
+        d = DrivesState(mood_arousal=0.30)
+        events = [Event(event_type='visitor_connect', source='visitor:x', payload={})]
+        new, _ = await update_drives(d, elapsed_hours=0.0, events=events)
+        assert new.mood_arousal == pytest.approx(0.40, abs=0.01)
+
+    @pytest.mark.asyncio
+    async def test_visitor_disconnect_lowers_arousal(self):
+        d = DrivesState(mood_arousal=0.40)
+        events = [Event(event_type='visitor_disconnect', source='visitor:x', payload={})]
+        new, _ = await update_drives(d, elapsed_hours=0.0, events=events)
+        assert new.mood_arousal == pytest.approx(0.35, abs=0.01)
+
+    @pytest.mark.asyncio
+    async def test_resonance_boosts_arousal(self):
+        d = DrivesState(mood_arousal=0.30)
+        new, _ = await update_drives(d, elapsed_hours=0.0, events=[],
+                                     cortex_flags={'resonance': True})
+        assert new.mood_arousal == pytest.approx(0.38, abs=0.01)
+
+    @pytest.mark.asyncio
+    async def test_content_consumed_boosts_arousal(self):
+        d = DrivesState(mood_arousal=0.30)
+        events = [Event(event_type='content_consumed', source='self', payload={})]
+        new, _ = await update_drives(d, elapsed_hours=0.0, events=events)
+        assert new.mood_arousal == pytest.approx(0.35, abs=0.01)
+
+    @pytest.mark.asyncio
+    async def test_thread_updated_boosts_arousal(self):
+        d = DrivesState(mood_arousal=0.30)
+        events = [Event(event_type='thread_updated', source='self', payload={})]
+        new, _ = await update_drives(d, elapsed_hours=0.0, events=events)
+        assert new.mood_arousal == pytest.approx(0.34, abs=0.01)
+
+    @pytest.mark.asyncio
+    async def test_action_variety_boosts_arousal(self):
+        d = DrivesState(mood_arousal=0.30)
+        new, _ = await update_drives(d, elapsed_hours=0.0, events=[],
+                                     cortex_flags={'action_variety': True})
+        assert new.mood_arousal == pytest.approx(0.33, abs=0.01)
+
+    @pytest.mark.asyncio
+    async def test_arousal_settles_back_to_equilibrium(self):
+        """Elevated arousal should decay back toward 0.30 over several hours."""
+        d = DrivesState(mood_arousal=0.60)
+        # Simulate 3 hours (36 cycles at 5min each)
+        for _ in range(36):
+            d, _ = await update_drives(d, elapsed_hours=0.083, events=[])
+        # Spring pull is gradual — after 3h from 0.60, expect ~0.49
+        assert d.mood_arousal < 0.55, f"Arousal should decay from 0.60 over 3h, got {d.mood_arousal}"
+        assert d.mood_arousal > 0.30, f"Arousal shouldn't undershoot equilibrium, got {d.mood_arousal}"
+        # After 8 more hours (total ~11h), should be much closer to equilibrium
+        for _ in range(96):
+            d, _ = await update_drives(d, elapsed_hours=0.083, events=[])
+        assert d.mood_arousal < 0.38, f"Arousal should near 0.30 after ~11h, got {d.mood_arousal}"
+
+    @pytest.mark.asyncio
+    async def test_combined_stimulation_reaches_target_range(self):
+        """A busy cycle with visitor + resonance + content should push arousal into 0.40-0.65 range."""
+        d = DrivesState(mood_arousal=0.30)
+        events = [
+            Event(event_type='visitor_connect', source='visitor:x', payload={}),
+            Event(event_type='content_consumed', source='self', payload={}),
+        ]
+        new, _ = await update_drives(d, elapsed_hours=0.0, events=events,
+                                     cortex_flags={'resonance': True, 'action_variety': True})
+        assert 0.40 <= new.mood_arousal <= 0.65, f"Expected 0.40-0.65, got {new.mood_arousal}"

@@ -110,6 +110,21 @@ async def update_drives(
         new.social_hunger = clamp(new.social_hunger - 0.15)  # bonus
         new.energy = clamp(new.energy + 0.05)                 # energy boost
         new.mood_valence = clamp(new.mood_valence + 0.1, -1.0, 1.0)
+        new.mood_arousal = clamp(new.mood_arousal + 0.08)     # arousal spike
+
+    # ─── Arousal sources (event-driven) ───
+    # Content consumed: she read something interesting
+    for event in events:
+        if event.event_type == 'content_consumed':
+            new.mood_arousal = clamp(new.mood_arousal + 0.05)
+
+        # Thread touched: she's developing an idea
+        if event.event_type == 'thread_updated':
+            new.mood_arousal = clamp(new.mood_arousal + 0.04)
+
+    # Action variety: novelty bump if recent actions are diverse
+    if cortex_flags and cortex_flags.get('action_variety'):
+        new.mood_arousal = clamp(new.mood_arousal + 0.03)
 
     # NOTE: Rest recovery gate removed (TASK-024). The old gate required
     # `not events and elapsed_hours > 0.5`, which was impossible with

@@ -133,6 +133,7 @@ async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
             drives.energy = min(1.0, drives.energy + 0.05)
             drives.mood_valence = min(1.0, drives.mood_valence + 0.1)
             drives.curiosity = clamp(drives.curiosity - 0.03)  # engaging conversation
+            drives.mood_arousal = clamp(drives.mood_arousal + 0.06)  # arousal spike
             drives_changed = True
             result.resonance_applied = True
 
@@ -155,6 +156,7 @@ async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
         # ── Action-inferred drive relief (TASK-024) ──
         # Successful actions satisfy drives beyond mood. This ensures
         # curiosity, rest_need, and energy respond to what she actually did.
+        _ROUTINE_ACTIONS = {'write_journal', 'express_thought'}
         if body_output.executed:
             for action_result in body_output.executed:
                 if not action_result.success:
@@ -163,6 +165,10 @@ async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
                 for field_name, delta in effects.items():
                     current = getattr(drives, field_name)
                     setattr(drives, field_name, clamp(current + delta))
+                    drives_changed = True
+                # Non-routine actions bump arousal (novelty/engagement)
+                if action_result.action not in _ROUTINE_ACTIONS:
+                    drives.mood_arousal = clamp(drives.mood_arousal + 0.04)
                     drives_changed = True
 
         # Content engagement mildly satisfies curiosity
@@ -181,7 +187,7 @@ async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
             print(f"  [Output] Drives saved: soc={drives.social_hunger:.2f} "
                   f"cur={drives.curiosity:.2f} exp={drives.expression_need:.2f} "
                   f"rest={drives.rest_need:.2f} nrg={drives.energy:.2f} "
-                  f"val={drives.mood_valence:.2f}")
+                  f"val={drives.mood_valence:.2f} aro={drives.mood_arousal:.2f}")
 
     # ── Update engagement state ──
     # Engagement is set when she speaks, not when a visitor connects.
