@@ -1199,6 +1199,62 @@ Part C:
 
 ---
 
+### TASK-038: Replace rest mode with nap consolidation
+**Status:** READY
+**Priority:** High
+**Depends on:** TASK-036 (budget enforcement)
+**Description:** When energy budget is exceeded, the system enters empty rest loops — no LLM call, no actions, no thoughts, just a hardcoded placeholder string cycling every 20s until midnight. She's effectively lobotomized. Replace with nap behavior: she processes recent moments, writes real reflections, wakes with partial budget.
+**Implementation:**
+1. **sleep.py** — Add `nap_consolidate(db, top_n=3)`:
+   - Fetch top 3 unprocessed day_moments by salience
+   - Run `sleep_reflect()` on each (same LLM reflection as night sleep)
+   - Write reflections as individual journal entries
+   - Mark moments as `nap_processed=True` (don't re-process during night sleep)
+   - Return number of moments processed
+2. **heartbeat.py** — Replace rest mode:
+   - When budget exceeded: check nap cooldown (minimum 2 hours since last nap)
+   - If cooldown elapsed: trigger `nap_consolidate()`, restore 1.0 energy budget, log `[Heartbeat] Nap — consolidated N moments, budget restored to X`
+   - If cooldown not elapsed: skip cycle entirely (no empty rest loop). Just sleep the interval and check again. Log `[Heartbeat] Resting — nap cooldown (Xm remaining)`
+   - Remove the empty rest loop path entirely — no more token_budget=0 placeholder cycles
+3. **pipeline/day_memory.py** — Add `nap_processed` handling:
+   - `maybe_record_moment()` unchanged
+   - Night sleep query: exclude moments where `nap_processed=True` (already reflected on)
+   - Or: let night sleep re-process nap moments at deeper level (design choice — start with exclude)
+4. **db/memory.py** — Add `nap_processed` column to day_moments if needed (migration). Add `mark_moments_nap_processed(ids)` function. Add `get_top_unprocessed_moments(limit)` that excludes nap_processed.
+5. **Timeline event** — Nap cycles should appear as `action_nap` in the timeline, distinct from `action_body`. The dashboard should show naps as a visible event.
+6. **Visitor override** — Salience > 0.8 still wakes her from nap cooldown. If a visitor arrives during cooldown, skip the cooldown and run a normal cycle.
+**Expected behavior:**
+- Active morning: ~2 hours of cycles, hits budget
+- Nap: consolidates top 3 moments, reflections written, wakes with +1.0 budget
+- Active afternoon: another ~2 hours, hits budget again
+- Second nap: consolidates next batch
+- Evening: winds down, closes shop
+- Night: full sleep consolidation of remaining unprocessed moments
+**Scope (files you may touch):**
+- `heartbeat.py` (replace rest mode with nap trigger)
+- `sleep.py` (add nap_consolidate function)
+- `pipeline/day_memory.py` (nap_processed handling)
+- `db/memory.py` (new query functions, migration if needed)
+- `migrations/` (add nap_processed column if needed)
+- `models/pipeline.py` (if nap event type needed)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `pipeline/basal_ganglia.py`
+- `pipeline/output.py`
+- `heartbeat_server.py`
+- `window/`
+**Tests:**
+- test_nap_triggers_on_budget_exceeded — budget exceeded + cooldown elapsed → nap runs
+- test_nap_cooldown_enforced — budget exceeded + cooldown not elapsed → skip, no empty loop
+- test_nap_restores_partial_budget — after nap, budget has +1.0 headroom
+- test_nap_processes_top_moments — top 3 by salience are reflected on
+- test_nap_moments_excluded_from_night_sleep — nap_processed moments not re-processed
+- test_visitor_overrides_nap_cooldown — high salience visitor wakes her during cooldown
+- test_no_empty_rest_loops — budget exceeded never produces token_budget=0 placeholder cycles
+**Definition of done:** Budget exceeded triggers nap consolidation, not lobotomy. She processes moments, writes real reflections, wakes with partial budget. Timeline shows nap events. No more empty rest loops. Natural rhythm of active → nap → active → full night sleep.
+
+---
+
 ## Completed Tasks
 
 _None yet._
