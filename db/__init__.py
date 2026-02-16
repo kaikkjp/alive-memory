@@ -166,6 +166,7 @@ from db.analytics import (
     get_all_habits,
     get_all_inhibitions,
     get_energy_budget,
+    get_executed_action_count_today,
     get_habit_skip_count_today,
     get_habits_for_action,
     get_inhibitions_for_action,

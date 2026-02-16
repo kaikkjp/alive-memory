@@ -1114,6 +1114,62 @@ Fix: Remove auto-reopen from heartbeat.py entirely. Add `open_shop` as a new ref
 
 ---
 
+### TASK-036: System brakes — habit decay, mood scaling, energy budget enforcement
+**Status:** DONE (2026-02-16)
+**Priority:** High
+**Depends on:** TASK-024 (homeostatic pull), TASK-032 (drive gates)
+**Description:** The system has no natural braking mechanism. Actions create drive relief → more actions → stronger habits → habits never decay → positive feedback loop. Three fixes that add brakes.
+**Part A — Habit decay**
+In `pipeline/output.py`, after `track_action_pattern()`: for every habit in the DB that was NOT fired this cycle, apply time-based decay:
+- `strength -= 0.01 * elapsed_hours`
+- A habit at 0.9 that stops firing drops below 0.6 auto-fire threshold in ~30 hours
+- Delete habits that fall below 0.05
+- Only decay habits that haven't fired in the current cycle (don't decay what just strengthened)
+**Part B — Mood success bonus scaling**
+In `pipeline/output.py`, replace the flat +0.02 mood bonus per successful action with a diminishing formula:
+- `bonus = 0.02 / (1 + actions_today / 10)`
+- First 10 actions: near-full bonus (~0.02–0.01)
+- After 30 actions: bonus drops to ~0.005
+- This models emotional habituation — the 40th journal doesn't feel as good as the first
+- Get `actions_today` count from db (or pass it in from heartbeat) before applying bonus
+**Part C — Energy budget enforcement**
+In `heartbeat.py`, before calling cortex in `run_cycle()`:
+- Check energy spent today vs daily budget (from config or db)
+- If `spent >= budget`: force rest mode — skip cortex entirely, apply rest recovery to drives (`rest_need -= 0.05`, `energy += 0.03`), log `[Heartbeat] Resting — energy budget exceeded`
+- Exception: high-salience events (visitor connect with salience > 0.8) override the rest mode — she can still wake up for important moments
+- This gives the energy budget actual teeth instead of being display-only
+**Scope (files you may touch):**
+- `pipeline/output.py` (habit decay + mood scaling)
+- `heartbeat.py` (budget enforcement)
+- `db/analytics.py` (if energy budget query needs updating)
+- `db/memory.py` (if habit deletion function needed — at END of file)
+- `models/pipeline.py` (if CycleOutput needs a rest_mode flag)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `pipeline/basal_ganglia.py`
+- `pipeline/sensorium.py`
+- `heartbeat_server.py`
+- `window/`
+- `sleep.py`
+**Tests:**
+Part A:
+- test_unfired_habit_decays — habit not fired loses strength over time
+- test_fired_habit_no_decay — habit that just fired doesn't decay in same cycle
+- test_habit_deleted_below_threshold — habit at 0.05 decays and is removed
+- test_decay_rate — 0.9 strength drops below 0.6 within ~30 simulated hours
+Part B:
+- test_mood_bonus_first_action — near +0.02 when actions_today is low
+- test_mood_bonus_diminishes — significantly less after 30+ actions
+- test_mood_bonus_never_negative — formula always returns positive value
+Part C:
+- test_budget_exceeded_forces_rest — no cortex call when budget exceeded
+- test_rest_mode_recovers_drives — rest_need decreases and energy increases during rest
+- test_high_salience_overrides_rest — visitor event with salience > 0.8 still triggers cortex
+- test_under_budget_runs_normally — normal cycle when budget not exceeded
+**Definition of done:** Habits weaken when unused. Mood bonus diminishes with repetition. Energy budget forces rest when exceeded (except for important events). The positive feedback loop is broken — the system has natural brakes.
+
+---
+
 ## Completed Tasks
 
 _None yet._

@@ -143,7 +143,13 @@ async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
                 drives.mood_valence = max(-1.0, drives.mood_valence - 0.05 * len(failures))
                 drives_changed = True
             if successes:
-                drives.mood_valence = min(1.0, drives.mood_valence + 0.02 * len(successes))
+                # Diminishing mood bonus (TASK-036): emotional habituation
+                # First 10 actions: near-full bonus. After 30: ~0.005.
+                actions_today_count = await db.get_executed_action_count_today()
+                for _ in successes:
+                    bonus = 0.02 / (1 + actions_today_count / 10)
+                    drives.mood_valence = min(1.0, drives.mood_valence + bonus)
+                    actions_today_count += 1  # each success in this batch counts
                 drives_changed = True
 
         # ── Action-inferred drive relief (TASK-024) ──
@@ -230,6 +236,15 @@ async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
     # ── Habit tracking (Phase 4) ──
     if motor_plan and body_output.executed:
         await _track_action_patterns(motor_plan, body_output)
+
+    # ── Habit decay (TASK-036) ──
+    # Decay habits that didn't fire this cycle. Collect fired actions first.
+    fired_this_cycle = set()
+    if body_output.executed:
+        for ar in body_output.executed:
+            if ar.success:
+                fired_this_cycle.add(ar.action)
+    await _decay_unfired_habits(fired_this_cycle)
 
     # ── Metacognitive monitor (Phase 3) ──
     consistency = await _check_self_consistency(validated)
@@ -418,6 +433,8 @@ async def _maybe_form_inhibition(decision: ActionDecision,
 # ── Habit tracking (Phase 4) ──
 
 HABIT_STRENGTH_CAP = 0.9
+HABIT_DECAY_RATE = 0.01          # strength lost per hour of inactivity
+HABIT_DELETE_THRESHOLD = 0.05    # habits below this are pruned
 
 
 def _habit_delta(current_strength: float) -> float:
@@ -478,6 +495,46 @@ async def _track_single_action(action: str, trigger_key: str) -> None:
         )
     else:
         await db.create_habit(action, trigger_key, strength=0.1)
+
+
+# ── Habit decay (TASK-036) ──
+
+async def _decay_unfired_habits(fired_actions: set[str]) -> None:
+    """Decay habits that did NOT fire this cycle based on time since last trigger.
+
+    Only affects habits whose action was NOT among those just executed.
+    Habits below HABIT_DELETE_THRESHOLD are pruned.
+    """
+    try:
+        from datetime import datetime as _dt, timezone as _tz
+        all_habits = await db.get_all_habits()
+        now = clock.now_utc()
+
+        for habit in all_habits:
+            if habit['action'] in fired_actions:
+                continue  # just fired — don't decay
+
+            last_triggered = habit.get('last_triggered')
+            if not last_triggered:
+                continue
+
+            # Parse last_triggered — may be ISO string or datetime
+            if isinstance(last_triggered, str):
+                lt = _dt.fromisoformat(last_triggered)
+            else:
+                lt = last_triggered
+            if lt.tzinfo is None:
+                lt = lt.replace(tzinfo=_tz.utc)
+
+            elapsed_hours = (now - lt).total_seconds() / 3600.0
+            new_strength = habit['strength'] - HABIT_DECAY_RATE * elapsed_hours
+
+            if new_strength < HABIT_DELETE_THRESHOLD:
+                await db.delete_habit(habit['id'])
+            else:
+                await db.update_habit(habit['id'], strength=round(new_strength, 6))
+    except Exception as e:
+        print(f"  [HabitDecay] Error decaying habits: {e}")
 
 
 # ── Metacognitive monitor (Phase 3) ──
