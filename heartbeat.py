@@ -868,6 +868,8 @@ class Heartbeat:
         # If daily energy budget exceeded, skip cortex and rest — unless
         # a high-salience event (> 0.8) demands attention.
         budget_info = await db.get_energy_budget()
+        print(f"  [Heartbeat] Budget check: spent={budget_info['spent_today']:.3f} "
+              f"budget={budget_info['budget']:.1f}")
         if budget_info['spent_today'] >= budget_info['budget']:
             has_high_salience = any(p.salience > 0.8 for p in perceptions)
             if not has_high_salience:

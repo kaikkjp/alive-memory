@@ -603,23 +603,47 @@ async def get_habit_skip_count_today() -> int:
 
 
 async def get_energy_budget() -> dict:
-    """Get energy spent today (JST) vs budget (1.0 scale)."""
+    """Get energy spent today (JST) vs budget.
+
+    Uses cycle_log as primary source (always populated) plus action_log
+    energy costs when available. Each cortex cycle costs a base 0.03 energy.
+    Budget: 4.0 (allows ~130 cortex cycles before forced rest).
+    """
     conn = await _connection.get_db()
     jst_now = clock.now()
     day_start = jst_now.replace(hour=0, minute=0, second=0, microsecond=0)
     day_end = day_start + timedelta(days=1)
     day_start_utc = day_start.astimezone(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
     day_end_utc = day_end.astimezone(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+
+    # Primary: count cortex cycles from cycle_log (always populated).
+    # Exclude rest and habit-fired cycles (token_budget=0) — those don't
+    # cost LLM energy.
+    COST_PER_CORTEX_CYCLE = 0.03
     cursor = await conn.execute(
+        """SELECT COUNT(*) AS cnt
+           FROM cycle_log
+           WHERE ts >= ? AND ts < ?
+             AND COALESCE(token_budget, 0) > 0""",
+        (day_start_utc, day_end_utc),
+    )
+    row = await cursor.fetchone()
+    cortex_cycles = row['cnt'] if row else 0
+    cortex_energy = round(cortex_cycles * COST_PER_CORTEX_CYCLE, 4)
+
+    # Supplemental: action_log energy costs (may be empty if logging failed).
+    cursor2 = await conn.execute(
         """SELECT COALESCE(SUM(energy_cost), 0) AS spent
            FROM action_log
            WHERE status = 'executed'
              AND created_at >= ? AND created_at < ?""",
         (day_start_utc, day_end_utc),
     )
-    row = await cursor.fetchone()
-    spent = round(row['spent'], 4) if row else 0
-    return {'spent_today': spent, 'budget': 1.0}
+    row2 = await cursor2.fetchone()
+    action_energy = round(row2['spent'], 4) if row2 else 0
+
+    spent = round(cortex_energy + action_energy, 4)
+    return {'spent_today': spent, 'budget': 4.0}
 
 
 async def get_executed_action_count_today() -> int:
