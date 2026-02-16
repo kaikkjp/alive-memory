@@ -134,6 +134,7 @@ from db.content import (
     get_consumption_history,
     get_content_pool_dashboard,
     get_dormant_threads,
+    get_enriched_text_for_url,
     get_feed_pipeline_dashboard,
     get_pool_item_by_id,
     get_pool_items,

@@ -119,7 +119,7 @@ Events → Inbox → Sensorium → Gates → Affect → Hypothalamus → Thalamu
 | `pipeline/ambient.py` | 231 | Fetches ambient context (time of day, weather, RSS feeds) for idle cycles. |
 | `pipeline/ack.py` | 69 | Instant acknowledgments for visitor events (before full cycle processes). |
 | `pipeline/discovery.py` | 90 | Discovery/curiosity-driven item exploration from collection. |
-| `pipeline/enrich.py` | 152 | URL metadata fetching, readable text extraction from links. |
+| `pipeline/enrich.py` | 252 | URL metadata fetching, readable text extraction from links. markdown.new integration for clean markdown conversion with fallback to HTML extraction. Content type detection (article/video/music). |
 | `pipeline/sanitize.py` | 24 | Input sanitization (strip dangerous content). |
 | `pipeline/scene.py` | 249 | Scene state computation (posture, gaze, lighting, shelf items) for visual rendering. |
 | `pipeline/image_gen.py` | 282 | Image generation abstraction (fal.ai backend). |
@@ -149,7 +149,7 @@ Events → Inbox → Sensorium → Gates → Affect → Hypothalamus → Thalamu
 
 | File | Lines | What it does |
 |------|-------|-------------|
-| `feed_ingester.py` | 157 | RSS feed polling → content pool. Runs periodically. |
+| `feed_ingester.py` | 215 | RSS feed polling → content pool. Enriches URLs via markdown.new with content type detection. Runs periodically. |
 | `ingest.py` | 89 | Manual content ingestion (CLI tool). |
 
 ### Utility Scripts & Tools
@@ -262,6 +262,7 @@ Separate Node.js code assistant built on OpenRouter SDK. Not part of the Shopkee
 | `tests/test_visitor_timeout.py` | Unengaged visitor idle timeout cleanup |
 | `tests/test_window_state.py` | Window state broadcast payload |
 | `tests/test_backfill_embeddings.py` | Embedding backfill script |
+| `tests/test_feed_enrichment.py` | Feed enrichment via markdown.new, content type detection, fallback, dedup |
 | `tests/soak_live.py` | Live soak test (manual) |
 
 ---
@@ -347,14 +348,14 @@ Metacognitive monitor in `pipeline/output.py` compares executed behavior against
 
 | Area | Files | Lines |
 |------|-------|-------|
-| Core engine (*.py root) | 17 | ~5,833 |
-| Pipeline (pipeline/*.py) | 29 | ~5,880 |
+| Core engine (*.py root) | 17 | ~5,890 |
+| Pipeline (pipeline/*.py) | 29 | ~6,062 |
 | API | 2 | ~384 |
-| Config | 5 | ~424 |
+| Config | 5 | ~428 |
 | Models | 4 | ~530 |
-| Scripts | 5 | ~571 |
-| Tests | 39 | ~8,746 |
+| Scripts | 6 | ~757 |
+| Tests | 40 | ~9,414 |
 | Frontend (window/src/) | 33 | ~3,624 |
-| Docs (*.md) | 25 | ~15,413 |
+| Docs (*.md) | 27 | ~15,612 |
 | Deploy | 7 | ~551 |
-| **Total** | **~166** | **~41,956** | **~165** | **~41,631** | **~148** | **~33,417** |
+| **Total** | **~170** | **~43,252** | **~166** | **~41,956** | **~165** | **~41,631** | **~148** | **~33,417** |

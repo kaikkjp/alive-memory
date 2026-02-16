@@ -16,6 +16,10 @@ FEED_SOURCES = [
     {'type': 'rss', 'url': 'https://www.ambientblog.net/blog/feed', 'tags': ['ambient', 'music', 'soundscapes']},
     {'type': 'rss', 'url': 'https://www.messynessychic.com/feed/', 'tags': ['exploration', 'nostalgia', 'hidden_places']},
     {'type': 'rss', 'url': 'https://www.lensculture.com/rss', 'tags': ['photography', 'visual', 'artists']},
+
+    # Multimedia — enriched via markdown.new (TASK-034)
+    {'type': 'rss', 'url': 'https://www.youtube.com/feeds/videos.xml?channel_id=UCshv6RacCMEMl3SncgMkmqQ', 'tags': ['video', 'tokyo', 'walks']},  # Rambalac — Tokyo walks
+    {'type': 'rss', 'url': 'https://daily.bandcamp.com/feed', 'tags': ['music', 'discovery', 'independent']},  # Bandcamp Daily
 ]
 
 FEED_FETCH_INTERVAL = 3600   # seconds between feed checks (1 hour)

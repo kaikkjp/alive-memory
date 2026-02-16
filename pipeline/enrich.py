@@ -1,12 +1,24 @@
-"""URL Enrichment — fetch metadata when a visitor shares a URL."""
+"""URL Enrichment — fetch metadata when a visitor shares a URL.
+
+Supports markdown.new for clean markdown conversion (TASK-034).
+Falls back to raw HTML extraction when markdown.new is unavailable.
+"""
 
 import asyncio
 import ipaddress
+import json
+import logging
 import re
 import socket
 import urllib.parse
 import urllib.request
 import urllib.error
+
+logger = logging.getLogger(__name__)
+
+# markdown.new endpoint
+MARKDOWN_NEW_URL = 'https://markdown.new/'
+MARKDOWN_NEW_TIMEOUT = 15  # seconds — external service, allow more time
 
 
 def _validate_url(url: str) -> bool:
@@ -116,21 +128,108 @@ def _fetch_url_metadata_sync(url: str) -> dict:
         }
 
 
+# ── markdown.new integration (TASK-034) ──
+
+def _fetch_via_markdown_new_sync(url: str) -> str:
+    """Fetch clean markdown for a URL via markdown.new. Sync implementation.
+
+    Returns markdown string on success, empty string on failure.
+    """
+    try:
+        api_url = MARKDOWN_NEW_URL
+        payload = json.dumps({'url': url}).encode('utf-8')
+        req = urllib.request.Request(
+            api_url,
+            data=payload,
+            headers={
+                'Content-Type': 'application/json',
+                'User-Agent': 'Shopkeeper/1.0',
+            },
+            method='POST',
+        )
+        with urllib.request.urlopen(req, timeout=MARKDOWN_NEW_TIMEOUT) as resp:
+            return resp.read().decode('utf-8', errors='replace')
+    except Exception as e:
+        logger.debug("[Enrich] markdown.new failed for %s: %s", url, e)
+        return ''
+
+
+async def fetch_via_markdown_new(url: str) -> str:
+    """Fetch clean markdown for a URL via markdown.new.
+
+    Returns markdown string on success, empty string on failure.
+    Thread-safe: runs sync HTTP in a thread.
+    """
+    if not _validate_url(url):
+        return ''
+    return await asyncio.to_thread(_fetch_via_markdown_new_sync, url)
+
+
+def detect_content_type(markdown_text: str) -> str:
+    """Detect content type from enriched markdown output.
+
+    Returns one of: 'video', 'music', 'article'.
+
+    Heuristics:
+    - 'video' if text contains transcript markers or YouTube/video metadata
+    - 'music' if text contains track/album metadata patterns
+    - 'article' otherwise (default for prose)
+    """
+    if not markdown_text:
+        return 'article'
+
+    lower = markdown_text.lower()
+
+    # Video detection: transcript markers, YouTube metadata, duration patterns
+    video_signals = [
+        'transcript' in lower,
+        'captions' in lower and ('video' in lower or 'youtube' in lower),
+        bool(re.search(r'duration[:\s]+\d+:\d+', lower)),
+        bool(re.search(r'(youtube\.com|youtu\.be|vimeo\.com)', lower)),
+        'channel:' in lower and 'views' in lower,
+        bool(re.search(r'^\s*\d{1,2}:\d{2}', markdown_text, re.MULTILINE)),  # timestamp lines
+    ]
+    if sum(video_signals) >= 2:
+        return 'video'
+
+    # Music detection: track/album/artist metadata patterns
+    music_signals = [
+        bool(re.search(r'(track\s*list|tracklist)', lower)),
+        bool(re.search(r'(bandcamp\.com|soundcloud\.com|spotify\.com)', lower)),
+        bool(re.search(r'(album|release|ep)\s*:', lower)),
+        bool(re.search(r'artist\s*:', lower)),
+        'genre:' in lower,
+        bool(re.search(r'bpm\s*:', lower)),
+        bool(re.search(r'(label|record\s*label)\s*:', lower)),
+    ]
+    if sum(music_signals) >= 2:
+        return 'music'
+
+    return 'article'
+
+
 async def fetch_readable_text(url: str, max_chars: int = 4000) -> str:
     """Fetch readable text content from a URL for consumption.
 
-    Reads up to 32KB of HTML and extracts a text approximation.
-    Returns truncated plain text suitable for Cortex prompt.
+    Tries markdown.new first for clean markdown extraction.
+    Falls back to raw HTML text extraction if markdown.new is unavailable.
+    Returns truncated text suitable for Cortex prompt.
     """
+    if not _validate_url(url):
+        return ''
+
+    # Try markdown.new first
+    markdown_text = await fetch_via_markdown_new(url)
+    if markdown_text:
+        return markdown_text[:max_chars]
+
+    # Fallback: raw HTML extraction
     return await asyncio.to_thread(_fetch_readable_text_sync, url, max_chars)
 
 
 def _fetch_readable_text_sync(url: str, max_chars: int = 4000) -> str:
-    """Sync implementation — fetch and extract readable text."""
+    """Sync fallback — fetch HTML and extract text."""
     try:
-        if not _validate_url(url):
-            return ''
-
         req = urllib.request.Request(url, headers={
             'User-Agent': 'Mozilla/5.0 (compatible; Shopkeeper/1.0)',
         })

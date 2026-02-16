@@ -276,7 +276,8 @@ async def update_pool_item(pool_id: str, **kwargs):
     """Update pool item fields."""
     sets = []
     vals = []
-    for key in ('status', 'seen_at', 'engaged_at', 'outcome_detail'):
+    for key in ('status', 'seen_at', 'engaged_at', 'outcome_detail',
+                'enriched_text', 'content_type'):
         if key in kwargs:
             sets.append(f"{key} = ?")
             v = kwargs[key]
@@ -585,3 +586,18 @@ async def get_consumption_history(limit: int = 20) -> list[dict]:
         })
 
     return result
+
+
+# ── Enrichment helpers (TASK-034) ──
+
+async def get_enriched_text_for_url(url: str) -> Optional[str]:
+    """Check if a URL has already been enriched. Returns enriched_text or None."""
+    conn = await _connection.get_db()
+    cursor = await conn.execute(
+        """SELECT enriched_text FROM content_pool
+           WHERE content = ? AND enriched_text IS NOT NULL
+           LIMIT 1""",
+        (url,)
+    )
+    row = await cursor.fetchone()
+    return row['enriched_text'] if row else None
