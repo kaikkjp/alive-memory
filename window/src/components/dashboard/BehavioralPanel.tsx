@@ -4,6 +4,68 @@ import { useState, useEffect } from 'react';
 import { dashboardApi } from '@/lib/dashboard-api';
 import type { BehavioralPanelData } from '@/lib/types';
 
+// Default/dominant state — badges for these are suppressed
+const DEFAULTS: Record<string, string> = {
+  energy: 'high',
+  mood: 'positive',
+  mode: 'idle',
+  visitor: 'false',
+};
+
+const BADGE_COLORS: Record<string, string> = {
+  morning:   'bg-amber-800 text-amber-200',
+  afternoon: 'bg-sky-800 text-sky-200',
+  evening:   'bg-indigo-800 text-indigo-200',
+  night:     'bg-neutral-700 text-neutral-300',
+  'energy:low':  'bg-red-900 text-red-300',
+  'energy:mid':  'bg-amber-900 text-amber-300',
+  'mood:negative': 'bg-red-900 text-red-300',
+  'mood:neutral':  'bg-neutral-700 text-neutral-300',
+  visitor:   'bg-emerald-900 text-emerald-300',
+  engaged:   'bg-purple-900 text-purple-300',
+  reading:   'bg-blue-900 text-blue-300',
+  thread:    'bg-purple-900 text-purple-300',
+  sleep:     'bg-neutral-700 text-neutral-300',
+};
+
+function parseBadges(raw: string): { label: string; color: string }[] {
+  if (!raw) return [];
+  const badges: { label: string; color: string }[] = [];
+  for (const part of raw.split('|')) {
+    const [key, val] = part.split(':');
+    if (!key || !val) continue;
+    // Skip defaults
+    if (DEFAULTS[key] === val) continue;
+    // Time band always shows
+    if (key === 'time') {
+      badges.push({ label: val, color: BADGE_COLORS[val] || 'bg-neutral-700 text-neutral-300' });
+    } else if (key === 'visitor' && val === 'true') {
+      badges.push({ label: 'visitor', color: BADGE_COLORS.visitor });
+    } else if (key === 'energy') {
+      badges.push({ label: `${key}:${val}`, color: BADGE_COLORS[`energy:${val}`] || 'bg-neutral-700 text-neutral-300' });
+    } else if (key === 'mood') {
+      badges.push({ label: `${key}:${val}`, color: BADGE_COLORS[`mood:${val}`] || 'bg-neutral-700 text-neutral-300' });
+    } else if (key === 'mode') {
+      badges.push({ label: val, color: BADGE_COLORS[val] || 'bg-neutral-700 text-neutral-300' });
+    }
+  }
+  return badges;
+}
+
+function ContextBadges({ raw }: { raw: string }) {
+  const badges = parseBadges(raw);
+  if (badges.length === 0) return null;
+  return (
+    <span className="inline-flex gap-1 ml-1.5" title={raw}>
+      {badges.map((b, i) => (
+        <span key={i} className={`px-1 py-0 rounded text-[10px] leading-4 ${b.color}`}>
+          {b.label}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 function StrengthBar({ value }: { value: number }) {
   const pct = Math.round(value * 100);
   const color = value >= 0.6 ? 'bg-emerald-500' : value >= 0.3 ? 'bg-amber-500' : 'bg-neutral-500';
@@ -84,12 +146,12 @@ export default function BehavioralPanel() {
         ) : (
           <div className="space-y-2">
             {data.habits.map((h, i) => (
-              <div key={i} className="flex items-center justify-between text-xs font-mono">
-                <div className="flex-1 min-w-0">
-                  <span className="text-neutral-300">{h.action}</span>
-                  <span className="text-neutral-600 ml-2 truncate">{h.trigger_context}</span>
+              <div key={i} className="flex items-center justify-between text-xs font-mono gap-2" title={h.trigger_context}>
+                <div className="flex items-center flex-1 min-w-0">
+                  <span className="text-neutral-300 shrink-0">{h.action}</span>
+                  <ContextBadges raw={h.trigger_context} />
                 </div>
-                <div className="flex items-center gap-2 ml-2">
+                <div className="flex items-center gap-2 shrink-0">
                   <StrengthBar value={h.strength} />
                   <span className="text-neutral-500 w-8 text-right">{h.fire_count}x</span>
                 </div>
