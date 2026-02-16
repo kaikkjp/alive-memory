@@ -354,6 +354,31 @@ class TestEnergyBudgetCycleLog:
             # Only today's cycle counts: 1 * 0.03 = 0.03
             assert budget['spent_today'] == pytest.approx(0.03, abs=0.001)
 
+    @pytest.mark.asyncio
+    async def test_iso_format_timestamps_counted(self, fresh_db):
+        """Cycles stored with ISO-8601 timestamps (production format) are counted.
+
+        Regression: cycle_log.ts uses clock.now_utc().isoformat() which
+        produces '2026-02-15T01:00:00+00:00'.  Plain string comparison
+        broke because 'T' > ' ' in ASCII, causing cycles to fall outside
+        the query window.
+        """
+        jst_noon = datetime(2026, 2, 15, 12, 0, 0, tzinfo=JST)
+        with patch.object(clock, '_clock', clock.Clock(simulate=True, start=jst_noon)):
+            conn = await db.get_db()
+            # Seed with ISO format (what production actually writes)
+            for i in range(5):
+                ts = datetime(2026, 2, 15, 1 + i, 0, 0, tzinfo=timezone.utc)
+                await _seed_cycle(conn, ts.isoformat(), token_budget=3000)
+            # Seed with plain format too
+            for i in range(3):
+                ts = datetime(2026, 2, 15, 6 + i, 0, 0, tzinfo=timezone.utc)
+                await _seed_cycle(conn, ts.strftime('%Y-%m-%d %H:%M:%S'),
+                                  token_budget=3000)
+            budget = await db.get_energy_budget()
+            # All 8 cycles should count: 8 * 0.03 = 0.24
+            assert budget['spent_today'] == pytest.approx(0.24, abs=0.001)
+
 
 class TestCooldownAccuracy:
     """TASK-021 Fix B: cooldown status is accurate (no silent TypeError)."""

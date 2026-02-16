@@ -619,11 +619,16 @@ async def get_energy_budget() -> dict:
     # Primary: count cortex cycles from cycle_log (always populated).
     # Exclude rest and habit-fired cycles (token_budget=0) — those don't
     # cost LLM energy.
+    # NOTE: cycle_log.ts is stored as ISO-8601 with timezone (e.g.
+    # '2026-02-16T02:02:42.123456+00:00') while the boundary params are
+    # plain UTC ('2026-02-16 15:00:00').  SQLite string comparison breaks
+    # because 'T' > ' ', so datetime() normalises both sides.
     COST_PER_CORTEX_CYCLE = 0.03
     cursor = await conn.execute(
         """SELECT COUNT(*) AS cnt
            FROM cycle_log
-           WHERE ts >= ? AND ts < ?
+           WHERE datetime(ts) >= datetime(?)
+             AND datetime(ts) < datetime(?)
              AND COALESCE(token_budget, 0) > 0""",
         (day_start_utc, day_end_utc),
     )
