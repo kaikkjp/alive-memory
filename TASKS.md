@@ -1255,6 +1255,41 @@ Part C:
 
 ---
 
+### TASK-039: Isolation Experiment Analysis Pipeline
+**Status:** READY
+**Priority:** High (paper blocker)
+**Branch:** feat/experiment-analysis
+**Context:** For the research paper, we need to prove The Shopkeeper generates diverse, non-repetitive behavior without user input. The data already exists in cycle_log — we just need export + analysis + visualization.
+**FILES TO CREATE:**
+1. `experiments/export_cycles.py` — Reads SQLite DB, exports cycle_log to JSONL
+2. `experiments/generate_baseline.py` — Generates null-hypothesis baseline from timestamps
+3. `experiments/analyze_entropy.py` — Computes Shannon entropy, generates matplotlib figures
+**FILES TO MODIFY:** None. Read-only access to DB via sqlite3 (not the async db module).
+**DEPENDENCIES:** matplotlib, numpy (add to requirements.txt if missing)
+**DO NOT MODIFY:** Any existing source files. This is a pure analysis layer that reads the DB the system already populates.
+**Scope (files you may touch):**
+- `experiments/export_cycles.py` (new)
+- `experiments/generate_baseline.py` (new)
+- `experiments/analyze_entropy.py` (new)
+- `experiments/__init__.py` (new)
+- `tests/test_export_cycles.py` (new)
+- `tests/test_entropy.py` (new)
+- `tests/test_baseline.py` (new)
+- `requirements.txt` (add matplotlib, numpy)
+**Scope (files you may NOT touch):**
+- All existing Python source files
+- `db/` (read-only access via sqlite3)
+- `pipeline/*`
+- `heartbeat.py`
+- `window/`
+**Tests:**
+- test_export reads a test DB with 10 known cycles, verifies JSONL output matches
+- test_entropy with a hand-crafted 4-action uniform distribution verifies H = 2.0 bits
+- test_baseline verifies all routing_focus values are "idle"
+**Definition of done:** Three standalone scripts that export, baseline, and analyze cycle_log data. Shannon entropy figure shows non-trivial behavioral diversity. All tests pass.
+
+---
+
 ## Completed Tasks
 
 _None yet._
