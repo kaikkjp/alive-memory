@@ -15,6 +15,13 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
+# ─── Use venv python if available ───
+if [ -x "${PROJECT_ROOT}/.venv/bin/python3" ]; then
+    PYTHON="${PROJECT_ROOT}/.venv/bin/python3"
+else
+    PYTHON="python3"
+fi
+
 ASSETS_DIR="${PROJECT_ROOT}/assets"
 PUBLIC_DIR="${PROJECT_ROOT}/window/public/assets"
 SPRITES_DIR="${PUBLIC_DIR}/sprites"
@@ -37,10 +44,10 @@ mkdir -p "${PUBLIC_DIR}" "${SPRITES_DIR}"
 
 # ─── Generate derived images ───
 echo "[prepare_assets] Generating shop_interior.png..."
-python3 "${SCRIPT_DIR}/cut_window_mask.py"
+${PYTHON} "${SCRIPT_DIR}/cut_window_mask.py"
 
 echo "[prepare_assets] Generating counter_foreground.png..."
-python3 "${SCRIPT_DIR}/slice_counter.py"
+${PYTHON} "${SCRIPT_DIR}/slice_counter.py"
 
 # ─── Copy character sprites ───
 echo "[prepare_assets] Copying ${SPRITE_COUNT} character sprites..."
