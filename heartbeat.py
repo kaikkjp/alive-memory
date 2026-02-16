@@ -162,6 +162,7 @@ class Heartbeat:
     def __init__(self):
         self.running = False
         self.pending_microcycle = asyncio.Event()
+        self._wake_event = asyncio.Event()  # wake loop without triggering microcycle
         self._last_cycle_ts = clock.now_utc()
         self._last_creative_cycle_ts: Optional[datetime] = None
         self._last_sleep_date: Optional[str] = None  # ISO date string
@@ -182,9 +183,15 @@ class Heartbeat:
         return self._cycle_interval
 
     def set_cycle_interval(self, seconds: int) -> int:
-        """Set cycle interval (clamped to INTERVAL_MIN..INTERVAL_MAX). Returns actual value."""
+        """Set cycle interval (clamped to INTERVAL_MIN..INTERVAL_MAX). Returns actual value.
+
+        Wakes the main loop so the new interval takes effect immediately
+        rather than waiting for the current (possibly longer) sleep to finish.
+        """
         self._cycle_interval = max(self.INTERVAL_MIN, min(self.INTERVAL_MAX, seconds))
         print(f"  [Heartbeat] Cycle interval set to {self._cycle_interval}s")
+        # Wake the loop so it re-sleeps with the new interval
+        self._wake_event.set()
         return self._cycle_interval
 
     def _get_cycle_interval(self, channel: str) -> int:
@@ -247,6 +254,7 @@ class Heartbeat:
     async def stop(self):
         self.running = False
         self.pending_microcycle.set()  # wake up any wait
+        self._wake_event.set()  # also wake interruptible_sleep
         if self._loop_task:
             try:
                 await asyncio.wait_for(self._loop_task, timeout=10)
@@ -258,11 +266,24 @@ class Heartbeat:
                     pass
 
     async def _interruptible_sleep(self, seconds: float):
-        """Sleep that wakes immediately when a microcycle is scheduled."""
-        try:
-            await asyncio.wait_for(self.pending_microcycle.wait(), timeout=seconds)
-        except asyncio.TimeoutError:
-            pass
+        """Sleep that wakes immediately when a microcycle is scheduled or wake_event fires."""
+        self._wake_event.clear()
+        # Wake on either: microcycle scheduled OR interval changed (wake_event)
+        done, pending = await asyncio.wait(
+            [
+                asyncio.create_task(self.pending_microcycle.wait()),
+                asyncio.create_task(self._wake_event.wait()),
+            ],
+            timeout=seconds,
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+        # Cancel any still-pending waiters
+        for task in pending:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
 
     def _is_sleep_window(self) -> bool:
         """Check if current time is 03:00-06:00 JST."""
