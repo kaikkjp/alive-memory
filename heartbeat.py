@@ -72,6 +72,7 @@ _GAZE_MAP = {
 
 _ACTION_MAP = {
     'close_shop': 'closed the shop',
+    'open_shop': 'opened the shop',
     'write_journal': 'wrote in your journal',
     'accept_gift': 'accepted a gift',
     'decline_gift': 'declined a gift',
@@ -116,8 +117,10 @@ async def build_self_state(visitor, unread: list) -> str | None:
     gaze_text = _GAZE_MAP.get(last['gaze'], last['gaze'])
     parts.append(f"  You're looking {gaze_text}.")
 
-    # Shop status (from live room_state, not stale cycle_log)
-    parts.append(f'  The shop is {room.shop_status}.')
+    # Shop status + time of day
+    now_jst = clock.now()
+    time_str = now_jst.strftime('%H:%M')
+    parts.append(f'  The shop is {room.shop_status}. It is {time_str}.')
 
     # Hands
     if visitor and visitor.hands_state:
@@ -408,11 +411,6 @@ class Heartbeat:
         """
         if drives is None:
             drives = await db.get_drives_state()
-
-        # Check shop status — reopen if rested enough
-        room = await db.get_room_state()
-        if room.shop_status == 'closed' and drives.energy > 0.5:
-            await db.update_room_state(shop_status='open')
 
         # ── Ambient weather fetch (every 30-60 min) ──
         if not clock.is_simulating():
