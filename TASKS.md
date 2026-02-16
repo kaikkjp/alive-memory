@@ -1170,6 +1170,35 @@ Part C:
 
 ---
 
+### TASK-037: Dashboard cycle interval control
+**Status:** DONE (2026-02-16)
+**Priority:** Medium
+**Description:** Add a cycle interval slider/input to the Controls panel so the operator can adjust heartbeat frequency from the dashboard without SSH. Currently the interval is hardcoded in config.
+**Implementation:**
+1. **Controls panel** — Add an input field showing current cycle interval in seconds. Editable. Min 10s, max 600s. Apply button or debounced auto-apply.
+2. **API endpoint** — `POST /api/dashboard/cycle-interval` accepts `{interval_seconds: number}`. Auth required. Validates min/max bounds.
+3. **heartbeat.py** — Read interval from a mutable source (DB setting or in-memory variable) instead of hardcoded config. API endpoint updates this value. Takes effect on next cycle without restart.
+4. **Controls panel display** — Show current interval next to heartbeat status. "Every 30s" / "Every 3m" etc.
+**Scope (files you may touch):**
+- `window/src/components/dashboard/ControlsPanel.tsx`
+- `api/dashboard_routes.py`
+- `heartbeat_server.py` (route dispatch)
+- `heartbeat.py` (read mutable interval)
+- `config/` (default interval value)
+- `db.py` (if persisting interval as a setting — at END of file only)
+- `window/src/lib/types.ts`
+- `window/src/lib/dashboard-api.ts`
+**Scope (files you may NOT touch):**
+- `pipeline/*`
+- `sleep.py`
+**Tests:**
+- test_interval_update_api — POST changes interval, GET reflects new value
+- test_interval_bounds — rejects below 10s and above 600s
+- test_interval_auth — returns 401 without auth
+**Definition of done:** Operator can change cycle interval from dashboard. Change takes effect next cycle. No restart needed.
+
+---
+
 ## Completed Tasks
 
 _None yet._

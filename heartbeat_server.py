@@ -962,6 +962,10 @@ class ShopkeeperServer:
                 await dashboard_routes.handle_trigger_cycle(self, writer, authorization)
             elif path == '/api/dashboard/controls/status' and method == 'GET':
                 await dashboard_routes.handle_status(self, writer, authorization)
+            elif path == '/api/dashboard/controls/cycle-interval' and method == 'GET':
+                await dashboard_routes.handle_get_cycle_interval(self, writer, authorization)
+            elif path == '/api/dashboard/controls/cycle-interval' and method == 'POST':
+                await dashboard_routes.handle_set_cycle_interval(self, writer, authorization, body_bytes)
             elif path == '/api/dashboard/body' and method == 'GET':
                 await dashboard_routes.handle_body(self, writer, authorization)
             elif path == '/api/dashboard/behavioral' and method == 'GET':
