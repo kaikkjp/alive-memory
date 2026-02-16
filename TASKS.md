@@ -1290,6 +1290,38 @@ Part C:
 
 ---
 
+### TASK-040: Visitor injection for simulation mode
+**Status:** READY
+**Priority:** High (paper blocker)
+**Branch:** feat/sim-visitors
+**Depends on:** None
+**Description:** Add scripted visitor injection to simulate.py so the 7-day isolation experiment includes visitor interactions. Visitors are defined in a JSON file with arrival times and scripted messages. The simulation injects them as events into the inbox at the correct simulated times. The pipeline doesn't know the difference between a real TCP visitor and a scripted one.
+**Visitor script format:** `experiments/visitors.json`
+**Each visitor tests a specific capability:**
+| Visitor | Days | Tests |
+|---------|------|-------|
+| Yuki | 1, 7 | First impression → return visit memory |
+| Tanaka-san | 3 | Deep conversation, object philosophy |
+| Sato | 4, 6 | Contradiction sequence (blue→hate blue) for Claim C |
+| M. | 5 | Vague/ambiguous request handling |
+**Implementation in simulate.py:**
+1. Add `--visitors` arg: `python simulate.py --days 7 --visitors experiments/visitors.json`
+2. Before each cycle, check if any visitor events should fire based on current sim time
+3. Visitor arrival: create visitor in DB via `db.create_visitor()` if not exists, insert `visitor_connect` event, set engagement state to `engaged`, add to `visitors_present`
+4. Visitor messages: insert `visitor_speech` event with scripted text, trigger a microcycle-equivalent (`hb.run_cycle('micro')`)
+5. Visitor departure: 5 minutes after last message (simulated), insert `visitor_disconnect` event, clear engagement, remove from visitors_present
+6. Between visitor messages, run normal autonomous cycles (the delay_min gap is filled with idle/ambient cycles)
+7. Log visitor events in timeline: `[Day 1 14:00] VISITOR — Yuki says: "Hello?"`
+**Scope (files to modify):**
+- `simulate.py` — add visitor scheduling loop
+- `timeline.py` — add visitor event logging methods
+**Scope (files to create):**
+- `experiments/visitors.json` — the visitor script
+**DO NOT modify:** pipeline/*, heartbeat.py, db/*, sleep.py
+**Definition of done:** `python simulate.py --days 7 --visitors experiments/visitors.json --content content/readings.txt` runs a full 7-day simulation with 6 visitor interactions, producing a DB and timeline log that shows autonomous cycles between visits and engagement cycles during visits.
+
+---
+
 ## Completed Tasks
 
 _None yet._

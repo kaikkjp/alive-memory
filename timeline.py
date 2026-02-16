@@ -71,6 +71,28 @@ class TimelineLogger:
         line = f"[{day} {time}] WAKE     — new day begins"
         self._write(line, quiet=quiet)
 
+    def log_visitor_arrive(self, sim_time: datetime, display_name: str, quiet: bool = False):
+        """Log visitor arrival."""
+        day = self._day_label(sim_time)
+        time = self._time_label(sim_time)
+        line = f"[{day} {time}] VISITOR  — {display_name} enters the shop"
+        self._write(line, quiet=quiet)
+
+    def log_visitor_message(self, sim_time: datetime, display_name: str, text: str, quiet: bool = False):
+        """Log visitor speech."""
+        day = self._day_label(sim_time)
+        time = self._time_label(sim_time)
+        truncated = text[:60] if len(text) > 60 else text
+        line = f'[{day} {time}] VISITOR  — {display_name} says: "{truncated}"'
+        self._write(line, quiet=quiet)
+
+    def log_visitor_depart(self, sim_time: datetime, display_name: str, quiet: bool = False):
+        """Log visitor departure."""
+        day = self._day_label(sim_time)
+        time = self._time_label(sim_time)
+        line = f"[{day} {time}] VISITOR  — {display_name} leaves the shop"
+        self._write(line, quiet=quiet)
+
     def log_summary(self, stats: dict):
         """Print final simulation statistics."""
         lines = [
