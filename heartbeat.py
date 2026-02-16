@@ -976,9 +976,11 @@ class Heartbeat:
                         n_processed = 0
                     self._last_nap_ts = clock.now_utc()
 
-                    # Restore partial budget: +1.0 headroom
-                    self._nap_budget_bonus += 1.0
-                    new_budget = effective_budget + 1.0
+                    # Restore budget: ensure at least 1.0 headroom ABOVE current spend
+                    overshoot = max(0, budget_info['spent_today'] - effective_budget)
+                    bonus = overshoot + 1.0
+                    self._nap_budget_bonus += bonus
+                    new_budget = effective_budget + bonus
 
                     # Apply rest recovery to drives
                     drives.rest_need = clamp(drives.rest_need - 0.05)

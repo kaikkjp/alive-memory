@@ -408,8 +408,8 @@ class TestHeartbeatNapTrigger(unittest.IsolatedAsyncioTestCase):
 
         await hb.run_cycle('idle')
 
-        # Budget bonus accumulated
-        self.assertAlmostEqual(hb._nap_budget_bonus, 1.0)
+        # Budget bonus covers overshoot (0.5) + 1.0 headroom = 1.5
+        self.assertAlmostEqual(hb._nap_budget_bonus, 1.5)
 
     async def test_visitor_overrides_nap_cooldown(self):
         """High salience visitor event wakes her from nap cooldown."""
