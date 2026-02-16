@@ -16,7 +16,7 @@ from models.pipeline import ValidatorState, ValidatedOutput, MotorPlan, HabitBoo
 from pipeline.sensorium import build_perceptions, Perception
 from pipeline.gates import perception_gate
 from pipeline.affect import apply_affect_lens
-from pipeline.hypothalamus import update_drives
+from pipeline.hypothalamus import update_drives, clamp
 from pipeline.thalamus import route
 from pipeline.hippocampus import recall
 from pipeline.cortex import cortex_call
@@ -812,6 +812,76 @@ class Heartbeat:
                     pass
 
             return habit_log
+
+        # 7a. Energy budget enforcement (TASK-036)
+        # If daily energy budget exceeded, skip cortex and rest — unless
+        # a high-salience event (> 0.8) demands attention.
+        budget_info = await db.get_energy_budget()
+        if budget_info['spent_today'] >= budget_info['budget']:
+            has_high_salience = any(p.salience > 0.8 for p in perceptions)
+            if not has_high_salience:
+                print(f"  [Heartbeat] Resting — energy budget exceeded "
+                      f"({budget_info['spent_today']:.2f}/{budget_info['budget']:.1f})")
+                # Apply rest recovery
+                drives.rest_need = clamp(drives.rest_need - 0.05)
+                drives.energy = clamp(drives.energy + 0.03)
+
+                rest_log = {
+                    'id': cycle_id,
+                    'mode': mode,
+                    'drives': {
+                        'social_hunger': round(drives.social_hunger, 2),
+                        'curiosity': round(drives.curiosity, 2),
+                        'expression_need': round(drives.expression_need, 2),
+                        'rest_need': round(drives.rest_need, 2),
+                        'energy': round(drives.energy, 2),
+                        'mood_valence': round(drives.mood_valence, 2),
+                        'mood_arousal': round(drives.mood_arousal, 2),
+                    },
+                    'focus_salience': round(routing.focus.salience, 2) if routing.focus else 0,
+                    'focus_type': routing.focus.p_type if routing.focus else 'none',
+                    'routing_focus': 'rest',
+                    'token_budget': 0,
+                    'memory_count': len(memory_chunks),
+                    'internal_monologue': '(resting — energy budget exceeded)',
+                    'dialogue': None,
+                    'expression': 'neutral',
+                    'body_state': 'sitting',
+                    'gaze': 'away_thinking',
+                    'actions': [],
+                    'dropped': [],
+                    'next_cycle_hints': [],
+                    'resonance': False,
+                    '_entropy_warning': None,
+                    'intentions_count': 0,
+                    'budget_rest': True,
+                }
+
+                async with db.transaction():
+                    await db.save_drives_state(drives)
+                    for event in unread:
+                        await db.inbox_mark_read(event.id)
+                    await db.log_cycle(rest_log)
+
+                await self._emit_stage('dialogue', {
+                    'dialogue': None,
+                    'expression': 'neutral',
+                })
+
+                self._error_backoff = 5
+
+                for sub_id, q in list(self._cycle_log_subscribers.items()):
+                    while q.full():
+                        try:
+                            q.get_nowait()
+                        except asyncio.QueueEmpty:
+                            break
+                    try:
+                        q.put_nowait(rest_log)
+                    except asyncio.QueueFull:
+                        pass
+
+                return rest_log
 
         # 7. URL enrichment (if gift detected — URLs captured before gate)
         gift_meta = None

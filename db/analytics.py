@@ -620,3 +620,21 @@ async def get_energy_budget() -> dict:
     row = await cursor.fetchone()
     spent = round(row['spent'], 4) if row else 0
     return {'spent_today': spent, 'budget': 1.0}
+
+
+async def get_executed_action_count_today() -> int:
+    """Count total executed actions today (JST) for mood bonus scaling."""
+    conn = await _connection.get_db()
+    jst_now = clock.now()
+    day_start = jst_now.replace(hour=0, minute=0, second=0, microsecond=0)
+    day_end = day_start + timedelta(days=1)
+    day_start_utc = day_start.astimezone(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+    day_end_utc = day_end.astimezone(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+    cursor = await conn.execute(
+        """SELECT COUNT(*) AS cnt FROM action_log
+           WHERE status = 'executed'
+             AND created_at >= ? AND created_at < ?""",
+        (day_start_utc, day_end_utc),
+    )
+    row = await cursor.fetchone()
+    return row['cnt'] if row else 0
