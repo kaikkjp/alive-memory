@@ -82,31 +82,33 @@ def _month_to_season(month: int) -> str:
         return 'winter'
 
 
-def _classify_condition(wttr_code: int, temp_c: float) -> str:
-    """Map wttr.in weather codes to our condition categories."""
-    # wttr.in WWO codes: https://www.worldweatheronline.com/developer/api/docs/weather-icons.aspx
-    if wttr_code in (113,):
+def _classify_wmo(wmo_code: int, temp_c: float) -> str:
+    """Map WMO weather interpretation codes to our condition categories.
+
+    Codes: https://open-meteo.com/en/docs#weathervariables (WMO 4677)
+    """
+    if wmo_code in (0, 1):
+        # Clear / mainly clear
         if temp_c > 33:
             return 'hot'
-        elif temp_c < 3:
+        if temp_c < 3:
             return 'cold'
         return 'clear'
-    elif wttr_code in (116, 119, 122):
+    if wmo_code in (2, 3):
         return 'cloudy'
-    elif wttr_code in (143, 248, 260):
+    if wmo_code in (45, 48):
         return 'fog'
-    elif wttr_code in (176, 263, 266, 281, 284, 293, 296, 299, 302, 305, 308, 311, 314, 317, 353, 356, 359, 362, 365):
+    if wmo_code in (51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82):
         return 'rain'
-    elif wttr_code in (179, 182, 185, 227, 230, 320, 323, 326, 329, 332, 335, 338, 368, 371, 374, 377, 392, 395):
+    if wmo_code in (71, 73, 75, 77, 85, 86):
         return 'snow'
-    elif wttr_code in (200, 386, 389):
+    if wmo_code in (95, 96, 99):
         return 'storm'
-    else:
-        return 'cloudy'  # safe default
+    return 'cloudy'  # safe default
 
 
-async def fetch_ambient_context(location: str = None) -> Optional[AmbientContext]:
-    """Fetch current weather from wttr.in (free, no API key).
+async def fetch_ambient_context() -> Optional[AmbientContext]:
+    """Fetch current weather from Open-Meteo (free, no API key).
 
     In simulation mode, returns deterministic weather instead.
     Returns AmbientContext or None on failure.
@@ -114,41 +116,42 @@ async def fetch_ambient_context(location: str = None) -> Optional[AmbientContext
     if clock.is_simulating():
         return _simulated_weather(clock.now())
 
-    import ssl
     import aiohttp
-    import certifi
 
-    if location is None:
-        from config.location import WTTR_LOCATION
-        location = WTTR_LOCATION
+    from config.location import LOCATION
+    lat, lon = LOCATION['lat'], LOCATION['lon']
 
-    url = f"https://wttr.in/{location}?format=j1"
+    url = (
+        f"https://api.open-meteo.com/v1/forecast"
+        f"?latitude={lat}&longitude={lon}"
+        f"&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code"
+    )
 
     try:
-        ssl_ctx = ssl.create_default_context(cafile=certifi.where())
-        conn = aiohttp.TCPConnector(ssl=ssl_ctx)
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=20), connector=conn) as session:
+        async with aiohttp.ClientSession(
+            timeout=aiohttp.ClientTimeout(total=10)
+        ) as session:
             async with session.get(url) as resp:
                 if resp.status != 200:
-                    logger.warning("wttr.in returned %d", resp.status)
+                    logger.warning("[Ambient] Open-Meteo returned %d", resp.status)
                     return None
-                data = await resp.json(content_type=None)
+                data = await resp.json()
     except Exception as e:
-        logger.warning("Weather fetch failed: %s", e)
+        logger.warning("[Ambient] Weather fetch failed: %s", e)
         return None
 
     try:
-        current = data['current_condition'][0]
-        temp_c = float(current.get('temp_C', 20))
-        humidity = int(current.get('humidity', 50))
-        wind_kph = float(current.get('windspeedKmph', 0))
-        weather_code = int(current.get('weatherCode', 116))
+        current = data['current']
+        temp_c = float(current['temperature_2m'])
+        humidity = int(current['relative_humidity_2m'])
+        wind_kph = float(current['wind_speed_10m'])
+        wmo_code = int(current['weather_code'])
 
-        condition = _classify_condition(weather_code, temp_c)
+        condition = _classify_wmo(wmo_code, temp_c)
         return map_to_diegetic(condition, temp_c, humidity, wind_kph)
 
     except (KeyError, IndexError, ValueError) as e:
-        logger.warning("Weather parse failed: %s", e)
+        logger.warning("[Ambient] Weather parse failed: %s", e)
         return None
 
 
