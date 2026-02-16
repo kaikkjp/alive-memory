@@ -136,8 +136,8 @@ def _get_outfit(weather: str, energy: float) -> str:
 # Valid sprite states for the scene compositor layer system
 SPRITE_STATES = ('surprised', 'tired', 'engaged', 'curious', 'focused', 'thinking')
 
-# Cycle types that indicate focused work
-_FOCUSED_CYCLE_TYPES = {'thread_work', 'arranging', 'creative', 'consume', 'express'}
+# Focus p_types that indicate focused work (from thalamus routing)
+_FOCUSED_P_TYPES = {'consume_focus', 'thread_focus', 'news_focus'}
 
 
 def resolve_sprite_state(
@@ -145,6 +145,7 @@ def resolve_sprite_state(
     engagement: EngagementState,
     room_state: RoomState,
     recent_events: list[dict],
+    focus=None,
 ) -> str:
     """Resolve the current sprite state from live pipeline state.
 
@@ -153,7 +154,7 @@ def resolve_sprite_state(
       tired      — energy < 30%
       engaged    — has_visitor AND in conversation
       curious    — has_visitor AND not yet engaged
-      focused    — thread_work / arranging / creative cycle type
+      focused    — reading / writing / following a thread
       thinking   — default idle
 
     Args:
@@ -163,6 +164,9 @@ def resolve_sprite_state(
         recent_events: List of recent event dicts (most recent first),
                        each with at least 'event_type' key.
                        Typically the last ~5 events from the event log.
+        focus: Optional routing focus (Perception or similar) from the
+               current cycle. Has .p_type attribute indicating what she's
+               focused on (e.g. 'consume_focus', 'thread_focus').
     """
     # surprised: unexpected event in recent events (last 2 cycle windows)
     surprise_types = {'visitor_connect', 'gift_received', 'unexpected_sound', 'anomaly'}
@@ -185,10 +189,11 @@ def resolve_sprite_state(
     if visitor_browsing:
         return 'curious'
 
-    # focused: currently doing thread work, arranging, or creative cycle
-    current_activity = getattr(room_state, 'current_activity', None) or ''
-    if current_activity in _FOCUSED_CYCLE_TYPES:
-        return 'focused'
+    # focused: active content consumption, thread work, writing, or news reading
+    if focus is not None:
+        p_type = getattr(focus, 'p_type', None) or ''
+        if p_type in _FOCUSED_P_TYPES:
+            return 'focused'
 
     # thinking: default idle
     return 'thinking'

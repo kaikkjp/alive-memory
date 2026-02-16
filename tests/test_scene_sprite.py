@@ -25,10 +25,15 @@ def _engagement(status='none', visitor_id=None) -> EngagementState:
     return EngagementState(status=status, visitor_id=visitor_id)
 
 
-def _room(current_activity='') -> RoomState:
-    r = RoomState()
-    r.current_activity = current_activity
-    return r
+def _room() -> RoomState:
+    return RoomState()
+
+
+def _focus(p_type='internal') -> MagicMock:
+    """Create a mock focus/Perception object with a given p_type."""
+    f = MagicMock()
+    f.p_type = p_type
+    return f
 
 
 # ── resolve_sprite_state tests ──
@@ -106,36 +111,37 @@ class TestSpriteStatePriority:
         )
         assert result == 'curious'
 
-    def test_focused_on_thread_work(self):
-        """Thread work activity → focused."""
-        result = resolve_sprite_state(
-            _drives(), _engagement(), _room(current_activity='thread_work'), []
-        )
-        assert result == 'focused'
-
-    def test_focused_on_creative(self):
-        result = resolve_sprite_state(
-            _drives(), _engagement(), _room(current_activity='creative'), []
-        )
-        assert result == 'focused'
-
-    def test_focused_on_arranging(self):
-        result = resolve_sprite_state(
-            _drives(), _engagement(), _room(current_activity='arranging'), []
-        )
-        assert result == 'focused'
-
     def test_focused_on_consume(self):
+        """Consuming content (reading) → focused."""
         result = resolve_sprite_state(
-            _drives(), _engagement(), _room(current_activity='consume'), []
+            _drives(), _engagement(), _room(), [],
+            focus=_focus(p_type='consume_focus'),
         )
         assert result == 'focused'
 
-    def test_focused_on_express(self):
+    def test_focused_on_thread(self):
+        """Thread work → focused."""
         result = resolve_sprite_state(
-            _drives(), _engagement(), _room(current_activity='express'), []
+            _drives(), _engagement(), _room(), [],
+            focus=_focus(p_type='thread_focus'),
         )
         assert result == 'focused'
+
+    def test_focused_on_news(self):
+        """News reading → focused."""
+        result = resolve_sprite_state(
+            _drives(), _engagement(), _room(), [],
+            focus=_focus(p_type='news_focus'),
+        )
+        assert result == 'focused'
+
+    def test_not_focused_on_internal(self):
+        """Internal/idle focus → thinking, not focused."""
+        result = resolve_sprite_state(
+            _drives(), _engagement(), _room(), [],
+            focus=_focus(p_type='internal'),
+        )
+        assert result == 'thinking'
 
     def test_thinking_is_default(self):
         """Default idle → thinking."""
@@ -144,10 +150,11 @@ class TestSpriteStatePriority:
         )
         assert result == 'thinking'
 
-    def test_thinking_when_no_special_conditions(self):
-        """Normal energy, no visitor, no focused activity, no events → thinking."""
+    def test_thinking_when_no_focus(self):
+        """Normal energy, no visitor, no focus → thinking."""
         result = resolve_sprite_state(
-            _drives(energy=0.5), _engagement(), _room(current_activity='idle'), []
+            _drives(energy=0.5), _engagement(), _room(), [],
+            focus=None,
         )
         assert result == 'thinking'
 
@@ -187,19 +194,27 @@ class TestSpriteStateEdgeCases:
         result = resolve_sprite_state(_drives(), _engagement(), _room(), events)
         assert result == 'thinking'
 
+    def test_focus_without_p_type(self):
+        """Focus object without p_type attribute doesn't crash."""
+        focus = MagicMock(spec=[])  # no attributes
+        result = resolve_sprite_state(_drives(), _engagement(), _room(), [], focus=focus)
+        assert result == 'thinking'
+
     def test_returns_valid_sprite_state(self):
         """Result is always one of the valid sprite states."""
         valid = {'surprised', 'tired', 'engaged', 'curious', 'focused', 'thinking'}
+        focus_types = [None, _focus('internal'), _focus('consume_focus'), _focus('thread_focus')]
         for energy in [0.1, 0.3, 0.5, 0.8]:
             for status in ['none', 'engaged', 'cooldown']:
-                for activity in ['', 'idle', 'thread_work', 'creative']:
+                for focus in focus_types:
                     result = resolve_sprite_state(
                         _drives(energy=energy),
                         _engagement(status=status, visitor_id='v1' if status == 'engaged' else None),
-                        _room(current_activity=activity),
+                        _room(),
                         [],
+                        focus=focus,
                     )
-                    assert result in valid, f"Got {result} for energy={energy}, status={status}, activity={activity}"
+                    assert result in valid, f"Got {result} for energy={energy}, status={status}, focus={focus}"
 
 
 # ── resolve_time_of_day tests ──

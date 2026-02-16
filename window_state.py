@@ -176,7 +176,7 @@ async def build_cycle_broadcast(
         {'event_type': getattr(e, 'event_type', ''), 'ts': getattr(e, 'ts', '')}
         for e in recent_events
     ]
-    sprite_state = resolve_sprite_state(drives, engagement, room, recent_event_dicts)
+    sprite_state = resolve_sprite_state(drives, engagement, room, recent_event_dicts, focus=focus)
     time_of_day = resolve_time_of_day()
 
     return {
