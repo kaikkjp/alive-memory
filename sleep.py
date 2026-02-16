@@ -52,6 +52,7 @@ async def sleep_cycle() -> bool:
                 mood='still',
                 tags=['daily', 'sleep_cycle', 'quiet_day'],
             )
+            await write_daily_summary([], [], [])
         await reset_drives_for_morning()
         await flush_day_memory()
         return True
