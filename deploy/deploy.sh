@@ -23,6 +23,11 @@ echo "[deploy] Installing Python dependencies..."
 .venv/bin/pip install --quiet --upgrade pip
 .venv/bin/pip install --quiet -r requirements.txt
 
+# ─── Prepare frontend assets (source PNGs → window/public/assets/) ───
+echo "[deploy] Preparing frontend assets..."
+.venv/bin/python -m pip install --quiet Pillow
+bash scripts/prepare_assets.sh
+
 # ─── Stop service to free RAM for build ───
 echo "[deploy] Stopping shopkeeper service (freeing RAM for build)..."
 sudo systemctl stop shopkeeper

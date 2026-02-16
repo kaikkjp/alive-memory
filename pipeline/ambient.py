@@ -150,7 +150,7 @@ async def fetch_ambient_context() -> Optional[AmbientContext]:
         condition = _classify_wmo(wmo_code, temp_c)
         return map_to_diegetic(condition, temp_c, humidity, wind_kph)
 
-    except (KeyError, IndexError, ValueError) as e:
+    except (KeyError, IndexError, ValueError, TypeError) as e:
         logger.warning("[Ambient] Weather parse failed: %s", e)
         return None
 

@@ -165,7 +165,7 @@ class Heartbeat:
         self._wake_event = asyncio.Event()  # wake loop without triggering microcycle
         self._last_cycle_ts = clock.now_utc()
         self._last_creative_cycle_ts: Optional[datetime] = None
-        self._last_sleep_date: Optional[str] = None  # ISO date string
+        self._last_sleep_date: Optional[str] = None  # ISO date string (restored from DB on start)
         self._last_fidget_behavior: Optional[str] = None
         self._recent_fidgets: list[tuple] = []  # (behavior_key, description, timestamp)
         self._cycle_log_subscribers: dict[str, asyncio.Queue] = {}
@@ -271,6 +271,14 @@ class Heartbeat:
                 self.set_cycle_interval(int(saved), persist=False)
         except Exception:
             pass  # settings table may not exist yet — use default
+        # Restore last sleep date from DB (survives restarts)
+        try:
+            saved_sleep = await db.get_setting('last_sleep_date')
+            if saved_sleep is not None:
+                self._last_sleep_date = saved_sleep
+                print(f"  [Heartbeat] Restored last_sleep_date: {saved_sleep}")
+        except Exception:
+            pass
         self._loop_task = asyncio.create_task(self._main_loop())
 
     async def stop(self):
@@ -339,12 +347,15 @@ class Heartbeat:
         # the visitor_connect event; running an idle cycle here would eat that
         # event from the inbox before the microcycle gets to it).
         if self.running and not self.pending_microcycle.is_set():
-            engagement = await db.get_engagement_state()
-            if engagement.status != 'engaged':
-                try:
-                    await self.run_cycle('idle')
-                except Exception as e:
-                    print(f"  [Heartbeat] Startup cycle error: {e}")
+            if self._should_sleep():
+                print("  [Heartbeat] Sleep window on startup — skipping startup cycle")
+            else:
+                engagement = await db.get_engagement_state()
+                if engagement.status != 'engaged':
+                    try:
+                        await self.run_cycle('idle')
+                    except Exception as e:
+                        print(f"  [Heartbeat] Startup cycle error: {e}")
 
         while self.running:
             try:
@@ -365,6 +376,10 @@ class Heartbeat:
                         ran = await sleep_cycle()
                         if ran:
                             self._last_sleep_date = clock.now().date().isoformat()
+                            try:
+                                await db.set_setting('last_sleep_date', self._last_sleep_date)
+                            except Exception:
+                                pass  # best-effort persist
                             await self._emit_stage('sleep', {'status': 'woke_up'})
                         else:
                             # Deferred — do NOT stamp _last_sleep_date.
@@ -895,12 +910,13 @@ class Heartbeat:
         # 7a. Energy budget enforcement (TASK-036)
         # If daily energy budget exceeded, skip cortex and rest — unless
         # a high-salience event (> 0.8) demands attention.
+        # Sleep is more important than rest — never let budget block consolidation.
         budget_info = await db.get_energy_budget()
         print(f"  [Heartbeat] Budget check: spent={budget_info['spent_today']:.3f} "
               f"budget={budget_info['budget']:.1f}")
         if budget_info['spent_today'] >= budget_info['budget']:
             has_high_salience = any(p.salience > 0.8 for p in perceptions)
-            if not has_high_salience:
+            if not has_high_salience and not self._should_sleep():
                 print(f"  [Heartbeat] Resting — energy budget exceeded "
                       f"({budget_info['spent_today']:.2f}/{budget_info['budget']:.1f})")
                 # Apply rest recovery
