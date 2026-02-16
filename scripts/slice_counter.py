@@ -1,7 +1,7 @@
 """Slice counter foreground from shop-back.png.
 
 Produces an RGBA PNG where everything above y=72% of the image is
-transparent, with a 6px vertical fade at the cut edge. The result is
+transparent, with a 16px vertical fade at the cut edge. The result is
 the counter/foreground layer that occludes the character's lower body.
 
 Usage:
@@ -25,7 +25,7 @@ OUTPUT_DIR = PROJECT_ROOT / "window" / "public" / "assets"
 OUTPUT = OUTPUT_DIR / "counter_foreground.png"
 
 COUNTER_CUT_PCT = 0.72
-FADE_PX = 6
+FADE_PX = 16
 
 
 def main() -> None:
