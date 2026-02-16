@@ -121,7 +121,7 @@ CONSTRAINTS:
 EXPRESS YOUR INTENTIONS — what you want to do right now.
 You may have multiple impulses. List them all. You don't need to choose.
 Each intention has:
-  - action: what you want to do (speak, write_journal, rearrange, express_thought, end_engagement, accept_gift, decline_gift, show_item, post_x_draft, close_shop, place_item, browse_web, post_x, ...)
+  - action: what you want to do (speak, write_journal, rearrange, express_thought, end_engagement, accept_gift, decline_gift, show_item, post_x_draft, open_shop, close_shop, place_item, browse_web, post_x, ...)
   - target: who/what it's directed at. Use "visitor:ID" when multiple visitors are present (e.g. "visitor:v1"), or just "visitor" if only one. Other targets: shelf, journal, self, web, x_timeline, or null
   - content: the substance (what you'd say, write, search for, post)
   - impulse: how strongly you feel this (0.0-1.0)
@@ -146,7 +146,7 @@ OUTPUT SCHEMA:
   "resonance": false,
   "intentions": [
     {{
-      "action": "speak|write_journal|rearrange|express_thought|end_engagement|accept_gift|decline_gift|show_item|post_x_draft|close_shop|place_item|browse_web|post_x",
+      "action": "speak|write_journal|rearrange|express_thought|end_engagement|accept_gift|decline_gift|show_item|post_x_draft|open_shop|close_shop|place_item|browse_web|post_x",
       "target": "visitor|visitor:ID|shelf|journal|self|web|x_timeline",
       "content": "what you'd say, write, or do",
       "impulse": 0.8
@@ -154,7 +154,7 @@ OUTPUT SCHEMA:
   ],
   "actions": [
     {{
-      "type": "accept_gift|decline_gift|show_item|place_item|rearrange|close_shop|write_journal|post_x_draft|end_engagement",
+      "type": "accept_gift|decline_gift|show_item|place_item|rearrange|open_shop|close_shop|write_journal|post_x_draft|end_engagement",
       "detail": {{}}
     }}
   ],

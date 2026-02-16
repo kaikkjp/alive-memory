@@ -1067,7 +1067,7 @@ This unlocks new content types in the feed. Currently FEED_SOURCES are text-only
 ---
 
 ### TASK-035: Shop open/close as pipeline choice, not auto-managed
-**Status:** READY
+**Status:** DONE (2026-02-16)
 **Priority:** High
 **Depends on:** TASK-032 (generative/reflexive tagging)
 **Description:** The shop auto-reopens every cycle via heartbeat.py:412-415 if energy > 0.5, creating an oscillation loop with the close_shop habit (14 closes/day on already-closed shop). Same design flaw as pre-TASK-012 engagement — forced state change instead of pipeline choice.

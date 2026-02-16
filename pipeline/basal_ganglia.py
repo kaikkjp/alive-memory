@@ -162,6 +162,8 @@ HABIT_DRIVE_GATES: dict[str, tuple[str, float]] = {
     'speak':           ('social_hunger', 0.3),
     'rearrange':       ('energy', 0.3),
     'place_item':      ('energy', 0.3),
+    'open_shop':       ('energy', 0.3),
+    'close_shop':      ('rest_need', 0.0),  # always allowed by drive; gated by shop status
 }
 
 # Per-action cooldown: same action can't habit-fire twice within N cycles.
@@ -176,7 +178,12 @@ def _passes_drive_gate(action: str, drives: DrivesState) -> bool:
     if gate is None:
         return True  # no gate defined → always allowed
     field, threshold = gate
-    return getattr(drives, field) > threshold
+    if not getattr(drives, field) > threshold:
+        return False
+    # Composite gate: open_shop also requires rest_need < 0.6
+    if action == 'open_shop' and drives.rest_need >= 0.6:
+        return False
+    return True
 
 
 async def _passes_shop_gate(action: str) -> bool:
@@ -185,6 +192,12 @@ async def _passes_shop_gate(action: str) -> bool:
         try:
             room = await db.get_room_state()
             return room.shop_status == 'open'
+        except Exception:
+            return False  # can't verify → don't fire
+    if action == 'open_shop':
+        try:
+            room = await db.get_room_state()
+            return room.shop_status == 'closed'
         except Exception:
             return False  # can't verify → don't fire
     return True
@@ -358,6 +371,31 @@ async def select_actions(validated: ValidatedOutput, drives: DrivesState,
             )
             decisions.append(decision)
             continue
+
+        # Gate 5b: Shop status prerequisite (open_shop/close_shop)
+        if not await _passes_shop_gate(action_name):
+            decision.status = 'suppressed'
+            if action_name == 'open_shop':
+                decision.suppression_reason = 'Shop is already open'
+            elif action_name == 'close_shop':
+                decision.suppression_reason = 'Shop is already closed'
+            else:
+                decision.suppression_reason = 'Shop status check failed'
+            decisions.append(decision)
+            continue
+
+        # Gate 5c: Drive gates for shop actions
+        if action_name == 'open_shop':
+            if drives.energy <= 0.3:
+                decision.status = 'suppressed'
+                decision.suppression_reason = f'Too tired to open (energy {drives.energy:.2f})'
+                decisions.append(decision)
+                continue
+            if drives.rest_need >= 0.6:
+                decision.status = 'suppressed'
+                decision.suppression_reason = f'Need rest first (rest_need {drives.rest_need:.2f})'
+                decisions.append(decision)
+                continue
 
         # Gate 6: Inhibition (learned from experience)
         inhibition = await _check_inhibition(action_name, context)

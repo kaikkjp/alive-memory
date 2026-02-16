@@ -156,6 +156,15 @@ ACTION_REGISTRY: dict[str, ActionCapability] = {
         requires=[],
         description='Close the shop',
     ),
+    'open_shop': ActionCapability(
+        name='open_shop',
+        enabled=True,
+        energy_cost=0.0,
+        cooldown_seconds=0,
+        max_per_cycle=1,
+        requires=[],
+        description='Open the shop',
+    ),
     'place_item': ActionCapability(
         name='place_item',
         enabled=True,

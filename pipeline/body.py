@@ -211,6 +211,15 @@ async def _execute_single_action(action: ActionRequest, visitor_id: str,
             ))
             result.side_effects.append('room_state_updated')
 
+        elif action_type == 'open_shop':
+            await db.update_room_state(shop_status='open')
+            await db.append_event(Event(
+                event_type='action_open_shop',
+                source='self',
+                payload={},
+            ))
+            result.side_effects.append('room_state_updated')
+
         elif action_type == 'end_engagement':
             reason = detail.get('reason', 'natural')
             farewell_line = END_ENGAGEMENT_LINES.get(reason, END_ENGAGEMENT_LINES['natural'])
