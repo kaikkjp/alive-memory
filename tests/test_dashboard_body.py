@@ -269,6 +269,92 @@ class TestJSTDayBoundaries:
             assert count == 1
 
 
+async def _seed_cycle(conn, ts_utc_str, token_budget=3000, mode='idle'):
+    """Insert a row into cycle_log with explicit UTC timestamp."""
+    await conn.execute(
+        """INSERT INTO cycle_log
+           (id, mode, token_budget, ts)
+           VALUES (?, ?, ?, ?)""",
+        (str(uuid.uuid4()), mode, token_budget, ts_utc_str),
+    )
+    await conn.commit()
+
+
+class TestEnergyBudgetCycleLog:
+    """Verify get_energy_budget counts cortex cycles from cycle_log."""
+
+    @pytest.mark.asyncio
+    async def test_cycle_log_based_energy(self, fresh_db):
+        """Cortex cycles in cycle_log contribute 0.03 energy each."""
+        jst_noon = datetime(2026, 2, 15, 12, 0, 0, tzinfo=JST)
+        with patch.object(clock, '_clock', clock.Clock(simulate=True, start=jst_noon)):
+            conn = await db.get_db()
+            # Seed 10 cortex cycles today (token_budget > 0)
+            for i in range(10):
+                ts = datetime(2026, 2, 15, 1 + i, 0, 0, tzinfo=timezone.utc)
+                await _seed_cycle(conn, ts.strftime('%Y-%m-%d %H:%M:%S'),
+                                  token_budget=3000)
+            budget = await db.get_energy_budget()
+            assert budget['spent_today'] == pytest.approx(0.3, abs=0.001)
+            assert budget['budget'] == 4.0
+
+    @pytest.mark.asyncio
+    async def test_rest_cycles_excluded(self, fresh_db):
+        """Cycles with token_budget=0 (rest/habit) don't count toward energy."""
+        jst_noon = datetime(2026, 2, 15, 12, 0, 0, tzinfo=JST)
+        with patch.object(clock, '_clock', clock.Clock(simulate=True, start=jst_noon)):
+            conn = await db.get_db()
+            # 5 cortex cycles + 3 rest cycles (token_budget=0)
+            for i in range(5):
+                ts = datetime(2026, 2, 15, 1 + i, 0, 0, tzinfo=timezone.utc)
+                await _seed_cycle(conn, ts.strftime('%Y-%m-%d %H:%M:%S'),
+                                  token_budget=3000)
+            for i in range(3):
+                ts = datetime(2026, 2, 15, 6 + i, 0, 0, tzinfo=timezone.utc)
+                await _seed_cycle(conn, ts.strftime('%Y-%m-%d %H:%M:%S'),
+                                  token_budget=0, mode='rest')
+            budget = await db.get_energy_budget()
+            # Only 5 cortex cycles count: 5 * 0.03 = 0.15
+            assert budget['spent_today'] == pytest.approx(0.15, abs=0.001)
+
+    @pytest.mark.asyncio
+    async def test_cycle_plus_action_energy_combined(self, fresh_db):
+        """Energy from cycle_log and action_log are summed together."""
+        jst_noon = datetime(2026, 2, 15, 12, 0, 0, tzinfo=JST)
+        with patch.object(clock, '_clock', clock.Clock(simulate=True, start=jst_noon)):
+            conn = await db.get_db()
+            # 10 cortex cycles = 0.30
+            for i in range(10):
+                ts = datetime(2026, 2, 15, 1 + i, 0, 0, tzinfo=timezone.utc)
+                await _seed_cycle(conn, ts.strftime('%Y-%m-%d %H:%M:%S'),
+                                  token_budget=3000)
+            # 1 action with 0.15 energy
+            ts_action = datetime(2026, 2, 15, 2, 0, 0, tzinfo=timezone.utc)
+            await _seed_action(conn, energy_cost=0.15,
+                               created_at_utc=ts_action.strftime('%Y-%m-%d %H:%M:%S'))
+            budget = await db.get_energy_budget()
+            # 0.30 (cycles) + 0.15 (action) = 0.45
+            assert budget['spent_today'] == pytest.approx(0.45, abs=0.001)
+
+    @pytest.mark.asyncio
+    async def test_yesterday_cycles_excluded(self, fresh_db):
+        """Cycles from previous JST day don't count."""
+        jst_noon = datetime(2026, 2, 15, 12, 0, 0, tzinfo=JST)
+        with patch.object(clock, '_clock', clock.Clock(simulate=True, start=jst_noon)):
+            conn = await db.get_db()
+            # Yesterday's cycle (in UTC: 14:00 Feb 14 = 23:00 JST Feb 14)
+            ts_yesterday = datetime(2026, 2, 14, 14, 0, 0, tzinfo=timezone.utc)
+            await _seed_cycle(conn, ts_yesterday.strftime('%Y-%m-%d %H:%M:%S'),
+                              token_budget=3000)
+            # Today's cycle
+            ts_today = datetime(2026, 2, 15, 1, 0, 0, tzinfo=timezone.utc)
+            await _seed_cycle(conn, ts_today.strftime('%Y-%m-%d %H:%M:%S'),
+                              token_budget=3000)
+            budget = await db.get_energy_budget()
+            # Only today's cycle counts: 1 * 0.03 = 0.03
+            assert budget['spent_today'] == pytest.approx(0.03, abs=0.001)
+
+
 class TestCooldownAccuracy:
     """TASK-021 Fix B: cooldown status is accurate (no silent TypeError)."""
 

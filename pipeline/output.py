@@ -302,7 +302,9 @@ async def _log_motor_plan(motor_plan: MotorPlan, body_output: BodyOutput,
                 error=None,
             )
     except Exception as e:
+        import traceback
         print(f"  [ActionLog] Failed to log actions: {e}")
+        traceback.print_exc()
 
 
 async def _inject_reflection_seed(motor_plan: MotorPlan) -> None:
