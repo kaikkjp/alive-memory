@@ -1256,7 +1256,7 @@ Part C:
 ---
 
 ### TASK-039: Isolation Experiment Analysis Pipeline
-**Status:** READY
+**Status:** DONE (2026-02-16)
 **Priority:** High (paper blocker)
 **Branch:** feat/experiment-analysis
 **Context:** For the research paper, we need to prove The Shopkeeper generates diverse, non-repetitive behavior without user input. The data already exists in cycle_log — we just need export + analysis + visualization.
