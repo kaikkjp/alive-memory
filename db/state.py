@@ -90,3 +90,25 @@ async def update_engagement_state(**kwargs):
     sets = ", ".join(f"{k} = ?" for k in kwargs)
     vals = list(kwargs.values())
     await _connection._exec_write(f"UPDATE engagement_state SET {sets} WHERE id = 1", tuple(vals))
+
+
+# ─── Settings (key-value store) ───
+
+from typing import Optional
+
+
+async def get_setting(key: str) -> Optional[str]:
+    """Get a setting value by key. Returns None if not found."""
+    db = await _connection.get_db()
+    cursor = await db.execute("SELECT value FROM settings WHERE key = ?", (key,))
+    row = await cursor.fetchone()
+    return row['value'] if row else None
+
+
+async def set_setting(key: str, value: str):
+    """Upsert a setting value."""
+    await _connection._exec_write(
+        "INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)"
+        " ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+        (key, value, clock.now_utc().isoformat())
+    )

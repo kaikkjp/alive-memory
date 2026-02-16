@@ -175,6 +175,7 @@ class Heartbeat:
         self._error_backoff = 5
         self._arbiter_state: Optional[dict] = None  # loaded from DB on start
         self._last_ambient_fetch_ts: Optional[datetime] = None
+        self._ambient_fetch_ok: bool = True  # assume ok until first failure
         self._last_feed_fetch_ts: Optional[datetime] = None
         self._cycle_interval: int = self.INTERVAL_DEFAULT
 
@@ -182,17 +183,31 @@ class Heartbeat:
         """Return the current cycle interval in seconds."""
         return self._cycle_interval
 
-    def set_cycle_interval(self, seconds: int) -> int:
+    def set_cycle_interval(self, seconds: int, *, persist: bool = True) -> int:
         """Set cycle interval (clamped to INTERVAL_MIN..INTERVAL_MAX). Returns actual value.
 
         Wakes the main loop so the new interval takes effect immediately
         rather than waiting for the current (possibly longer) sleep to finish.
+        When persist=True (default), saves to DB so the value survives restarts.
         """
         self._cycle_interval = max(self.INTERVAL_MIN, min(self.INTERVAL_MAX, seconds))
         print(f"  [Heartbeat] Cycle interval set to {self._cycle_interval}s")
         # Wake the loop so it re-sleeps with the new interval
         self._wake_event.set()
+        if persist:
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(self._persist_cycle_interval())
+            except RuntimeError:
+                pass  # no event loop (tests, sync context) — skip persistence
         return self._cycle_interval
+
+    async def _persist_cycle_interval(self):
+        """Save current cycle interval to DB."""
+        try:
+            await db.set_setting('cycle_interval', str(self._cycle_interval))
+        except Exception as e:
+            print(f"  [Heartbeat] Failed to persist cycle interval: {e}")
 
     def _get_cycle_interval(self, channel: str) -> int:
         """Return sleep seconds for the given channel, based on operator-set interval.
@@ -249,6 +264,13 @@ class Heartbeat:
                 'last_thread_focus_ts': None, 'last_express_ts': None,
                 'recent_focus_keywords': [], 'current_date_jst': '',
             }
+        # Restore cycle interval from DB (survives restarts)
+        try:
+            saved = await db.get_setting('cycle_interval')
+            if saved is not None:
+                self.set_cycle_interval(int(saved), persist=False)
+        except Exception:
+            pass  # settings table may not exist yet — use default
         self._loop_task = asyncio.create_task(self._main_loop())
 
     async def stop(self):
@@ -463,17 +485,19 @@ class Heartbeat:
         if drives is None:
             drives = await db.get_drives_state()
 
-        # ── Ambient weather fetch (every 30-60 min) ──
+        # ── Ambient weather fetch (every 30-60 min, retry after 5 min on failure) ──
         if not clock.is_simulating():
-            ambient_stale = (
-                self._last_ambient_fetch_ts is None
-                or (clock.now_utc() - self._last_ambient_fetch_ts).total_seconds() > 2400
+            elapsed = (
+                (clock.now_utc() - self._last_ambient_fetch_ts).total_seconds()
+                if self._last_ambient_fetch_ts else float('inf')
             )
-            if ambient_stale:
+            stale_threshold = 2400 if self._ambient_fetch_ok else 300
+            if elapsed > stale_threshold:
                 try:
                     ambient = await fetch_ambient_context()
+                    self._last_ambient_fetch_ts = clock.now_utc()
                     if ambient:
-                        self._last_ambient_fetch_ts = clock.now_utc()
+                        self._ambient_fetch_ok = True
                         weather_event = Event(
                             event_type='ambient_weather',
                             source='ambient',
@@ -493,8 +517,12 @@ class Heartbeat:
                             drives.mood_valence = max(-1.0, min(1.0,
                                 drives.mood_valence + ambient.mood_nudge))
                             await db.save_drives_state(drives)
+                    else:
+                        self._ambient_fetch_ok = False
                 except Exception as e:
                     print(f"  [Heartbeat] Ambient fetch error: {e}")
+                    self._last_ambient_fetch_ts = clock.now_utc()
+                    self._ambient_fetch_ok = False
 
         # ── Feed ingestion (every hour, skip in simulation — pool is pre-loaded) ──
         if not clock.is_simulating():
