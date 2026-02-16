@@ -610,9 +610,10 @@ async def get_unprocessed_day_memory(
     min_salience: float = 0.4,
     limit: int = 7,
 ) -> list:
-    """Get ALL unprocessed day memory entries for sleep consolidation.
+    """Get unprocessed day memory entries for night sleep consolidation.
 
-    No date filter here — sleep runs at 03:00 JST and must consolidate
+    Excludes moments already processed by nap consolidation (nap_processed=1).
+    No date filter — sleep runs at 03:00 JST and must consolidate
     moments from the entire prior waking period (which spans two calendar
     days, e.g. 06:00 JST yesterday through 02:00 JST today). The
     delete_stale_day_memory() safety net prevents unbounded accumulation.
@@ -620,12 +621,46 @@ async def get_unprocessed_day_memory(
     conn = await _connection.get_db()
     cursor = await conn.execute(
         """SELECT * FROM day_memory
-           WHERE processed_at IS NULL AND salience >= ?
+           WHERE processed_at IS NULL
+                 AND COALESCE(nap_processed, 0) = 0
+                 AND salience >= ?
            ORDER BY salience DESC LIMIT ?""",
         (min_salience, limit)
     )
     rows = await cursor.fetchall()
     return [_row_to_day_memory(r) for r in rows]
+
+
+async def get_top_unprocessed_moments(limit: int = 3) -> list:
+    """Get top unprocessed moments by salience for nap consolidation.
+
+    Excludes moments already processed by night sleep OR a previous nap.
+    No salience floor — naps process whatever is available.
+    """
+    conn = await _connection.get_db()
+    cursor = await conn.execute(
+        """SELECT * FROM day_memory
+           WHERE processed_at IS NULL
+                 AND COALESCE(nap_processed, 0) = 0
+           ORDER BY salience DESC LIMIT ?""",
+        (limit,)
+    )
+    rows = await cursor.fetchall()
+    return [_row_to_day_memory(r) for r in rows]
+
+
+async def mark_moments_nap_processed(moment_ids: list[str]) -> None:
+    """Mark moments as processed by nap consolidation.
+
+    These moments won't be re-processed during night sleep.
+    """
+    if not moment_ids:
+        return
+    placeholders = ', '.join('?' for _ in moment_ids)
+    await _connection._exec_write(
+        f"UPDATE day_memory SET nap_processed = 1 WHERE id IN ({placeholders})",
+        tuple(moment_ids)
+    )
 
 
 async def mark_day_memory_processed(moment_id: str) -> None:
@@ -674,6 +709,11 @@ async def delete_stale_day_memory(max_age_days: int = 2) -> None:
 def _row_to_day_memory(row):
     """Convert a DB row to a DayMemoryEntry."""
     from pipeline.day_memory import DayMemoryEntry
+    # nap_processed column may not exist in older DBs (pre-migration-015)
+    try:
+        nap_flag = bool(row['nap_processed'])
+    except (IndexError, KeyError):
+        nap_flag = False
     return DayMemoryEntry(
         id=row['id'],
         ts=datetime.fromisoformat(row['ts']),
@@ -686,6 +726,7 @@ def _row_to_day_memory(row):
         retry_count=row['retry_count'],
         processed_at=(datetime.fromisoformat(row['processed_at'])
                        if row['processed_at'] else None),
+        nap_processed=nap_flag,
     )
 
 

@@ -296,7 +296,10 @@ class TestEnergyBudgetEnforcement:
 
     @pytest.mark.asyncio
     async def test_budget_exceeded_forces_rest(self, mock_heartbeat):
-        """When budget exceeded and no high-salience event, cortex is skipped."""
+        """When budget exceeded and no high-salience event, cortex is skipped.
+
+        TASK-038: Budget exceeded now triggers nap consolidation (not empty rest).
+        """
         drives = _make_drives(energy=0.4, rest_need=0.5)
 
         with patch('heartbeat.db') as mock_db, \
@@ -309,6 +312,7 @@ class TestEnergyBudgetEnforcement:
              patch('heartbeat.recall', return_value=[]), \
              patch('heartbeat.check_habits', return_value=None), \
              patch('heartbeat.cortex_call') as mock_cortex, \
+             patch('heartbeat.nap_consolidate', new=AsyncMock(return_value=2)) as mock_nap, \
              patch('heartbeat.maybe_record_moment'):
 
             mock_clock.now_utc.return_value = datetime(2026, 2, 16, 12, 0, 0,
@@ -326,6 +330,7 @@ class TestEnergyBudgetEnforcement:
             mock_db.save_drives_state = AsyncMock()
             mock_db.inbox_mark_read = AsyncMock()
             mock_db.log_cycle = AsyncMock()
+            mock_db.append_event = AsyncMock()
             mock_db.transaction = MagicMock(return_value=MagicMock(
                 __aenter__=AsyncMock(), __aexit__=AsyncMock()
             ))
@@ -355,14 +360,18 @@ class TestEnergyBudgetEnforcement:
             # Cortex should NOT have been called
             mock_cortex.assert_not_called()
 
-            # Rest log should be returned
-            assert result['budget_rest'] is True
-            assert result['routing_focus'] == 'rest'
-            assert result['internal_monologue'] == '(resting — energy budget exceeded)'
+            # Nap log should be returned (TASK-038: nap replaces old budget_rest)
+            assert result['nap'] is True
+            assert result['routing_focus'] == 'nap'
+            assert 'consolidated' in result['internal_monologue']
 
     @pytest.mark.asyncio
     async def test_rest_mode_recovers_drives(self, mock_heartbeat):
-        """During budget-forced rest, drives recover."""
+        """During budget-forced rest (nap), drives recover.
+
+        TASK-038: Budget exceeded triggers nap consolidation which also
+        applies rest recovery to drives.
+        """
         drives = _make_drives(energy=0.4, rest_need=0.5)
         original_energy = drives.energy
         original_rest = drives.rest_need
@@ -376,11 +385,14 @@ class TestEnergyBudgetEnforcement:
              patch('heartbeat.route') as mock_route, \
              patch('heartbeat.recall', return_value=[]), \
              patch('heartbeat.check_habits', return_value=None), \
+             patch('heartbeat.nap_consolidate', new=AsyncMock(return_value=2)), \
              patch('heartbeat.cortex_call') as mock_cortex:
 
             mock_clock.now_utc.return_value = datetime(2026, 2, 16, 12, 0, 0,
                                                         tzinfo=timezone.utc)
-            mock_clock.now.return_value = MagicMock(hour=12)
+            mock_clock.now.return_value = MagicMock(
+                hour=12, date=MagicMock(return_value=MagicMock(isoformat=MagicMock(return_value='2026-02-16')))
+            )
 
             mock_db.inbox_get_unread = AsyncMock(return_value=[])
             mock_db.get_drives_state = AsyncMock(return_value=drives)
@@ -390,6 +402,7 @@ class TestEnergyBudgetEnforcement:
             mock_db.save_drives_state = AsyncMock()
             mock_db.inbox_mark_read = AsyncMock()
             mock_db.log_cycle = AsyncMock()
+            mock_db.append_event = AsyncMock()
             mock_db.transaction = MagicMock(return_value=MagicMock(
                 __aenter__=AsyncMock(), __aexit__=AsyncMock()
             ))

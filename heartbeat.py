@@ -30,7 +30,7 @@ from pipeline.arbiter import (
 )
 from pipeline.ambient import fetch_ambient_context
 from pipeline.enrich import fetch_readable_text
-from sleep import sleep_cycle
+from sleep import sleep_cycle, nap_consolidate
 from pipeline.day_memory import maybe_record_moment
 
 # Type for stage callbacks: async fn(stage_name, stage_data)
@@ -40,7 +40,7 @@ StageCallback = Optional[Callable[[str, dict], Awaitable[None]]]
 @dataclass
 class CycleResult:
     """Result of a single autonomous cycle for simulation/logging."""
-    cycle_type: str           # idle | rest | express | consume | thread | news
+    cycle_type: str           # idle | rest | nap | express | consume | thread | news
     focus_channel: str        # arbiter channel that was chosen
     detail: str               # human-readable summary
     actions: list[str]        # action types executed
@@ -177,6 +177,9 @@ class Heartbeat:
         self._last_ambient_fetch_ts: Optional[datetime] = None
         self._ambient_fetch_ok: bool = True  # assume ok until first failure
         self._last_feed_fetch_ts: Optional[datetime] = None
+        self._last_nap_ts: Optional[datetime] = None
+        self._nap_budget_bonus: float = 0.0  # cumulative nap budget added today
+        self._nap_budget_date: Optional[str] = None  # JST date for daily reset
         self._cycle_interval: int = self.INTERVAL_DEFAULT
 
     def get_cycle_interval(self) -> int:
@@ -326,6 +329,21 @@ class Heartbeat:
             return False
         today_jst = clock.now().date().isoformat()
         return self._last_sleep_date != today_jst
+
+    def _nap_cooldown_elapsed(self) -> bool:
+        """True if >=2 hours since last nap (or never napped)."""
+        if self._last_nap_ts is None:
+            return True
+        elapsed = (clock.now_utc() - self._last_nap_ts).total_seconds()
+        return elapsed >= 7200  # 2 hours
+
+    def _nap_cooldown_remaining_minutes(self) -> int:
+        """Minutes remaining on nap cooldown. 0 if elapsed."""
+        if self._last_nap_ts is None:
+            return 0
+        elapsed = (clock.now_utc() - self._last_nap_ts).total_seconds()
+        remaining = max(0, 7200 - elapsed)
+        return int(remaining / 60)
 
     def _creative_cooldown_elapsed(self) -> bool:
         """True if >=2 hours since last creative cycle."""
@@ -907,78 +925,176 @@ class Heartbeat:
 
             return habit_log
 
-        # 7a. Energy budget enforcement (TASK-036)
-        # If daily energy budget exceeded, skip cortex and rest — unless
+        # 7a. Energy budget enforcement (TASK-036 + TASK-038 nap consolidation)
+        # If daily energy budget exceeded, trigger nap or skip cycle — unless
         # a high-salience event (> 0.8) demands attention.
-        # Sleep is more important than rest — never let budget block consolidation.
         budget_info = await db.get_energy_budget()
+        # Daily reset of nap bonus
+        today_jst = clock.now().date().isoformat()
+        if self._nap_budget_date != today_jst:
+            self._nap_budget_bonus = 0.0
+            self._nap_budget_date = today_jst
+        effective_budget = budget_info['budget'] + self._nap_budget_bonus
         print(f"  [Heartbeat] Budget check: spent={budget_info['spent_today']:.3f} "
-              f"budget={budget_info['budget']:.1f}")
-        if budget_info['spent_today'] >= budget_info['budget']:
+              f"budget={effective_budget:.1f}")
+        if budget_info['spent_today'] >= effective_budget:
             has_high_salience = any(p.salience > 0.8 for p in perceptions)
             if not has_high_salience and not self._should_sleep():
-                print(f"  [Heartbeat] Resting — energy budget exceeded "
-                      f"({budget_info['spent_today']:.2f}/{budget_info['budget']:.1f})")
-                # Apply rest recovery
-                drives.rest_need = clamp(drives.rest_need - 0.05)
-                drives.energy = clamp(drives.energy + 0.03)
-
-                rest_log = {
-                    'id': cycle_id,
-                    'mode': mode,
-                    'drives': {
-                        'social_hunger': round(drives.social_hunger, 2),
-                        'curiosity': round(drives.curiosity, 2),
-                        'expression_need': round(drives.expression_need, 2),
-                        'rest_need': round(drives.rest_need, 2),
-                        'energy': round(drives.energy, 2),
-                        'mood_valence': round(drives.mood_valence, 2),
-                        'mood_arousal': round(drives.mood_arousal, 2),
-                    },
-                    'focus_salience': round(routing.focus.salience, 2) if routing.focus else 0,
-                    'focus_type': routing.focus.p_type if routing.focus else 'none',
-                    'routing_focus': 'rest',
-                    'token_budget': 0,
-                    'memory_count': len(memory_chunks),
-                    'internal_monologue': '(resting — energy budget exceeded)',
-                    'dialogue': None,
-                    'expression': 'neutral',
-                    'body_state': 'sitting',
-                    'gaze': 'away_thinking',
-                    'actions': [],
-                    'dropped': [],
-                    'next_cycle_hints': [],
-                    'resonance': False,
-                    '_entropy_warning': None,
-                    'intentions_count': 0,
-                    'budget_rest': True,
-                }
-
-                async with db.transaction():
-                    await db.save_drives_state(drives)
-                    for event in unread:
-                        await db.inbox_mark_read(event.id)
-                    await db.log_cycle(rest_log)
-
-                await self._emit_stage('dialogue', {
-                    'dialogue': None,
-                    'expression': 'neutral',
-                })
-
-                self._error_backoff = 5
-
-                for sub_id, q in list(self._cycle_log_subscribers.items()):
-                    while q.full():
-                        try:
-                            q.get_nowait()
-                        except asyncio.QueueEmpty:
-                            break
+                if self._nap_cooldown_elapsed():
+                    # ── Nap: consolidate top moments, restore partial budget ──
+                    print(f"  [Heartbeat] Nap — consolidating moments "
+                          f"(budget {budget_info['spent_today']:.2f}/{effective_budget:.1f})")
                     try:
-                        q.put_nowait(rest_log)
-                    except asyncio.QueueFull:
-                        pass
+                        n_processed = await nap_consolidate()
+                    except Exception as e:
+                        print(f"  [Heartbeat] Nap consolidation error: {e}")
+                        n_processed = 0
+                    self._last_nap_ts = clock.now_utc()
 
-                return rest_log
+                    # Restore partial budget: +1.0 headroom
+                    self._nap_budget_bonus += 1.0
+                    new_budget = effective_budget + 1.0
+
+                    # Apply rest recovery to drives
+                    drives.rest_need = clamp(drives.rest_need - 0.05)
+                    drives.energy = clamp(drives.energy + 0.03)
+
+                    nap_log = {
+                        'id': cycle_id,
+                        'mode': mode,
+                        'drives': {
+                            'social_hunger': round(drives.social_hunger, 2),
+                            'curiosity': round(drives.curiosity, 2),
+                            'expression_need': round(drives.expression_need, 2),
+                            'rest_need': round(drives.rest_need, 2),
+                            'energy': round(drives.energy, 2),
+                            'mood_valence': round(drives.mood_valence, 2),
+                            'mood_arousal': round(drives.mood_arousal, 2),
+                        },
+                        'focus_salience': round(routing.focus.salience, 2) if routing.focus else 0,
+                        'focus_type': routing.focus.p_type if routing.focus else 'none',
+                        'routing_focus': 'nap',
+                        'token_budget': 0,
+                        'memory_count': len(memory_chunks),
+                        'internal_monologue': f'(nap — consolidated {n_processed} moments)',
+                        'dialogue': None,
+                        'expression': 'neutral',
+                        'body_state': 'resting',
+                        'gaze': 'down',
+                        'actions': ['action_nap'],
+                        'dropped': [],
+                        'next_cycle_hints': [],
+                        'resonance': False,
+                        '_entropy_warning': None,
+                        'intentions_count': 0,
+                        'nap': True,
+                        'nap_moments_processed': n_processed,
+                    }
+
+                    # Emit nap as timeline event
+                    nap_event = Event(
+                        event_type='action_nap',
+                        source='self',
+                        payload={
+                            'moments_processed': n_processed,
+                            'budget_restored_to': new_budget,
+                        },
+                    )
+                    async with db.transaction():
+                        await db.append_event(nap_event)
+                        await db.save_drives_state(drives)
+                        for event in unread:
+                            await db.inbox_mark_read(event.id)
+                        await db.log_cycle(nap_log)
+
+                    await self._emit_stage('dialogue', {
+                        'dialogue': None,
+                        'expression': 'neutral',
+                    })
+
+                    print(f"  [Heartbeat] Nap — consolidated {n_processed} moments, "
+                          f"budget restored to {new_budget:.1f}")
+
+                    self._error_backoff = 5
+
+                    for sub_id, q in list(self._cycle_log_subscribers.items()):
+                        while q.full():
+                            try:
+                                q.get_nowait()
+                            except asyncio.QueueEmpty:
+                                break
+                        try:
+                            q.put_nowait(nap_log)
+                        except asyncio.QueueFull:
+                            pass
+
+                    return nap_log
+                else:
+                    # ── Nap cooldown: skip cycle entirely, no empty rest loop ──
+                    remaining = self._nap_cooldown_remaining_minutes()
+                    print(f"  [Heartbeat] Resting — nap cooldown ({remaining}m remaining)")
+
+                    # Still save drives and mark inbox read
+                    drives.rest_need = clamp(drives.rest_need - 0.02)
+                    drives.energy = clamp(drives.energy + 0.01)
+
+                    rest_log = {
+                        'id': cycle_id,
+                        'mode': mode,
+                        'drives': {
+                            'social_hunger': round(drives.social_hunger, 2),
+                            'curiosity': round(drives.curiosity, 2),
+                            'expression_need': round(drives.expression_need, 2),
+                            'rest_need': round(drives.rest_need, 2),
+                            'energy': round(drives.energy, 2),
+                            'mood_valence': round(drives.mood_valence, 2),
+                            'mood_arousal': round(drives.mood_arousal, 2),
+                        },
+                        'focus_salience': round(routing.focus.salience, 2) if routing.focus else 0,
+                        'focus_type': routing.focus.p_type if routing.focus else 'none',
+                        'routing_focus': 'rest',
+                        'token_budget': 0,
+                        'memory_count': len(memory_chunks),
+                        'internal_monologue': f'(resting — nap cooldown, {remaining}m remaining)',
+                        'dialogue': None,
+                        'expression': 'neutral',
+                        'body_state': 'resting',
+                        'gaze': 'down',
+                        'actions': [],
+                        'dropped': [],
+                        'next_cycle_hints': [],
+                        'resonance': False,
+                        '_entropy_warning': None,
+                        'intentions_count': 0,
+                        'nap_cooldown': True,
+                        'nap_cooldown_remaining_min': remaining,
+                    }
+
+                    async with db.transaction():
+                        await db.save_drives_state(drives)
+                        for event in unread:
+                            await db.inbox_mark_read(event.id)
+                        await db.log_cycle(rest_log)
+
+                    await self._emit_stage('dialogue', {
+                        'dialogue': None,
+                        'expression': 'neutral',
+                    })
+
+                    self._error_backoff = 5
+
+                    for sub_id, q in list(self._cycle_log_subscribers.items()):
+                        while q.full():
+                            try:
+                                q.get_nowait()
+                            except asyncio.QueueEmpty:
+                                break
+                        try:
+                            q.put_nowait(rest_log)
+                        except asyncio.QueueFull:
+                            pass
+
+                    return rest_log
 
         # 7. URL enrichment (if gift detected — URLs captured before gate)
         gift_meta = None

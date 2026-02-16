@@ -1200,7 +1200,7 @@ Part C:
 ---
 
 ### TASK-038: Replace rest mode with nap consolidation
-**Status:** READY
+**Status:** DONE (2026-02-16)
 **Priority:** High
 **Depends on:** TASK-036 (budget enforcement)
 **Description:** When energy budget is exceeded, the system enters empty rest loops — no LLM call, no actions, no thoughts, just a hardcoded placeholder string cycling every 20s until midnight. She's effectively lobotomized. Replace with nap behavior: she processes recent moments, writes real reflections, wakes with partial budget.

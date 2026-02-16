@@ -26,6 +26,7 @@ class DayMemoryEntry:
     # DB-populated fields (not set during construction in maybe_record_moment)
     retry_count: int = 0
     processed_at: Optional[datetime] = None
+    nap_processed: bool = False
 
 
 async def maybe_record_moment(cycle_result: dict, cycle_context: dict) -> None:
