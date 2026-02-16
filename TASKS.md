@@ -1066,6 +1066,54 @@ This unlocks new content types in the feed. Currently FEED_SOURCES are text-only
 
 ---
 
+### TASK-035: Shop open/close as pipeline choice, not auto-managed
+**Status:** READY
+**Priority:** High
+**Depends on:** TASK-032 (generative/reflexive tagging)
+**Description:** The shop auto-reopens every cycle via heartbeat.py:412-415 if energy > 0.5, creating an oscillation loop with the close_shop habit (14 closes/day on already-closed shop). Same design flaw as pre-TASK-012 engagement — forced state change instead of pipeline choice.
+Fix: Remove auto-reopen from heartbeat.py entirely. Add `open_shop` as a new reflexive action. She decides when to open and close through the normal pipeline.
+**Implementation:**
+1. **heartbeat.py** — Remove the auto-reopen block at lines 412-415. Shop status only changes via actions.
+2. **pipeline/action_registry.py** — Add `open_shop` action:
+   - `enabled=True`
+   - `generative=False` (reflexive — no LLM output needed)
+   - `energy_cost=0.0`
+   - Prerequisite: shop must be currently closed
+3. **pipeline/body.py** — Add `open_shop` execution handler. Sets shop status to 'open' in room_state. Mirror of close_shop handler.
+4. **pipeline/basal_ganglia.py** — Add drive gates:
+   - `open_shop`: require `energy > 0.3` AND `rest_need < 0.6`
+   - `close_shop`: require shop is open (already exists, verify it works without auto-reopen)
+5. **prompt_assembler.py** — Ensure current shop status and time of day are in cortex context so she can reason about when to open/close. Add a light hint: "The shop is currently [open/closed]. It is [time]." No instruction on when to open — she figures that out.
+6. **pipeline/hypothalamus.py** — No new drive needed. Opening the shop is motivated by existing drives: social_hunger (want visitors), energy (have capacity), rest_need (not exhausted).
+**Expected emergent behavior:**
+- She opens in the morning when energy is high and social hunger has built overnight
+- She closes at night when energy drops or rest need rises
+- These form habits naturally: open_shop in morning context, close_shop in evening/night context
+- On low-energy days she might open late or not at all — genuine variation
+**Scope (files you may touch):**
+- `heartbeat.py` (remove auto-reopen)
+- `pipeline/action_registry.py` (add open_shop)
+- `pipeline/body.py` (add open_shop handler)
+- `pipeline/basal_ganglia.py` (add drive gates)
+- `prompt_assembler.py` (ensure shop status + time in context)
+- `db.py` (only if room_state update needs a new function — at END of file)
+- `models/pipeline.py` (if ActionCapability needs updating)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `pipeline/sensorium.py`
+- `sleep.py`
+- `heartbeat_server.py`
+- `window/`
+**Tests:**
+- test_auto_reopen_removed — shop stays closed after close_shop, no auto-reopen on next cycle
+- test_open_shop_action — open_shop changes room_state from closed to open
+- test_open_shop_drive_gate — blocked when energy < 0.3 or rest_need > 0.6
+- test_open_shop_prerequisite — blocked when shop already open
+- test_close_shop_prerequisite — blocked when shop already closed
+**Definition of done:** No auto-reopen in heartbeat. Shop status changes only through pipeline actions. open_shop and close_shop are both reflexive, drive-gated actions. She decides her own hours.
+
+---
+
 ## Completed Tasks
 
 _None yet._
