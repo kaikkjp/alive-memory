@@ -273,9 +273,8 @@ async def handle_status(server, writer: asyncio.StreamWriter,
     room = await db.get_room_state()
 
     # ─── Heartbeat liveness from actual cycle timestamps ───
-    # Expected max interval between cycles is ~600s (10 min).
-    # 1x interval → active, 2x → late, 3x → inactive.
-    _EXPECTED_INTERVAL = 600  # seconds
+    # Use operator-configured interval (with 2x headroom for jitter/rest).
+    _EXPECTED_INTERVAL = int(server.heartbeat.get_cycle_interval() * 2)
     last_cycle_ts = None
     seconds_since_last_cycle = None
     heartbeat_status = 'inactive'
@@ -313,9 +312,56 @@ async def handle_status(server, writer: asyncio.StreamWriter,
         'last_cycle_ts': last_cycle_ts,
         'seconds_since_last_cycle': round(seconds_since_last_cycle) if seconds_since_last_cycle is not None else None,
         'expected_interval': _EXPECTED_INTERVAL,
+        'cycle_interval': server.heartbeat.get_cycle_interval(),
         'engagement_status': engagement.status,
         'shop_status': room.shop_status,
         'active_visitor': engagement.visitor_id,
+    })
+
+
+async def handle_get_cycle_interval(server, writer: asyncio.StreamWriter,
+                                     authorization: str):
+    """Handle GET /api/dashboard/controls/cycle-interval — return current interval."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+    hb = server.heartbeat
+    await server._http_json(writer, 200, {
+        'interval_seconds': hb.get_cycle_interval(),
+        'min': hb.INTERVAL_MIN,
+        'max': hb.INTERVAL_MAX,
+    })
+
+
+async def handle_set_cycle_interval(server, writer: asyncio.StreamWriter,
+                                     authorization: str, body_bytes: bytes):
+    """Handle POST /api/dashboard/controls/cycle-interval — update cycle interval."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+    try:
+        data = json.loads(body_bytes.decode('utf-8'))
+        interval = data.get('interval_seconds')
+        if not isinstance(interval, (int, float)):
+            await server._http_json(writer, 400, {'error': 'interval_seconds must be a number'})
+            return
+        interval = int(interval)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        await server._http_json(writer, 400, {'error': 'bad request'})
+        return
+
+    hb = server.heartbeat
+    if interval < hb.INTERVAL_MIN or interval > hb.INTERVAL_MAX:
+        await server._http_json(writer, 400, {
+            'error': f'interval_seconds must be between {hb.INTERVAL_MIN} and {hb.INTERVAL_MAX}',
+        })
+        return
+
+    actual = hb.set_cycle_interval(interval)
+    await server._http_json(writer, 200, {
+        'interval_seconds': actual,
+        'min': hb.INTERVAL_MIN,
+        'max': hb.INTERVAL_MAX,
     })
 
 

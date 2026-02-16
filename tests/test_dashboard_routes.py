@@ -38,6 +38,7 @@ def _make_server():
     server.heartbeat = MagicMock()
     server.heartbeat.schedule_microcycle = AsyncMock()
     server.heartbeat._running = True
+    server.heartbeat.get_cycle_interval.return_value = 180
     return server
 
 
@@ -285,9 +286,11 @@ class TestHeartbeatStatus(unittest.TestCase):
 
     @patch('api.dashboard_routes.db')
     def test_response_includes_expected_interval(self, mock_db):
-        """Response always includes expected_interval for frontend calculation."""
+        """Response includes expected_interval derived from cycle_interval."""
         body = self._get_status_response(mock_db, None)
-        self.assertEqual(body['expected_interval'], 600)
+        # expected_interval = cycle_interval * 2 = 180 * 2 = 360
+        self.assertEqual(body['expected_interval'], 360)
+        self.assertEqual(body['cycle_interval'], 180)
 
 
 class TestContentPoolRoute(unittest.TestCase):

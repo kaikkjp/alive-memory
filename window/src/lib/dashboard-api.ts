@@ -98,6 +98,20 @@ export const dashboardApi = {
     return res.json();
   },
 
+  async getCycleInterval() {
+    const res = await dashboardFetch('/api/dashboard/controls/cycle-interval');
+    return res.json();
+  },
+
+  async setCycleInterval(intervalSeconds: number) {
+    const res = await dashboardFetch('/api/dashboard/controls/cycle-interval', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ interval_seconds: intervalSeconds }),
+    });
+    return res.json();
+  },
+
   async getBody() {
     const res = await dashboardFetch('/api/dashboard/body');
     return res.json();

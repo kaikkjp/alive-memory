@@ -154,6 +154,11 @@ async def build_self_state(visitor, unread: list) -> str | None:
 class Heartbeat:
     """The shopkeeper's heartbeat. Drives all cycles."""
 
+    # Cycle interval bounds (seconds)
+    INTERVAL_MIN = 10
+    INTERVAL_MAX = 600
+    INTERVAL_DEFAULT = 180  # 3 minutes
+
     def __init__(self):
         self.running = False
         self.pending_microcycle = asyncio.Event()
@@ -170,6 +175,31 @@ class Heartbeat:
         self._arbiter_state: Optional[dict] = None  # loaded from DB on start
         self._last_ambient_fetch_ts: Optional[datetime] = None
         self._last_feed_fetch_ts: Optional[datetime] = None
+        self._cycle_interval: int = self.INTERVAL_DEFAULT
+
+    def get_cycle_interval(self) -> int:
+        """Return the current cycle interval in seconds."""
+        return self._cycle_interval
+
+    def set_cycle_interval(self, seconds: int) -> int:
+        """Set cycle interval (clamped to INTERVAL_MIN..INTERVAL_MAX). Returns actual value."""
+        self._cycle_interval = max(self.INTERVAL_MIN, min(self.INTERVAL_MAX, seconds))
+        print(f"  [Heartbeat] Cycle interval set to {self._cycle_interval}s")
+        return self._cycle_interval
+
+    def _get_cycle_interval(self, channel: str) -> int:
+        """Return sleep seconds for the given channel, based on operator-set interval.
+
+        Applies a jitter of +/-25% to avoid perfectly periodic cycles.
+        Rest cycles use 2.5x the base interval (they're meant to be longer).
+        """
+        base = self._cycle_interval
+        if channel == 'rest':
+            base = int(base * 2.5)
+        # Jitter: 75%-125% of base, clamped to bounds
+        lo = max(self.INTERVAL_MIN, int(base * 0.75))
+        hi = max(lo + 1, min(self.INTERVAL_MAX * 3, int(base * 1.25)))
+        return random.randint(lo, hi)
 
     def set_window_broadcast(self, cb: Callable):
         """Set callback for broadcasting to window viewers."""
@@ -489,12 +519,12 @@ class Heartbeat:
             else:
                 cycle_log = await self.run_cycle('idle')
                 detail = cycle_log.get('internal_monologue', '')[:60] or 'idle cycle'
-            sleep_seconds = random.randint(120, 600)
+            sleep_seconds = self._get_cycle_interval('idle')
 
         elif focus.channel == 'rest':
             cycle_log = await self.run_cycle('rest')
             detail = 'resting'
-            sleep_seconds = random.randint(300, 1800)
+            sleep_seconds = self._get_cycle_interval('rest')
 
         else:
             # Focused cycle (express, consume, thread, news)
@@ -532,7 +562,7 @@ class Heartbeat:
                 self._last_creative_cycle_ts = clock.now_utc()
             await db.save_arbiter_state(self._arbiter_state)
             detail = cycle_log.get('internal_monologue', '')[:60] or focus.channel
-            sleep_seconds = random.randint(120, 600)
+            sleep_seconds = self._get_cycle_interval('focused')
 
         return CycleResult(
             cycle_type=cycle_log.get('routing_focus', focus.channel),
