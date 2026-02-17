@@ -2095,7 +2095,7 @@ In `pipeline/hypothalamus.py`:
 
 ### TASK-048: Run 7-day experiment v2 — three-budget sweep
 
-**Status:** BLOCKED (on TASK-046 + TASK-047)
+**Status:** IN_PROGRESS (code changes done 2026-02-17; simulation runs pending)
 **Priority:** Critical (paper blocker)
 **Branch:** feat/experiment-v2
 

@@ -6,11 +6,13 @@ Usage:
     python simulate.py --days 3 --content content/readings.txt
     python simulate.py --days 7 --visitors experiments/visitors.json
     python simulate.py --days 1 --start 2026-02-10T07:00 --quiet
+    python simulate.py --days 7 --energy-budget 2.0 --output experiments/run_a/
 
 The shopkeeper runs the real pipeline with real LLM calls against a
 separate simulation DB, using a virtual clock that advances instantly
 instead of waiting. With --visitors, scripted visitor interactions are
-injected at the correct simulated times.
+injected at the correct simulated times. With --energy-budget, the daily
+energy budget is overridden (default: 4.0).
 """
 
 import argparse
@@ -235,6 +237,8 @@ async def run_simulation(
     visitor_file: str = None,
     start: datetime = None,
     quiet: bool = False,
+    energy_budget: float = None,
+    output_dir: str = None,
 ):
     """Main simulation loop."""
 
@@ -246,10 +250,19 @@ async def run_simulation(
     clock.init_clock(simulate=True, start=start)
     target = start + timedelta(days=days)
 
+    # 1b. Override energy budget if specified
+    if energy_budget is not None:
+        _original_get_energy_budget = db.get_energy_budget
+        async def _patched_get_energy_budget():
+            result = await _original_get_energy_budget()
+            result['budget'] = energy_budget
+            return result
+        db.get_energy_budget = _patched_get_energy_budget
+
     # 2. Create simulation DB (run_id ensures uniqueness across reruns)
     run_id = str(uuid.uuid4())[:8]
     ts_str = start.strftime('%Y%m%d_%H%M%S')
-    sim_db_dir = pathlib.Path('data/sim')
+    sim_db_dir = pathlib.Path(output_dir) if output_dir else pathlib.Path('data/sim')
     sim_db_dir.mkdir(parents=True, exist_ok=True)
     sim_db_path = str(sim_db_dir / f'sim_{ts_str}_{run_id}.db')
     db.set_db_path(sim_db_path)
@@ -309,6 +322,8 @@ async def run_simulation(
     print(f"\n  Simulating {days} day(s) starting {start.strftime('%Y-%m-%d %H:%M JST')}")
     print(f"  DB: {sim_db_path}")
     print(f"  Target: {target.strftime('%Y-%m-%d %H:%M JST')}")
+    if energy_budget is not None:
+        print(f"  Energy budget: {energy_budget} (overridden)")
     if visitor_schedule:
         unique_visitors = len(set(
             (e['visitor_id'], e['sim_time'].date()) for e in visitor_schedule
@@ -452,6 +467,7 @@ Examples:
   python simulate.py --days 3 --content content/readings.txt
   python simulate.py --days 7 --visitors experiments/visitors.json
   python simulate.py --days 1 --start 2026-02-10T07:00 --quiet
+  python simulate.py --days 7 --energy-budget 2.0 --output experiments/run_a/
         """,
     )
     parser.add_argument('--days', type=int, default=1, help='Days to simulate (default: 1)')
@@ -459,6 +475,10 @@ Examples:
     parser.add_argument('--visitors', help='Visitor script JSON file')
     parser.add_argument('--start', help='Start time in ISO format (default: today 07:00 JST)')
     parser.add_argument('--quiet', action='store_true', help='Suppress per-cycle output')
+    parser.add_argument('--energy-budget', type=float, default=None,
+                        help='Override daily energy budget (default: 4.0)')
+    parser.add_argument('--output', default=None,
+                        help='Output directory for DB and timeline log (default: data/sim/)')
     args = parser.parse_args()
 
     start = None
@@ -475,6 +495,8 @@ Examples:
         visitor_file=args.visitors,
         start=start,
         quiet=args.quiet,
+        energy_budget=args.energy_budget,
+        output_dir=args.output,
     ))
 
 
