@@ -2207,56 +2207,56 @@ ORDER BY sim_day;
 
 ---
 
-### TASK-049: Simulation updates for experiment v2 — visitor coverage + run labeling
+### TASK-049: Simulation Runner Updates for Experiment v2
 **Status:** DONE (2026-02-17)
-**Priority:** High (blocks TASK-048 experiment quality)
-**Depends on:** None (simulate.py infrastructure already in place)
+**Priority:** High (blocks the 3-budget experiment for paper)
+**Depends on:** TASK-050 (real-dollar budget system, now complete on fix/real-energy)
+**Branch:** sim/experiment-v2
 
-**Context:** Audit of simulate.py and supporting files for TASK-048 readiness found that `--energy-budget`, content feed wiring, and nap triggers are already implemented and functional. Two gaps remain:
+**Context:** The 7-day simulation ran once pre-TASK-050 (af585cbe.db) with the broken energy system — 0 day_memory moments, 0 content consumed, fictional energy that never drained properly. That data is the v1 baseline.
 
-1. **No visitor tests curiosity v2 gap detection.** The current 4 visitors (Yuki, Tanaka-san, Sato, M.) predate the curiosity v2 system (TASK-041/042). None of them say anything that partially matches an existing thread or totem, so the gap detector — the key new architectural capability — has zero coverage in the experiment. This means curiosity v2 behavior in the experiment will look identical to v1 for visitor interactions.
-
-2. **No `--run-label` for meaningful DB filenames.** TASK-048 needs three named runs (tight/medium/generous). Currently output DBs are named `sim_{timestamp}_{uuid8}.db` which makes post-analysis cumbersome. A `--run-label` arg would produce `sim_v2_tight.db` etc.
-
-**Already verified (no changes needed):**
-- `--energy-budget` CLI arg exists and patches `db.get_energy_budget()` at runtime
-- Content feed is wired: `--content` loads via `feed_ingester.ingest_from_file()`, sensorium pulls up to 5 notifications/cycle from content_pool, creates `TextFragment`s for gap detection
-- Nap consolidation fires: `heartbeat.run_one_cycle()` checks budget exhaustion with 2hr cooldown, calls `nap_consolidate()` — no shortcircuiting in simulation
-- `content/readings.txt` has 15 items (8 URLs + 7 quotes) — sufficient for gap detection
+TASK-050 shipped: real-dollar budget, event-driven day_memory, no energy gates, read_content unblocked. Now we need to run the experiment again at three budget levels to measure how resource constraints shape cognitive development. This is the core data for the research paper.
 
 **Implementation steps:**
 
-1. **Add 5th visitor "Koji" to `experiments/visitors.json`.**
-   - Day 5, arrive_hour 16 (afternoon, after M.'s evening visit won't overlap)
-   - 3-4 messages that reference concepts adjacent to threads/totems the agent likely develops by day 5 (e.g., objects having memory, impermanence, repair vs discard)
-   - Example: "I broke a plate yesterday and just threw it away. My grandmother would have been horrified — she fixed everything."
-   - This tests whether the gap detector fires on partial-match visitor speech and whether it generates an epistemic curiosity
-   - Keep existing 4 visitors unchanged for comparability with v1 experiment
+1. **CLI: `--daily-budget` Override**
+   Add `--daily-budget <float>` argument to `simulate.py`.
+   - Overrides the `daily_budget` value in the settings table at simulation start
+   - Default: 2.00 (matches production default)
+   - Validates: must be > 0
+   - Implementation: At simulation init, before first cycle: `db.set_setting('daily_budget', str(args.daily_budget))`
 
-2. **Add `--run-label` CLI arg to `simulate.py`.**
-   - Optional string argument
-   - When provided, DB filename becomes `{run_label}.db` and timeline becomes `{run_label}_timeline.log` in the output directory
-   - When absent, use existing `sim_{timestamp}_{uuid8}` naming (backward compat)
+2. **CLI: `--run-label` for Output Naming** (already implemented)
+   - Used in output DB filename: `{label}.db`
+   - Used in timeline log filename: `{label}.log`
 
-3. **Verify end-to-end with quick validation run.**
-   - Run 10 cycles with `--energy-budget 2.0 --content content/readings.txt --visitors experiments/visitors.json`
-   - Confirm no errors from 5th visitor injection
-   - Confirm content pool items appear in sensorium perceptions
+3. **Verify Content Feed Pipeline**
+   Ensure `content/readings.txt` has 15-20 items with a mix of interests.
+
+4. **Add 5th Visitor: Koji (Curiosity Gap Test)**
+   Add to `experiments/visitors.json`:
+   - Day 5, afternoon, casual visitor who unknowingly touches her developed interests
+   - Tests whether the gap detector fires on partial-match visitor speech
+   - Keep existing visitors unchanged for direct comparability with v1
+
+5. **Populate content pool with diverse items** if needed (15-20 items mixing her interests, adjacent topics, and foreign topics).
 
 **Scope (files you may touch):**
-- `experiments/visitors.json` (add Koji entry)
-- `simulate.py` (add `--run-label` arg and filename logic)
+- `simulate.py` — add `--daily-budget` arg, budget override at init
+- `experiments/visitors.json` — update Koji visitor messages
+- `content/readings.txt` — ensure 15-20 diverse items
 
 **Scope (files you may NOT touch):**
 - `heartbeat.py`
 - `pipeline/*`
 - `db.py` / `db/*`
 - `feed_ingester.py`
-- `content/readings.txt`
 
-**Tests:** Run `python simulate.py --days 1 --visitors experiments/visitors.json --content content/readings.txt --energy-budget 2.0 --run-label test_v2 --output data/sim/ --quiet` — should produce `data/sim/test_v2.db` and complete without errors.
-
-**Definition of done:** 5th visitor exists in visitors.json and exercises curiosity gap detection. `--run-label` produces clean filenames. TASK-048 can run with `--run-label sim_v2_tight` / `sim_v2_medium` / `sim_v2_generous`.
+**Definition of done:**
+- `--daily-budget` CLI arg works, overrides setting via `db.set_setting()`
+- Content pool has 15-20 items with diverse topics
+- Koji visitor exercises curiosity gap detection
+- `--run-label` produces clean filenames (already done)
 
 ---
 
