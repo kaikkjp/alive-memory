@@ -117,6 +117,7 @@ CONSTRAINTS:
 - You carry threads — ongoing thoughts, questions, projects. Use thread_create when something new sticks. Use thread_update to revisit. Use thread_close when resolved.
 - When consuming content (reading, listening), reflect honestly. Add to collection only if it genuinely resonates. Create totems for things that lodge in you.
 - Threads are yours. Don't create threads just because a visitor mentioned something — only if it genuinely stays with you.
+{reflection_guidance}
 
 EXPRESS YOUR INTENTIONS — what you want to do right now.
 You may have multiple impulses. List them all. You don't need to choose.
@@ -184,8 +185,55 @@ OUTPUT SCHEMA:
       "content": {{"thread_id": "id or null", "title": "title if no id", "resolution": "how this resolved"}}
     }}
   ],
-  "next_cycle_hints": ["optional hints for what she might do next"]
+  "next_cycle_hints": ["optional hints for what she might do next"],
+
+  // REFLECTION (optional — only when you just read/consumed content):
+  "reflection_memory": "a thought worth keeping from what you read, or null",
+  "reflection_question": "a question this content raised in you, or null",
+  "resolves_question": "topic or thread title if this content answered something you were wondering about, or null",
+  "relevant_to_visitor": "visitor ID if this content connects to someone you know, or null",
+  "relevant_to_thread": "thread ID if this content connects to something on your mind, or null"
 }}"""
+
+
+def _surface_relevant_content(parts: list[str], perceptions: list,
+                              conversation: list[dict]) -> None:
+    """TASK-045: Surface notification content that overlaps with conversation topics.
+
+    When a visitor is present and notification titles match conversation keywords,
+    tell the cortex so she can mention_in_conversation or connect the content
+    to the visitor in her reflection.
+    """
+    # Collect conversation keywords (visitor speech only, words > 3 chars)
+    convo_words = set()
+    for msg in conversation[-6:]:
+        if msg.get('role') == 'visitor':
+            words = msg.get('text', '').lower().split()
+            convo_words.update(w.strip('.,!?;:"\'-()[]') for w in words if len(w) > 3)
+    if not convo_words:
+        return
+
+    # Find notification perceptions with content_ids
+    for p in perceptions:
+        content_ids = p.features.get('content_ids', [])
+        if not content_ids or p.p_type != 'feed_notifications':
+            continue
+
+        # Check each notification title against conversation keywords
+        content_text = p.content or ''
+        for line in content_text.split('\n'):
+            line_lower = line.lower()
+            line_words = {w.strip('.,!?;:"\'-()[]') for w in line_lower.split() if len(w) > 3}
+            overlap = convo_words & line_words
+            if len(overlap) >= 2:  # at least 2 shared keywords
+                parts.append(
+                    f"\nCONTENT RELEVANT TO CONVERSATION:"
+                    f"\n  {line.strip()}"
+                    f"\n  → This overlaps with what the visitor mentioned."
+                    f"\n  → You can use mention_in_conversation to reference it, "
+                    f"or set relevant_to_visitor if it connects to them."
+                )
+                return  # surface at most one connection per cycle
 
 
 async def cortex_call(
@@ -251,6 +299,22 @@ async def cortex_call(
     except Exception:
         pass  # graceful degradation if table doesn't exist yet
 
+    # TASK-045: Build reflection guidance when content is being consumed
+    consume_perception = next(
+        (p for p in perceptions if p.features.get('is_consumption')), None
+    )
+    reflection_guidance_text = ''
+    if consume_perception:
+        reflection_guidance_text = (
+            "\nREFLECTION — you are reading content right now. As you read:\n"
+            "- If a thought is worth keeping, put it in \"reflection_memory\"\n"
+            "- If it raises a genuine question, put it in \"reflection_question\"\n"
+            "- If it answers something you've been wondering, set \"resolves_question\" to the topic\n"
+            "- If it connects to a visitor you know, set \"relevant_to_visitor\" to their ID\n"
+            "- If it connects to a thread on your mind, set \"relevant_to_thread\" to the thread ID\n"
+            "Not everything deserves reflection. Some content is noise. null is fine."
+        )
+
     system = CORTEX_SYSTEM.format(
         identity_compact=IDENTITY_COMPACT,
         self_state=self_state or '',
@@ -260,6 +324,7 @@ async def cortex_call(
         recent_suppressions=recent_suppressions_text,
         recent_inhibitions=recent_inhibitions_text,
         recent_conflicts=recent_conflicts_text,
+        reflection_guidance=reflection_guidance_text,
     )
 
     # Build user message (the "moment")
@@ -297,9 +362,7 @@ async def cortex_call(
             parts.append(f"  [{t.thread_type}] {t.title} [id:{t.id}]{age_str}{snippet}")
 
     # Consume framing (when arbiter picked consume focus)
-    consume_perception = next(
-        (p for p in perceptions if p.features.get('is_consumption')), None
-    )
+    # consume_perception already found above for reflection guidance
     if consume_perception:
         parts.append("\nWHAT I'M CONSUMING:")
         parts.append(f"  {consume_perception.content}")
@@ -345,6 +408,10 @@ async def cortex_call(
             status = vp.get('status', 'browsing')
             parts.append(f"  [{vid}] {name} — {trust}, {status}")
         parts.append("  → Use target \"visitor:ID\" to direct actions at a specific person.")
+
+    # TASK-045: Conversation context integration — surface content relevant to conversation
+    if visitor and conversation:
+        _surface_relevant_content(parts, perceptions, conversation)
 
     # Constraints
     parts.append(f"\nTOKEN BUDGET: {routing.token_budget}")

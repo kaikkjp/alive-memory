@@ -58,6 +58,16 @@ class CortexOutput:
     next_cycle_hints: list[str] = field(default_factory=list)
     intentions: list['Intention'] = field(default_factory=list)
 
+    # ── Explicit reflection fields (TASK-045) ──
+    # When present, these override regex pattern matching in process_reflection().
+    # The cortex can declare reflection outcomes directly instead of relying
+    # on monologue parsing. All Optional — absent means "use regex fallback".
+    reflection_memory: Optional[str] = None       # memory worth keeping from content
+    reflection_question: Optional[str] = None     # question raised by content
+    resolves_question: Optional[str] = None       # EC topic/id this content resolves
+    relevant_to_visitor: Optional[str] = None     # visitor_id content connects to
+    relevant_to_thread: Optional[str] = None      # thread_id content connects to
+
     @classmethod
     def from_dict(cls, raw: dict) -> 'CortexOutput':
         """Construct from json.loads() output. Tolerant of missing keys."""
@@ -103,6 +113,12 @@ class CortexOutput:
             memory_updates=memory_updates,
             next_cycle_hints=raw.get('next_cycle_hints', []),
             intentions=intentions,
+            # TASK-045: explicit reflection fields
+            reflection_memory=raw.get('reflection_memory'),
+            reflection_question=raw.get('reflection_question'),
+            resolves_question=raw.get('resolves_question'),
+            relevant_to_visitor=raw.get('relevant_to_visitor'),
+            relevant_to_thread=raw.get('relevant_to_thread'),
         )
 
 
@@ -133,6 +149,13 @@ class ValidatedOutput:
     next_cycle_hints: list[str] = field(default_factory=list)
     intentions: list[Intention] = field(default_factory=list)
 
+    # ── Explicit reflection fields (TASK-045, copied from CortexOutput) ──
+    reflection_memory: Optional[str] = None
+    reflection_question: Optional[str] = None
+    resolves_question: Optional[str] = None
+    relevant_to_visitor: Optional[str] = None
+    relevant_to_thread: Optional[str] = None
+
     # ── Validation metadata ──
     approved_actions: list[ActionRequest] = field(default_factory=list)
     dropped_actions: list[DroppedAction] = field(default_factory=list)
@@ -160,6 +183,12 @@ class ValidatedOutput:
             memory_updates=list(cortex.memory_updates),
             next_cycle_hints=list(cortex.next_cycle_hints),
             intentions=list(cortex.intentions),
+            # TASK-045: carry reflection fields through
+            reflection_memory=cortex.reflection_memory,
+            reflection_question=cortex.reflection_question,
+            resolves_question=cortex.resolves_question,
+            relevant_to_visitor=cortex.relevant_to_visitor,
+            relevant_to_thread=cortex.relevant_to_thread,
         )
 
     def to_dict(self) -> dict:
