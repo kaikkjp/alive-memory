@@ -5,7 +5,6 @@ thread touches, backward compat (regex fallback when fields absent),
 CortexOutput.from_dict() parsing, and conversation context surfacing.
 """
 
-import asyncio
 import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -149,7 +148,8 @@ class TestCortexOutputExplicitFields:
 class TestExplicitFieldOverridesRegex:
     """When explicit fields are present, regex patterns are skipped."""
 
-    def test_explicit_memory_overrides_regex(self):
+    @pytest.mark.asyncio
+    async def test_explicit_memory_overrides_regex(self):
         """Explicit reflection_memory is used instead of regex scan."""
         mock_db = _build_mock_db()
         with patch('pipeline.output.db', mock_db):
@@ -159,14 +159,14 @@ class TestExplicitFieldOverridesRegex:
                 reflection_memory='The concept of impermanence in art',
             )
             bo = _make_body_output(read_results=[_make_read_result()])
-            effects = asyncio.get_event_loop().run_until_complete(
-                process_reflection(validated, bo))
+            effects = await process_reflection(validated, bo)
             assert effects['memory_created'] is True
             mock_db.insert_text_fragment.assert_called_once()
             call_kwargs = mock_db.insert_text_fragment.call_args[1]
             assert 'impermanence' in call_kwargs['content']
 
-    def test_explicit_question_overrides_regex(self):
+    @pytest.mark.asyncio
+    async def test_explicit_question_overrides_regex(self):
         """Explicit reflection_question is used even without ? in monologue."""
         mock_db = _build_mock_db()
         with patch('pipeline.output.db', mock_db):
@@ -176,11 +176,11 @@ class TestExplicitFieldOverridesRegex:
                 reflection_question='How does entropy relate to time?',
             )
             bo = _make_body_output(read_results=[_make_read_result()])
-            effects = asyncio.get_event_loop().run_until_complete(
-                process_reflection(validated, bo))
+            effects = await process_reflection(validated, bo)
             assert effects['question_raised'] is True
 
-    def test_explicit_resolution_overrides_regex(self):
+    @pytest.mark.asyncio
+    async def test_explicit_resolution_overrides_regex(self):
         """Explicit resolves_question matches EC without needing regex."""
         mock_db = _build_mock_db()
         ec = _make_ec(topic='tidal forces', question='Why are tides irregular?')
@@ -194,8 +194,7 @@ class TestExplicitFieldOverridesRegex:
             bo = _make_body_output(read_results=[
                 _make_read_result(title='Ocean Dynamics'),
             ])
-            effects = asyncio.get_event_loop().run_until_complete(
-                process_reflection(validated, bo))
+            effects = await process_reflection(validated, bo)
             assert effects['question_resolved'] is True
             mock_db.resolve_epistemic_curiosity.assert_called_once()
 
@@ -206,7 +205,8 @@ class TestExplicitFieldOverridesRegex:
 class TestRegexFallbackPreserved:
     """When explicit fields are None, regex detection still works."""
 
-    def test_regex_memory_fallback(self):
+    @pytest.mark.asyncio
+    async def test_regex_memory_fallback(self):
         mock_db = _build_mock_db()
         with patch('pipeline.output.db', mock_db):
             from pipeline.output import process_reflection
@@ -214,11 +214,11 @@ class TestRegexFallbackPreserved:
                 monologue='I learned something fascinating about deep sea creatures.',
             )
             bo = _make_body_output(read_results=[_make_read_result()])
-            effects = asyncio.get_event_loop().run_until_complete(
-                process_reflection(validated, bo))
+            effects = await process_reflection(validated, bo)
             assert effects['memory_created'] is True
 
-    def test_regex_question_fallback(self):
+    @pytest.mark.asyncio
+    async def test_regex_question_fallback(self):
         mock_db = _build_mock_db()
         with patch('pipeline.output.db', mock_db):
             from pipeline.output import process_reflection
@@ -226,11 +226,11 @@ class TestRegexFallbackPreserved:
                 monologue='I wonder how photosynthesis converts light to energy?',
             )
             bo = _make_body_output(read_results=[_make_read_result()])
-            effects = asyncio.get_event_loop().run_until_complete(
-                process_reflection(validated, bo))
+            effects = await process_reflection(validated, bo)
             assert effects['question_raised'] is True
 
-    def test_regex_resolution_fallback(self):
+    @pytest.mark.asyncio
+    async def test_regex_resolution_fallback(self):
         mock_db = _build_mock_db()
         ec = _make_ec(topic='deep sea creatures', question='How deep?')
         mock_db.get_active_epistemic_curiosities = AsyncMock(return_value=[ec])
@@ -242,8 +242,7 @@ class TestRegexFallbackPreserved:
             bo = _make_body_output(read_results=[
                 _make_read_result(title='Deep Sea Creatures'),
             ])
-            effects = asyncio.get_event_loop().run_until_complete(
-                process_reflection(validated, bo))
+            effects = await process_reflection(validated, bo)
             assert effects['question_resolved'] is True
 
 
@@ -253,7 +252,8 @@ class TestRegexFallbackPreserved:
 class TestTotemWeightUpdate:
     """relevant_to_visitor triggers totem weight boost."""
 
-    def test_existing_totem_boosted(self):
+    @pytest.mark.asyncio
+    async def test_existing_totem_boosted(self):
         """Matching totem gets +0.1 weight."""
         from models.state import Totem
         mock_db = _build_mock_db()
@@ -272,13 +272,13 @@ class TestTotemWeightUpdate:
             bo = _make_body_output(read_results=[
                 _make_read_result(title='Deep Sea Creatures'),
             ])
-            asyncio.get_event_loop().run_until_complete(
-                process_reflection(validated, bo))
+            await process_reflection(validated, bo)
             mock_db.update_totem.assert_called_once()
             call_kwargs = mock_db.update_totem.call_args[1]
             assert call_kwargs['weight'] == pytest.approx(0.6, abs=0.01)
 
-    def test_no_matching_totem_creates_new(self):
+    @pytest.mark.asyncio
+    async def test_no_matching_totem_creates_new(self):
         """No matching totem → creates new one at weight 0.3."""
         mock_db = _build_mock_db()
         mock_db.get_totems = AsyncMock(return_value=[])
@@ -291,14 +291,14 @@ class TestTotemWeightUpdate:
             bo = _make_body_output(read_results=[
                 _make_read_result(title='Quantum Physics'),
             ])
-            asyncio.get_event_loop().run_until_complete(
-                process_reflection(validated, bo))
+            await process_reflection(validated, bo)
             mock_db.insert_totem.assert_called_once()
             call_kwargs = mock_db.insert_totem.call_args[1]
             assert call_kwargs['visitor_id'] == 'v-abc'
             assert call_kwargs['weight'] == 0.3
 
-    def test_no_totem_update_without_field(self):
+    @pytest.mark.asyncio
+    async def test_no_totem_update_without_field(self):
         """No relevant_to_visitor → no totem updates."""
         mock_db = _build_mock_db()
         with patch('pipeline.output.db', mock_db):
@@ -307,8 +307,7 @@ class TestTotemWeightUpdate:
                 monologue='I learned something interesting.',
             )
             bo = _make_body_output(read_results=[_make_read_result()])
-            asyncio.get_event_loop().run_until_complete(
-                process_reflection(validated, bo))
+            await process_reflection(validated, bo)
             mock_db.get_totems.assert_not_called()
             mock_db.update_totem.assert_not_called()
             mock_db.insert_totem.assert_not_called()
@@ -320,7 +319,8 @@ class TestTotemWeightUpdate:
 class TestThreadTouch:
     """relevant_to_thread triggers thread touch."""
 
-    def test_thread_touched(self):
+    @pytest.mark.asyncio
+    async def test_thread_touched(self):
         """Existing thread gets touched with content title."""
         from models.state import Thread
         mock_db = _build_mock_db()
@@ -338,15 +338,15 @@ class TestThreadTouch:
             bo = _make_body_output(read_results=[
                 _make_read_result(title='Deep Sea Exploration'),
             ])
-            effects = asyncio.get_event_loop().run_until_complete(
-                process_reflection(validated, bo))
+            effects = await process_reflection(validated, bo)
             assert effects['thread_touched'] is True
             mock_db.touch_thread.assert_called_once()
             call_kwargs = mock_db.touch_thread.call_args[1]
             assert call_kwargs['thread_id'] == 't-xyz'
             assert 'Deep Sea Exploration' in call_kwargs['reason']
 
-    def test_missing_thread_no_crash(self):
+    @pytest.mark.asyncio
+    async def test_missing_thread_no_crash(self):
         """Thread ID not found → no crash, thread_touched stays False."""
         mock_db = _build_mock_db()
         mock_db.get_thread_by_id = AsyncMock(return_value=None)
@@ -357,20 +357,19 @@ class TestThreadTouch:
                 relevant_to_thread='t-nonexistent',
             )
             bo = _make_body_output(read_results=[_make_read_result()])
-            effects = asyncio.get_event_loop().run_until_complete(
-                process_reflection(validated, bo))
+            effects = await process_reflection(validated, bo)
             assert effects['thread_touched'] is False
             mock_db.touch_thread.assert_not_called()
 
-    def test_no_thread_touch_without_field(self):
+    @pytest.mark.asyncio
+    async def test_no_thread_touch_without_field(self):
         """No relevant_to_thread → no thread operations."""
         mock_db = _build_mock_db()
         with patch('pipeline.output.db', mock_db):
             from pipeline.output import process_reflection
             validated = _make_validated(monologue='I learned something.')
             bo = _make_body_output(read_results=[_make_read_result()])
-            effects = asyncio.get_event_loop().run_until_complete(
-                process_reflection(validated, bo))
+            effects = await process_reflection(validated, bo)
             assert effects['thread_touched'] is False
             mock_db.get_thread_by_id.assert_not_called()
 
