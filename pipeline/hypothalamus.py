@@ -49,11 +49,16 @@ async def update_drives(
     events: list[Event],
     cortex_flags: dict = None,
     gap_curiosity_deltas: list[float] = None,
+    cycle_context: dict = None,
 ) -> tuple[DrivesState, str]:
     """Update drives based on time passage and events. Returns new drives + feelings text.
 
     gap_curiosity_deltas: Optional list of curiosity_delta values from gap detection
         (TASK-042). Each delta is 0.0 to 0.15. Summed and applied to curiosity.
+    cycle_context: Optional dict with keys:
+        - consecutive_idle (int): number of consecutive idle cycles (TASK-046)
+        - engaged_this_cycle (bool): whether visitor events are in inbox (TASK-046)
+        - expression_taken (bool): whether previous cycle had expression action (TASK-046)
     """
 
     new = drives.copy()
@@ -152,6 +157,60 @@ async def update_drives(
     # frequent cycle intervals (~3 min). Homeostatic pull now handles
     # continuous rest/energy recovery via equilibria (rest_need=0.25,
     # energy=0.70).
+
+    # ─── TASK-046: Drive-to-mood coupling (allostatic affect regulation) ───
+    ctx = cycle_context or {}
+    engaged_this_cycle = ctx.get('engaged_this_cycle', False)
+    consecutive_idle = ctx.get('consecutive_idle', 0)
+    expression_taken = ctx.get('expression_taken', False)
+
+    # Part A: Social hunger → valence suppression
+    # Sustained isolation pulls mood down. Visitor contact provides relief.
+    if engaged_this_cycle:
+        # Visitor relief: lonelier = more relief from contact
+        new.mood_valence = clamp(
+            new.mood_valence + 0.05 * new.social_hunger, -1.0, 1.0)
+    elif new.social_hunger > 0.4:
+        valence_before = new.mood_valence
+        valence_pressure = -0.02 * (new.social_hunger - 0.4)
+        new.mood_valence = clamp(new.mood_valence + valence_pressure, -1.0, 1.0)
+        # Floor: social hunger pressure alone cannot push below 0.15
+        if valence_before >= 0.15 and new.mood_valence < 0.15:
+            new.mood_valence = 0.15
+
+    # Part B: Low stimulation → arousal decay
+    # Consecutive idle cycles make her drowsy. Events spike arousal.
+    if consecutive_idle > 5:
+        arousal_pressure = -0.01 * (consecutive_idle - 5)
+        arousal_pressure = max(arousal_pressure, -0.05)  # cap at -0.05/cycle
+        new.mood_arousal = clamp(new.mood_arousal + arousal_pressure)
+
+    # Arousal spikes from events (stronger than existing +0.1 on visitor_connect)
+    for event in events:
+        if event.event_type == 'visitor_connect':
+            new.mood_arousal = clamp(new.mood_arousal + 0.2)  # +0.2 on top of existing +0.1 = +0.3 total
+        if event.event_type == 'gap_detection_partial':
+            new.mood_arousal = clamp(new.mood_arousal + 0.1)
+        if event.event_type == 'thread_breakthrough':
+            new.mood_arousal = clamp(new.mood_arousal + 0.15)
+
+    # Part C: Expression need → valence interaction
+    # Unexpressed thoughts cause frustration
+    if new.expression_need > 0.5 and not expression_taken:
+        new.mood_valence = clamp(
+            new.mood_valence - 0.01 * (new.expression_need - 0.5), -1.0, 1.0)
+
+    # Part D: Energy depletion → mood coupling
+    if new.energy < 0.1:
+        new.mood_valence = clamp(new.mood_valence - 0.03, -1.0, 1.0)
+        new.mood_arousal = clamp(new.mood_arousal - 0.05)
+    elif new.energy < 0.3:
+        new.mood_valence = clamp(new.mood_valence - 0.01, -1.0, 1.0)
+        new.mood_arousal = clamp(new.mood_arousal - 0.02)
+
+    # NOTE: Nap refresh (valence +0.05, arousal +0.1) is applied directly
+    # in heartbeat.py nap consolidation path, not here — the nap triggers
+    # outside the normal update_drives call.
 
     # Generate feelings text
     feelings = drives_to_feeling(new)
