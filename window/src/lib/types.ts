@@ -156,8 +156,15 @@ export interface ActionCapabilityView {
 
 export interface BodyPanelData {
   capabilities: ActionCapabilityView[];
-  energy: { spent_today: number; budget: number };
   actions_today: { type: string; count: number; total_energy: number }[];
+}
+
+// ─── Dashboard: Budget ───
+
+export interface BudgetData {
+  budget: number;
+  spent: number;
+  remaining: number;
 }
 
 // ─── Dashboard: Behavioral Panel ───

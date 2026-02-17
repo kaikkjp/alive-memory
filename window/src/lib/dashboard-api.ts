@@ -117,6 +117,11 @@ export const dashboardApi = {
     return res.json();
   },
 
+  async getBudget() {
+    const res = await dashboardFetch('/api/dashboard/budget');
+    return res.json();
+  },
+
   async getBehavioral() {
     const res = await dashboardFetch('/api/dashboard/behavioral');
     return res.json();

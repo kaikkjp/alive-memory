@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { dashboardApi } from '@/lib/dashboard-api';
-import type { BodyPanelData } from '@/lib/types';
+import type { BodyPanelData, BudgetData } from '@/lib/types';
 
 function StatusDot({ enabled, ready, coolingUntil }: {
   enabled: boolean;
@@ -17,14 +17,27 @@ function StatusDot({ enabled, ready, coolingUntil }: {
   return <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" title="Ready" />;
 }
 
+function budgetBarColor(remaining: number, budget: number): string {
+  if (budget <= 0) return 'bg-red-500';
+  const pct = remaining / budget;
+  if (pct > 0.5) return 'bg-emerald-500';
+  if (pct > 0.2) return 'bg-yellow-500';
+  return 'bg-red-500';
+}
+
 export default function BodyPanel() {
   const [data, setData] = useState<BodyPanelData | null>(null);
+  const [budget, setBudget] = useState<BudgetData | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchData = async () => {
     try {
-      const result = await dashboardApi.getBody();
-      setData(result);
+      const [bodyResult, budgetResult] = await Promise.all([
+        dashboardApi.getBody(),
+        dashboardApi.getBudget(),
+      ]);
+      setData(bodyResult);
+      setBudget(budgetResult);
     } catch (err) {
       console.error('[BodyPanel] Failed to fetch:', err);
     } finally {
@@ -56,7 +69,6 @@ export default function BodyPanel() {
     );
   }
 
-  const energyPct = Math.round((data.energy.spent_today / data.energy.budget) * 100);
   const enabledCaps = data.capabilities.filter(c => c.enabled);
 
   // Build a lookup for today's action counts
@@ -65,20 +77,27 @@ export default function BodyPanel() {
     countMap[a.type] = a.count;
   }
 
+  const budgetPct = budget && budget.budget > 0
+    ? Math.round((budget.remaining / budget.budget) * 100)
+    : 0;
+  const budgetExhausted = budget ? budget.remaining <= 0 : false;
+
   return (
     <div className="bg-neutral-900 border border-neutral-700 rounded-lg p-6">
       <h2 className="text-lg font-mono text-neutral-300 mb-4">Body</h2>
 
-      {/* Energy bar */}
+      {/* Budget bar */}
       <div className="mb-4">
         <div className="flex justify-between text-xs text-neutral-400 font-mono mb-1">
-          <span>Energy spent</span>
-          <span>{data.energy.spent_today.toFixed(2)} / {data.energy.budget.toFixed(1)} ({energyPct}%)</span>
+          <span>{budgetExhausted ? 'Resting — budget spent' : 'Budget remaining'}</span>
+          {budget && (
+            <span>${budget.remaining.toFixed(2)} / ${budget.budget.toFixed(2)}</span>
+          )}
         </div>
         <div className="h-2 bg-neutral-800 rounded overflow-hidden">
           <div
-            className="h-full bg-amber-500 transition-all duration-500"
-            style={{ width: `${Math.min(energyPct, 100)}%` }}
+            className={`h-full ${budget ? budgetBarColor(budget.remaining, budget.budget) : 'bg-neutral-600'} transition-all duration-500`}
+            style={{ width: `${Math.min(budgetPct, 100)}%` }}
           />
         </div>
       </div>
