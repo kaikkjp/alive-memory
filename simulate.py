@@ -6,16 +6,16 @@ Usage:
     python simulate.py --days 3 --content content/readings.txt
     python simulate.py --days 7 --visitors experiments/visitors.json
     python simulate.py --days 1 --start 2026-02-10T07:00 --quiet
-    python simulate.py --days 7 --energy-budget 2.0 --output experiments/run_a/
-    python simulate.py --days 7 --energy-budget 2.0 --run-label sim_v2_tight --output experiments/
+    python simulate.py --days 7 --daily-budget 2.0 --output experiments/run_a/
+    python simulate.py --days 7 --daily-budget 1.00 --run-label tight --output experiments/
 
 The shopkeeper runs the real pipeline with real LLM calls against a
 separate simulation DB, using a virtual clock that advances instantly
 instead of waiting. With --visitors, scripted visitor interactions are
-injected at the correct simulated times. With --energy-budget, the daily
-energy budget is overridden (default: 4.0). With --run-label, output
-files use the label as filename (e.g. sim_v2_tight.db) instead of
-timestamp+uuid.
+injected at the correct simulated times. With --daily-budget, the daily
+dollar budget is overridden via the settings table (default: 2.00).
+With --run-label, output files use the label as filename (e.g.
+tight.db) instead of timestamp+uuid.
 """
 
 import argparse
@@ -240,7 +240,7 @@ async def run_simulation(
     visitor_file: str = None,
     start: datetime = None,
     quiet: bool = False,
-    energy_budget: float = None,
+    daily_budget: float = None,
     output_dir: str = None,
     run_label: str = None,
 ):
@@ -253,16 +253,6 @@ async def run_simulation(
         )
     clock.init_clock(simulate=True, start=start)
     target = start + timedelta(days=days)
-
-    # 1b. Override energy budget if specified (TASK-050: uses real-dollar budget)
-    if energy_budget is not None:
-        _original_get_budget_remaining = db.get_budget_remaining
-        async def _patched_get_budget_remaining():
-            result = await _original_get_budget_remaining()
-            result['budget'] = energy_budget
-            result['remaining'] = energy_budget - result['spent']
-            return result
-        db.get_budget_remaining = _patched_get_budget_remaining
 
     # 2. Create simulation DB
     sim_db_dir = pathlib.Path(output_dir) if output_dir else pathlib.Path('data/sim')
@@ -282,6 +272,10 @@ async def run_simulation(
 
     # 3. Seed DB
     await seed()
+
+    # 3b. Override daily budget if specified (TASK-049: uses real-dollar budget via settings table)
+    if daily_budget is not None:
+        await db.set_setting('daily_budget', str(round(daily_budget, 2)))
 
     # 4. Pre-load content pool from files
     if content_files:
@@ -334,8 +328,8 @@ async def run_simulation(
     print(f"\n  Simulating {days} day(s) starting {start.strftime('%Y-%m-%d %H:%M JST')}")
     print(f"  DB: {sim_db_path}")
     print(f"  Target: {target.strftime('%Y-%m-%d %H:%M JST')}")
-    if energy_budget is not None:
-        print(f"  Energy budget: {energy_budget} (overridden)")
+    if daily_budget is not None:
+        print(f"  Daily budget: ${daily_budget:.2f} (overridden)")
     if visitor_schedule:
         unique_visitors = len(set(
             (e['visitor_id'], e['sim_time'].date()) for e in visitor_schedule
@@ -479,8 +473,8 @@ Examples:
   python simulate.py --days 3 --content content/readings.txt
   python simulate.py --days 7 --visitors experiments/visitors.json
   python simulate.py --days 1 --start 2026-02-10T07:00 --quiet
-  python simulate.py --days 7 --energy-budget 2.0 --output experiments/run_a/
-  python simulate.py --days 7 --energy-budget 2.0 --run-label sim_v2_tight --output experiments/
+  python simulate.py --days 7 --daily-budget 2.0 --output experiments/run_a/
+  python simulate.py --days 7 --daily-budget 1.00 --run-label tight --output experiments/
         """,
     )
     parser.add_argument('--days', type=int, default=1, help='Days to simulate (default: 1)')
@@ -488,13 +482,16 @@ Examples:
     parser.add_argument('--visitors', help='Visitor script JSON file')
     parser.add_argument('--start', help='Start time in ISO format (default: today 07:00 JST)')
     parser.add_argument('--quiet', action='store_true', help='Suppress per-cycle output')
-    parser.add_argument('--energy-budget', type=float, default=None,
-                        help='Override daily energy budget (default: 4.0)')
+    parser.add_argument('--daily-budget', type=float, default=None,
+                        help='Override daily dollar budget (default: 2.00)')
     parser.add_argument('--output', default=None,
                         help='Output directory for DB and timeline log (default: data/sim/)')
     parser.add_argument('--run-label', default=None,
                         help='Label for output files (e.g. sim_v2_tight → sim_v2_tight.db)')
     args = parser.parse_args()
+
+    if args.daily_budget is not None and args.daily_budget <= 0:
+        parser.error('--daily-budget must be > 0')
 
     start = None
     if args.start:
@@ -510,7 +507,7 @@ Examples:
         visitor_file=args.visitors,
         start=start,
         quiet=args.quiet,
-        energy_budget=args.energy_budget,
+        daily_budget=args.daily_budget,
         output_dir=args.output,
         run_label=args.run_label,
     ))

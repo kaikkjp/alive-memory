@@ -37,10 +37,11 @@
     "arrive_day": 5,
     "arrive_hour": 16,
     "messages": [
-      {"delay_min": 0, "text": "Excuse me — I was walking past and the window caught my eye."},
-      {"delay_min": 4, "text": "I broke a plate yesterday and just threw it away. My grandmother would have been horrified — she fixed everything with gold lacquer."},
-      {"delay_min": 8, "text": "Do you think objects remember being broken? Or is that just us projecting?"},
-      {"delay_min": 12, "text": "Sorry, strange question. I've been thinking about what we keep and what we discard."}
+      {"delay_min": 0, "text": "Hey, is this place open?"},
+      {"delay_min": 1, "text": "Cool shop. My grandmother had a place like this. She kept everything."},
+      {"delay_min": 2, "text": "I broke a plate last week. Old one, from her collection. Just threw it away."},
+      {"delay_min": 3, "text": "She would've fixed it, I think. With gold or something? I don't remember what it's called."},
+      {"delay_min": 4, "text": "Anyway. Nice place. I'll come back sometime."}
     ]
   },
   {
