@@ -198,7 +198,7 @@ async def build_cycle_broadcast(
             'time_label': get_time_label(clock_now),
             'status': (
                 'sleeping' if shop_status == 'closed'
-                else 'resting' if cycle_log.get('budget_rest')
+                else 'resting' if cycle_log.get('budget_rest') or cycle_log.get('nap_cooldown') or cycle_log.get('nap')
                 else 'awake'
             ),
             'visitor_present': engagement.status == 'engaged',
