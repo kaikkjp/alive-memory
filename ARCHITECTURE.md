@@ -133,7 +133,7 @@ Events → Inbox → Sensorium → Gates → Affect → Hypothalamus → Thalamu
 
 | File | Lines | What it does |
 |------|-------|-------------|
-| `prompt_assembler.py` | 450 | Builds the full system prompt for cortex. Assembles identity, drives, memories, perceptions, context into one prompt. |
+| `prompt_assembler.py` | 450 | Image generation prompt assembly. Reads `config/prompts.yaml` and builds complete prompts for backgrounds, shop interiors, character sprites, items, and foreground overlays. The cortex system prompt lives in `pipeline/cortex.py`. |
 | `config/prompts.yaml` | 335 | Image generation prompt fragments (style, palette, character description, shop description). |
 | `config/identity.py` | 54 | Character identity constants (name, voice rules, personality checksum, machine-readable patterns for metacognitive monitor). |
 | `config/location.py` | 13 | Physical location constants (Daikanyama, Tokyo). |
@@ -349,13 +349,13 @@ Metacognitive monitor in `pipeline/output.py` compares executed behavior against
 | Area | Files | Lines |
 |------|-------|-------|
 | Core engine (*.py root) | 16 | ~6,515 |
-| Pipeline (pipeline/*.py) | 31 | ~7,237 |
+| Pipeline (pipeline/*.py) | 31 | ~7,395 |
 | API | 2 | ~430 |
 | Config | 5 | ~428 |
-| Models | 4 | ~608 |
+| Models | 4 | ~637 |
 | Scripts | 6 | ~629 |
-| Tests | 56 | ~14,105 |
+| Tests | 57 | ~14,535 |
 | Frontend (window/src/) | 33 | ~3,762 |
-| Docs (*.md) | 12 | ~8,731 |
+| Docs (*.md) | 12 | ~8,751 |
 | Deploy | 6 | ~505 |
-| **Total** | **~171** | **~42,950** | **~163** | **~40,552** | **~173** | **~44,586** | **~172** | **~43,816** | **~170** | **~43,252** | **~166** | **~41,956** | **~165** | **~41,631** | **~148** | **~33,417** |
+| **Total** | **~172** | **~43,587** | **~171** | **~42,950** | **~163** | **~40,552** | **~173** | **~44,586** | **~172** | **~43,816** | **~170** | **~43,252** | **~166** | **~41,956** | **~165** | **~41,631** | **~148** | **~33,417** |

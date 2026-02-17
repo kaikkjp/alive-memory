@@ -776,7 +776,14 @@ async def process_reflection(validated: ValidatedOutput,
         return effects
 
     monologue = validated.internal_monologue or ''
-    is_boring = _is_boring_reflection(monologue)
+    # TASK-045: explicit reflection fields override boring detection —
+    # if the cortex explicitly declared a reflection outcome, trust it
+    has_explicit_reflection = any([
+        validated.reflection_memory,
+        validated.reflection_question,
+        validated.resolves_question,
+    ])
+    is_boring = _is_boring_reflection(monologue) and not has_explicit_reflection
 
     for read_result in content_reads:
         content_id = read_result.payload.get('content_id', '')
@@ -805,8 +812,18 @@ async def process_reflection(validated: ValidatedOutput,
                 print(f"  [Reflection] Failed to update boring drives: {e}")
             continue
 
-        # ── Detect all reflection signals before touching drives ──
-        if _has_memory_signal(monologue):
+        # ── Detect reflection signals (TASK-045: explicit fields preferred) ──
+        # Memory signal: explicit field or regex fallback
+        if validated.reflection_memory:
+            effects['memory_created'] = True
+            try:
+                await db.insert_text_fragment(
+                    content=validated.reflection_memory[:500],
+                    fragment_type='reflection',
+                )
+            except Exception:
+                pass
+        elif _has_memory_signal(monologue):
             effects['memory_created'] = True
             try:
                 await db.insert_text_fragment(
@@ -816,11 +833,27 @@ async def process_reflection(validated: ValidatedOutput,
             except Exception:
                 pass
 
-        question = _extract_epistemic_question(monologue)
-        if question:
+        # Question signal: explicit field or regex fallback
+        if validated.reflection_question:
+            effects['question_raised'] = True
+        elif _extract_epistemic_question(monologue):
             effects['question_raised'] = True
 
-        if _has_resolution_signal(monologue):
+        # Resolution signal: explicit field or regex fallback
+        resolves = validated.resolves_question
+        if resolves:
+            # Explicit: cortex declared what was resolved — match by topic
+            try:
+                active_ecs = await db.get_active_epistemic_curiosities(limit=5)
+                for ec in active_ecs:
+                    if _topics_similar(ec.topic, resolves) or _topics_similar(ec.topic, title):
+                        await db.resolve_epistemic_curiosity(ec.id, f'content:{content_id}')
+                        effects['question_resolved'] = True
+                        print(f"  [Reflection] Resolved EC (explicit): {ec.topic} → mood bump +{EPISTEMIC_CONFIG['resolution_mood_bump']}")
+                        break
+            except Exception as e:
+                print(f"  [Reflection] EC resolution failed: {e}")
+        elif _has_resolution_signal(monologue):
             try:
                 active_ecs = await db.get_active_epistemic_curiosities(limit=5)
                 for ec in active_ecs:
@@ -831,6 +864,17 @@ async def process_reflection(validated: ValidatedOutput,
                         break
             except Exception as e:
                 print(f"  [Reflection] EC resolution failed: {e}")
+
+        # ── Totem weight update (TASK-045) ──
+        if validated.relevant_to_visitor:
+            await _update_totem_for_visitor(validated.relevant_to_visitor, title)
+
+        # ── Thread touch (TASK-045) ──
+        if validated.relevant_to_thread:
+            touched = await _touch_thread_from_reflection(
+                validated.relevant_to_thread, title)
+            if touched:
+                effects['thread_touched'] = True
 
         # ── Single drive read-modify-save for all non-boring effects ──
         try:
@@ -859,6 +903,65 @@ async def process_reflection(validated: ValidatedOutput,
             pass
 
     return effects
+
+
+async def _update_totem_for_visitor(visitor_id: str, content_title: str) -> None:
+    """TASK-045: Boost totem weight when content connects to a visitor.
+
+    Finds totems for the visitor whose entity overlaps with the content title,
+    and boosts weight by +0.1. If no matching totem, creates one.
+    """
+    try:
+        totems = await db.get_totems(visitor_id=visitor_id, limit=20)
+        matched = False
+        for totem in totems:
+            if _topics_similar(totem.entity, content_title):
+                new_weight = min(1.0, totem.weight + 0.1)
+                await db.update_totem(
+                    entity=totem.entity,
+                    visitor_id=visitor_id,
+                    weight=new_weight,
+                    last_referenced=clock.now_utc(),
+                )
+                print(f"  [Reflection] Totem weight boost: {totem.entity} → {new_weight:.2f} (visitor:{visitor_id})")
+                matched = True
+                break
+        if not matched:
+            # Create a new totem linking this content topic to the visitor
+            await db.insert_totem(
+                visitor_id=visitor_id,
+                entity=content_title,
+                weight=0.3,
+                context=f'Content reflection connected to visitor',
+                category='content',
+            )
+            print(f"  [Reflection] New totem: {content_title} → visitor:{visitor_id}")
+    except Exception as e:
+        print(f"  [Reflection] Totem update failed: {e}")
+
+
+async def _touch_thread_from_reflection(thread_id: str, content_title: str) -> bool:
+    """TASK-045: Touch a thread when content connects to it.
+
+    Updates thread last_activity and appends a note about the connection.
+    Returns True if the thread was found and touched.
+    """
+    try:
+        thread = await db.get_thread_by_id(thread_id)
+        if thread:
+            await db.touch_thread(
+                thread_id=thread_id,
+                reason=f'Content reflection: {content_title}',
+                content=f'{thread.content or ""}\n[reflection] Connected to: {content_title}'.strip(),
+            )
+            print(f"  [Reflection] Thread touched: {thread.title} ← {content_title}")
+            return True
+        else:
+            print(f"  [Reflection] Thread {thread_id} not found, skipping touch")
+            return False
+    except Exception as e:
+        print(f"  [Reflection] Thread touch failed: {e}")
+        return False
 
 
 def _is_boring_reflection(monologue: str) -> bool:
