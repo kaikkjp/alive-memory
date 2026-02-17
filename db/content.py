@@ -277,7 +277,8 @@ async def update_pool_item(pool_id: str, **kwargs):
     sets = []
     vals = []
     for key in ('status', 'seen_at', 'engaged_at', 'outcome_detail',
-                'enriched_text', 'content_type'):
+                'enriched_text', 'content_type', 'saved_by_cortex', 'saved_at',
+                'title_embedding', 'consumed', 'consumed_at', 'consumption_output'):
         if key in kwargs:
             sets.append(f"{key} = ?")
             v = kwargs[key]
@@ -617,3 +618,94 @@ async def get_enriched_text_for_url(url: str) -> Optional[str]:
     )
     row = await cursor.fetchone()
     return row['enriched_text'] if row else None
+
+
+# ── Notification layer (TASK-041) ──
+
+async def get_notification_candidates(max_items: int = 5,
+                                       cooldown_minutes: int = 10) -> list[dict]:
+    """Get unseen content pool items eligible for notification surfacing.
+
+    Returns items not surfaced within cooldown_minutes, ordered by a scoring
+    formula that balances recency, source diversity, and unseen status.
+    Saved items get priority boost and skip cooldown.
+    """
+    conn = await _connection.get_db()
+    now_iso = clock.now_utc().isoformat()
+    cutoff_iso = (clock.now_utc() - timedelta(minutes=cooldown_minutes)).isoformat()
+
+    # Get saved items first (skip cooldown, priority boost)
+    cursor = await conn.execute(
+        """SELECT * FROM content_pool
+           WHERE status = 'unseen' AND saved_by_cortex = 1
+           ORDER BY saved_at DESC
+           LIMIT ?""",
+        (max_items,)
+    )
+    saved_rows = await cursor.fetchall()
+    saved_items = [_row_to_pool_item(r) for r in saved_rows]
+    saved_ids = {item['id'] for item in saved_items}
+
+    remaining = max_items - len(saved_items)
+    if remaining <= 0:
+        return saved_items[:max_items]
+
+    # Get non-saved unseen items, excluding those on cooldown
+    # Use a subquery to check notification_log for cooldown
+    cursor = await conn.execute(
+        """SELECT cp.* FROM content_pool cp
+           WHERE cp.status = 'unseen'
+           AND (cp.saved_by_cortex IS NULL OR cp.saved_by_cortex = 0)
+           AND cp.id NOT IN (
+               SELECT nl.content_id FROM notification_log nl
+               WHERE nl.surfaced_at >= ?
+           )
+           ORDER BY cp.added_at DESC
+           LIMIT ?""",
+        (cutoff_iso, remaining * 3)  # fetch extra for source diversity filtering
+    )
+    rows = await cursor.fetchall()
+    candidates = [_row_to_pool_item(r) for r in rows
+                  if r['id'] not in saved_ids]
+
+    # Apply source diversity: don't take more than 2 from the same source_channel
+    source_counts: dict[str, int] = {}
+    diverse_candidates = []
+    for item in candidates:
+        channel = item.get('source_channel', 'unknown')
+        if source_counts.get(channel, 0) < 2:
+            diverse_candidates.append(item)
+            source_counts[channel] = source_counts.get(channel, 0) + 1
+        if len(diverse_candidates) >= remaining:
+            break
+
+    return saved_items + diverse_candidates
+
+
+async def log_notification_surfaced(content_id: str, cycle_id: str = None):
+    """Record that a content item was surfaced as a notification."""
+    now_iso = clock.now_utc().isoformat()
+    await _connection._exec_write(
+        "INSERT INTO notification_log (content_id, surfaced_at, cycle_id) VALUES (?, ?, ?)",
+        (content_id, now_iso, cycle_id)
+    )
+
+
+async def save_content_for_later(pool_id: str):
+    """Mark a content pool item as saved by cortex for later reading."""
+    now_iso = clock.now_utc().isoformat()
+    await _connection._exec_write(
+        "UPDATE content_pool SET saved_by_cortex = 1, saved_at = ? WHERE id = ?",
+        (now_iso, pool_id)
+    )
+
+
+async def expire_saved_items(max_age_hours: float = 48.0):
+    """Remove saved status from items saved more than max_age_hours ago."""
+    cutoff = (clock.now_utc() - timedelta(hours=max_age_hours)).isoformat()
+    await _connection._exec_write(
+        """UPDATE content_pool
+           SET saved_by_cortex = 0, saved_at = NULL
+           WHERE saved_by_cortex = 1 AND saved_at < ?""",
+        (cutoff,)
+    )

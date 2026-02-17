@@ -33,10 +33,12 @@ import db
 # Tech debt: when action registry grows, these should pull from
 # registry metadata instead of being hardcoded here.
 ACTION_DRIVE_EFFECTS = {
-    'speak':          {'curiosity': -0.02},      # conversation provides novel input
-    'write_journal':  {'curiosity': -0.01},      # journaling mildly satisfies curiosity
-    'post_x_draft':   {'curiosity': -0.02},      # creative output satisfies curiosity
-    'rearrange':      {'curiosity': -0.01},      # physical activity, mild curiosity
+    # TASK-044: Removed curiosity drains. Curiosity is stimulus-driven,
+    # not drained by actions. Content consumption produces growth, not drain.
+    'speak':          {},                          # conversation — no curiosity drain
+    'write_journal':  {},                          # journaling — no curiosity drain
+    'post_x_draft':   {},                          # creative output — no curiosity drain
+    'rearrange':      {},                          # physical activity — no curiosity drain
     'end_engagement': {'rest_need': -0.03, 'energy': +0.02},  # social load lifted
 }
 
@@ -171,10 +173,9 @@ async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
                     drives.mood_arousal = clamp(drives.mood_arousal + 0.04)
                     drives_changed = True
 
-        # Content engagement mildly satisfies curiosity
-        if validated.memory_updates:
-            drives.curiosity = clamp(drives.curiosity - 0.02)
-            drives_changed = True
+        # TASK-044: Content engagement no longer drains curiosity.
+        # Curiosity is stimulus-driven via gap detection. Reading produces
+        # growth (memories, questions, mood), not drain.
 
         # Quiet cycles (no actions, no dialogue) provide mild rest
         if is_quiet_cycle:
@@ -251,6 +252,12 @@ async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
             if ar.success:
                 fired_this_cycle.add(ar.action)
     await _decay_unfired_habits(fired_this_cycle)
+
+    # ── Epistemic curiosity lifecycle (TASK-043) ──
+    await _process_epistemic_curiosities(validated, body_output)
+
+    # ── Reflection loop (TASK-044) ──
+    await process_reflection(validated, body_output)
 
     # ── Metacognitive monitor (Phase 3) ──
     consistency = await _check_self_consistency(validated)
@@ -598,3 +605,302 @@ async def _emit_internal_conflict(consistency: SelfConsistencyResult,
         print(f"  [Metacognitive] Internal conflict detected: {conflict_desc}")
     except Exception as e:
         print(f"  [Metacognitive] Failed to emit conflict: {e}")
+
+
+# ── Epistemic Curiosity lifecycle (TASK-043) ──
+
+async def _process_epistemic_curiosities(validated: ValidatedOutput,
+                                          body_output: BodyOutput) -> None:
+    """Handle EC birth, reinforcement, and eviction after cortex output.
+
+    Birth: When cortex engaged with an epistemic gap score (read_content on
+    a notification that had matching_threads), create or reinforce an EC.
+    The question text comes from validated.internal_monologue (cortex output).
+
+    Reinforcement: When content_consumed and gap_score matched an existing EC
+    topic, boost intensity.
+
+    Eviction: When at max_active and a new stronger question arrives, evict
+    the weakest.
+    """
+    from models.state import EpistemicCuriosity, EPISTEMIC_CONFIG
+    from models.event import Event
+
+    try:
+        # Check if cortex engaged with content (read_content action succeeded)
+        content_reads = [
+            ar for ar in body_output.executed
+            if ar.action == 'read_content' and ar.success
+        ]
+        if not content_reads:
+            return
+
+        # Extract question from monologue if present
+        monologue = validated.internal_monologue or ''
+        question = _extract_epistemic_question(monologue)
+
+        for read_result in content_reads:
+            title = read_result.payload.get('title', '')
+            content_id = read_result.payload.get('content_id', '') or ''
+
+            if not title:
+                continue
+
+            # Template question if cortex didn't articulate one
+            if not question:
+                question = f"What more is there to know about {title}?"
+
+            # Check existing ECs for merge
+            active_ecs = await db.get_active_epistemic_curiosities(
+                limit=EPISTEMIC_CONFIG['max_active'])
+
+            merged = False
+            for ec in active_ecs:
+                # Simple keyword overlap check for merge (full embedding merge in TASK-044)
+                if _topics_similar(ec.topic, title):
+                    ec.intensity = min(1.0, ec.intensity + EPISTEMIC_CONFIG['reinforcement_boost'])
+                    ec.last_reinforced_at = clock.now_utc().isoformat()
+                    await db.upsert_epistemic_curiosity(ec)
+                    merged = True
+                    print(f"  [EC] Reinforced: {ec.topic} (intensity={ec.intensity:.2f})")
+                    break
+
+            if not merged:
+                # Check if we need to evict
+                if len(active_ecs) >= EPISTEMIC_CONFIG['max_active']:
+                    evicted = await db.evict_weakest_curiosity()
+                    if evicted:
+                        # Create reflection seed for evicted EC
+                        await db.append_event(Event(
+                            event_type='self_reflection_seed',
+                            source='self',
+                            payload={
+                                'ec_evicted': True,
+                                'topic': evicted.topic,
+                                'question': evicted.question,
+                                'seed_text': f"I was wondering about {evicted.topic} but I've moved on.",
+                            },
+                        ))
+                        print(f"  [EC] Evicted: {evicted.topic}")
+
+                # Create new EC
+                new_ec = EpistemicCuriosity(
+                    topic=title,
+                    question=question,
+                    intensity=0.5,
+                    source_type='notification',
+                    source_id=content_id,
+                )
+                await db.upsert_epistemic_curiosity(new_ec)
+                print(f"  [EC] Created: {title} — {question}")
+
+    except Exception as e:
+        print(f"  [EC] Error processing epistemic curiosities: {e}")
+
+
+def _extract_epistemic_question(monologue: str) -> str:
+    """Extract a question from the cortex's internal monologue.
+
+    Looks for sentence-ending question marks. Returns the first question found,
+    or empty string if none.
+    """
+    if not monologue:
+        return ''
+
+    sentences = re.split(r'[.!?]+', monologue)
+    for s in sentences:
+        s = s.strip()
+        if '?' in monologue[monologue.find(s):monologue.find(s)+len(s)+1] if s else False:
+            # This sentence was followed by a ? in the original
+            return s.strip() + '?'
+
+    # Simpler approach: find any question mark and take the preceding sentence
+    if '?' in monologue:
+        idx = monologue.index('?')
+        # Walk back to find sentence start
+        start = max(0, monologue.rfind('.', 0, idx) + 1,
+                    monologue.rfind('!', 0, idx) + 1,
+                    monologue.rfind('\n', 0, idx) + 1)
+        return monologue[start:idx+1].strip()
+
+    return ''
+
+
+def _topics_similar(topic_a: str, topic_b: str) -> bool:
+    """Simple keyword overlap check for topic merge.
+
+    Returns True if >50% of significant words overlap.
+    Full embedding-based merge is in TASK-044.
+    """
+    def keywords(t):
+        words = t.lower().split()
+        return {w.strip('.,!?;:"\'-()[]') for w in words if len(w) > 3}
+
+    ka = keywords(topic_a)
+    kb = keywords(topic_b)
+    if not ka or not kb:
+        return False
+
+    overlap = len(ka & kb)
+    min_size = min(len(ka), len(kb))
+    return overlap / min_size > 0.5 if min_size > 0 else False
+
+
+# ── Reflection processing (TASK-044) ──
+
+async def process_reflection(validated: ValidatedOutput,
+                             body_output: BodyOutput) -> dict:
+    """Process post-read reflection outputs.
+
+    After read_content, checks cortex output for reflection signals and
+    produces appropriate effects: memories, EC resolution, mood changes,
+    consumption tracking.
+
+    Returns dict of effects applied for consumption tracking.
+    """
+    from models.state import EPISTEMIC_CONFIG
+
+    effects = {
+        'memory_created': False,
+        'question_raised': False,
+        'question_resolved': False,
+        'thread_touched': False,
+        'boring': False,
+    }
+
+    content_reads = [
+        ar for ar in body_output.executed
+        if ar.action == 'read_content' and ar.success
+    ]
+    if not content_reads:
+        return effects
+
+    monologue = validated.internal_monologue or ''
+    is_boring = _is_boring_reflection(monologue)
+
+    for read_result in content_reads:
+        content_id = read_result.payload.get('content_id', '')
+        title = read_result.payload.get('title', '')
+
+        # Track initial consumption in content_pool
+        try:
+            await db.update_pool_item(
+                content_id,
+                consumed=True,
+                consumed_at=clock.now_utc(),
+                consumption_output=json.dumps(effects),
+            )
+        except Exception as e:
+            print(f"  [Reflection] Failed to track consumption: {e}")
+
+        if is_boring:
+            effects['boring'] = True
+            # Boring: slight diversive drain + energy cost
+            try:
+                drives = await db.get_drives_state()
+                drives.diversive_curiosity = clamp(drives.diversive_curiosity - 0.02)
+                drives.energy = clamp(drives.energy - 0.01)
+                await db.save_drives_state(drives)
+            except Exception as e:
+                print(f"  [Reflection] Failed to update boring drives: {e}")
+            continue
+
+        # ── Detect all reflection signals before touching drives ──
+        if _has_memory_signal(monologue):
+            effects['memory_created'] = True
+            try:
+                await db.insert_text_fragment(
+                    content=monologue[:500],
+                    fragment_type='reflection',
+                )
+            except Exception:
+                pass
+
+        question = _extract_epistemic_question(monologue)
+        if question:
+            effects['question_raised'] = True
+
+        if _has_resolution_signal(monologue):
+            try:
+                active_ecs = await db.get_active_epistemic_curiosities(limit=5)
+                for ec in active_ecs:
+                    if _topics_similar(ec.topic, title):
+                        await db.resolve_epistemic_curiosity(ec.id, f'content:{content_id}')
+                        effects['question_resolved'] = True
+                        print(f"  [Reflection] Resolved EC: {ec.topic} → mood bump +{EPISTEMIC_CONFIG['resolution_mood_bump']}")
+                        break
+            except Exception as e:
+                print(f"  [Reflection] EC resolution failed: {e}")
+
+        # ── Single drive read-modify-save for all non-boring effects ──
+        try:
+            drives = await db.get_drives_state()
+            if effects['question_resolved']:
+                drives.mood_valence = clamp(
+                    drives.mood_valence + EPISTEMIC_CONFIG['resolution_mood_bump'],
+                    -1.0, 1.0)
+                drives.diversive_curiosity = clamp(
+                    drives.diversive_curiosity - 0.05)  # satisfied
+            if effects['memory_created']:
+                drives.mood_valence = clamp(drives.mood_valence + 0.03, -1.0, 1.0)
+            if effects['question_raised']:
+                drives.mood_arousal = clamp(drives.mood_arousal + 0.05)
+            await db.save_drives_state(drives)
+        except Exception as e:
+            print(f"  [Reflection] Failed to update drives: {e}")
+
+        # Update consumption tracking with actual effects
+        try:
+            await db.update_pool_item(
+                content_id,
+                consumption_output=json.dumps(effects),
+            )
+        except Exception:
+            pass
+
+    return effects
+
+
+def _is_boring_reflection(monologue: str) -> bool:
+    """Detect if reflection expresses disinterest/boredom."""
+    if not monologue:
+        return True  # no reflection at all = boring
+
+    boring_patterns = [
+        r"nothing (?:new|interesting|special|notable)",
+        r"(?:already knew|nothing to add|didn't connect|doesn't connect)",
+        r"(?:not much here|not (?:really )?interesting|doesn't move me)",
+        r"(?:moved on|skimming|boring)",
+    ]
+    text_lower = monologue.lower()
+    return any(re.search(p, text_lower) for p in boring_patterns)
+
+
+def _has_memory_signal(monologue: str) -> bool:
+    """Detect if monologue contains something worth remembering."""
+    if not monologue or len(monologue) < 20:
+        return False
+
+    memory_patterns = [
+        r"(?:remind|remember|worth (?:keeping|noting))",
+        r"(?:connects? to|relates? to|like when)",
+        r"(?:learned|discovered|realized|noticed)",
+        r"(?:interesting|fascinating|surprising|unexpected)",
+    ]
+    text_lower = monologue.lower()
+    return any(re.search(p, text_lower) for p in memory_patterns)
+
+
+def _has_resolution_signal(monologue: str) -> bool:
+    """Detect if monologue expresses that a question was answered."""
+    if not monologue:
+        return False
+
+    resolution_patterns = [
+        r"(?:answer|explains|that's (?:what|why|how))",
+        r"(?:now i (?:understand|know|see))",
+        r"(?:this (?:answers|resolves|clarifies))",
+        r"(?:makes sense now|mystery solved|so that's)",
+    ]
+    text_lower = monologue.lower()
+    return any(re.search(p, text_lower) for p in resolution_patterns)

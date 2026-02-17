@@ -41,14 +41,19 @@ from db.events import (
 
 # ── state ──
 from db.state import (
+    decay_epistemic_curiosities,
+    evict_weakest_curiosity,
+    get_active_epistemic_curiosities,
     get_drives_state,
     get_engagement_state,
     get_room_state,
     get_setting,
+    resolve_epistemic_curiosity,
     save_drives_state,
     set_setting,
     update_engagement_state,
     update_room_state,
+    upsert_epistemic_curiosity,
 )
 
 # ── memory ──
@@ -138,8 +143,10 @@ from db.content import (
     get_consumption_history,
     get_content_pool_dashboard,
     get_dormant_threads,
+    expire_saved_items,
     get_enriched_text_for_url,
     get_feed_pipeline_dashboard,
+    get_notification_candidates,
     get_pool_item_by_id,
     get_pool_items,
     get_pool_stats,
@@ -148,6 +155,8 @@ from db.content import (
     get_thread_count_by_status,
     get_unseen_news,
     load_arbiter_state,
+    log_notification_surfaced,
+    save_content_for_later,
     url_exists_in_pool,
     save_arbiter_state,
     touch_thread,

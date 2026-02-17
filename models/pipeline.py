@@ -241,6 +241,7 @@ class ActionResult:
     error: Optional[str] = None
     side_effects: list[str] = field(default_factory=list)
     timestamp: Optional[datetime] = None
+    payload: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -323,3 +324,35 @@ class HabitEntry:
     repetition_count: int = 1
     formed_at: str = ''
     last_triggered: str = ''
+
+
+# ── Gap detection dataclasses (TASK-042) ──
+
+@dataclass
+class TextFragment:
+    """A piece of text to run through gap detection.
+
+    Union type covering notification titles, visitor speech, journal entries,
+    and internal monologue. The gap detector treats all text uniformly.
+    """
+    text: str
+    source_type: str        # "notification", "visitor_speech", "journal", "monologue"
+    source_id: str          # content_id, visitor_id, journal_entry_id, cycle_id
+    content_id: Optional[str] = None  # Only for notifications — needed for read_content
+
+
+@dataclass
+class GapScore:
+    """Result of gap detection for a single text fragment.
+
+    Scores the fragment on the Goldilocks curve: foreign (<0.15) = ignored,
+    partial (0.15-0.85) = curiosity spike, known (>0.85) = ignored.
+    Peak curiosity at relevance=0.5 (maximum information gap).
+    """
+    fragment: TextFragment
+    relevance: float = 0.0          # max cosine similarity across memory pool
+    gap_type: str = 'foreign'       # "foreign" | "partial" | "known"
+    matching_memories: list[str] = field(default_factory=list)
+    matching_threads: list[str] = field(default_factory=list)
+    curiosity_delta: float = 0.0    # drive change: 0.0 to 0.15
+    suggested_curiosity_type: Optional[str] = None  # "diversive" | "epistemic" | None

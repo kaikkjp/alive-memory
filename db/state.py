@@ -1,10 +1,15 @@
 """db.state — Room, drives, and engagement state CRUD."""
 
 import json
-from datetime import datetime
+import uuid
+from datetime import datetime, timedelta
+from typing import Optional
 
 import clock
-from models.state import RoomState, DrivesState, EngagementState
+from models.state import (
+    RoomState, DrivesState, EngagementState,
+    EpistemicCuriosity, EPISTEMIC_CONFIG,
+)
 import db.connection as _connection
 
 
@@ -41,9 +46,17 @@ async def get_drives_state() -> DrivesState:
     db = await _connection.get_db()
     cursor = await db.execute("SELECT * FROM drives_state WHERE id = 1")
     row = await cursor.fetchone()
+    # TASK-043: Read diversive_curiosity if available, fall back to curiosity.
+    # The DrivesState field is 'curiosity' (for constructor compat), but
+    # diversive_curiosity property aliases it for new code.
+    row_keys = row.keys() if hasattr(row, 'keys') else []
+    if 'diversive_curiosity' in row_keys and row['diversive_curiosity'] is not None:
+        curiosity_val = row['diversive_curiosity']
+    else:
+        curiosity_val = row['curiosity']
     return DrivesState(
         social_hunger=row['social_hunger'],
-        curiosity=row['curiosity'],
+        curiosity=curiosity_val,
         expression_need=row['expression_need'],
         rest_need=row['rest_need'],
         energy=row['energy'],
@@ -54,12 +67,15 @@ async def get_drives_state() -> DrivesState:
 
 
 async def save_drives_state(d: DrivesState):
+    # TASK-043: Write both curiosity and diversive_curiosity columns for compat
     await _connection._exec_write(
         """UPDATE drives_state SET
-           social_hunger=?, curiosity=?, expression_need=?, rest_need=?,
+           social_hunger=?, curiosity=?, diversive_curiosity=?,
+           expression_need=?, rest_need=?,
            energy=?, mood_valence=?, mood_arousal=?, updated_at=?
            WHERE id = 1""",
-        (d.social_hunger, d.curiosity, d.expression_need, d.rest_need,
+        (d.social_hunger, d.curiosity, d.curiosity,
+         d.expression_need, d.rest_need,
          d.energy, d.mood_valence, d.mood_arousal,
          clock.now_utc().isoformat())
     )
@@ -112,3 +128,142 @@ async def set_setting(key: str, value: str):
         " ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
         (key, value, clock.now_utc().isoformat())
     )
+
+
+# ─── Epistemic Curiosities (TASK-043) ───
+
+def _row_to_ec(row) -> EpistemicCuriosity:
+    return EpistemicCuriosity(
+        id=row['id'],
+        topic=row['topic'],
+        question=row['question'],
+        intensity=row['intensity'],
+        source_type=row['source_type'],
+        source_id=row['source_id'],
+        created_at=row['created_at'],
+        last_reinforced_at=row['last_reinforced_at'],
+        decay_rate_per_hour=row['decay_rate'],
+        resolved=bool(row['resolved']),
+        resolution_source=row['resolution_source'],
+    )
+
+
+async def get_active_epistemic_curiosities(limit: int = 5) -> list[EpistemicCuriosity]:
+    """Get active (unresolved) epistemic curiosities, ordered by intensity."""
+    conn = await _connection.get_db()
+    try:
+        cursor = await conn.execute(
+            """SELECT * FROM epistemic_curiosities
+               WHERE resolved = 0
+               ORDER BY intensity DESC
+               LIMIT ?""",
+            (limit,)
+        )
+        rows = await cursor.fetchall()
+        return [_row_to_ec(r) for r in rows]
+    except Exception:
+        return []  # table may not exist yet
+
+
+async def upsert_epistemic_curiosity(ec: EpistemicCuriosity):
+    """Insert or update an epistemic curiosity."""
+    now_iso = clock.now_utc().isoformat()
+    if not ec.id:
+        ec.id = str(uuid.uuid4())
+    if not ec.created_at:
+        ec.created_at = now_iso
+    if not ec.last_reinforced_at:
+        ec.last_reinforced_at = now_iso
+
+    await _connection._exec_write(
+        """INSERT INTO epistemic_curiosities
+           (id, topic, question, intensity, source_type, source_id,
+            created_at, last_reinforced_at, decay_rate, resolved, resolution_source)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET
+             topic = excluded.topic,
+             question = excluded.question,
+             intensity = excluded.intensity,
+             last_reinforced_at = excluded.last_reinforced_at,
+             decay_rate = excluded.decay_rate,
+             resolved = excluded.resolved,
+             resolution_source = excluded.resolution_source""",
+        (ec.id, ec.topic, ec.question, ec.intensity,
+         ec.source_type, ec.source_id, ec.created_at, ec.last_reinforced_at,
+         ec.decay_rate_per_hour, int(ec.resolved), ec.resolution_source)
+    )
+
+
+async def resolve_epistemic_curiosity(ec_id: str, resolution_source: str):
+    """Mark an EC as resolved."""
+    await _connection._exec_write(
+        """UPDATE epistemic_curiosities
+           SET resolved = 1, resolution_source = ?
+           WHERE id = ?""",
+        (resolution_source, ec_id)
+    )
+
+
+async def decay_epistemic_curiosities(elapsed_hours: float) -> list[EpistemicCuriosity]:
+    """Decay all active ECs by elapsed_hours. Returns expired ones (intensity < 0.05)."""
+    conn = await _connection.get_db()
+    try:
+        cursor = await conn.execute(
+            "SELECT * FROM epistemic_curiosities WHERE resolved = 0"
+        )
+        rows = await cursor.fetchall()
+    except Exception:
+        return []
+
+    expired = []
+    for row in rows:
+        ec = _row_to_ec(row)
+        new_intensity = ec.intensity - ec.decay_rate_per_hour * elapsed_hours
+        if new_intensity < 0.05:
+            # Expire this EC
+            ec.intensity = 0.0
+            ec.resolved = True
+            ec.resolution_source = 'decayed'
+            expired.append(ec)
+            await _connection._exec_write(
+                """UPDATE epistemic_curiosities
+                   SET intensity = 0.0, resolved = 1, resolution_source = 'decayed'
+                   WHERE id = ?""",
+                (ec.id,)
+            )
+        else:
+            await _connection._exec_write(
+                "UPDATE epistemic_curiosities SET intensity = ? WHERE id = ?",
+                (new_intensity, ec.id)
+            )
+
+    return expired
+
+
+async def evict_weakest_curiosity() -> Optional[EpistemicCuriosity]:
+    """Evict the lowest-intensity active EC. Returns the evicted EC or None."""
+    conn = await _connection.get_db()
+    try:
+        cursor = await conn.execute(
+            """SELECT * FROM epistemic_curiosities
+               WHERE resolved = 0
+               ORDER BY intensity ASC
+               LIMIT 1"""
+        )
+        row = await cursor.fetchone()
+    except Exception:
+        return None
+
+    if not row:
+        return None
+
+    ec = _row_to_ec(row)
+    ec.resolved = True
+    ec.resolution_source = 'evicted'
+    await _connection._exec_write(
+        """UPDATE epistemic_curiosities
+           SET resolved = 1, resolution_source = 'evicted'
+           WHERE id = ?""",
+        (ec.id,)
+    )
+    return ec

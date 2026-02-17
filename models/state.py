@@ -13,16 +13,61 @@ class RoomState:
     updated_at: Optional[datetime] = None
 
 
+# ── Epistemic Curiosity (TASK-043) ──
+
+EPISTEMIC_CONFIG = {
+    'max_active': 5,
+    'creation_threshold': 0.08,
+    'merge_similarity': 0.80,
+    'decay_rate_default': 0.02,
+    'reinforcement_boost': 0.10,
+    'resolution_mood_bump': 0.08,
+    'eviction_policy': 'lowest_intensity',
+}
+
+
+@dataclass
+class EpistemicCuriosity:
+    """A specific question she's actively wondering about.
+
+    Lifecycle: born from gap detection (partial match with thread/totem),
+    reinforced by related content, decays when unfed, resolved when answered.
+    """
+    id: str = ''
+    topic: str = ''                     # "1991 Bandai prism card variants"
+    question: str = ''                  # "Are there more variants I haven't seen?"
+    intensity: float = 0.5             # 0.0 to 1.0
+    source_type: str = ''              # "notification", "visitor", "journal_reflection"
+    source_id: str = ''
+    created_at: str = ''               # ISO timestamp
+    last_reinforced_at: str = ''
+    decay_rate_per_hour: float = 0.02  # configurable per question
+    resolved: bool = False
+    resolution_source: Optional[str] = None
+
+
 @dataclass
 class DrivesState:
     social_hunger: float = 0.5
-    curiosity: float = 0.5
+    curiosity: float = 0.5             # TASK-043: this IS diversive_curiosity (field kept for compat)
     expression_need: float = 0.3
     rest_need: float = 0.2
     energy: float = 0.8
     mood_valence: float = 0.0           # -1 (dark) to +1 (bright)
     mood_arousal: float = 0.3           # 0 (still) to 1 (activated)
     updated_at: Optional[datetime] = None
+
+    # TASK-043: 'diversive_curiosity' aliases 'curiosity' field.
+    # New code should prefer diversive_curiosity for clarity.
+    # The underlying field is 'curiosity' so all existing constructor calls,
+    # DB reads, and attribute access continue to work unchanged.
+    @property
+    def diversive_curiosity(self) -> float:
+        return self.curiosity
+
+    @diversive_curiosity.setter
+    def diversive_curiosity(self, value: float):
+        self.curiosity = value
 
     def copy(self) -> 'DrivesState':
         return DrivesState(

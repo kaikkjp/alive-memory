@@ -5,7 +5,12 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import clock
 from models.event import Event
+from models.pipeline import TextFragment, GapScore
 from models.state import DrivesState, Visitor
+from pipeline.notifications import get_notifications, format_notifications_text
+from pipeline.gap_detector import (
+    detect_gaps, format_gap_annotation, EmbeddingIndex,
+)
 import db
 
 
@@ -21,14 +26,20 @@ class Perception:
 
 async def build_perceptions(unread_events: list[Event], drives: DrivesState,
                            recent_fidgets: list = None,
-                           focus_context=None) -> list[Perception]:
+                           focus_context=None,
+                           embedding_index: EmbeddingIndex = None,
+                           fragment_embeddings: dict = None) -> list[Perception]:
     """Convert raw events into diegetic perceptions. No LLM.
 
     focus_context: Optional ArbiterFocus. When present, a focus perception
     is injected at salience=1.0 for the arbiter's chosen focus.
+    embedding_index: Optional EmbeddingIndex for gap detection (TASK-042).
+    fragment_embeddings: Optional dict mapping source_id -> embedding vector.
     """
 
     perceptions = []
+    # Collect TextFragments for gap detection (TASK-042)
+    gap_fragments: list[TextFragment] = []
 
     # ── Focus perception injection (from arbiter) ──
     if focus_context and focus_context.payload:
@@ -47,6 +58,14 @@ async def build_perceptions(unread_events: list[Event], drives: DrivesState,
             fidget_perception = check_fidget_reference(text, recent_fidgets)
             if fidget_perception:
                 perceptions.append(fidget_perception)
+
+            # TASK-042: Create TextFragment for visitor speech gap detection
+            if text and embedding_index:
+                gap_fragments.append(TextFragment(
+                    text=text,
+                    source_type='visitor_speech',
+                    source_id=event.id if hasattr(event, 'id') else vid,
+                ))
 
             p = Perception(
                 p_type='visitor_speech',
@@ -130,12 +149,89 @@ async def build_perceptions(unread_events: list[Event], drives: DrivesState,
             )
             perceptions.append(p)
 
+    # ── Notification injection (TASK-041) + gap detection (TASK-042) ──
+    # Surface content titles from the feed as background perceptions.
+    # Gap detection scores notifications against her memory for curiosity spikes.
+    gap_scores: list[GapScore] = []
+    try:
+        notifications = await get_notifications()
+        if notifications:
+            visitor_present = any(
+                e.event_type in ('visitor_speech', 'visitor_connect')
+                for e in unread_events
+            )
+
+            # TASK-042: Create TextFragments for notification gap detection
+            for n in notifications:
+                gap_fragments.append(TextFragment(
+                    text=n.title,
+                    source_type='notification',
+                    source_id=n.content_id,
+                    content_id=n.content_id,
+                ))
+
+            # Run gap detection on all fragments (notifications + visitor speech)
+            if embedding_index and gap_fragments and fragment_embeddings:
+                gap_scores = detect_gaps(
+                    gap_fragments, embedding_index, fragment_embeddings or {}
+                )
+
+            # Build gap-aware notification text
+            notif_gap_scores = {
+                gs.fragment.content_id: gs
+                for gs in gap_scores
+                if gs.fragment.source_type == 'notification' and gs.fragment.content_id
+            }
+            notif_text = format_notifications_text(
+                notifications, visitor_present, gap_scores=notif_gap_scores)
+            if notif_text:
+                perceptions.append(Perception(
+                    p_type='feed_notifications',
+                    source='feed',
+                    ts=clock.now_utc(),
+                    content=notif_text,
+                    features={
+                        'is_notification': True,
+                        'content_ids': [n.content_id for n in notifications],
+                        'gap_scores': {
+                            gs.fragment.source_id: {
+                                'relevance': gs.relevance,
+                                'gap_type': gs.gap_type,
+                                'curiosity_delta': gs.curiosity_delta,
+                            }
+                            for gs in gap_scores
+                        },
+                    },
+                    salience=0.3,
+                ))
+
+            # TASK-042: Add visitor speech gap annotations to perceptions
+            for gs in gap_scores:
+                if gs.fragment.source_type == 'visitor_speech' and gs.gap_type == 'partial':
+                    annotation = format_gap_annotation(gs)
+                    if annotation:
+                        perceptions.append(Perception(
+                            p_type='visitor_speech_gap',
+                            source='self',
+                            ts=clock.now_utc(),
+                            content=f"Something your visitor said connects to your memory. {annotation}",
+                            features={
+                                'is_gap_detection': True,
+                                'gap_score': gs.curiosity_delta,
+                                'gap_type': gs.gap_type,
+                            },
+                            salience=0.25,
+                        ))
+    except Exception as e:
+        print(f"  [Sensorium] Notification/gap injection failed: {e}")
+
     # Add ambient perception
     perceptions.append(build_ambient_perception(drives))
 
-    # Sort by salience, cap at focus(1) + background(3)
+    # Sort by salience, cap at focus(1) + background(5)
+    # Increased cap from 4 to 6 to accommodate notifications alongside other perceptions
     perceptions.sort(key=lambda p: p.salience, reverse=True)
-    return perceptions[:4]
+    return perceptions[:6]
 
 
 def extract_features(text: str) -> dict:

@@ -254,6 +254,77 @@ async def _execute_single_action(action: ActionRequest, visitor_id: str,
             await apply_expression_relief('rearrange')
             result.side_effects.append('room_delta_emitted')
 
+        elif action_type == 'read_content':
+            content_id = detail.get('content_id')
+            if content_id:
+                pool_item = await db.get_pool_item_by_id(content_id)
+                if pool_item:
+                    # Use cached enriched_text if available, otherwise use raw content
+                    full_text = pool_item.get('enriched_text') or pool_item.get('content') or ''
+                    # Truncate to ~1500 tokens (~6000 chars)
+                    if len(full_text) > 6000:
+                        full_text = full_text[:6000] + '\n[...truncated]'
+                    result.content = full_text
+                    result.payload = {
+                        'content_id': content_id,
+                        'full_content': full_text,
+                        'title': pool_item.get('title', ''),
+                        'content_type': pool_item.get('content_type', ''),
+                        'source': pool_item.get('source_channel', ''),
+                    }
+                    # Mark as engaged in content pool
+                    await db.update_pool_item(
+                        content_id,
+                        status='engaged',
+                        engaged_at=clock.now_utc(),
+                    )
+                    result.side_effects.append('content_read')
+                    await db.append_event(Event(
+                        event_type='content_consumed',
+                        source='self',
+                        payload={
+                            'content_id': content_id,
+                            'title': pool_item.get('title', ''),
+                        },
+                    ))
+                else:
+                    result.success = False
+                    result.error = f'content_id {content_id} not found in pool'
+            else:
+                result.success = False
+                result.error = 'no content_id in detail'
+
+        elif action_type == 'save_for_later':
+            content_id = detail.get('content_id')
+            if content_id:
+                await db.save_content_for_later(content_id)
+                result.side_effects.append('content_saved')
+            else:
+                result.success = False
+                result.error = 'no content_id in detail'
+
+        elif action_type == 'mention_in_conversation':
+            # TASK-044: Reference a content item in conversation without full read
+            content_id = detail.get('content_id')
+            if content_id:
+                pool_item = await db.get_pool_item_by_id(content_id)
+                if pool_item:
+                    result.payload = {
+                        'content_id': content_id,
+                        'title': pool_item.get('title', ''),
+                        'source': pool_item.get('source_channel', ''),
+                        'content_type': pool_item.get('content_type', ''),
+                    }
+                    result.side_effects.append('content_mentioned')
+                    await db.update_pool_item(content_id, status='seen',
+                                              seen_at=clock.now_utc())
+                else:
+                    result.success = False
+                    result.error = f'content_id {content_id} not found in pool'
+            else:
+                result.success = False
+                result.error = 'no content_id in detail'
+
     except Exception as e:
         result.success = False
         result.error = f"{type(e).__name__}: {e}"

@@ -1324,7 +1324,7 @@ Part C:
 
 ### TASK-041: Curiosity Phase 1 — Notification layer + read_content action
 
-**Status:** READY
+**Status:** DONE (2026-02-17)
 **Priority:** High (system blocker — curiosity is broken without this)
 **Branch:** feat/curiosity-v2
 **Depends on:** TASK-033 (feed ingestion live), TASK-034 (markdown.new enrichment)
@@ -1437,7 +1437,7 @@ This is the foundation layer. No gap detection yet — notifications surface bas
 
 ### TASK-042: Curiosity Phase 2 — Gap detector + visitor speech gaps
 
-**Status:** BLOCKED (on TASK-041)
+**Status:** DONE (2026-02-17)
 **Priority:** High
 **Branch:** feat/curiosity-v2
 **Depends on:** TASK-041 (notifications exist to run gap detection on)
@@ -1582,7 +1582,7 @@ class TextFragment:
 
 ### TASK-043: Curiosity Phase 3 — Split drives (diversive + epistemic curiosities)
 
-**Status:** BLOCKED (on TASK-042)
+**Status:** DONE (2026-02-17)
 **Priority:** High
 **Branch:** feat/curiosity-v2
 **Depends on:** TASK-042 (gap detector produces curiosity_type classification)
@@ -1738,7 +1738,7 @@ class TextFragment:
 
 ### TASK-044: Curiosity Phase 4 — Reflection loop + resolution rewards
 
-**Status:** BLOCKED (on TASK-043)
+**Status:** DONE (2026-02-17)
 **Priority:** High
 **Branch:** feat/curiosity-v2
 **Depends on:** TASK-041 (read_content action exists), TASK-043 (epistemic curiosities exist to resolve)
@@ -1871,6 +1871,25 @@ class TextFragment:
   - test_topic_match_surfaced_in_conversation — matching notification appears in cortex context during engagement
 
 **Definition of done:** Reading content produces genuine output — memories, questions, conversation fuel. Resolving an epistemic curiosity feels rewarding (mood bump). Content is never a drain. She grows from what she reads. Consumption is tracked with outputs for dashboard visibility. She can mention relevant content in conversation naturally.
+
+---
+
+### TASK-045: Curiosity v2 — Deferred reflection outputs
+
+**Status:** BACKLOG
+**Priority:** Low
+**Branch:** —
+**Depends on:** TASK-044
+
+**Description:** TASK-044 implemented the core reflection loop using monologue pattern detection. Several spec items were deferred because they require CortexOutput schema changes or prompt_assembler modifications that risk scope creep:
+
+- **Totem weight updates:** `relevant_to_visitor` — when reflection connects content to a visitor, update totem weight (+0.1 toward the content's topic). Requires totem system integration.
+- **Thread touches:** `relevant_to_thread` — when reflection connects content to a conversation thread, update thread's last_activity and append a note. The `effects['thread_touched']` field exists but no code path sets it.
+- **Explicit CortexOutput fields:** `reflection_memory`, `reflection_question`, `resolves_question`, `relevant_to_visitor`, `relevant_to_thread` — these would let the cortex explicitly declare reflection outcomes instead of relying on regex pattern matching. Requires `models/pipeline.py` and cortex prompt changes.
+- **Reflection prompt in prompt_assembler:** A dedicated reflection section appended to the cortex prompt after read_content, giving the LLM structured guidance for reflection. Currently the LLM reflects via its normal monologue without explicit prompting.
+- **Conversation context integration:** When visitor is present AND a notification matched the conversation topic, surface it in cortex context via prompt_assembler. The `mention_in_conversation` action exists but the contextual surfacing does not.
+
+**Scope:** `models/pipeline.py`, `prompt_assembler.py`, `pipeline/output.py`
 
 ---
 

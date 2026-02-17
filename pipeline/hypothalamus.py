@@ -1,7 +1,7 @@
 """Hypothalamus — drives math. Deterministic. No LLM."""
 
 from models.event import Event
-from models.state import DrivesState
+from models.state import DrivesState, EpistemicCuriosity, EPISTEMIC_CONFIG
 import db as _db
 
 
@@ -16,13 +16,14 @@ def clamp(v: float, lo: float = 0.0, hi: float = 1.0) -> float:
 # curiosity=0.50 means she's a moderately curious person by nature.
 # Tuning these changes her personality, not just her behavior.
 DRIVE_EQUILIBRIA = {
-    'social_hunger':   0.45,   # comfortable alone, but not a recluse
-    'curiosity':       0.50,   # naturally curious
-    'expression_need': 0.35,   # expresses when moved, not constantly
-    'rest_need':       0.25,   # generally rested, tiredness builds from activity
-    'energy':          0.70,   # alert by default
-    'mood_valence':    0.05,   # slightly positive neutral (range: -1 to 1)
-    'mood_arousal':    0.30,   # calm baseline
+    'social_hunger':       0.45,   # comfortable alone, but not a recluse
+    'diversive_curiosity': 0.40,   # TASK-043: background scanning urge (was 0.50)
+    'curiosity':           0.40,   # backward compat alias for diversive_curiosity
+    'expression_need':     0.35,   # expresses when moved, not constantly
+    'rest_need':           0.25,   # generally rested, tiredness builds from activity
+    'energy':              0.70,   # alert by default
+    'mood_valence':        0.05,   # slightly positive neutral (range: -1 to 1)
+    'mood_arousal':        0.30,   # calm baseline
 }
 
 HOMEOSTATIC_PULL_RATE = 0.15  # strength per hour — how fast drives revert
@@ -47,14 +48,22 @@ async def update_drives(
     elapsed_hours: float,
     events: list[Event],
     cortex_flags: dict = None,
+    gap_curiosity_deltas: list[float] = None,
 ) -> tuple[DrivesState, str]:
-    """Update drives based on time passage and events. Returns new drives + feelings text."""
+    """Update drives based on time passage and events. Returns new drives + feelings text.
+
+    gap_curiosity_deltas: Optional list of curiosity_delta values from gap detection
+        (TASK-042). Each delta is 0.0 to 0.15. Summed and applied to curiosity.
+    """
 
     new = drives.copy()
 
     # Time-based decay/buildup
     new.social_hunger = clamp(new.social_hunger + 0.05 * elapsed_hours)
-    new.curiosity = clamp(new.curiosity + 0.03 * elapsed_hours)
+    # TASK-043: Diversive curiosity has tiny background restlessness (+0.005/hr).
+    # This is NOT the old +0.03/hr timer — it's barely perceptible.
+    # Stimulus-driven spikes from gap detection are the primary driver.
+    new.diversive_curiosity = clamp(new.diversive_curiosity + 0.005 * elapsed_hours)
     new.expression_need = clamp(new.expression_need + 0.04 * elapsed_hours)
     new.energy = clamp(new.energy - 0.02 * elapsed_hours)
 
@@ -75,8 +84,8 @@ async def update_drives(
     # above and prevents drives from permanently clamping at 0% or 100%.
     new.social_hunger = _homeostatic_pull(
         new.social_hunger, DRIVE_EQUILIBRIA['social_hunger'], elapsed_hours)
-    new.curiosity = _homeostatic_pull(
-        new.curiosity, DRIVE_EQUILIBRIA['curiosity'], elapsed_hours)
+    new.diversive_curiosity = _homeostatic_pull(
+        new.diversive_curiosity, DRIVE_EQUILIBRIA['diversive_curiosity'], elapsed_hours)
     new.expression_need = _homeostatic_pull(
         new.expression_need, DRIVE_EQUILIBRIA['expression_need'], elapsed_hours)
     new.rest_need = _homeostatic_pull(
@@ -126,6 +135,18 @@ async def update_drives(
     if cortex_flags and cortex_flags.get('action_variety'):
         new.mood_arousal = clamp(new.mood_arousal + 0.03)
 
+    # ─── Gap-driven curiosity spikes (TASK-042/043) ───
+    # Sum curiosity_delta from all gap scores that passed thalamus filtering.
+    # Applied to diversive_curiosity (background scanning urge).
+    if gap_curiosity_deltas:
+        total_delta = sum(gap_curiosity_deltas)
+        new.diversive_curiosity = clamp(new.diversive_curiosity + total_delta)
+
+    # ─── Visitor conversation suppresses diversive curiosity (TASK-043) ───
+    # Engaged in conversation → attention is elsewhere, not scanning.
+    if has_visitor_events:
+        new.diversive_curiosity = clamp(new.diversive_curiosity - 0.02 * elapsed_hours)
+
     # NOTE: Rest recovery gate removed (TASK-024). The old gate required
     # `not events and elapsed_hours > 0.5`, which was impossible with
     # frequent cycle intervals (~3 min). Homeostatic pull now handles
@@ -143,7 +164,8 @@ async def update_drives(
     return new, feelings
 
 
-def drives_to_feeling(d: DrivesState) -> str:
+def drives_to_feeling(d: DrivesState,
+                      epistemic_curiosities: list[EpistemicCuriosity] = None) -> str:
     """Translate numeric drives into diegetic feeling text for Cortex."""
 
     parts = []
@@ -162,9 +184,29 @@ def drives_to_feeling(d: DrivesState) -> str:
     elif d.energy > 0.8:
         parts.append("I feel sharp and present.")
 
-    # Curiosity
-    if d.curiosity > 0.7:
-        parts.append("I'm restless. I want to find something new.")
+    # Diversive curiosity (TASK-043)
+    if d.diversive_curiosity > 0.7:
+        parts.append("Your attention keeps drifting. You want to find something — you don't know what yet.")
+    elif d.diversive_curiosity > 0.5:
+        parts.append("Part of you is scanning, open to whatever catches your eye.")
+    elif d.diversive_curiosity < 0.15:
+        parts.append("You're content. Nothing is pulling your attention anywhere.")
+
+    # Epistemic curiosity (TASK-043) — specific active questions
+    if epistemic_curiosities:
+        active = [ec for ec in epistemic_curiosities if not ec.resolved and ec.intensity > 0.05]
+        if active:
+            strongest = max(active, key=lambda ec: ec.intensity)
+            if strongest.intensity > 0.7:
+                parts.append(f"You keep coming back to this: {strongest.question}. It won't leave you alone.")
+            elif strongest.intensity > 0.4:
+                parts.append(f"In the back of your mind: {strongest.question}")
+
+            # Additional active ECs
+            others = [ec for ec in active if ec.id != strongest.id and ec.intensity > 0.3]
+            if others:
+                topics = [ec.topic for ec in others[:2]]
+                parts.append(f"You're also loosely thinking about: {', '.join(topics)}")
 
     # Expression
     if d.expression_need > 0.7:

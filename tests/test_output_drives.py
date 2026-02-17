@@ -9,13 +9,15 @@ from pipeline.hypothalamus import clamp
 class TestActionDriveEffects:
     """ACTION_DRIVE_EFFECTS dict coverage and correctness."""
 
-    def test_speak_reduces_curiosity(self):
+    def test_speak_no_curiosity_drain(self):
+        """TASK-044: Curiosity is stimulus-driven, not action-drained."""
         effects = ACTION_DRIVE_EFFECTS.get('speak', {})
-        assert effects.get('curiosity', 0) < 0
+        assert 'curiosity' not in effects
 
-    def test_write_journal_reduces_curiosity(self):
+    def test_write_journal_no_curiosity_drain(self):
+        """TASK-044: Curiosity is stimulus-driven, not action-drained."""
         effects = ACTION_DRIVE_EFFECTS.get('write_journal', {})
-        assert effects.get('curiosity', 0) < 0
+        assert 'curiosity' not in effects
 
     def test_end_engagement_reduces_rest_need(self):
         effects = ACTION_DRIVE_EFFECTS.get('end_engagement', {})

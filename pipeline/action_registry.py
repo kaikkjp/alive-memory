@@ -40,6 +40,9 @@ def check_prerequisites(requires: list[str], context: dict) -> PrereqResult:
         elif req == 'budget_remaining':
             if not context.get('budget_remaining', False):
                 return PrereqResult(passed=False, failed='no budget remaining')
+        elif req == 'valid_content_id':
+            if not context.get('content_id'):
+                return PrereqResult(passed=False, failed='no content_id provided')
         else:
             return PrereqResult(passed=False, failed=f'unknown prerequisite: {req}')
 
@@ -173,6 +176,34 @@ ACTION_REGISTRY: dict[str, ActionCapability] = {
         max_per_cycle=1,
         requires=[],
         description='Put down an item she is holding',
+    ),
+    'read_content': ActionCapability(
+        name='read_content',
+        enabled=True,
+        energy_cost=1.5,
+        cooldown_seconds=360,  # ~2 cycles at 3min/cycle
+        max_per_cycle=1,
+        requires=[],
+        description='Read a content item from the feed',
+        generative=True,
+    ),
+    'save_for_later': ActionCapability(
+        name='save_for_later',
+        enabled=True,
+        energy_cost=0.0,
+        cooldown_seconds=0,
+        max_per_cycle=1,
+        requires=[],
+        description='Save a content item for later reading',
+    ),
+    'mention_in_conversation': ActionCapability(
+        name='mention_in_conversation',
+        enabled=True,
+        energy_cost=0.5,
+        cooldown_seconds=0,
+        max_per_cycle=2,
+        requires=[],
+        description='Reference a content item title/topic in conversation without full read',
     ),
 
     # ── Future actions (disabled) ──

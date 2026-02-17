@@ -212,31 +212,10 @@ async def decide_cycle_focus(drives: DrivesState, arbiter_state: dict) -> Arbite
                     payload=payload,
                 )
 
-    # ── Priority 4: Reading urge ──
-    if (_check_daily_budget(arbiter_state, 'consume')
-            and _cooldown_elapsed(arbiter_state.get('last_consume_ts'),
-                                  CHANNEL_COOLDOWNS['consume'],
-                                  drives.mood_arousal)
-            and drives.curiosity > 0.35):
-        from pipeline.discovery import select_consumption
-        from models.state import Totem, CollectionItem
-        totems = await db.get_all_totems(limit=20)
-        collection = await db.get_collection_by_location('shelf')
-        pick = await select_consumption(drives, totems, collection)
-        if pick:
-            payload = {
-                'pool_id': pick['id'],
-                'title': pick.get('title', ''),
-                'content': pick.get('content', ''),
-                'source_type': pick.get('source_type', ''),
-                'url': pick.get('content', '') if pick.get('source_type') == 'url' else None,
-            }
-            return ArbiterFocus(
-                channel='consume',
-                pipeline_mode=CHANNEL_TO_MODE['consume'],
-                payload=payload,
-                token_budget_hint=6000,
-            )
+    # ── Priority 4: Reading urge — REMOVED (TASK-041) ──
+    # Content consumption now happens through read_content action within any
+    # cycle type, triggered by notifications in the sensorium. The arbiter
+    # no longer schedules consume cycles.
 
     # ── Priority 5: Active thread (LRU, cooldown elapsed) ──
     if (_check_daily_budget(arbiter_state, 'thread')

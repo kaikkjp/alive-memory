@@ -222,3 +222,39 @@ async def _enrich_unseen_urls():
             logger.debug("[FeedIngester] Enrichment failed for %s: %s", url[:60], e)
     if enriched > 0:
         logger.info("[FeedIngester] Enriched %d URL items via markdown.new", enriched)
+
+
+async def embed_unseen_titles():
+    """Pre-embed titles of unseen content pool items for gap detection (TASK-042).
+
+    Embeds titles using pipeline/embed.py and stores the embedding vector in
+    content_pool.title_embedding. Gap detection at cycle time is then pure
+    vector math — no API calls needed.
+    """
+    from pipeline.embed import embed, embed_session
+
+    items = await db.get_pool_items(status='unseen', limit=30)
+    embedded = 0
+
+    async with embed_session():
+        for item in items:
+            title = item.get('title', '')
+            pool_id = item.get('id', '')
+            if not title or not pool_id:
+                continue
+            # Skip if already embedded
+            if item.get('title_embedding'):
+                continue
+            try:
+                vec = await embed(title)
+                if vec:
+                    import struct
+                    blob = struct.pack(f'{len(vec)}f', *vec)
+                    await db.update_pool_item(pool_id, title_embedding=blob)
+                    embedded += 1
+            except Exception as e:
+                logger.debug("[FeedIngester] Title embedding failed for %s: %s",
+                             title[:40], e)
+
+    if embedded > 0:
+        logger.info("[FeedIngester] Embedded %d titles for gap detection", embedded)

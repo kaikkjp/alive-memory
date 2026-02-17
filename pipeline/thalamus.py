@@ -1,6 +1,7 @@
 """Thalamus — deterministic code routing. No LLM."""
 
 from dataclasses import dataclass, field
+from models.pipeline import GapScore
 from models.state import DrivesState, EngagementState, Visitor
 from pipeline.sensorium import Perception
 import clock
@@ -225,6 +226,54 @@ def build_memory_requests(
     # Cap total requests
     requests.sort(key=lambda r: r['priority'])
     return requests[:max_chunks]
+
+
+# ── Gap-aware notification salience (TASK-042) ──
+
+NOTIFICATION_SALIENCE_THRESHOLD = 0.03
+
+
+def compute_notification_salience(
+    gap_score: GapScore,
+    visitor_present: bool = False,
+    conversation_topic_match: bool = False,
+    energy: float = 0.5,
+    diversive_curiosity: float = 0.5,
+) -> float:
+    """Compute salience for a gap-scored notification.
+
+    Base salience = gap_score.curiosity_delta (0.0 to 0.15).
+    Modifiers:
+    - Visitor present: ×0.3 (background), unless topic matches conversation (×1.5)
+    - Low energy (<0.2): ×0.2
+    - High diversive curiosity (>0.6): ×1.3
+    - Below threshold (0.03): filtered out entirely (returns 0.0)
+    """
+    base = gap_score.curiosity_delta
+
+    if base <= 0.0:
+        return 0.0
+
+    # Visitor present suppresses unless topic matches
+    if visitor_present:
+        if conversation_topic_match:
+            base *= 1.5
+        else:
+            base *= 0.3
+
+    # Low energy suppresses
+    if energy < 0.2:
+        base *= 0.2
+
+    # High curiosity amplifies
+    if diversive_curiosity > 0.6:
+        base *= 1.3
+
+    # Below threshold: filter out
+    if base < NOTIFICATION_SALIENCE_THRESHOLD:
+        return 0.0
+
+    return min(1.0, base)
 
 
 def detect_gift_domain(text: str) -> str:
