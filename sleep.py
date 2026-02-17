@@ -18,7 +18,9 @@ from pipeline.hippocampus_write import hippocampus_consolidate
 from config.identity import IDENTITY_COMPACT
 
 MAX_SLEEP_REFLECTIONS = 7
-MIN_SLEEP_SALIENCE = 0.65
+# TASK-047: Threshold hierarchy — night sleep gets the full day (0.45),
+# nap consolidation still requires highlights (0.65 via get_top_unprocessed_moments).
+MIN_SLEEP_SALIENCE = 0.45
 MAX_MOMENT_RETRIES = 3
 NAP_TOP_N = 3
 COLD_SEARCH_ENABLED = os.getenv('COLD_SEARCH_ENABLED', 'false').lower() == 'true'

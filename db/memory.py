@@ -514,6 +514,24 @@ async def get_days_alive() -> int:
 _MAX_DAY_MEMORIES = 30
 
 
+async def get_max_event_salience_dynamic(event_ids: list[str]) -> float:
+    """Get the maximum salience_dynamic from a list of event IDs.
+
+    Used by day_memory to incorporate TASK-045 salience engine signals
+    into moment scoring. Returns 0.0 if no events found or all are zero.
+    """
+    if not event_ids:
+        return 0.0
+    conn = await _connection.get_db()
+    placeholders = ', '.join('?' for _ in event_ids)
+    cursor = await conn.execute(
+        f"SELECT MAX(salience_dynamic) as max_sd FROM events WHERE id IN ({placeholders})",
+        tuple(event_ids)
+    )
+    row = await cursor.fetchone()
+    return float(row['max_sd']) if row and row['max_sd'] else 0.0
+
+
 async def insert_day_memory(moment) -> None:
     """Insert a day memory entry. Enforces MAX_DAY_MEMORIES cap.
 
