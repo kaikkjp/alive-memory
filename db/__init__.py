@@ -87,6 +87,7 @@ from db.memory import (
     get_days_alive,
     get_flashbulb_count_today,
     get_latest_trait,
+    get_max_event_salience_dynamic,
     get_recent_conversation,
     get_recent_internal_conflicts,
     get_recent_journal,

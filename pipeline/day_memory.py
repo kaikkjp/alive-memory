@@ -49,24 +49,39 @@ async def maybe_record_moment(cycle_result: dict, cycle_context: dict) -> None:
     """Check if this cycle produced a salient moment. No LLM.
 
     Called at the end of every cognitive cycle in heartbeat.run_cycle().
+    Enriches context with event salience_dynamic from TASK-045 before scoring.
     """
-    salience = compute_moment_salience(cycle_result, cycle_context)
+    # Enrich context with TASK-045 salience engine signal (don't mutate caller's dict)
+    enriched_ctx = dict(cycle_context)
+    event_ids = cycle_context.get('event_ids', [])
+    if event_ids:
+        try:
+            max_sal = await db.get_max_event_salience_dynamic(event_ids)
+            enriched_ctx['event_salience_dynamic'] = max_sal
+        except Exception:
+            pass  # DB lookup failure must not block moment recording
+
+    salience = compute_moment_salience(cycle_result, enriched_ctx)
 
     if salience < MOMENT_THRESHOLD:
         return  # not worth remembering today
+
+    print(f"  [DayMemory] Recording moment: salience={salience:.3f} "
+          f"type={classify_moment(cycle_result, enriched_ctx)} "
+          f"mode={enriched_ctx.get('mode')}")
 
     moment = DayMemoryEntry(
         id=str(uuid.uuid4()),
         ts=clock.now_utc(),
         salience=salience,
-        moment_type=classify_moment(cycle_result, cycle_context),
-        visitor_id=cycle_context.get('visitor_id'),
-        summary=build_moment_summary(cycle_result, cycle_context),
+        moment_type=classify_moment(cycle_result, enriched_ctx),
+        visitor_id=enriched_ctx.get('visitor_id'),
+        summary=build_moment_summary(cycle_result, enriched_ctx),
         raw_refs={
-            'cycle_id': cycle_context['cycle_id'],
-            'event_ids': cycle_context.get('event_ids', []),
+            'cycle_id': enriched_ctx['cycle_id'],
+            'event_ids': enriched_ctx.get('event_ids', []),
         },
-        tags=extract_moment_tags(cycle_result, cycle_context),
+        tags=extract_moment_tags(cycle_result, enriched_ctx),
     )
 
     await db.insert_day_memory(moment)
@@ -101,12 +116,16 @@ def compute_moment_salience(result: dict, ctx: dict) -> float:
       +0.08      self-expression — post_x_draft action (write_journal removed: content salience speaks for itself)
 
     SOLO CYCLE SIGNALS (reward cycles where something actually happened):
-      +0.06      thread touch     — thread_update/create/close action (developing an idea)
-      +0.08      content consumed — mode is consume or news (she read from pool)
-      +0.04      rare action      — any action not in {write_journal, express_thought}
-      +0.05      journal w/ content — write_journal with non-empty detail.text
+      +0.12      thread touch     — thread_update/create/close action (developing an idea)
+      +0.14      content consumed — mode is consume or news (she read from pool)
+      +0.08      rare action      — any action not in {write_journal, express_thought}
+      +0.12      journal w/ content — write_journal with non-empty detail.text
 
-      0.00–0.05  mode bonus   — engage=0.05, express=0.03, consume=0.02
+      0.00–0.08  mode bonus   — engage=0.08, express=0.06, consume=0.04
+
+    EVENT SALIENCE (from TASK-045 salience engine):
+      0.00–0.20  event_salience_dynamic — max salience_dynamic across cycle events,
+                                          scaled: sal * 0.4, capped at 0.20
 
     Recording threshold: 0.35 (lowered from 0.4 to allow solo cycles through).
 
@@ -180,34 +199,43 @@ def compute_moment_salience(result: dict, ctx: dict) -> float:
         score += 0.08
 
     # ── Solo cycle signals: reward cycles where something actually happened ──
+    # (TASK-047: boosted from original values to ensure solo activity reaches
+    #  meaningful salience. Visitor events are still highest, but self-directed
+    #  activity now reaches 0.5-0.7 range for sleep consolidation.)
 
     # Thread touch: she's developing an idea, not just drifting
     if any(a.get('type') in ('thread_update', 'thread_create', 'thread_close')
            for a in result.get('actions', [])):
-        score += 0.06
+        score += 0.12
 
     # Content consumed: she read something from the pool (consume/news cycle)
     if ctx.get('mode') in ('consume', 'news'):
-        score += 0.08
+        score += 0.14
 
     # Rare action: anything beyond the default express_thought/write_journal loop
     _routine_actions = {'write_journal', 'express_thought'}
     if any(a.get('type', '') not in _routine_actions and a.get('type', '')
            for a in result.get('actions', [])):
-        score += 0.04
+        score += 0.08
 
     # Journal with distinct content: she wrote something real, not a monologue copy
     if any(a.get('type') == 'write_journal'
            and a.get('detail', {}).get('text', '').strip()
            for a in result.get('actions', [])):
-        score += 0.05
+        score += 0.12
 
     # Mode-based base: some cycle types are inherently more interesting
     mode = ctx.get('mode', '')
     mode_bonus = {
-        'engage': 0.05, 'express': 0.03, 'consume': 0.02,
+        'engage': 0.08, 'express': 0.06, 'consume': 0.04,
     }
     score += mode_bonus.get(mode, 0.0)
+
+    # ── Event salience from TASK-045 salience engine ──
+    # High-salience events (thread overlap, totem match) boost moment scoring
+    event_sal = ctx.get('event_salience_dynamic', 0.0)
+    if event_sal > 0:
+        score += min(0.20, event_sal * 0.4)
 
     return min(1.0, score)
 

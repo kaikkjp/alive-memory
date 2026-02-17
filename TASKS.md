@@ -2019,7 +2019,7 @@ In `pipeline/hypothalamus.py`:
 
 ### TASK-047: Fix hollow sleep consolidation — salience calibration
 
-**Status:** READY (can run in PARALLEL with TASK-046 — zero file overlap)
+**Status:** DONE (2026-02-17)
 **Priority:** Critical (paper blocker — both reviewers flagged "Hollow Sleep")
 **Branch:** fix/sleep-salience
 **Depends on:** TASK-038 (DONE), TASK-045 (DONE)

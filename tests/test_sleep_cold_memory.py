@@ -122,9 +122,9 @@ class SleepReflectiveJournalTests(unittest.IsolatedAsyncioTestCase):
             salience=salience,
         )
 
-    async def test_min_sleep_salience_is_0_65(self):
-        """MIN_SLEEP_SALIENCE should be 0.65, not 0.4."""
-        self.assertEqual(sleep.MIN_SLEEP_SALIENCE, 0.65)
+    async def test_min_sleep_salience_is_0_45(self):
+        """MIN_SLEEP_SALIENCE should be 0.45 (TASK-047 threshold hierarchy)."""
+        self.assertEqual(sleep.MIN_SLEEP_SALIENCE, 0.45)
 
     async def test_each_moment_gets_own_journal_entry(self):
         """Each reflected moment should produce its own journal entry."""
