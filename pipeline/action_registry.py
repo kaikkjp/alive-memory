@@ -167,7 +167,7 @@ ACTION_REGISTRY: dict[str, ActionCapability] = {
     'read_content': ActionCapability(
         name='read_content',
         enabled=True,
-        cooldown_seconds=360,  # ~2 cycles at 3min/cycle
+        cooldown_seconds=0,  # budget is the constraint now
         max_per_cycle=1,
         requires=[],
         description='Read a content item from the feed',
