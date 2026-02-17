@@ -1930,6 +1930,283 @@ class TextFragment:
 
 ---
 
+### TASK-046: Mood-drive coupling — allostatic affect regulation
+
+**Status:** READY
+**Priority:** Critical (paper blocker — both reviewers flagged mood decoupling)
+**Branch:** fix/mood-drive-coupling
+**Depends on:** TASK-024 (DONE), TASK-036 (DONE)
+
+**Context:** social_hunger averages 0.392 (sustained isolation) but mood_valence averages 0.712 (happy). mood_arousal averages 0.755 in an empty shop. The hypothalamus updates mood based on what happened in the cycle but ignores the background pressure of unmet drives. Drives are thermostats that don't propagate to affect.
+
+**Description:** Add drive-to-mood coupling in the hypothalamus so sustained unmet drives pull mood toward realistic values. This is allostatic: predicted future deviation matters, not just current state.
+
+**Implementation:**
+
+**Part A — Social hunger → valence suppression.**
+In `pipeline/hypothalamus.py`, after computing cycle-based mood adjustments:
+
+- If `social_hunger > 0.4`: apply `valence_pressure = -0.02 * (social_hunger - 0.4)` per cycle
+- At social_hunger=0.7: valence drops by -0.006/cycle ≈ -0.12 over 20 cycles (~1 hour)
+- Floor: valence cannot go below 0.15 from drive pressure alone (melancholy, not despair)
+- Visitor relief: if engagement happened this cycle, skip suppression AND apply `valence += 0.05 * social_hunger` (lonelier = more relief from contact)
+
+**Part B — Low stimulation → arousal decay.**
+In `pipeline/hypothalamus.py`:
+
+- Track consecutive idle cycles as an **in-memory counter on the Heartbeat instance**. Increment on idle cycles, reset to 0 on any non-idle cycle (engagement, thread work, content consumption, expression). Do NOT use a DB query — too expensive in sim with 1500+ cycles. Don't persist across restarts — restart resets to 0, which is correct.
+- Pass `consecutive_idle` into the hypothalamus update function via cycle context.
+- If consecutive_idle > 5: apply `arousal_pressure = -0.01 * (consecutive_idle - 5)`, capped at -0.05/cycle
+- Baseline arousal in sustained isolation should drift toward ~0.3-0.4
+- Arousal spikes on: visitor_connect (+0.3), unexpected event (+0.2), gap detection partial match (+0.1), thread breakthrough (+0.15)
+- Spike decay: arousal boost from events decays at -0.05/cycle back toward idle baseline
+
+**Part C — Expression need → valence interaction.**
+
+- If `expression_need > 0.5` AND no expression action was taken this cycle: `valence -= 0.01 * (expression_need - 0.5)`
+- Models frustration from unexpressed thoughts. Writing a journal or expressing thought relieves it (existing drive drain).
+
+**Part D — Energy depletion → mood coupling.**
+
+- If `energy < 0.3`: `valence -= 0.01`, `arousal -= 0.02` (tired = grumpy and sluggish)
+- If `energy < 0.1`: `valence -= 0.03`, `arousal -= 0.05` (exhausted = miserable)
+- After nap consolidation (TASK-038): `valence += 0.05`, `arousal += 0.1` (refreshed)
+
+**Expected behavioral outcome:**
+
+- Day 1: mood starts neutral-positive, drifts down as social hunger builds
+- Day 1 visitor (Yuki): arousal spikes, valence gets relief bump, both decay after departure
+- Day 3 (no visitor): valence settled to ~0.4-0.5, arousal at ~0.3-0.4. She's lonely and drowsy.
+- Day 3 visitor (Tanaka): engagement spike, post-visitor warmth that fades
+- Day 7 (Yuki returns): arousal spike higher than Day 1 (more accumulated loneliness = more relief)
+
+**Scope (files you may touch):**
+
+- `pipeline/hypothalamus.py` (mood update function — add drive coupling)
+- `heartbeat.py` (add consecutive_idle counter as instance variable, pass to hypothalamus)
+- `models/state.py` (if DrivesState needs updating for new coupling parameters)
+- `pipeline/output.py` (if nap/engagement relief bumps need to be applied post-action)
+
+**Scope (files you may NOT touch):**
+
+- `pipeline/cortex.py`
+- `pipeline/sensorium.py`
+- `pipeline/basal_ganglia.py`
+- `heartbeat_server.py`
+- `sleep.py`
+- `window/`
+- `db/`
+
+**Tests:**
+
+- test_social_hunger_suppresses_valence — social_hunger at 0.6 for 10 cycles → valence measurably lower
+- test_valence_floor — valence doesn't drop below 0.15 from drive pressure
+- test_visitor_relief_bump — engagement cycle with high social_hunger → valence increases
+- test_lonelier_means_more_relief — relief bump at social_hunger=0.7 > bump at social_hunger=0.3
+- test_idle_arousal_decay — 10 consecutive idle cycles → arousal drops toward 0.3-0.4
+- test_visitor_arousal_spike — visitor_connect → arousal jumps +0.3
+- test_arousal_spike_decays — spike fades at -0.05/cycle
+- test_idle_counter_resets_on_activity — non-idle cycle resets consecutive_idle to 0
+- test_idle_counter_in_memory — counter is instance variable, not DB query
+- test_expression_frustration — expression_need=0.7, no expression → valence drops
+- test_energy_depletion_mood — energy=0.2 → both valence and arousal decrease
+- test_nap_refresh — after nap consolidation → valence and arousal bump up
+- test_full_7day_trajectory — run 168 simulated cycles, verify valence tracks social_hunger inversely
+
+**Definition of done:** Mood realistically reflects internal state. Isolation makes her melancholy. Visitors provide genuine relief. Low stimulation makes her drowsy. Exhaustion makes her grumpy. Drive-mood coupling is allostatic (pressure over time), not reactive (instant penalty).
+
+---
+
+### TASK-047: Fix hollow sleep consolidation — salience calibration
+
+**Status:** READY (can run in PARALLEL with TASK-046 — zero file overlap)
+**Priority:** Critical (paper blocker — both reviewers flagged "Hollow Sleep")
+**Branch:** fix/sleep-salience
+**Depends on:** TASK-038 (DONE), TASK-045 (DONE)
+
+**Context:** All 7 sleep consolidations in the 7-day experiment produced `moment_count: 0`. Sleep fires on schedule but day_memory has zero high-salience moments. The salience engine (TASK-045) now writes `salience_dynamic` on events, but the chain from events → day_memory moments → sleep retrieval needs verification and calibration.
+
+**Description:** Diagnose and fix the full chain from cycle execution → day_memory moment creation → salience scoring → sleep/nap retrieval.
+
+**Investigation steps (in order):**
+
+**Step 1 — Trace moment creation path.**
+
+- In `pipeline/day_memory.py`, find `maybe_record_moment()` (or equivalent).
+- Add debug logging: log every moment written with its salience score.
+- Run 10 cycles via `simulate.py --cycles 10`. Confirm moments are being created.
+- If NO moments created: the creation trigger is broken — fix what counts as a "moment."
+- If moments ARE created but all have salience < threshold: the scoring function needs recalibration.
+
+**Step 2 — Audit salience scoring.**
+
+- Find the salience computation function. What inputs does it use?
+- Check: does it read `salience_dynamic` from events table? If so, verify TASK-045's salience engine is actually writing non-zero values during simulation.
+- Current MIN_SLEEP_SALIENCE is 0.65 (TASK-007). MIN_RECORDING_SALIENCE is 0.35 (ALIVE_6 fix).
+- What's the actual distribution of salience values? Run 50 cycles, query: `SELECT salience, COUNT(*) FROM day_moments GROUP BY CAST(salience * 10 AS INT)`
+- If clustering near 0.3-0.4: formula tuned for visitor-rich environment, not isolation.
+
+**Step 3 — Fix salience calibration.** Apply based on diagnosis:
+
+- **Option A (scoring fix):** Give more weight to internal events. Solo cycle signals from ALIVE_6 (thread +0.06, content +0.08, rare action +0.04, distinct journal +0.05) may need upward adjustment. Visitor events should still be highest, but self-directed activity should reach 0.5-0.7.
+- **Option B (threshold hierarchy):** Lower MIN_SLEEP_SALIENCE to 0.45 for night sleep. Keep nap threshold at 0.65. Creates hierarchy: naps get highlights, sleep gets the full day.
+- **Option C (creation fix):** If moments aren't being created at all, fix the trigger. Every cycle with journal entry, thread update, expression, or visitor interaction → moment. Idle fidget-only cycles → no moment.
+
+**Step 4 — Verify end-to-end.**
+
+- Run 24 simulated hours.
+- day_memory has 5-15 moments with salience ranging 0.3-0.9.
+- Nap consolidation processes top 3 moments (salience > 0.65).
+- Night sleep processes remaining moments (salience > 0.45).
+- daily_summary contains non-zero moment_count and meaningful emotional_arc.
+
+**Scope (files you may touch):**
+
+- `pipeline/day_memory.py` (moment creation + salience scoring)
+- `sleep.py` (salience threshold, consolidation query)
+- `db/memory.py` (moment queries if schema needs adjustment)
+- `migrations/` (if day_memory schema needs a column)
+
+**Scope (files you may NOT touch):**
+
+- `pipeline/cortex.py`
+- `pipeline/hypothalamus.py` (TASK-046 owns this — parallel work)
+- `pipeline/basal_ganglia.py`
+- `heartbeat.py` (TASK-046 owns the counter addition)
+- `heartbeat_server.py`
+- `window/`
+
+**Tests:**
+
+- test_journal_creates_moment — cycle with write_journal → moment with salience > 0.4
+- test_thread_creates_moment — cycle with thread work → moment with salience > 0.5
+- test_expression_creates_moment — cycle with express_thought → moment with salience > 0.4
+- test_visitor_creates_high_salience_moment — visitor interaction → moment with salience > 0.7
+- test_idle_fidget_no_moment — idle cycle with only fidget → no moment created
+- test_nap_processes_high_salience — nap consolidation finds moments above 0.65
+- test_sleep_processes_remaining — night sleep processes moments above 0.45 not nap_processed
+- test_daily_summary_non_empty — after 24h with activity, daily_summary has moment_count > 0
+- test_salience_distribution — after 50 mixed cycles, salience spans 0.3-0.9 (not clustered)
+- test_salience_engine_feeds_day_memory — events with salience_dynamic > 0 from TASK-045 contribute to moment scoring
+
+**Definition of done:** Day memory moments are created with meaningful salience scores. Nap consolidation processes highlights. Night sleep consolidation processes the full day. daily_summary contains real data. "Hollow Sleep" is gone.
+
+---
+
+### TASK-048: Run 7-day experiment v2 — three-budget sweep
+
+**Status:** BLOCKED (on TASK-046 + TASK-047)
+**Priority:** Critical (paper blocker)
+**Branch:** feat/experiment-v2
+
+**Context:** The original 7-day experiment ran pre-curiosity-v2, pre-mood-coupling, pre-salience-engine. A new experiment demonstrates: stimulus-driven curiosity, epistemic question formation/resolution, drive-coupled mood, meaningful sleep consolidation, and nap cycles. Three budget levels provide the ablation study both reviewers requested.
+
+**Description:** Run three 7-day simulations with identical visitor scripts and content, varying only energy budget. This produces the budget-entropy relationship figure and validates all subsystems end-to-end.
+
+**Pre-run checklist:**
+
+1. TASK-046 merged and tested (mood-drive coupling)
+1. TASK-047 merged and tested (sleep salience fix)
+1. Content pool has 10+ items (from TASK-033 feeds or manual content/readings.txt)
+1. `simulate.py` runs for 10 cycles without errors
+1. Quick validation — run 50 cycles, check:
+- `SELECT COUNT(*) FROM day_moments;` → > 0
+- `SELECT diversive_curiosity FROM drives_state;` → between 0.15-0.65
+- `SELECT AVG(mood_valence) FROM drives_state_history WHERE social_hunger > 0.5;` → < 0.6
+
+**Run order (cost-conscious — validate before burning $225):**
+
+**Run A first (tight budget, energy_budget=2.0):**
+
+- Most behavioral diversity, most nap cycles, richest data
+- ~$75 API cost, ~4-6 hours
+- After completion, validate:
+
+  ```sql
+  SELECT COUNT(*) FROM day_moments;                    -- > 0
+  SELECT COUNT(*) FROM epistemic_curiosities;          -- > 0
+  SELECT COUNT(*) FROM content_pool WHERE consumed=1;  -- > 0
+  SELECT moment_count FROM daily_summaries;            -- non-zero values
+  ```
+- If any of these are 0: STOP. Debug before running B and C.
+
+**Run B (medium budget, energy_budget=4.0):**
+
+- Only if Run A validates cleanly
+- Baseline comparison
+
+**Run C (generous budget, energy_budget=8.0):**
+
+- Only if Run A validates cleanly
+- Matches original experiment parameters
+
+**Command per run:**
+
+```bash
+python simulate.py --days 7 --visitors experiments/visitors.json \
+  --content content/readings.txt --energy-budget {2.0|4.0|8.0} \
+  --output experiments/run_{a|b|c}/
+```
+
+If `--energy-budget` flag doesn't exist in simulate.py, add it (pass through to config or heartbeat init).
+
+**Post-run analysis per DB:**
+
+```sql
+-- 1. Salience engine working?
+SELECT COUNT(*) FROM events WHERE salience_dynamic > 0;
+
+-- 2. Day memory filling?
+SELECT COUNT(*) FROM day_moments;
+
+-- 3. Sleep non-hollow?
+SELECT date, json_extract(summary, '$.moment_count') as moments,
+       json_extract(summary, '$.emotional_arc') as arc
+FROM daily_summaries ORDER BY date;
+
+-- 4. Epistemic curiosities lifecycle?
+SELECT topic, question, intensity, resolved, source_type
+FROM epistemic_curiosities;
+
+-- 5. Content consumed?
+SELECT COUNT(*) FROM content_pool WHERE consumed = 1;
+
+-- 6. Diversive curiosity not pinned?
+SELECT diversive_curiosity FROM drives_state;
+
+-- 7. Mood-drive correlation (the chart that answers both reviewers)
+SELECT
+  CAST(julianday(timestamp) - julianday((SELECT MIN(timestamp) FROM drives_state_history)) AS INT) as sim_day,
+  AVG(social_hunger) as avg_hunger,
+  AVG(mood_valence) as avg_valence,
+  AVG(mood_arousal) as avg_arousal
+FROM drives_state_history
+GROUP BY sim_day
+ORDER BY sim_day;
+-- Valence should trend INVERSELY with social_hunger across days
+-- Arousal should spike on visitor days, decay on isolation days
+```
+
+**Generate figures using experiments/analyze_entropy.py (TASK-039):**
+
+1. 3-way entropy comparison (tight vs medium vs generous)
+1. Drive trajectory comparison — mood now tracks social_hunger inversely
+1. Sleep consolidation quality — moment counts per night across budgets
+1. Nap frequency comparison across budget levels
+1. Epistemic curiosity formation/resolution counts per run
+1. Mood-drive correlation scatter plot (valence vs social_hunger, colored by day)
+
+**Expected outputs per run:**
+
+- SQLite DB (~4MB)
+- Timeline log (~100KB)
+
+**Scope:** `simulate.py` execution + analysis scripts only. No code changes except possibly adding `--energy-budget` flag to simulate.py.
+
+**Definition of done:** Three 7-day simulation DBs with timeline logs. Analysis figures showing: budget-entropy relationship, drive-mood coupling, non-hollow sleep consolidation, epistemic curiosity lifecycle, arousal response to visitors. All seven post-run queries return non-trivial results for all three runs. Data ready for paper revision.
+
+---
+
 ## Completed Tasks
 
 _None yet._
