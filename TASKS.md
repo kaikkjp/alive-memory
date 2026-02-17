@@ -1876,10 +1876,10 @@ class TextFragment:
 
 ### TASK-045: Curiosity v2 — Deferred reflection outputs
 
-**Status:** BACKLOG
+**Status:** DONE (2026-02-17)
 **Priority:** Low
-**Branch:** —
-**Depends on:** TASK-044
+**Branch:** claude/task-45-nOQ46
+**Depends on:** TASK-044 (DONE)
 
 **Description:** TASK-044 implemented the core reflection loop using monologue pattern detection. Several spec items were deferred because they require CortexOutput schema changes or prompt_assembler modifications that risk scope creep:
 
@@ -1889,7 +1889,8 @@ class TextFragment:
 - **Reflection prompt in prompt_assembler:** A dedicated reflection section appended to the cortex prompt after read_content, giving the LLM structured guidance for reflection. Currently the LLM reflects via its normal monologue without explicit prompting.
 - **Conversation context integration:** When visitor is present AND a notification matched the conversation topic, surface it in cortex context via prompt_assembler. The `mention_in_conversation` action exists but the contextual surfacing does not.
 
-**Scope:** `models/pipeline.py`, `prompt_assembler.py`, `pipeline/output.py`
+**Scope:** `models/pipeline.py`, `pipeline/cortex.py`, `pipeline/output.py`
+**Note:** `prompt_assembler.py` removed from scope — it handles image generation prompts, not cortex prompts. `pipeline/cortex.py` added — cortex system prompt lives there.
 
 ---
 
