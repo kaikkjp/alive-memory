@@ -2260,6 +2260,211 @@ ORDER BY sim_day;
 
 ---
 
+### TASK-050: Real-dollar energy system + fix day_memory
+
+**Status:** READY
+**Priority:** Critical
+**Branch:** `fix/real-energy`
+
+**Context:** Production shows three problems: day_memory records 1 moment in 882 cycles (naps/sleep consolidate nothing), energy system is fictional (0-1 float that drifts via homeostasis), and read_content energy_cost (1.5) exceeds energy max (1.0) so she can never read.
+
+Replace the entire energy system with real-world costs. Every action that costs money in the real world costs money in her budget. LLM calls cost their actual API price. External API calls cost their actual price. The operator sets a daily dollar cap. When it's spent, she rests. No fictional energy bars, no homeostatic pull, no abstract action costs.
+
+#### Part A — Fix day_memory moment creation
+
+**Diagnosis steps** (do these first, log findings as code comments):
+
+1. Find `maybe_record_moment()` in `pipeline/day_memory.py`. Trace every call site — where is it invoked?
+2. Add temporary debug logging at entry: log inputs (cycle_id, actions, salience).
+3. Run `simulate.py --cycles 20`. Is it called? What salience does it compute?
+
+**Fix:** Moment creation must fire on ANY cycle that produced meaningful output:
+
+| Trigger | Base salience |
+|---------|--------------|
+| write_journal executed | 0.50 |
+| express_thought with content | 0.40 |
+| Thread created or updated | 0.55 |
+| read_content executed | 0.60 |
+| Visitor interaction | 0.70 |
+| Internal conflict detected | 0.80 |
+| Idle fidget only | No moment |
+
+Modulated by: drive intensity at time of action, novelty (first thread on topic > 5th), mood extremes.
+
+**Verification:**
+
+```sql
+-- After 50 cycles:
+SELECT COUNT(*) FROM day_memory;              -- 10-30, not 0
+SELECT salience FROM day_memory ORDER BY salience DESC LIMIT 10;  -- range 0.35-0.90
+```
+
+#### Part B — Real-dollar energy system
+
+**Core concept:** Energy = money. Every action that costs real dollars is tracked. Daily cap. When spent, she rests (no LLM calls). Night sleep resets the counter.
+
+**Daily budget:** Configurable via settings table. Default: $5.00/day.
+
+**How costs are tracked:**
+
+Every real-world API call gets logged to `llm_call_log` (already exists) with its `cost_usd`. Remaining budget is a derived value:
+
+```
+remaining = daily_budget - SUM(cost_usd FROM llm_call_log WHERE created_at >= last_sleep_reset)
+```
+
+No stored energy state. No drift. One query.
+
+**What costs money (real prices):**
+
+| Action | Cost source | Typical cost |
+|--------|-------------|-------------|
+| Cortex call (idle thought) | Anthropic API — actual tokens | ~$0.010 |
+| Cortex call (with visitor) | Anthropic API — bigger context | ~$0.018 |
+| Cortex call (read_content) | Anthropic API — content in prompt | ~$0.024 |
+| Nap consolidation | Anthropic API — sleep_reflect per moment | ~$0.008/moment |
+| Night sleep reflection | Anthropic API — per moment | ~$0.008/moment |
+| Post to X | X API | $0.01/post |
+| Image generation | fal.ai API | ~$0.02/image |
+| Embedding call | Embedding API | ~$0.001/call |
+| Feed enrichment (markdown.new) | Free or API cost | $0.00 |
+
+No fictional energy costs. Delete the `energy_cost` field from `ActionCapability` in `action_registry.py`. Actions don't have abstract energy costs — they cost what they cost in the real world. A journal entry costs $0.01 because the cortex call costs $0.01. Reading long content costs $0.024 because the prompt is bigger. The LLM token price IS the energy cost.
+
+**At $0 remaining:**
+
+- Skip cortex call entirely
+- Log `[Heartbeat] Resting — budget spent ($5.00/$5.00)`
+- Sleep the normal cycle interval (180s from settings)
+- No nap — naps cost money (LLM calls for reflection)
+- No empty spin loops — just sleep the interval, check again next cycle
+- Exception: none. Budget is budget. She's done for the day.
+
+**Night sleep reset:**
+
+- In `sleep.py`, after consolidation completes, record `last_sleep_reset` timestamp in settings table
+- Budget query uses this timestamp as the floor for cost aggregation
+- Night sleep reflection itself costs money — deducted before reset. If she has $0.30 left at bedtime, she can only reflect on ~37 moments before the reset.
+
+**What to delete:**
+
+- `drives_state.energy` field (or repurpose as display-only derived value: remaining / budget)
+- `energy_cost` field from `ActionCapability` dataclass and all `ACTION_REGISTRY` entries
+- Energy gate (Gate 5) in `pipeline/basal_ganglia.py`
+- `get_energy_budget()` from `db/analytics.py`
+- Energy homeostatic pull in `pipeline/hypothalamus.py`
+- Old budget-exceeded check in `heartbeat.py`
+- Nap budget restore logic in `heartbeat.py` and `sleep.py`
+- `rest_need` drive calculations tied to energy (keep `rest_need` for biological clock only)
+
+**What to add:**
+
+- `get_budget_remaining(db) -> dict` in `db/analytics.py`:
+
+```python
+def get_budget_remaining(db):
+    budget = get_setting('daily_budget', 5.0)  # from settings table
+    last_reset = get_setting('last_sleep_reset', today_midnight)
+    spent = SUM(cost_usd FROM llm_call_log WHERE created_at >= last_reset)
+    return {"budget": budget, "spent": spent, "remaining": budget - spent}
+```
+
+- Budget check at top of `heartbeat.py` `run_one_cycle()`: if remaining <= 0, skip cortex, sleep interval
+- Setting: `daily_budget` in settings table, adjustable via dashboard `POST /api/dashboard/budget`
+- Setting: `last_sleep_reset` in settings table, written by `sleep.py`
+
+**External API costs:**
+
+- For actions that call external APIs (X post, image gen), log cost to `llm_call_log` with appropriate purpose tag (e.g., `purpose='x_post'`, `purpose='image_gen'`). Same table, same budget pool. The `llm_call_log` table becomes `api_cost_log` conceptually (rename optional).
+- X post example: after successful post, insert row with `cost_usd=0.01`, `purpose='x_post'`.
+
+**Dashboard display:**
+
+- Controls panel: `$2.37 / $5.00 remaining` with progress bar
+- Budget input: operator can change `daily_budget` from dashboard
+- Cost breakdown today: pie or bar showing cortex vs X vs image gen vs sleep
+
+**Mood coupling (from TASK-046):**
+
+- Low budget remaining has no direct mood effect — it's a real constraint, not a feeling
+- BUT: being in rest mode means no actions, `expression_need` builds, valence drops via existing drive coupling
+- The real constraint creates realistic mood consequences without artificial wiring
+
+#### Part C — read_content unblocked (implicit)
+
+With no energy gate and no fictional energy costs, read_content just works. The only cost is the cortex call with content in the prompt (~$0.024). If she has budget, she can read.
+
+**Verify:** run 10 cycles with content in pool and budget > $0.50. She should execute `read_content`.
+
+**Scope (files you may touch):**
+
+- `pipeline/day_memory.py` (fix moment creation)
+- `pipeline/output.py` (wire moment creation to action outcomes, remove energy deductions)
+- `pipeline/action_registry.py` (remove `energy_cost` field from `ActionCapability` and all entries)
+- `pipeline/basal_ganglia.py` (remove Gate 5 energy check)
+- `pipeline/hypothalamus.py` (remove energy homeostatic pull)
+- `heartbeat.py` (new budget check: remaining <= 0 then rest at normal interval, remove old budget path, remove nap restore)
+- `sleep.py` (write `last_sleep_reset` on completion, remove nap energy restore)
+- `db/analytics.py` (replace `get_energy_budget` with `get_budget_remaining`)
+- `db/state.py` (deprecate or remove energy from `drives_state`)
+- `models/state.py` (update `DrivesState`)
+- `models/pipeline.py` (remove energy from `ActionCapability` if defined here)
+- `llm_logger.py` (ensure all API calls log `cost_usd` — add helper for non-LLM API costs)
+- `api/dashboard_routes.py` (budget remaining endpoint, budget update endpoint)
+
+**Scope (files you may NOT touch):**
+
+- `pipeline/cortex.py`
+- `pipeline/sensorium.py`
+- `pipeline/gap_detector.py`
+- `pipeline/notifications.py`
+- `heartbeat_server.py`
+- `window/` (dashboard auto-displays new values from existing endpoints)
+
+**Tests:**
+
+Part A:
+
+- `test_journal_creates_moment` — `write_journal` produces `day_memory` row with salience >= 0.4
+- `test_expression_creates_moment` — `express_thought` with content produces moment
+- `test_idle_no_moment` — idle fidget produces no moment
+- `test_salience_varies` — 20 cycles produce >= 3 distinct salience values
+- `test_50_cycles_produce_moments` — 50 cycles produce 10-30 `day_memory` rows
+
+Part B:
+
+- `test_budget_remaining_query` — fresh day returns full budget
+- `test_cortex_call_deducts` — after cortex call, remaining decreases by actual `cost_usd`
+- `test_budget_zero_skips_cortex` — remaining <= 0 produces no LLM call, rests at normal interval
+- `test_no_rest_spin` — budget exhausted cycles sleep 180s not 36s
+- `test_night_sleep_resets` — after sleep, `last_sleep_reset` updated, remaining equals full budget
+- `test_external_api_cost` — X post logs $0.01, deducted from same budget
+- `test_budget_configurable` — dashboard POST changes `daily_budget` in settings
+- `test_nap_costs_money` — nap consolidation LLM calls deducted from budget
+- `test_sleep_reflection_costs` — night sleep deducts from pre-reset budget
+
+Part C:
+
+- `test_read_content_succeeds` — budget remaining > $0.50, `read_content` executes
+- `test_no_energy_gate` — `basal_ganglia` has no energy cost check
+
+**Definition of done:**
+
+- 50-cycle simulation produces 10-30 `day_memory` moments with varied salience
+- Budget tracks real API costs, not fictional energy
+- $0 remaining produces clean rest (no spin, no LLM calls, 180s interval)
+- Night sleep resets the counter
+- `read_content` works when budget available
+- Dashboard shows `$X.XX / $Y.YY remaining`
+- No `energy_cost` field in action registry
+- No energy gate in basal ganglia
+- No energy homeostatic pull
+- External API costs (X, image gen) deduct from same pool
+- System runs 24h showing natural spend curve
+
+---
+
 ## Completed Tasks
 
 _None yet._
