@@ -1291,7 +1291,7 @@ Part C:
 ---
 
 ### TASK-040: Visitor injection for simulation mode
-**Status:** READY
+**Status:** DONE (2026-02-17)
 **Priority:** High (paper blocker)
 **Branch:** feat/sim-visitors
 **Depends on:** None
