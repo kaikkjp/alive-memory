@@ -229,7 +229,8 @@ class TestMoodArousal:
         d = DrivesState(mood_arousal=0.30)
         events = [Event(event_type='visitor_connect', source='visitor:x', payload={})]
         new, _ = await update_drives(d, elapsed_hours=0.0, events=events)
-        assert new.mood_arousal == pytest.approx(0.40, abs=0.01)
+        # +0.1 (existing) + 0.2 (TASK-046 drive coupling) = +0.3 total
+        assert new.mood_arousal == pytest.approx(0.60, abs=0.01)
 
     @pytest.mark.asyncio
     async def test_visitor_disconnect_lowers_arousal(self):
@@ -283,7 +284,9 @@ class TestMoodArousal:
 
     @pytest.mark.asyncio
     async def test_combined_stimulation_reaches_target_range(self):
-        """A busy cycle with visitor + resonance + content should push arousal into 0.40-0.65 range."""
+        """A busy cycle with visitor + resonance + content should push arousal into 0.60-0.85 range.
+        TASK-046 adds +0.2 arousal on visitor_connect (total +0.3), so target is higher.
+        """
         d = DrivesState(mood_arousal=0.30)
         events = [
             Event(event_type='visitor_connect', source='visitor:x', payload={}),
@@ -291,4 +294,4 @@ class TestMoodArousal:
         ]
         new, _ = await update_drives(d, elapsed_hours=0.0, events=events,
                                      cortex_flags={'resonance': True, 'action_variety': True})
-        assert 0.40 <= new.mood_arousal <= 0.65, f"Expected 0.40-0.65, got {new.mood_arousal}"
+        assert 0.60 <= new.mood_arousal <= 0.85, f"Expected 0.60-0.85, got {new.mood_arousal}"

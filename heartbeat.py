@@ -182,6 +182,8 @@ class Heartbeat:
         self._nap_budget_date: Optional[str] = None  # JST date for daily reset
         self._cycle_interval: int = self.INTERVAL_DEFAULT
         self._last_resonance: bool = False  # previous cycle's resonance flag
+        self._consecutive_idle: int = 0  # TASK-046: in-memory idle counter for arousal decay
+        self._last_expression_taken: bool = False  # TASK-046: previous cycle had expression action
         self._recent_action_types: list[str] = []  # last 3 cycle primary actions
 
     def get_cycle_interval(self) -> int:
@@ -387,6 +389,7 @@ class Heartbeat:
                     if not self.running:
                         break
                     await self.run_cycle('micro')
+                    self._consecutive_idle = 0  # TASK-046: visitor event resets idle counter
                     continue
 
                 # ── Sleep cycle check ──
@@ -648,6 +651,13 @@ class Heartbeat:
             detail = cycle_log.get('internal_monologue', '')[:60] or focus.channel
             sleep_seconds = self._get_cycle_interval('focused')
 
+        # TASK-046: Update consecutive idle counter for arousal decay
+        is_idle = focus.channel == 'idle'
+        if is_idle:
+            self._consecutive_idle += 1
+        else:
+            self._consecutive_idle = 0
+
         return CycleResult(
             cycle_type=cycle_log.get('routing_focus', focus.channel),
             focus_channel=focus.channel,
@@ -763,7 +773,20 @@ class Heartbeat:
         if self._recent_action_types and len(set(self._recent_action_types)) == len(self._recent_action_types):
             # All recent actions are different — novelty
             cortex_flags['action_variety'] = True
-        drives, feelings = await update_drives(drives, elapsed, unread, cortex_flags or None)
+        # TASK-046: Build cycle context for drive-mood coupling
+        has_engagement_events = any(
+            e.event_type in ('visitor_speech', 'visitor_connect')
+            for e in unread
+        )
+        cycle_context = {
+            'consecutive_idle': self._consecutive_idle,
+            'engaged_this_cycle': has_engagement_events,
+            'expression_taken': self._last_expression_taken,
+        }
+        drives, feelings = await update_drives(
+            drives, elapsed, unread, cortex_flags or None,
+            cycle_context=cycle_context,
+        )
 
         # 3. Sensorium: events → perceptions
         perceptions = await build_perceptions(
@@ -985,6 +1008,9 @@ class Heartbeat:
                     # Apply rest recovery to drives
                     drives.rest_need = clamp(drives.rest_need - 0.05)
                     drives.energy = clamp(drives.energy + 0.03)
+                    # TASK-046: Nap refresh — waking from nap boosts mood
+                    drives.mood_valence = clamp(drives.mood_valence + 0.05, -1.0, 1.0)
+                    drives.mood_arousal = clamp(drives.mood_arousal + 0.1)
 
                     nap_log = {
                         'id': cycle_id,
@@ -1248,6 +1274,14 @@ class Heartbeat:
             for event in unread:
                 await db.inbox_mark_read(event.id)
             await db.log_cycle(log)
+
+        # TASK-046: Track whether expression happened for next cycle's frustration check
+        _EXPRESSION_ACTIONS = {'action_speak', 'write_journal', 'post_x_draft',
+                               'rearrange', 'express_thought'}
+        self._last_expression_taken = any(
+            ar.success and ar.action in _EXPRESSION_ACTIONS
+            for ar in body_output.executed
+        ) if body_output.executed else False
 
         # ── STAGE: Dialogue (last) ──
         await self._emit_stage('dialogue', {

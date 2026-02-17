@@ -1932,7 +1932,7 @@ class TextFragment:
 
 ### TASK-046: Mood-drive coupling — allostatic affect regulation
 
-**Status:** READY
+**Status:** DONE (2026-02-17)
 **Priority:** Critical (paper blocker — both reviewers flagged mood decoupling)
 **Branch:** fix/mood-drive-coupling
 **Depends on:** TASK-024 (DONE), TASK-036 (DONE)
