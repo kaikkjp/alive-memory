@@ -273,38 +273,38 @@ class TestExpressionFrustration:
 # ── Part D: Energy depletion → mood coupling ──
 
 class TestEnergyDepletionMood:
-    """Low energy suppresses both valence and arousal."""
+    """TASK-050: Energy no longer directly affects mood.
+
+    Energy is display-only (derived from real-dollar budget).
+    Mood effects come from being in rest mode (no actions → expression_need builds).
+    """
 
     @pytest.mark.asyncio
-    async def test_energy_depletion_mood(self):
-        """energy=0.2 → both valence and arousal decrease."""
+    async def test_energy_no_direct_mood_effect(self):
+        """TASK-050: Low energy has no direct mood effect."""
         d = DrivesState(energy=0.2, mood_valence=0.5, mood_arousal=0.5, social_hunger=0.3)
         new, _ = await update_drives(
             d, elapsed_hours=0.0, events=[],
             cycle_context={'consecutive_idle': 0})
-        assert new.mood_valence < 0.5, (
-            f"Low energy should decrease valence, got {new.mood_valence}")
-        assert new.mood_arousal < 0.5, (
-            f"Low energy should decrease arousal, got {new.mood_arousal}")
+        # No energy-to-mood coupling — valence/arousal unchanged
+        assert new.mood_valence == pytest.approx(0.5, abs=0.001), (
+            f"Energy should not affect valence, got {new.mood_valence}")
+        assert new.mood_arousal == pytest.approx(0.5, abs=0.001), (
+            f"Energy should not affect arousal, got {new.mood_arousal}")
 
     @pytest.mark.asyncio
-    async def test_exhaustion_stronger_effect(self):
-        """energy=0.05 → stronger valence and arousal drop than energy=0.2."""
-        d_tired = DrivesState(energy=0.2, mood_valence=0.5, mood_arousal=0.5, social_hunger=0.3)
-        d_exhausted = DrivesState(energy=0.05, mood_valence=0.5, mood_arousal=0.5, social_hunger=0.3)
-        ctx = {'consecutive_idle': 0}
-
-        new_tired, _ = await update_drives(d_tired, 0.0, [], cycle_context=ctx)
-        new_exhausted, _ = await update_drives(d_exhausted, 0.0, [], cycle_context=ctx)
-
-        assert new_exhausted.mood_valence < new_tired.mood_valence, (
-            "Exhaustion should hit valence harder than tiredness")
-        assert new_exhausted.mood_arousal < new_tired.mood_arousal, (
-            "Exhaustion should hit arousal harder than tiredness")
+    async def test_exhaustion_no_mood_effect(self):
+        """TASK-050: Even extreme low energy has no direct mood effect."""
+        d = DrivesState(energy=0.05, mood_valence=0.5, mood_arousal=0.5, social_hunger=0.3)
+        new, _ = await update_drives(
+            d, elapsed_hours=0.0, events=[],
+            cycle_context={'consecutive_idle': 0})
+        assert new.mood_valence == pytest.approx(0.5, abs=0.001)
+        assert new.mood_arousal == pytest.approx(0.5, abs=0.001)
 
     @pytest.mark.asyncio
-    async def test_no_depletion_at_normal_energy(self):
-        """energy=0.5 → no energy depletion mood penalty."""
+    async def test_normal_energy_no_mood_effect(self):
+        """energy=0.5 → no energy mood penalty (same as before TASK-050)."""
         d = DrivesState(energy=0.5, mood_valence=0.5, mood_arousal=0.5, social_hunger=0.3)
         new, _ = await update_drives(
             d, elapsed_hours=0.0, events=[],

@@ -215,7 +215,8 @@ class TestReflectionLoop:
         assert len(calls) >= 1
         saved_drives = calls[0][0][0]
         assert saved_drives.diversive_curiosity < 0.5  # drained
-        assert saved_drives.energy < 0.7  # cost
+        # TASK-050: energy is display-only, not adjusted by output
+        assert saved_drives.energy == 0.7  # unchanged
 
     @pytest.mark.asyncio
     async def test_no_curiosity_drain_on_read(self):

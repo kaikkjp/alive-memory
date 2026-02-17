@@ -54,6 +54,7 @@ class SleepColdMemoryTests(unittest.IsolatedAsyncioTestCase):
             patch.object(sleep.db, "insert_journal", new=self._insert_journal_mock),
             patch.object(sleep, "hippocampus_consolidate", new=AsyncMock()),
             patch.object(sleep.db, "transaction", new=lambda: _Tx()),
+            patch.object(sleep.db, "set_setting", new=AsyncMock()),
         ]
         for p in patches:
             p.start()
@@ -160,6 +161,7 @@ class SleepReflectiveJournalTests(unittest.IsolatedAsyncioTestCase):
             patch.object(sleep.db, "insert_journal", new=insert_journal_mock),
             patch.object(sleep, "hippocampus_consolidate", new=AsyncMock()),
             patch.object(sleep.db, "transaction", new=lambda: _Tx()),
+            patch.object(sleep.db, "set_setting", new=AsyncMock()),
         ]
         for p in patches:
             p.start()
@@ -210,6 +212,7 @@ class SleepReflectiveJournalTests(unittest.IsolatedAsyncioTestCase):
             patch.object(sleep.db, "insert_journal", new=insert_journal_mock),
             patch.object(sleep, "hippocampus_consolidate", new=AsyncMock()),
             patch.object(sleep.db, "transaction", new=lambda: _Tx()),
+            patch.object(sleep.db, "set_setting", new=AsyncMock()),
         ]
         for p in patches:
             p.start()
@@ -288,6 +291,7 @@ class SleepReflectiveJournalTests(unittest.IsolatedAsyncioTestCase):
             patch.object(sleep.db, "insert_journal", new=insert_journal_mock),
             patch.object(sleep, "hippocampus_consolidate", new=AsyncMock()),
             patch.object(sleep.db, "transaction", new=lambda: _Tx()),
+            patch.object(sleep.db, "set_setting", new=AsyncMock()),
         ]
         for p in patches:
             p.start()
@@ -331,6 +335,7 @@ class SleepReflectiveJournalTests(unittest.IsolatedAsyncioTestCase):
             patch.object(sleep.db, "insert_journal", new=insert_journal_mock),
             patch.object(sleep, "hippocampus_consolidate", new=AsyncMock()),
             patch.object(sleep.db, "transaction", new=lambda: _Tx()),
+            patch.object(sleep.db, "set_setting", new=AsyncMock()),
         ]
         for p in patches:
             p.start()

@@ -579,7 +579,6 @@ class TestCheckHabits:
             assert isinstance(result, MotorPlan)
             assert result.habit_fired is True
             assert result.suppressed == []
-            assert result.energy_budget == drives.energy
             action = result.actions[0]
             assert action.status == 'approved'
             assert action.source == 'habit'

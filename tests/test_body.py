@@ -55,8 +55,7 @@ def simple_motor_plan():
         actions=[ActionDecision(action='write_journal', status='approved', source='cortex')],
         suppressed=[],
         habit_fired=False,
-        energy_budget=0.8,
-    )
+            )
 
 
 @pytest.fixture
@@ -114,7 +113,7 @@ class TestExecuteBody:
             body_state='sitting',
             gaze='at_window',
         )
-        plan = MotorPlan(actions=[], suppressed=[], habit_fired=False, energy_budget=0.8)
+        plan = MotorPlan(actions=[], suppressed=[], habit_fired=False)
         await execute_body(plan, validated)
         # Should write thought fragment
         frag_calls = [
@@ -127,7 +126,7 @@ class TestExecuteBody:
     @pytest.mark.asyncio
     async def test_silence_dialogue_not_emitted(self, mock_db):
         validated = ValidatedOutput(dialogue='...')
-        plan = MotorPlan(actions=[], suppressed=[], habit_fired=False, energy_budget=0.8)
+        plan = MotorPlan(actions=[], suppressed=[], habit_fired=False)
         await execute_body(plan, validated)
         speak_calls = [
             call for call in mock_db.append_event.call_args_list
@@ -138,7 +137,7 @@ class TestExecuteBody:
     @pytest.mark.asyncio
     async def test_empty_motor_plan(self):
         validated = ValidatedOutput(dialogue='...')
-        plan = MotorPlan(actions=[], suppressed=[], habit_fired=False, energy_budget=0.8)
+        plan = MotorPlan(actions=[], suppressed=[], habit_fired=False)
         output = await execute_body(plan, validated)
         assert len(output.executed) == 0
         assert output.events_emitted >= 1  # body state always emitted

@@ -87,7 +87,7 @@ def _setup_db_mocks(threads=None):
     _mock_db.get_shelf_assignments = AsyncMock(return_value=[])
     _mock_db.get_active_threads = AsyncMock(return_value=threads or [])
     _mock_db.get_recent_events = AsyncMock(return_value=[])
-    _mock_db.get_energy_budget = AsyncMock(return_value={'spent_today': 0, 'budget': 4.0})
+    _mock_db.get_budget_remaining = AsyncMock(return_value={'budget': 5.0, 'spent': 0, 'remaining': 5.0})
 
 
 # ── Tests ──

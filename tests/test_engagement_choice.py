@@ -369,8 +369,8 @@ class TestVisitorDirectedPriority:
         i_familiar = Intention(action='speak', target='visitor:v1', impulse=0.6)
         i_stranger = Intention(action='speak', target='visitor:v2', impulse=0.6)
 
-        p_familiar = _calculate_priority(i_familiar, drives, 0.15, context)
-        p_stranger = _calculate_priority(i_stranger, drives, 0.15, context)
+        p_familiar = _calculate_priority(i_familiar, drives, context)
+        p_stranger = _calculate_priority(i_stranger, drives, context)
 
         assert p_familiar > p_stranger, (
             f"Familiar ({p_familiar}) should outprioritize stranger ({p_stranger})"
@@ -391,8 +391,8 @@ class TestVisitorDirectedPriority:
         # Stranger asks an interesting question (high impulse)
         i_stranger = Intention(action='speak', target='visitor:v2', impulse=0.7)
 
-        p_returner = _calculate_priority(i_returner, drives, 0.15, context)
-        p_stranger = _calculate_priority(i_stranger, drives, 0.15, context)
+        p_returner = _calculate_priority(i_returner, drives, context)
+        p_stranger = _calculate_priority(i_stranger, drives, context)
 
         assert p_stranger > p_returner, (
             f"Interesting stranger ({p_stranger}) should beat boring returner ({p_returner})"
@@ -413,8 +413,8 @@ class TestVisitorDirectedPriority:
         # Journal writing intention
         i_journal = Intention(action='write_journal', target='journal', impulse=0.6)
 
-        p_speak = _calculate_priority(i_speak, drives, 0.15, context)
-        p_journal = _calculate_priority(i_journal, drives, 0.05, context)
+        p_speak = _calculate_priority(i_speak, drives, context)
+        p_journal = _calculate_priority(i_journal, drives, context)
 
         assert p_journal > p_speak, (
             f"Journal ({p_journal}) should beat dampened speak ({p_speak})"
@@ -427,8 +427,8 @@ class TestVisitorDirectedPriority:
 
         intention = Intention(action='speak', target='visitor:v1', impulse=0.5)
 
-        p_hungry = _calculate_priority(intention, drives_hungry, 0.15)
-        p_sated = _calculate_priority(intention, drives_sated, 0.15)
+        p_hungry = _calculate_priority(intention, drives_hungry)
+        p_sated = _calculate_priority(intention, drives_sated)
 
         assert p_hungry > p_sated, (
             f"Hungry ({p_hungry}) should exceed sated ({p_sated})"
@@ -439,7 +439,7 @@ class TestVisitorDirectedPriority:
         drives = DrivesState(social_hunger=0.8, energy=0.8)
         intention = Intention(action='speak', target='visitor', impulse=0.5)
 
-        p = _calculate_priority(intention, drives, 0.15)
+        p = _calculate_priority(intention, drives)
 
         # Should include social hunger boost: 0.5 + 0.8*0.3 = 0.74
         assert p > 0.7, f"Expected > 0.7 with social hunger boost, got {p}"

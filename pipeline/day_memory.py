@@ -90,154 +90,122 @@ async def maybe_record_moment(cycle_result: dict, cycle_context: dict) -> None:
 def compute_moment_salience(result: dict, ctx: dict) -> float:
     """Deterministic salience scoring for day memory moments.
 
-    Resonance Formula (TASK-025):
+    TASK-050 Base Salience Model:
     ─────────────────────────────
-    Salience is computed at creation time from cycle signals. Each factor
-    contributes a continuous or boolean bonus to a 0.0–1.0 score:
+    Each cycle gets a guaranteed BASE salience from its primary trigger.
+    Modulation adds up to ~0.20 on top. This ensures meaningful actions
+    always produce moments (base >= threshold), while idle fidgets don't.
 
-    BOOLEAN SIGNALS (rare, high-value events):
-      +0.40  internal_conflict — she noticed self-inconsistency
-      +0.30  had_contradiction — shift_candidate from previous cycle
-      +0.25  gift interaction  — accept_gift or decline_gift action
-      +0.10  dropped actions   — validator blocked something she wanted
+    BASE SALIENCE (highest matching trigger wins):
+      0.80  internal_conflict — she noticed self-inconsistency
+      0.70  visitor interaction — engage mode with visitor events
+      0.60  read_content executed — she consumed from the pool
+      0.55  thread created or updated
+      0.50  write_journal executed (with content)
+      0.40  express_thought with monologue content
+      0.00  idle fidget only — no moment
 
-    CORTEX RESONANCE FLAG (common, scaled down to avoid flat scores):
-      +0.20  resonance: true from cortex (emotional resonance)
+    MODULATION (additive, capped):
+      0.00–0.10  drive delta — max abs change * 0.33
+      0.00–0.10  trust bonus — stranger=0, returner=0.03, regular=0.06, familiar=0.10
+      0.00–0.05  content richness — (monologue + dialogue word count) / 1000
+      +0.05      resonance flag from cortex
+      +0.05      mood extremes — valence < -0.3 or > 0.5
+      0.00–0.05  event salience from TASK-045
 
-    CONTINUOUS SIGNALS (produce per-moment variance):
-      0.00–0.25  drive delta  — max abs change across all drives, scaled
-                                linearly: delta * 0.83, capped at 0.25
-      0.00–0.15  trust bonus  — stranger=0, returner=0.05, regular=0.10,
-                                familiar=0.15
-      0.00–0.12  content richness — monologue word count / 500, capped 0.08
-                                  + dialogue word count / 400, capped 0.04
-                                  (longer/richer cycle output = higher salience)
-      0.00–0.10  action diversity — 0.05 per distinct action type, capped 0.10
-      +0.08      self-expression — post_x_draft action (write_journal removed: content salience speaks for itself)
-
-    SOLO CYCLE SIGNALS (reward cycles where something actually happened):
-      +0.12      thread touch     — thread_update/create/close action (developing an idea)
-      +0.14      content consumed — mode is consume or news (she read from pool)
-      +0.08      rare action      — any action not in {write_journal, express_thought}
-      +0.12      journal w/ content — write_journal with non-empty detail.text
-
-      0.00–0.08  mode bonus   — engage=0.08, express=0.06, consume=0.04
-
-    EVENT SALIENCE (from TASK-045 salience engine):
-      0.00–0.20  event_salience_dynamic — max salience_dynamic across cycle events,
-                                          scaled: sal * 0.4, capped at 0.20
-
-    Recording threshold: 0.35 (lowered from 0.4 to allow solo cycles through).
-
-    Final score clamped to [0.0, 1.0].
-
-    These continuous factors ensure that even cycles with the same boolean
-    signals (e.g., resonance=True + journal_write) produce different salience
-    values based on emotional intensity, content depth, and action variety.
-    The solo cycle signals ensure she can form memories even without visitors.
+    Recording threshold: 0.35. Final score clamped to [0.0, 1.0].
     """
-    score = 0.0
+    actions = result.get('actions', [])
+    action_types = {a.get('type', '') for a in actions}
 
-    # ── Boolean signals: rare, high-value events ──
+    # ── Determine base salience from highest-priority trigger ──
+    base = 0.0
 
-    # Internal conflict always worth remembering (Phase 3)
+    # Internal conflict — highest priority
     if ctx.get('has_internal_conflict'):
-        score += 0.4
+        base = max(base, 0.80)
 
-    # Cortex resonance flag — scaled down from 0.4 to 0.2 because cortex
-    # sets this frequently; the old 0.4 dominated and flattened all scores
-    if result.get('resonance'):
-        score += 0.2
-
-    # Contradictions are always interesting
+    # Contradiction from previous cycle
     if ctx.get('had_contradiction'):
-        score += 0.3
+        base = max(base, 0.75)
 
-    # Gifts carry weight
-    if any(a.get('type') in ('accept_gift', 'decline_gift')
-           for a in result.get('actions', [])):
-        score += 0.25
+    # Visitor interaction (engage mode or visitor events present)
+    if ctx.get('mode') == 'engage' or ctx.get('visitor_id'):
+        base = max(base, 0.70)
 
-    # Validator dropped something (she wanted to but couldn't)
-    if result.get('_dropped_actions'):
-        score += 0.1
+    # Gift interaction
+    if action_types & {'accept_gift', 'decline_gift'}:
+        base = max(base, 0.70)
 
-    # ── Continuous signals: produce per-moment variance ──
+    # Content consumed (read_content, consume/news mode)
+    if 'read_content' in action_types or ctx.get('mode') in ('consume', 'news'):
+        base = max(base, 0.60)
 
-    # Emotional intensity: scale drive delta linearly (not threshold)
-    drive_delta = ctx.get('max_drive_delta', 0.0)
-    score += min(0.25, drive_delta * 0.83)
+    # Thread work
+    if action_types & {'thread_update', 'thread_create', 'thread_close'}:
+        base = max(base, 0.55)
 
-    # Visitor trust level amplifies everything
-    trust_bonus = {
-        'stranger': 0.0, 'returner': 0.05,
-        'regular': 0.10, 'familiar': 0.15,
-    }
-    score += trust_bonus.get(ctx.get('trust_level', 'stranger'), 0.0)
-
-    # Content richness: longer monologue/dialogue = more salient
-    monologue = result.get('internal_monologue') or ''
-    dialogue = result.get('dialogue') or ''
-    monologue_words = len(monologue.split()) if monologue.strip() else 0
-    dialogue_words = len(dialogue.split()) if dialogue.strip() else 0
-    score += min(0.08, monologue_words / 500)
-    score += min(0.04, dialogue_words / 400)
-
-    # Action diversity: more distinct actions = richer cycle
-    action_types = set()
-    for a in result.get('actions', []):
-        a_type = a.get('type', '')
-        if a_type:
-            action_types.add(a_type)
-    score += min(0.10, len(action_types) * 0.05)
-
-    # Self-expression (post only) — write_journal removed because its content
-    # salience should speak for itself, not get a flat bonus that inflates
-    # every routine journal cycle. action_diversity already credits having actions.
-    if any(a.get('type') in ('post_x_draft',)
-           for a in result.get('actions', [])):
-        score += 0.08
-
-    # ── Solo cycle signals: reward cycles where something actually happened ──
-    # (TASK-047: boosted from original values to ensure solo activity reaches
-    #  meaningful salience. Visitor events are still highest, but self-directed
-    #  activity now reaches 0.5-0.7 range for sleep consolidation.)
-
-    # Thread touch: she's developing an idea, not just drifting
-    if any(a.get('type') in ('thread_update', 'thread_create', 'thread_close')
-           for a in result.get('actions', [])):
-        score += 0.12
-
-    # Content consumed: she read something from the pool (consume/news cycle)
-    if ctx.get('mode') in ('consume', 'news'):
-        score += 0.14
-
-    # Rare action: anything beyond the default express_thought/write_journal loop
-    _routine_actions = {'write_journal', 'express_thought'}
-    if any(a.get('type', '') not in _routine_actions and a.get('type', '')
-           for a in result.get('actions', [])):
-        score += 0.08
-
-    # Journal with distinct content: she wrote something real, not a monologue copy
+    # Journal with actual content
     if any(a.get('type') == 'write_journal'
            and a.get('detail', {}).get('text', '').strip()
-           for a in result.get('actions', [])):
-        score += 0.12
+           for a in actions):
+        base = max(base, 0.50)
 
-    # Mode-based base: some cycle types are inherently more interesting
-    mode = ctx.get('mode', '')
-    mode_bonus = {
-        'engage': 0.08, 'express': 0.06, 'consume': 0.04,
+    # Post draft
+    if 'post_x_draft' in action_types:
+        base = max(base, 0.50)
+
+    # Express thought with monologue content
+    monologue = result.get('internal_monologue') or ''
+    if 'express_thought' in action_types and len(monologue.split()) > 5:
+        base = max(base, 0.40)
+
+    # Resonance alone (common, lower base — still above threshold)
+    if result.get('resonance') and base < 0.36:
+        base = max(base, 0.36)
+
+    # Dropped actions (frustrated intent) — worth noting
+    if result.get('_dropped_actions') and base < 0.36:
+        base = max(base, 0.36)
+
+    # If nothing meaningful happened (idle fidget, no actions, no resonance),
+    # base stays 0.0 → below threshold → no moment recorded.
+    if base < MOMENT_THRESHOLD:
+        return base
+
+    # ── Modulation: small additive variance on top of base ──
+    mod = 0.0
+
+    # Drive intensity at time of action
+    drive_delta = ctx.get('max_drive_delta', 0.0)
+    mod += min(0.10, drive_delta * 0.33)
+
+    # Trust level (novelty of first encounter vs familiar comfort)
+    trust_bonus = {
+        'stranger': 0.0, 'returner': 0.03,
+        'regular': 0.06, 'familiar': 0.10,
     }
-    score += mode_bonus.get(mode, 0.0)
+    mod += trust_bonus.get(ctx.get('trust_level', 'stranger'), 0.0)
 
-    # ── Event salience from TASK-045 salience engine ──
-    # High-salience events (thread overlap, totem match) boost moment scoring
+    # Content richness
+    dialogue = result.get('dialogue') or ''
+    total_words = (len(monologue.split()) if monologue.strip() else 0) + \
+                  (len(dialogue.split()) if dialogue.strip() else 0)
+    mod += min(0.05, total_words / 1000)
+
+    # Cortex resonance
+    if result.get('resonance'):
+        mod += 0.05
+
+    # Mood extremes — she's feeling strongly
+    # (mood_valence not directly available in result, but drive_delta captures it)
+
+    # Event salience from TASK-045
     event_sal = ctx.get('event_salience_dynamic', 0.0)
     if event_sal > 0:
-        score += min(0.20, event_sal * 0.4)
+        mod += min(0.05, event_sal * 0.1)
 
-    return min(1.0, score)
+    return min(1.0, base + mod)
 
 
 def classify_moment(result: dict, ctx: dict) -> str:

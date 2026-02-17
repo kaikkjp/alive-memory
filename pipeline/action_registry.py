@@ -54,7 +54,6 @@ class ActionCapability:
     """Describes what the body can do and its constraints."""
     name: str
     enabled: bool
-    energy_cost: float
     cooldown_seconds: int = 0
     last_used: Optional[datetime] = None
     max_per_cycle: int = 1
@@ -68,7 +67,6 @@ ACTION_REGISTRY: dict[str, ActionCapability] = {
     'speak': ActionCapability(
         name='speak',
         enabled=True,
-        energy_cost=0.15,
         cooldown_seconds=0,
         max_per_cycle=1,
         requires=['visitor_present'],
@@ -78,7 +76,6 @@ ACTION_REGISTRY: dict[str, ActionCapability] = {
     'write_journal': ActionCapability(
         name='write_journal',
         enabled=True,
-        energy_cost=0.05,
         cooldown_seconds=0,
         max_per_cycle=1,
         requires=[],
@@ -88,7 +85,6 @@ ACTION_REGISTRY: dict[str, ActionCapability] = {
     'rearrange': ActionCapability(
         name='rearrange',
         enabled=True,
-        energy_cost=0.1,
         cooldown_seconds=0,
         max_per_cycle=1,
         requires=[],
@@ -97,7 +93,6 @@ ACTION_REGISTRY: dict[str, ActionCapability] = {
     'express_thought': ActionCapability(
         name='express_thought',
         enabled=True,
-        energy_cost=0.02,
         cooldown_seconds=0,
         max_per_cycle=1,
         requires=[],
@@ -106,7 +101,6 @@ ACTION_REGISTRY: dict[str, ActionCapability] = {
     'end_engagement': ActionCapability(
         name='end_engagement',
         enabled=True,
-        energy_cost=0.0,
         cooldown_seconds=0,
         max_per_cycle=1,
         requires=['visitor_present', 'turn_count >= 3'],
@@ -115,7 +109,6 @@ ACTION_REGISTRY: dict[str, ActionCapability] = {
     'accept_gift': ActionCapability(
         name='accept_gift',
         enabled=True,
-        energy_cost=0.1,
         cooldown_seconds=0,
         max_per_cycle=1,
         requires=['visitor_present'],
@@ -124,7 +117,6 @@ ACTION_REGISTRY: dict[str, ActionCapability] = {
     'decline_gift': ActionCapability(
         name='decline_gift',
         enabled=True,
-        energy_cost=0.02,
         cooldown_seconds=0,
         max_per_cycle=1,
         requires=['visitor_present'],
@@ -133,7 +125,6 @@ ACTION_REGISTRY: dict[str, ActionCapability] = {
     'show_item': ActionCapability(
         name='show_item',
         enabled=True,
-        energy_cost=0.05,
         cooldown_seconds=0,
         max_per_cycle=1,
         requires=['visitor_present'],
@@ -143,7 +134,6 @@ ACTION_REGISTRY: dict[str, ActionCapability] = {
     'post_x_draft': ActionCapability(
         name='post_x_draft',
         enabled=True,
-        energy_cost=0.15,
         cooldown_seconds=0,
         max_per_cycle=1,
         requires=[],
@@ -153,7 +143,6 @@ ACTION_REGISTRY: dict[str, ActionCapability] = {
     'close_shop': ActionCapability(
         name='close_shop',
         enabled=True,
-        energy_cost=0.0,
         cooldown_seconds=0,
         max_per_cycle=1,
         requires=[],
@@ -162,7 +151,6 @@ ACTION_REGISTRY: dict[str, ActionCapability] = {
     'open_shop': ActionCapability(
         name='open_shop',
         enabled=True,
-        energy_cost=0.0,
         cooldown_seconds=0,
         max_per_cycle=1,
         requires=[],
@@ -171,7 +159,6 @@ ACTION_REGISTRY: dict[str, ActionCapability] = {
     'place_item': ActionCapability(
         name='place_item',
         enabled=True,
-        energy_cost=0.02,
         cooldown_seconds=0,
         max_per_cycle=1,
         requires=[],
@@ -180,7 +167,6 @@ ACTION_REGISTRY: dict[str, ActionCapability] = {
     'read_content': ActionCapability(
         name='read_content',
         enabled=True,
-        energy_cost=1.5,
         cooldown_seconds=360,  # ~2 cycles at 3min/cycle
         max_per_cycle=1,
         requires=[],
@@ -190,7 +176,6 @@ ACTION_REGISTRY: dict[str, ActionCapability] = {
     'save_for_later': ActionCapability(
         name='save_for_later',
         enabled=True,
-        energy_cost=0.0,
         cooldown_seconds=0,
         max_per_cycle=1,
         requires=[],
@@ -199,7 +184,6 @@ ACTION_REGISTRY: dict[str, ActionCapability] = {
     'mention_in_conversation': ActionCapability(
         name='mention_in_conversation',
         enabled=True,
-        energy_cost=0.5,
         cooldown_seconds=0,
         max_per_cycle=2,
         requires=[],
@@ -210,7 +194,6 @@ ACTION_REGISTRY: dict[str, ActionCapability] = {
     'browse_web': ActionCapability(
         name='browse_web',
         enabled=False,
-        energy_cost=0.2,
         cooldown_seconds=300,
         max_per_cycle=1,
         requires=[],
@@ -219,7 +202,6 @@ ACTION_REGISTRY: dict[str, ActionCapability] = {
     'post_x': ActionCapability(
         name='post_x',
         enabled=False,
-        energy_cost=0.15,
         cooldown_seconds=3600,
         max_per_cycle=1,
         requires=[],
@@ -229,7 +211,6 @@ ACTION_REGISTRY: dict[str, ActionCapability] = {
     'watch_video': ActionCapability(
         name='watch_video',
         enabled=False,
-        energy_cost=0.25,
         cooldown_seconds=600,
         max_per_cycle=1,
         requires=[],
@@ -238,7 +219,6 @@ ACTION_REGISTRY: dict[str, ActionCapability] = {
     'search_marketplace': ActionCapability(
         name='search_marketplace',
         enabled=False,
-        energy_cost=0.2,
         cooldown_seconds=300,
         max_per_cycle=1,
         requires=[],
@@ -247,7 +227,6 @@ ACTION_REGISTRY: dict[str, ActionCapability] = {
     'make_purchase': ActionCapability(
         name='make_purchase',
         enabled=False,
-        energy_cost=0.3,
         cooldown_seconds=1800,
         max_per_cycle=1,
         requires=['wallet_connected', 'budget_remaining'],
@@ -256,7 +235,6 @@ ACTION_REGISTRY: dict[str, ActionCapability] = {
     'send_message': ActionCapability(
         name='send_message',
         enabled=False,
-        energy_cost=0.1,
         cooldown_seconds=60,
         max_per_cycle=1,
         requires=[],

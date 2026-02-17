@@ -2262,7 +2262,7 @@ ORDER BY sim_day;
 
 ### TASK-050: Real-dollar energy system + fix day_memory
 
-**Status:** READY
+**Status:** DONE (2026-02-17)
 **Priority:** Critical
 **Branch:** `fix/real-energy`
 

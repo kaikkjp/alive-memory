@@ -258,7 +258,6 @@ class MotorPlan:
     actions: list[ActionDecision] = field(default_factory=list)
     suppressed: list[ActionDecision] = field(default_factory=list)
     habit_fired: bool = False
-    energy_budget: float = 1.0
 
 
 @dataclass

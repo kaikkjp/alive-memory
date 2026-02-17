@@ -109,8 +109,8 @@ async def build_initial_state(clock_now: datetime = None) -> dict:
     if room.shop_status == 'closed':
         status = 'sleeping'
     else:
-        energy = await db.get_energy_budget()
-        if energy['spent_today'] >= energy['budget']:
+        budget = await db.get_budget_remaining()
+        if budget['remaining'] <= 0:
             status = 'resting'
         else:
             status = 'awake'

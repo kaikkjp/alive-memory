@@ -367,16 +367,16 @@ async def handle_set_cycle_interval(server, writer: asyncio.StreamWriter,
 
 async def handle_body(server, writer: asyncio.StreamWriter,
                       authorization: str):
-    """Handle GET /api/dashboard/body — return body capabilities and energy."""
+    """Handle GET /api/dashboard/body — return body capabilities and budget."""
     if not check_dashboard_auth(authorization):
         await server._http_json(writer, 401, {'error': 'unauthorized'})
         return
     capabilities = await db.get_action_capabilities()
-    energy = await db.get_energy_budget()
+    budget = await db.get_budget_remaining()
     actions_today = await db.get_actions_today()
     await server._http_json(writer, 200, {
         'capabilities': capabilities,
-        'energy': energy,
+        'budget': budget,
         'actions_today': actions_today,
     })
 
@@ -427,3 +427,36 @@ async def handle_behavioral(server, writer: asyncio.StreamWriter,
         'suppressions': suppressions,
         'habit_skips_today': habit_skips_today,
     })
+
+
+async def handle_get_budget(server, writer: asyncio.StreamWriter,
+                             authorization: str):
+    """Handle GET /api/dashboard/budget — return real-dollar budget status."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+    budget = await db.get_budget_remaining()
+    await server._http_json(writer, 200, budget)
+
+
+async def handle_set_budget(server, writer: asyncio.StreamWriter,
+                             authorization: str, body_bytes: bytes):
+    """Handle POST /api/dashboard/budget — update daily dollar budget."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+    try:
+        data = json.loads(body_bytes.decode('utf-8'))
+        daily_budget = data.get('daily_budget')
+        if not isinstance(daily_budget, (int, float)) or daily_budget <= 0:
+            await server._http_json(writer, 400, {
+                'error': 'daily_budget must be a positive number',
+            })
+            return
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        await server._http_json(writer, 400, {'error': 'bad request'})
+        return
+
+    await db.set_setting('daily_budget', str(round(daily_budget, 2)))
+    budget = await db.get_budget_remaining()
+    await server._http_json(writer, 200, budget)

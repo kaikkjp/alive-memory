@@ -70,7 +70,8 @@ async def update_drives(
     # Stimulus-driven spikes from gap detection are the primary driver.
     new.diversive_curiosity = clamp(new.diversive_curiosity + 0.005 * elapsed_hours)
     new.expression_need = clamp(new.expression_need + 0.04 * elapsed_hours)
-    new.energy = clamp(new.energy - 0.02 * elapsed_hours)
+    # NOTE: energy field is now a display-only derived value from real-dollar
+    # budget (TASK-050). No time-based decay or homeostatic pull on energy.
 
     # Rest need builds with time — she gets tired just from being awake
     # Faster when engaged (+0.06/hr), slower when idle (+0.03/hr)
@@ -95,8 +96,6 @@ async def update_drives(
         new.expression_need, DRIVE_EQUILIBRIA['expression_need'], elapsed_hours)
     new.rest_need = _homeostatic_pull(
         new.rest_need, DRIVE_EQUILIBRIA['rest_need'], elapsed_hours)
-    new.energy = _homeostatic_pull(
-        new.energy, DRIVE_EQUILIBRIA['energy'], elapsed_hours)
     new.mood_valence = _homeostatic_pull(
         new.mood_valence, DRIVE_EQUILIBRIA['mood_valence'], elapsed_hours, -1.0, 1.0)
     new.mood_arousal = _homeostatic_pull(
@@ -106,7 +105,6 @@ async def update_drives(
     for event in events:
         if event.event_type == 'visitor_speech':
             new.social_hunger = clamp(new.social_hunger - 0.08)
-            new.energy = clamp(new.energy - 0.03)
             new.rest_need = clamp(new.rest_need + 0.04)  # each interaction tires her
 
         if event.event_type == 'action_speak':
@@ -122,7 +120,6 @@ async def update_drives(
     # Cortex resonance flags (from previous cycle)
     if cortex_flags and cortex_flags.get('resonance'):
         new.social_hunger = clamp(new.social_hunger - 0.15)  # bonus
-        new.energy = clamp(new.energy + 0.05)                 # energy boost
         new.mood_valence = clamp(new.mood_valence + 0.1, -1.0, 1.0)
         new.mood_arousal = clamp(new.mood_arousal + 0.08)     # arousal spike
 
@@ -200,17 +197,10 @@ async def update_drives(
         new.mood_valence = clamp(
             new.mood_valence - 0.01 * (new.expression_need - 0.5), -1.0, 1.0)
 
-    # Part D: Energy depletion → mood coupling
-    if new.energy < 0.1:
-        new.mood_valence = clamp(new.mood_valence - 0.03, -1.0, 1.0)
-        new.mood_arousal = clamp(new.mood_arousal - 0.05)
-    elif new.energy < 0.3:
-        new.mood_valence = clamp(new.mood_valence - 0.01, -1.0, 1.0)
-        new.mood_arousal = clamp(new.mood_arousal - 0.02)
-
-    # NOTE: Nap refresh (valence +0.05, arousal +0.1) is applied directly
-    # in heartbeat.py nap consolidation path, not here — the nap triggers
-    # outside the normal update_drives call.
+    # NOTE: Energy is now a display-only derived value from real-dollar budget
+    # (TASK-050). No energy-to-mood coupling — being in rest mode means no
+    # actions, expression_need builds, valence drops via existing drive coupling.
+    # The real constraint creates realistic mood consequences without artificial wiring.
 
     # Generate feelings text
     feelings = drives_to_feeling(new)

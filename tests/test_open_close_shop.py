@@ -69,9 +69,6 @@ class TestActionRegistryOpenShop:
     def test_open_shop_is_reflexive(self):
         assert ACTION_REGISTRY['open_shop'].generative is False
 
-    def test_open_shop_zero_energy_cost(self):
-        assert ACTION_REGISTRY['open_shop'].energy_cost == 0.0
-
     def test_close_shop_is_reflexive(self):
         assert ACTION_REGISTRY['close_shop'].generative is False
 
@@ -140,7 +137,8 @@ class TestOpenShopDriveGate:
     """open_shop is blocked when energy < 0.3 or rest_need > 0.6."""
 
     @pytest.mark.asyncio
-    async def test_blocked_when_low_energy(self):
+    async def test_low_energy_no_longer_blocks(self):
+        """TASK-050: Energy gate removed — low energy doesn't block open_shop."""
         drives = _make_drives(energy=0.2, rest_need=0.3)
         intentions = [Intention(action='open_shop', target=None,
                                 content='open up', impulse=0.8)]
@@ -155,9 +153,9 @@ class TestOpenShopDriveGate:
 
             plan = await select_actions(validated, drives)
 
-        assert len(plan.actions) == 0
-        assert len(plan.suppressed) == 1
-        assert 'tired' in plan.suppressed[0].suppression_reason.lower()
+        # TASK-050: Budget check is in heartbeat, not basal_ganglia
+        assert len(plan.actions) == 1
+        assert plan.actions[0].status == 'approved'
 
     @pytest.mark.asyncio
     async def test_blocked_when_high_rest_need(self):

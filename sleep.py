@@ -134,6 +134,11 @@ async def sleep_cycle() -> bool:
     # 7. Reset drives for morning
     await reset_drives_for_morning()
 
+    # 7b. TASK-050: Write last_sleep_reset timestamp for budget tracking.
+    # Budget query uses this as the floor for cost aggregation.
+    # Night sleep reflections above cost money — deducted BEFORE this reset.
+    await db.set_setting('last_sleep_reset', clock.now_utc().isoformat())
+
     # 8. Embed today's cold memory entries (Phase 2)
     if COLD_SEARCH_ENABLED:
         try:
@@ -398,6 +403,9 @@ async def reset_drives_for_morning():
     drives.curiosity = 0.5
     drives.expression_need = 0.3
     drives.rest_need = 0.2
-    drives.energy = 0.8
+    # NOTE: energy is now a display-only derived value from real-dollar budget
+    # (TASK-050). After sleep reset writes last_sleep_reset, budget is full,
+    # so energy will read as 1.0 on next cycle's budget check.
+    drives.energy = 1.0  # display hint — actual value derived from budget
     # Keep mood — it carries over
     await db.save_drives_state(drives)

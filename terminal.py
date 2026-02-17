@@ -493,7 +493,7 @@ async def _peek_body():
     for cap in enabled:
         cooldown_str = f"  cd:{cap.cooldown_seconds}s" if cap.cooldown_seconds > 0 else ""
         reqs = f"  req:{','.join(cap.requires)}" if cap.requires else ""
-        print(f"  {Fore.GREEN}●{Style.RESET_ALL} {cap.name:<20} ⚡{cap.energy_cost:.2f}{cooldown_str}{reqs}")
+        print(f"  {Fore.GREEN}●{Style.RESET_ALL} {cap.name:<20}{cooldown_str}{reqs}")
 
     if disabled:
         print(f"\n  {Fore.WHITE}Disabled:{Style.RESET_ALL}")

@@ -1,11 +1,9 @@
-"""Tests for dashboard body endpoint (TASK-015, TASK-021).
+"""Tests for dashboard body endpoint (TASK-015, TASK-021, TASK-050).
 
-Verifies GET /api/dashboard/body returns correct JSON shape
-with both empty and seeded action_log data.
+Verifies GET /api/dashboard/body returns correct JSON shape.
 
-TASK-021 additions:
-- JST day boundary tests: action at 23:30 JST appears in today, not after midnight.
-- Cooldown accuracy: recently-used action returns ready=False (no TypeError swallow).
+TASK-050: Energy replaced with real-dollar budget. Body endpoint now returns
+'budget' key (from get_budget_remaining) instead of 'energy' key.
 """
 
 import asyncio
@@ -57,7 +55,7 @@ class TestBodyEndpointAuth(unittest.TestCase):
 
 
 class TestBodyEndpointData(unittest.TestCase):
-    """Body endpoint returns correct JSON shape."""
+    """Body endpoint returns correct JSON shape (TASK-050: budget replaces energy)."""
 
     def setUp(self):
         _dashboard_tokens.clear()
@@ -67,13 +65,13 @@ class TestBodyEndpointData(unittest.TestCase):
 
     @patch('api.dashboard_routes.db')
     def test_body_empty_data(self, mock_db):
-        """Fresh day with no actions returns empty lists and zero energy."""
+        """Fresh day with no actions returns empty lists and full budget."""
         mock_db.get_action_capabilities = AsyncMock(return_value=[
             {'action': 'speak', 'enabled': True, 'ready': True,
-             'cooling_until': None, 'energy_cost': 0.15},
+             'cooling_until': None},
         ])
-        mock_db.get_energy_budget = AsyncMock(return_value={
-            'spent_today': 0, 'budget': 1.0,
+        mock_db.get_budget_remaining = AsyncMock(return_value={
+            'budget': 5.0, 'spent': 0.0, 'remaining': 5.0,
         })
         mock_db.get_actions_today = AsyncMock(return_value=[])
 
@@ -88,9 +86,9 @@ class TestBodyEndpointData(unittest.TestCase):
         self.assertEqual(args[0][1], 200)
         body = args[0][2]
 
-        # Verify top-level keys
+        # Verify top-level keys (TASK-050: 'budget' replaces 'energy')
         self.assertIn('capabilities', body)
-        self.assertIn('energy', body)
+        self.assertIn('budget', body)
         self.assertIn('actions_today', body)
 
         # Verify capabilities shape
@@ -100,26 +98,26 @@ class TestBodyEndpointData(unittest.TestCase):
         self.assertTrue(cap['enabled'])
         self.assertTrue(cap['ready'])
         self.assertIsNone(cap['cooling_until'])
-        self.assertEqual(cap['energy_cost'], 0.15)
 
-        # Verify energy shape
-        self.assertEqual(body['energy']['spent_today'], 0)
-        self.assertEqual(body['energy']['budget'], 1.0)
+        # Verify budget shape
+        self.assertEqual(body['budget']['budget'], 5.0)
+        self.assertEqual(body['budget']['spent'], 0.0)
+        self.assertEqual(body['budget']['remaining'], 5.0)
 
         # Verify empty actions today
         self.assertEqual(body['actions_today'], [])
 
     @patch('api.dashboard_routes.db')
     def test_body_seeded_data(self, mock_db):
-        """With seeded action_log entries, returns correct counts."""
+        """With seeded data, returns correct budget and actions."""
         mock_db.get_action_capabilities = AsyncMock(return_value=[
             {'action': 'speak', 'enabled': True, 'ready': True,
-             'cooling_until': None, 'energy_cost': 0.15},
+             'cooling_until': None},
             {'action': 'browse_web', 'enabled': False, 'ready': False,
-             'cooling_until': None, 'energy_cost': 0.2},
+             'cooling_until': None},
         ])
-        mock_db.get_energy_budget = AsyncMock(return_value={
-            'spent_today': 0.45, 'budget': 1.0,
+        mock_db.get_budget_remaining = AsyncMock(return_value={
+            'budget': 5.0, 'spent': 2.37, 'remaining': 2.63,
         })
         mock_db.get_actions_today = AsyncMock(return_value=[
             {'type': 'speak', 'count': 3, 'total_energy': 0.45},
@@ -137,20 +135,19 @@ class TestBodyEndpointData(unittest.TestCase):
         body = args[0][2]
 
         self.assertEqual(len(body['capabilities']), 2)
-        self.assertEqual(body['energy']['spent_today'], 0.45)
+        self.assertEqual(body['budget']['spent'], 2.37)
+        self.assertEqual(body['budget']['remaining'], 2.63)
         self.assertEqual(len(body['actions_today']), 1)
-        self.assertEqual(body['actions_today'][0]['type'], 'speak')
-        self.assertEqual(body['actions_today'][0]['count'], 3)
 
     @patch('api.dashboard_routes.db')
     def test_body_cooling_capability(self, mock_db):
         """Capability with active cooldown shows ready=False and cooling_until."""
         mock_db.get_action_capabilities = AsyncMock(return_value=[
             {'action': 'browse_web', 'enabled': True, 'ready': False,
-             'cooling_until': '2026-02-15T12:30:00', 'energy_cost': 0.2},
+             'cooling_until': '2026-02-15T12:30:00'},
         ])
-        mock_db.get_energy_budget = AsyncMock(return_value={
-            'spent_today': 0.2, 'budget': 1.0,
+        mock_db.get_budget_remaining = AsyncMock(return_value={
+            'budget': 5.0, 'spent': 0.2, 'remaining': 4.8,
         })
         mock_db.get_actions_today = AsyncMock(return_value=[
             {'type': 'browse_web', 'count': 1, 'total_energy': 0.2},
@@ -186,15 +183,15 @@ async def fresh_db(tmp_path):
 
 
 async def _seed_action(conn, action='speak', status='executed',
-                       created_at_utc=None, energy_cost=0.15,
+                       created_at_utc=None,
                        source='cortex'):
     """Insert a row into action_log with explicit UTC timestamp."""
     ts = created_at_utc or datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
     await conn.execute(
         """INSERT INTO action_log
-           (id, cycle_id, action, status, source, impulse, energy_cost, created_at)
-           VALUES (?, ?, ?, ?, ?, 0.8, ?, ?)""",
-        (str(uuid.uuid4()), 'cycle-1', action, status, source, energy_cost, ts),
+           (id, cycle_id, action, status, source, impulse, created_at)
+           VALUES (?, ?, ?, ?, ?, 0.8, ?)""",
+        (str(uuid.uuid4()), 'cycle-1', action, status, source, ts),
     )
     await conn.commit()
 
@@ -233,24 +230,6 @@ class TestJSTDayBoundaries:
             assert len(actions) == 0
 
     @pytest.mark.asyncio
-    async def test_energy_budget_uses_jst_boundary(self, fresh_db):
-        """Energy budget sums only actions within JST day boundaries."""
-        jst_2359 = datetime(2026, 2, 15, 23, 59, 0, tzinfo=JST)
-        with patch.object(clock, '_clock', clock.Clock(simulate=True, start=jst_2359)):
-            conn = await db.get_db()
-            # Action within today (JST): 10:00 JST = 01:00 UTC
-            ts_today = datetime(2026, 2, 15, 1, 0, 0, tzinfo=timezone.utc)
-            await _seed_action(conn, created_at_utc=ts_today.strftime('%Y-%m-%d %H:%M:%S'),
-                               energy_cost=0.2)
-            # Action from yesterday (JST): 23:00 JST on Feb 14 = 14:00 UTC on Feb 14
-            ts_yesterday = datetime(2026, 2, 14, 14, 0, 0, tzinfo=timezone.utc)
-            await _seed_action(conn, created_at_utc=ts_yesterday.strftime('%Y-%m-%d %H:%M:%S'),
-                               energy_cost=0.3)
-
-            budget = await db.get_energy_budget()
-            assert budget['spent_today'] == 0.2
-
-    @pytest.mark.asyncio
     async def test_habit_skip_count_uses_jst_boundary(self, fresh_db):
         """Habit skip count only counts within JST day boundaries."""
         jst_noon = datetime(2026, 2, 15, 12, 0, 0, tzinfo=JST)
@@ -267,117 +246,6 @@ class TestJSTDayBoundaries:
 
             count = await db.get_habit_skip_count_today()
             assert count == 1
-
-
-async def _seed_cycle(conn, ts_utc_str, token_budget=3000, mode='idle'):
-    """Insert a row into cycle_log with explicit UTC timestamp."""
-    await conn.execute(
-        """INSERT INTO cycle_log
-           (id, mode, token_budget, ts)
-           VALUES (?, ?, ?, ?)""",
-        (str(uuid.uuid4()), mode, token_budget, ts_utc_str),
-    )
-    await conn.commit()
-
-
-class TestEnergyBudgetCycleLog:
-    """Verify get_energy_budget counts cortex cycles from cycle_log."""
-
-    @pytest.mark.asyncio
-    async def test_cycle_log_based_energy(self, fresh_db):
-        """Cortex cycles in cycle_log contribute 0.03 energy each."""
-        jst_noon = datetime(2026, 2, 15, 12, 0, 0, tzinfo=JST)
-        with patch.object(clock, '_clock', clock.Clock(simulate=True, start=jst_noon)):
-            conn = await db.get_db()
-            # Seed 10 cortex cycles today (token_budget > 0)
-            for i in range(10):
-                ts = datetime(2026, 2, 15, 1 + i, 0, 0, tzinfo=timezone.utc)
-                await _seed_cycle(conn, ts.strftime('%Y-%m-%d %H:%M:%S'),
-                                  token_budget=3000)
-            budget = await db.get_energy_budget()
-            assert budget['spent_today'] == pytest.approx(0.3, abs=0.001)
-            assert budget['budget'] == 4.0
-
-    @pytest.mark.asyncio
-    async def test_rest_cycles_excluded(self, fresh_db):
-        """Cycles with token_budget=0 (rest/habit) don't count toward energy."""
-        jst_noon = datetime(2026, 2, 15, 12, 0, 0, tzinfo=JST)
-        with patch.object(clock, '_clock', clock.Clock(simulate=True, start=jst_noon)):
-            conn = await db.get_db()
-            # 5 cortex cycles + 3 rest cycles (token_budget=0)
-            for i in range(5):
-                ts = datetime(2026, 2, 15, 1 + i, 0, 0, tzinfo=timezone.utc)
-                await _seed_cycle(conn, ts.strftime('%Y-%m-%d %H:%M:%S'),
-                                  token_budget=3000)
-            for i in range(3):
-                ts = datetime(2026, 2, 15, 6 + i, 0, 0, tzinfo=timezone.utc)
-                await _seed_cycle(conn, ts.strftime('%Y-%m-%d %H:%M:%S'),
-                                  token_budget=0, mode='rest')
-            budget = await db.get_energy_budget()
-            # Only 5 cortex cycles count: 5 * 0.03 = 0.15
-            assert budget['spent_today'] == pytest.approx(0.15, abs=0.001)
-
-    @pytest.mark.asyncio
-    async def test_cycle_plus_action_energy_combined(self, fresh_db):
-        """Energy from cycle_log and action_log are summed together."""
-        jst_noon = datetime(2026, 2, 15, 12, 0, 0, tzinfo=JST)
-        with patch.object(clock, '_clock', clock.Clock(simulate=True, start=jst_noon)):
-            conn = await db.get_db()
-            # 10 cortex cycles = 0.30
-            for i in range(10):
-                ts = datetime(2026, 2, 15, 1 + i, 0, 0, tzinfo=timezone.utc)
-                await _seed_cycle(conn, ts.strftime('%Y-%m-%d %H:%M:%S'),
-                                  token_budget=3000)
-            # 1 action with 0.15 energy
-            ts_action = datetime(2026, 2, 15, 2, 0, 0, tzinfo=timezone.utc)
-            await _seed_action(conn, energy_cost=0.15,
-                               created_at_utc=ts_action.strftime('%Y-%m-%d %H:%M:%S'))
-            budget = await db.get_energy_budget()
-            # 0.30 (cycles) + 0.15 (action) = 0.45
-            assert budget['spent_today'] == pytest.approx(0.45, abs=0.001)
-
-    @pytest.mark.asyncio
-    async def test_yesterday_cycles_excluded(self, fresh_db):
-        """Cycles from previous JST day don't count."""
-        jst_noon = datetime(2026, 2, 15, 12, 0, 0, tzinfo=JST)
-        with patch.object(clock, '_clock', clock.Clock(simulate=True, start=jst_noon)):
-            conn = await db.get_db()
-            # Yesterday's cycle (in UTC: 14:00 Feb 14 = 23:00 JST Feb 14)
-            ts_yesterday = datetime(2026, 2, 14, 14, 0, 0, tzinfo=timezone.utc)
-            await _seed_cycle(conn, ts_yesterday.strftime('%Y-%m-%d %H:%M:%S'),
-                              token_budget=3000)
-            # Today's cycle
-            ts_today = datetime(2026, 2, 15, 1, 0, 0, tzinfo=timezone.utc)
-            await _seed_cycle(conn, ts_today.strftime('%Y-%m-%d %H:%M:%S'),
-                              token_budget=3000)
-            budget = await db.get_energy_budget()
-            # Only today's cycle counts: 1 * 0.03 = 0.03
-            assert budget['spent_today'] == pytest.approx(0.03, abs=0.001)
-
-    @pytest.mark.asyncio
-    async def test_iso_format_timestamps_counted(self, fresh_db):
-        """Cycles stored with ISO-8601 timestamps (production format) are counted.
-
-        Regression: cycle_log.ts uses clock.now_utc().isoformat() which
-        produces '2026-02-15T01:00:00+00:00'.  Plain string comparison
-        broke because 'T' > ' ' in ASCII, causing cycles to fall outside
-        the query window.
-        """
-        jst_noon = datetime(2026, 2, 15, 12, 0, 0, tzinfo=JST)
-        with patch.object(clock, '_clock', clock.Clock(simulate=True, start=jst_noon)):
-            conn = await db.get_db()
-            # Seed with ISO format (what production actually writes)
-            for i in range(5):
-                ts = datetime(2026, 2, 15, 1 + i, 0, 0, tzinfo=timezone.utc)
-                await _seed_cycle(conn, ts.isoformat(), token_budget=3000)
-            # Seed with plain format too
-            for i in range(3):
-                ts = datetime(2026, 2, 15, 6 + i, 0, 0, tzinfo=timezone.utc)
-                await _seed_cycle(conn, ts.strftime('%Y-%m-%d %H:%M:%S'),
-                                  token_budget=3000)
-            budget = await db.get_energy_budget()
-            # All 8 cycles should count: 8 * 0.03 = 0.24
-            assert budget['spent_today'] == pytest.approx(0.24, abs=0.001)
 
 
 class TestCooldownAccuracy:

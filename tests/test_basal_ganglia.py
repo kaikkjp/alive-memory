@@ -70,11 +70,6 @@ class TestStubPassthrough:
         assert plan.habit_fired is False
 
     @pytest.mark.asyncio
-    async def test_energy_budget_from_drives(self, validated_with_actions, drives):
-        plan = await select_actions(validated_with_actions, drives)
-        assert plan.energy_budget == 0.8
-
-    @pytest.mark.asyncio
     async def test_empty_actions(self, drives):
         validated = ValidatedOutput(dialogue='...')
         plan = await select_actions(validated, drives)

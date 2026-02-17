@@ -255,6 +255,7 @@ class TestSleepProcessesRemaining(unittest.IsolatedAsyncioTestCase):
             patch.object(sleep, 'cleanup_content_pool', new=AsyncMock()),
             patch.object(sleep, 'reset_drives_for_morning', new=AsyncMock()),
             patch.object(sleep, 'flush_day_memory', new=AsyncMock()),
+            patch.object(sleep.db, 'set_setting', new=AsyncMock()),
         ]
         for p in patches:
             p.start()
@@ -414,31 +415,34 @@ class TestSalienceEngineFeeds(unittest.IsolatedAsyncioTestCase):
 
     def test_event_salience_dynamic_boosts_score(self):
         """event_salience_dynamic > 0 increases moment salience."""
+        # Use engage mode to get a base above threshold for modulation to apply
         s_base = compute_moment_salience(
-            _base_result(resonance=True, actions=[{'type': 'express_thought'}]),
-            _base_ctx(mode='express', event_salience_dynamic=0.0),
+            _base_result(),
+            _base_ctx(mode='engage', event_salience_dynamic=0.0),
         )
         s_boosted = compute_moment_salience(
-            _base_result(resonance=True, actions=[{'type': 'express_thought'}]),
-            _base_ctx(mode='express', event_salience_dynamic=0.5),
+            _base_result(),
+            _base_ctx(mode='engage', event_salience_dynamic=0.5),
         )
         assert s_boosted > s_base, (
             f"salience_dynamic=0.5 should boost score: base={s_base}, boosted={s_boosted}"
         )
-        # Contribution should be min(0.20, 0.5 * 0.4) = 0.20
-        assert abs(s_boosted - s_base - 0.20) < 0.001
+        # TASK-050: Contribution is min(0.05, 0.5 * 0.1) = 0.05
+        assert abs(s_boosted - s_base - 0.05) < 0.001
 
-    def test_event_salience_dynamic_caps_at_020(self):
-        """Event salience contribution caps at 0.20."""
+    def test_event_salience_dynamic_caps_at_005(self):
+        """Event salience contribution caps at 0.05 (TASK-050 modulation model)."""
         s_mid = compute_moment_salience(
-            _base_result(), _base_ctx(event_salience_dynamic=0.5),
+            _base_result(),
+            _base_ctx(mode='engage', event_salience_dynamic=0.5),
         )
         s_extreme = compute_moment_salience(
-            _base_result(), _base_ctx(event_salience_dynamic=1.0),
+            _base_result(),
+            _base_ctx(mode='engage', event_salience_dynamic=1.0),
         )
-        # Both should get capped at 0.20
+        # Both should get capped at 0.05
         assert abs(s_mid - s_extreme) < 0.001, (
-            f"Both should cap at 0.20: mid={s_mid}, extreme={s_extreme}"
+            f"Both should cap at 0.05: mid={s_mid}, extreme={s_extreme}"
         )
 
     async def test_maybe_record_moment_fetches_event_salience(self):

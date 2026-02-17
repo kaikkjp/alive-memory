@@ -53,7 +53,7 @@ def _is_visitor_target(target: str | None) -> tuple[bool, str | None]:
 
 
 def _calculate_priority(intention: Intention, drives: DrivesState,
-                        energy_cost: float, context: dict = None) -> float:
+                        context: dict = None) -> float:
     """Priority calculation per body-spec-v2.md §2.2.
 
     Phase 3b: visitor-directed priority modulated by trust, interest, and
@@ -89,10 +89,6 @@ def _calculate_priority(intention: Intention, drives: DrivesState,
         # Active disengagement — if she's absorbed and conversation is dull
         if drives.expression_need > 0.7 and intention.impulse < 0.4:
             base *= 0.5
-
-    # Low energy dampens costly actions
-    if energy_cost > 0.1 and drives.energy < 0.3:
-        base *= 0.6
 
     return min(base, 1.0)
 
@@ -286,7 +282,6 @@ async def check_habits(drives: DrivesState,
             )],
             suppressed=[],
             habit_fired=True,
-            energy_budget=drives.energy,
         )
 
     return None  # all matching habits gated out
@@ -313,7 +308,6 @@ async def select_actions(validated: ValidatedOutput, drives: DrivesState,
         return _phase1_passthrough(validated, drives)
 
     decisions = []
-    energy_remaining = drives.energy
 
     for intention in intentions:
         action_name = intention.action
@@ -362,17 +356,7 @@ async def select_actions(validated: ValidatedOutput, drives: DrivesState,
                 decisions.append(decision)
                 continue
 
-        # Gate 5: Energy
-        if energy_remaining < capability.energy_cost:
-            decision.status = 'suppressed'
-            decision.suppression_reason = (
-                f'Too tired (need {capability.energy_cost:.2f}, '
-                f'have {energy_remaining:.2f})'
-            )
-            decisions.append(decision)
-            continue
-
-        # Gate 5b: Shop status prerequisite (open_shop/close_shop)
+        # Gate 5: Shop status prerequisite (open_shop/close_shop)
         if not await _passes_shop_gate(action_name):
             decision.status = 'suppressed'
             if action_name == 'open_shop':
@@ -384,13 +368,8 @@ async def select_actions(validated: ValidatedOutput, drives: DrivesState,
             decisions.append(decision)
             continue
 
-        # Gate 5c: Drive gates for shop actions
+        # Gate 5b: Drive gates for shop actions
         if action_name == 'open_shop':
-            if drives.energy <= 0.3:
-                decision.status = 'suppressed'
-                decision.suppression_reason = f'Too tired to open (energy {drives.energy:.2f})'
-                decisions.append(decision)
-                continue
             if drives.rest_need >= 0.6:
                 decision.status = 'suppressed'
                 decision.suppression_reason = f'Need rest first (rest_need {drives.rest_need:.2f})'
@@ -407,7 +386,7 @@ async def select_actions(validated: ValidatedOutput, drives: DrivesState,
 
         # Passed all gates — calculate priority
         decision.priority = _calculate_priority(
-            intention, drives, capability.energy_cost, context
+            intention, drives, context
         )
         decision.status = 'approved'
         decision.detail = _find_matching_detail(action_name, validated)
@@ -419,12 +398,6 @@ async def select_actions(validated: ValidatedOutput, drives: DrivesState,
 
     # Enforce max_per_cycle limits
     approved = _enforce_limits(approved)
-
-    # Deduct energy for approved actions
-    for d in approved:
-        cap = ACTION_REGISTRY.get(d.action)
-        if cap:
-            energy_remaining -= cap.energy_cost
 
     suppressed = [d for d in decisions if d.status != 'approved']
 
@@ -445,7 +418,6 @@ async def select_actions(validated: ValidatedOutput, drives: DrivesState,
         actions=approved,
         suppressed=suppressed,
         habit_fired=False,
-        energy_budget=energy_remaining,
     )
 
 
@@ -528,5 +500,4 @@ def _phase1_passthrough(validated: ValidatedOutput,
         actions=actions,
         suppressed=suppressed,
         habit_fired=False,
-        energy_budget=drives.energy,
     )

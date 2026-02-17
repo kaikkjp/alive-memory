@@ -234,13 +234,20 @@ class TestGateCooldown:
             cap.cooldown_seconds = original_cooldown
 
 
-# ── Test: Gate 5 — Energy gating ──
+# ── Test: Gate 5 — Energy gating (TASK-050: REMOVED) ──
+# Energy gate removed in TASK-050. Real-dollar budget check is in heartbeat.py,
+# not in basal_ganglia. Actions are gated by budget at cycle level, not per-action.
 
-class TestGateEnergy:
+
+# ── Test: No energy gate in basal ganglia (TASK-050) ──
+
+class TestNoEnergyGate:
+    """TASK-050: Verify no energy cost check exists in basal ganglia."""
 
     @pytest.mark.asyncio
-    async def test_costly_action_blocked_when_low_energy(self, low_energy_drives):
-        # speak costs 0.15, energy is 0.1
+    async def test_no_energy_gate_in_selection(self):
+        """Actions are approved regardless of energy level — budget is checked elsewhere."""
+        low_energy_drives = DrivesState(energy=0.1, social_hunger=0.5)
         intentions = [
             Intention(action='speak', target='visitor', content='hi', impulse=0.9),
         ]
@@ -248,34 +255,9 @@ class TestGateEnergy:
         validated = _validated_with_intentions(intentions)
         plan = await select_actions(validated, low_energy_drives, context=context)
 
-        assert len(plan.actions) == 0
-        assert len(plan.suppressed) == 1
-        assert plan.suppressed[0].status == 'suppressed'
-        assert 'Too tired' in plan.suppressed[0].suppression_reason
-
-    @pytest.mark.asyncio
-    async def test_cheap_action_approved_when_low_energy(self, low_energy_drives):
-        # express_thought costs 0.02, energy is 0.1
-        intentions = [
-            Intention(action='express_thought', content='hmm', impulse=0.5),
-        ]
-        validated = _validated_with_intentions(intentions)
-        plan = await select_actions(validated, low_energy_drives, context={})
-
+        # speak is approved even with low energy — budget check is in heartbeat
         assert len(plan.actions) == 1
         assert plan.actions[0].status == 'approved'
-
-    @pytest.mark.asyncio
-    async def test_energy_budget_reduced_after_approval(self, drives):
-        # write_journal costs 0.05, rearrange costs 0.10
-        intentions = [
-            Intention(action='write_journal', content='note', impulse=0.8),
-            Intention(action='rearrange', content='shelf', impulse=0.6),
-        ]
-        validated = _validated_with_intentions(intentions)
-        plan = await select_actions(validated, drives, context={})
-
-        assert plan.energy_budget < drives.energy
 
 
 # ── Test: Priority calculation ──
@@ -285,7 +267,7 @@ class TestPriorityCalculation:
     def test_visitor_target_gets_social_boost(self):
         intention = Intention(action='speak', target='visitor', impulse=0.5)
         drives = DrivesState(social_hunger=0.8, energy=0.8)
-        priority = _calculate_priority(intention, drives, energy_cost=0.15)
+        priority = _calculate_priority(intention, drives)
 
         # base=0.5 + 0.8*0.3=0.74 (TASK-014: coefficient increased to 0.3)
         assert priority == pytest.approx(0.74, abs=0.01)
@@ -293,32 +275,16 @@ class TestPriorityCalculation:
     def test_non_visitor_target_no_boost(self):
         intention = Intention(action='write_journal', target='journal', impulse=0.5)
         drives = DrivesState(social_hunger=0.8, energy=0.8)
-        priority = _calculate_priority(intention, drives, energy_cost=0.05)
+        priority = _calculate_priority(intention, drives)
 
-        assert priority == pytest.approx(0.5, abs=0.01)
-
-    def test_low_energy_dampens_costly_actions(self):
-        intention = Intention(action='speak', target='visitor', impulse=0.8)
-        drives = DrivesState(energy=0.2, social_hunger=0.0)
-        priority = _calculate_priority(intention, drives, energy_cost=0.15)
-
-        # base=0.8, energy < 0.3 and cost > 0.1, so *= 0.6 → 0.48
-        assert priority == pytest.approx(0.48, abs=0.01)
-
-    def test_low_energy_does_not_dampen_cheap_actions(self):
-        intention = Intention(action='express_thought', impulse=0.5)
-        drives = DrivesState(energy=0.2)
-        priority = _calculate_priority(intention, drives, energy_cost=0.02)
-
-        # cost 0.02 < 0.1, no dampening
         assert priority == pytest.approx(0.5, abs=0.01)
 
     def test_priority_capped_at_1(self):
         intention = Intention(action='speak', target='visitor', impulse=0.95)
         drives = DrivesState(social_hunger=1.0, energy=0.8)
-        priority = _calculate_priority(intention, drives, energy_cost=0.15)
+        priority = _calculate_priority(intention, drives)
 
-        # base=0.95 + 1.0*0.2=1.15, capped at 1.0
+        # base=0.95 + 1.0*0.3=1.25, capped at 1.0
         assert priority == 1.0
 
 

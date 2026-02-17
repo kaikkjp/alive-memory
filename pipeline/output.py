@@ -39,7 +39,7 @@ ACTION_DRIVE_EFFECTS = {
     'write_journal':  {},                          # journaling — no curiosity drain
     'post_x_draft':   {},                          # creative output — no curiosity drain
     'rearrange':      {},                          # physical activity — no curiosity drain
-    'end_engagement': {'rest_need': -0.03, 'energy': +0.02},  # social load lifted
+    'end_engagement': {'rest_need': -0.03},  # social load lifted
 }
 
 
@@ -132,7 +132,6 @@ async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
 
         if validated.resonance:
             drives.social_hunger = max(0.0, drives.social_hunger - 0.15)
-            drives.energy = min(1.0, drives.energy + 0.05)
             drives.mood_valence = min(1.0, drives.mood_valence + 0.1)
             drives.curiosity = clamp(drives.curiosity - 0.03)  # engaging conversation
             drives.mood_arousal = clamp(drives.mood_arousal + 0.06)  # arousal spike
@@ -180,7 +179,6 @@ async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
         # Quiet cycles (no actions, no dialogue) provide mild rest
         if is_quiet_cycle:
             drives.rest_need = clamp(drives.rest_need - 0.03)
-            drives.energy = clamp(drives.energy + 0.02)
             drives_changed = True
 
         if drives_changed:
@@ -273,9 +271,6 @@ async def _log_motor_plan(motor_plan: MotorPlan, body_output: BodyOutput,
     try:
         # Log approved actions with execution results
         for i, decision in enumerate(motor_plan.actions):
-            cap = ACTION_REGISTRY.get(decision.action)
-            energy_cost = cap.energy_cost if cap else None
-
             # Match with execution result if available
             exec_result = None
             if i < len(body_output.executed):
@@ -291,15 +286,13 @@ async def _log_motor_plan(motor_plan: MotorPlan, body_output: BodyOutput,
                 content=decision.content or None,
                 target=decision.target,
                 suppression_reason=None,
-                energy_cost=energy_cost,
+                energy_cost=None,
                 success=exec_result.success if exec_result else None,
                 error=exec_result.error if exec_result else None,
             )
 
         # Log suppressed actions
         for decision in motor_plan.suppressed:
-            cap = ACTION_REGISTRY.get(decision.action)
-            energy_cost = cap.energy_cost if cap else None
             await db.log_action(
                 cycle_id=cycle_id,
                 action=decision.action,
@@ -310,7 +303,7 @@ async def _log_motor_plan(motor_plan: MotorPlan, body_output: BodyOutput,
                 content=decision.content or None,
                 target=decision.target,
                 suppression_reason=decision.suppression_reason,
-                energy_cost=energy_cost,
+                energy_cost=None,
                 success=None,
                 error=None,
             )
@@ -802,11 +795,10 @@ async def process_reflection(validated: ValidatedOutput,
 
         if is_boring:
             effects['boring'] = True
-            # Boring: slight diversive drain + energy cost
+            # Boring: slight diversive drain
             try:
                 drives = await db.get_drives_state()
                 drives.diversive_curiosity = clamp(drives.diversive_curiosity - 0.02)
-                drives.energy = clamp(drives.energy - 0.01)
                 await db.save_drives_state(drives)
             except Exception as e:
                 print(f"  [Reflection] Failed to update boring drives: {e}")

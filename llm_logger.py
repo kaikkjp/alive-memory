@@ -110,3 +110,39 @@ async def log_llm_call(
     )
 
     return call_id
+
+
+async def log_external_api_cost(
+    purpose: str,
+    cost_usd: float,
+    provider: str = 'external',
+    cycle_id: Optional[str] = None,
+) -> str:
+    """Log cost for a non-LLM external API call (X post, image gen, etc.).
+
+    TASK-050: Same budget pool as LLM calls. The llm_call_log table tracks
+    all API costs, not just LLM calls.
+
+    Args:
+        purpose: 'x_post' | 'image_gen' | etc.
+        cost_usd: Actual dollar cost of the API call.
+        provider: Service name (default 'external').
+        cycle_id: Optional cycle ID to link to.
+
+    Returns:
+        Log entry ID
+    """
+    call_id = str(uuid.uuid4())
+
+    await db.insert_llm_call_log(
+        call_id=call_id,
+        provider=provider,
+        model='n/a',
+        purpose=purpose,
+        input_tokens=0,
+        output_tokens=0,
+        cost_usd=cost_usd,
+        cycle_id=cycle_id,
+    )
+
+    return call_id

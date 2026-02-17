@@ -254,14 +254,15 @@ async def run_simulation(
     clock.init_clock(simulate=True, start=start)
     target = start + timedelta(days=days)
 
-    # 1b. Override energy budget if specified
+    # 1b. Override energy budget if specified (TASK-050: uses real-dollar budget)
     if energy_budget is not None:
-        _original_get_energy_budget = db.get_energy_budget
-        async def _patched_get_energy_budget():
-            result = await _original_get_energy_budget()
+        _original_get_budget_remaining = db.get_budget_remaining
+        async def _patched_get_budget_remaining():
+            result = await _original_get_budget_remaining()
             result['budget'] = energy_budget
+            result['remaining'] = energy_budget - result['spent']
             return result
-        db.get_energy_budget = _patched_get_energy_budget
+        db.get_budget_remaining = _patched_get_budget_remaining
 
     # 2. Create simulation DB
     sim_db_dir = pathlib.Path(output_dir) if output_dir else pathlib.Path('data/sim')

@@ -22,7 +22,7 @@ class TestActionDriveEffects:
     def test_end_engagement_reduces_rest_need(self):
         effects = ACTION_DRIVE_EFFECTS.get('end_engagement', {})
         assert effects.get('rest_need', 0) < 0
-        assert effects.get('energy', 0) > 0
+        # TASK-050: energy is display-only, no longer adjusted by actions
 
     def test_all_effects_bounded(self):
         """All delta values should be small adjustments, not extreme."""

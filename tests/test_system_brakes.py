@@ -271,7 +271,7 @@ class TestMoodBonusScaling:
 # ════════════════════════════════════════════════════════════════════
 
 class TestEnergyBudgetEnforcement:
-    """When energy budget exceeded, cortex is skipped and rest applied."""
+    """TASK-050: When daily dollar budget is spent, cortex is skipped and she rests."""
 
     @pytest.fixture
     def mock_heartbeat(self):
@@ -296,9 +296,9 @@ class TestEnergyBudgetEnforcement:
 
     @pytest.mark.asyncio
     async def test_budget_exceeded_forces_rest(self, mock_heartbeat):
-        """When budget exceeded and no high-salience event, cortex is skipped.
+        """When budget spent (remaining <= 0), cortex is skipped, rest log returned.
 
-        TASK-038: Budget exceeded now triggers nap consolidation (not empty rest).
+        TASK-050: No naps, no partial restore. Budget is budget.
         """
         drives = _make_drives(energy=0.4, rest_need=0.5)
 
@@ -312,7 +312,6 @@ class TestEnergyBudgetEnforcement:
              patch('heartbeat.recall', return_value=[]), \
              patch('heartbeat.check_habits', return_value=None), \
              patch('heartbeat.cortex_call') as mock_cortex, \
-             patch('heartbeat.nap_consolidate', new=AsyncMock(return_value=2)) as mock_nap, \
              patch('heartbeat.maybe_record_moment'):
 
             mock_clock.now_utc.return_value = datetime(2026, 2, 16, 12, 0, 0,
@@ -335,12 +334,11 @@ class TestEnergyBudgetEnforcement:
                 __aenter__=AsyncMock(), __aexit__=AsyncMock()
             ))
 
-            # Budget exceeded
-            mock_db.get_energy_budget = AsyncMock(
-                return_value={'spent_today': 1.2, 'budget': 1.0}
+            # Budget EXCEEDED — remaining <= 0
+            mock_db.get_budget_remaining = AsyncMock(
+                return_value={'budget': 5.0, 'spent': 5.10, 'remaining': -0.10}
             )
 
-            # Low-salience perceptions
             mock_perception = MagicMock()
             mock_perception.salience = 0.3
             mock_perception.p_type = 'ambient'
@@ -360,81 +358,17 @@ class TestEnergyBudgetEnforcement:
             # Cortex should NOT have been called
             mock_cortex.assert_not_called()
 
-            # Nap log should be returned (TASK-038: nap replaces old budget_rest)
-            assert result['nap'] is True
-            assert result['routing_focus'] == 'nap'
-            assert 'consolidated' in result['internal_monologue']
+            # TASK-050: budget_exhausted flag, rest routing, energy set to 0
+            assert result['budget_exhausted'] is True
+            assert result['routing_focus'] == 'rest'
+            assert result['drives']['energy'] == 0.0
 
     @pytest.mark.asyncio
-    async def test_rest_mode_recovers_drives(self, mock_heartbeat):
-        """During budget-forced rest (nap), drives recover.
+    async def test_budget_exhausted_even_with_high_salience(self, mock_heartbeat):
+        """TASK-050: Budget is absolute — no high-salience override.
 
-        TASK-038: Budget exceeded triggers nap consolidation which also
-        applies rest recovery to drives.
+        Even a visitor connection cannot bypass budget exhaustion.
         """
-        drives = _make_drives(energy=0.4, rest_need=0.5)
-        original_energy = drives.energy
-        original_rest = drives.rest_need
-
-        with patch('heartbeat.db') as mock_db, \
-             patch('heartbeat.clock') as mock_clock, \
-             patch('heartbeat.build_perceptions') as mock_sensor, \
-             patch('heartbeat.perception_gate', side_effect=lambda p, v: p), \
-             patch('heartbeat.apply_affect_lens', side_effect=lambda p, d: p), \
-             patch('heartbeat.update_drives', return_value=(drives, [])), \
-             patch('heartbeat.route') as mock_route, \
-             patch('heartbeat.recall', return_value=[]), \
-             patch('heartbeat.check_habits', return_value=None), \
-             patch('heartbeat.nap_consolidate', new=AsyncMock(return_value=2)), \
-             patch('heartbeat.cortex_call') as mock_cortex:
-
-            mock_clock.now_utc.return_value = datetime(2026, 2, 16, 12, 0, 0,
-                                                        tzinfo=timezone.utc)
-            mock_clock.now.return_value = MagicMock(
-                hour=12, date=MagicMock(return_value=MagicMock(isoformat=MagicMock(return_value='2026-02-16')))
-            )
-
-            mock_db.inbox_get_unread = AsyncMock(return_value=[])
-            mock_db.get_drives_state = AsyncMock(return_value=drives)
-            mock_db.get_engagement_state = AsyncMock(
-                return_value=EngagementState(status='none')
-            )
-            mock_db.save_drives_state = AsyncMock()
-            mock_db.inbox_mark_read = AsyncMock()
-            mock_db.log_cycle = AsyncMock()
-            mock_db.append_event = AsyncMock()
-            mock_db.transaction = MagicMock(return_value=MagicMock(
-                __aenter__=AsyncMock(), __aexit__=AsyncMock()
-            ))
-            mock_db.get_energy_budget = AsyncMock(
-                return_value={'spent_today': 1.5, 'budget': 1.0}
-            )
-
-            mock_perception = MagicMock()
-            mock_perception.salience = 0.2
-            mock_perception.p_type = 'ambient'
-            mock_perception.source = 'ambient'
-            mock_perception.features = {}
-            mock_sensor.return_value = [mock_perception]
-
-            mock_routing = MagicMock()
-            mock_routing.focus = mock_perception
-            mock_routing.cycle_type = 'idle'
-            mock_routing.token_budget = 3000
-            mock_routing.memory_requests = []
-            mock_route.return_value = mock_routing
-
-            await mock_heartbeat.run_cycle('idle')
-
-            # Drives should have been saved with rest recovery
-            assert mock_db.save_drives_state.called
-            saved = mock_db.save_drives_state.call_args[0][0]
-            assert saved.energy > original_energy  # +0.03
-            assert saved.rest_need < original_rest  # -0.05
-
-    @pytest.mark.asyncio
-    async def test_high_salience_overrides_rest(self, mock_heartbeat):
-        """A high-salience event (> 0.8) bypasses budget rest and runs cortex."""
         drives = _make_drives(energy=0.4, rest_need=0.5)
 
         with patch('heartbeat.db') as mock_db, \
@@ -447,38 +381,34 @@ class TestEnergyBudgetEnforcement:
              patch('heartbeat.recall', return_value=[]), \
              patch('heartbeat.check_habits', return_value=None), \
              patch('heartbeat.cortex_call') as mock_cortex, \
-             patch('heartbeat.validate') as mock_validate, \
-             patch('heartbeat.select_actions') as mock_select, \
-             patch('heartbeat.execute_body') as mock_body, \
-             patch('heartbeat.process_output') as mock_output, \
-             patch('heartbeat.build_self_state', return_value=None), \
-             patch('heartbeat.fetch_url_metadata', return_value=None), \
              patch('heartbeat.maybe_record_moment'):
 
             mock_clock.now_utc.return_value = datetime(2026, 2, 16, 12, 0, 0,
                                                         tzinfo=timezone.utc)
-            mock_clock.now.return_value = MagicMock(hour=12)
+            mock_clock.now.return_value = MagicMock(
+                hour=12, date=MagicMock(return_value=MagicMock(isoformat=MagicMock(return_value='2026-02-16')))
+            )
 
             mock_db.inbox_get_unread = AsyncMock(return_value=[])
             mock_db.get_drives_state = AsyncMock(return_value=drives)
             mock_db.get_engagement_state = AsyncMock(
-                return_value=EngagementState(status='none', turn_count=0)
+                return_value=EngagementState(status='none')
             )
             mock_db.get_visitor = AsyncMock(return_value=None)
             mock_db.save_drives_state = AsyncMock()
             mock_db.inbox_mark_read = AsyncMock()
             mock_db.log_cycle = AsyncMock()
-            mock_db.get_recent_conversation = AsyncMock(return_value=[])
-            mock_db.get_room_state = AsyncMock()
-            mock_db.get_shelf_assignments = AsyncMock(return_value=[])
+            mock_db.append_event = AsyncMock()
             mock_db.transaction = MagicMock(return_value=MagicMock(
                 __aenter__=AsyncMock(), __aexit__=AsyncMock()
             ))
-            mock_db.get_energy_budget = AsyncMock(
-                return_value={'spent_today': 1.5, 'budget': 1.0}
+
+            # Budget EXCEEDED
+            mock_db.get_budget_remaining = AsyncMock(
+                return_value={'budget': 5.0, 'spent': 5.50, 'remaining': -0.50}
             )
 
-            # HIGH salience perception (> 0.8)
+            # HIGH salience perception — visitor connecting
             mock_perception = MagicMock()
             mock_perception.salience = 0.9
             mock_perception.p_type = 'visitor_connect'
@@ -493,32 +423,11 @@ class TestEnergyBudgetEnforcement:
             mock_routing.memory_requests = []
             mock_route.return_value = mock_routing
 
-            # Set up cortex output
-            from models.pipeline import CortexOutput
-            mock_cortex.return_value = CortexOutput(
-                internal_monologue='visitor arrived',
-                dialogue='Welcome.',
-                expression='curious',
-            )
-
-            mock_validated = ValidatedOutput(
-                internal_monologue='visitor arrived',
-                dialogue='Welcome.',
-                expression='curious',
-            )
-            mock_validate.return_value = mock_validated
-
-            mock_motor = MotorPlan(actions=[], suppressed=[])
-            mock_select.return_value = mock_motor
-
-            mock_body.return_value = BodyOutput(executed=[], energy_spent=0)
-            mock_output.return_value = CycleOutput()
-
             result = await mock_heartbeat.run_cycle('idle')
 
-            # Cortex SHOULD have been called despite budget exceeded
-            mock_cortex.assert_called_once()
-            assert result.get('budget_rest') is None or result.get('budget_rest') is not True
+            # Budget is absolute — cortex still NOT called
+            mock_cortex.assert_not_called()
+            assert result['budget_exhausted'] is True
 
     @pytest.mark.asyncio
     async def test_under_budget_runs_normally(self, mock_heartbeat):
@@ -563,8 +472,8 @@ class TestEnergyBudgetEnforcement:
                 __aenter__=AsyncMock(), __aexit__=AsyncMock()
             ))
             # Under budget
-            mock_db.get_energy_budget = AsyncMock(
-                return_value={'spent_today': 0.3, 'budget': 1.0}
+            mock_db.get_budget_remaining = AsyncMock(
+                return_value={'budget': 5.0, 'spent': 0.3, 'remaining': 4.7}
             )
 
             mock_perception = MagicMock()
@@ -597,4 +506,5 @@ class TestEnergyBudgetEnforcement:
 
             # Cortex should have been called normally
             mock_cortex.assert_called_once()
+            assert result.get('budget_exhausted') is not True
             assert result.get('budget_rest') is None or result.get('budget_rest') is not True

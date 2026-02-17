@@ -21,7 +21,6 @@ class TestMentionInConversation:
         cap = ACTION_REGISTRY.get('mention_in_conversation')
         assert cap is not None
         assert cap.enabled is True
-        assert cap.energy_cost < ACTION_REGISTRY['read_content'].energy_cost
 
     @pytest.mark.asyncio
     async def test_mention_returns_metadata(self):
