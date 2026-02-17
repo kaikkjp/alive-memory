@@ -532,6 +532,7 @@ async def get_action_capabilities() -> list[dict]:
             'enabled': cap.enabled,
             'ready': ready,
             'cooling_until': cooling_until,
+            'energy_cost': 0.0,
         })
     return capabilities
 

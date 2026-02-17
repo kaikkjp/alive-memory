@@ -113,7 +113,7 @@ export default function BodyPanel() {
                 <span className="text-neutral-300">{cap.action}</span>
               </div>
               <div className="flex items-center gap-3 text-neutral-500">
-                <span>{cap.energy_cost.toFixed(2)}e</span>
+                <span>{(cap.energy_cost ?? 0).toFixed(2)}e</span>
                 <span className="w-8 text-right">{countMap[cap.action] || 0}x</span>
               </div>
             </div>
