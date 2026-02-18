@@ -16,6 +16,7 @@ from pipeline.sensorium import Perception
 from pipeline.hypothalamus import drives_to_feeling
 from config.identity import IDENTITY_COMPACT, VOICE_CHECKSUM
 import db
+from prompt.budget import enforce_section, estimate_tokens, get_reserved_output_tokens
 
 CORTEX_MODEL = "claude-sonnet-4-5-20250929"
 API_CALL_TIMEOUT = 60.0  # Hard timeout per request (seconds)
@@ -306,11 +307,24 @@ async def cortex_call(
     except Exception:
         pass  # graceful degradation if x_drafts table doesn't exist yet
 
+    # ── TASK-065: Enforce token budgets on dynamic system sections ──
+    _trim_results = []
+    _r = enforce_section('S3_self_state', self_state or '', 'system')
+    self_state_text = _r.text; _trim_results.append(_r)
+    _r = enforce_section('S5_current_feelings', drives_to_feeling(drives), 'system')
+    feelings_text = _r.text; _trim_results.append(_r)
+    _r = enforce_section('S10_recent_suppressions', recent_suppressions_text, 'system')
+    recent_suppressions_text = _r.text; _trim_results.append(_r)
+    _r = enforce_section('S11_recent_inhibitions', recent_inhibitions_text, 'system')
+    recent_inhibitions_text = _r.text; _trim_results.append(_r)
+    _r = enforce_section('S12_recent_conflicts', recent_conflicts_text, 'system')
+    recent_conflicts_text = _r.text; _trim_results.append(_r)
+
     system = CORTEX_SYSTEM.format(
         identity_compact=IDENTITY_COMPACT,
-        self_state=self_state or '',
+        self_state=self_state_text,
         voice_checksum="\n".join(f"- {rule}" for rule in VOICE_CHECKSUM),
-        feelings_text=drives_to_feeling(drives),
+        feelings_text=feelings_text,
         max_sentences=max_sentences,
         recent_suppressions=recent_suppressions_text,
         recent_inhibitions=recent_inhibitions_text,
@@ -319,97 +333,137 @@ async def cortex_call(
         x_posting_guidance=x_posting_guidance_text,
     )
 
-    # Build user message (the "moment")
+    # Build user message (the "moment") with per-section budget enforcement
     parts = []
 
-    # Perceptions
-    parts.append("WHAT I'M PERCEIVING:")
+    # U1: Perceptions
+    perception_lines = ["WHAT I'M PERCEIVING:"]
     for p in perceptions:
-        parts.append(f"  [{p.p_type}] {p.content}")
+        perception_lines.append(f"  [{p.p_type}] {p.content}")
+    _r = enforce_section('U1_perceptions', "\n".join(perception_lines), 'user')
+    parts.append(_r.text); _trim_results.append(_r)
 
-    # Gift metadata (if enriched)
+    # U2: Gift metadata (if enriched)
     if gift_metadata:
-        parts.append(f"\nGIFT DETAILS:")
-        parts.append(f"  Title: {gift_metadata.get('title', 'unknown')}")
-        parts.append(f"  Description: {gift_metadata.get('description', '')}")
-        parts.append(f"  Source: {gift_metadata.get('site', '')}")
+        gift_lines = [
+            "\nGIFT DETAILS:",
+            f"  Title: {gift_metadata.get('title', 'unknown')}",
+            f"  Description: {gift_metadata.get('description', '')}",
+            f"  Source: {gift_metadata.get('site', '')}",
+        ]
+        _r = enforce_section('U2_gift_details', "\n".join(gift_lines), 'user')
+        parts.append(_r.text); _trim_results.append(_r)
 
-    # Memory chunks
+    # U3: Memory chunks
     if memory_chunks:
-        parts.append("\nMEMORIES SURFACING:")
+        mem_lines = ["\nMEMORIES SURFACING:"]
         for chunk in memory_chunks:
-            parts.append(f"  [{chunk['label']}]")
-            parts.append(f"  {chunk['content']}")
+            mem_lines.append(f"  [{chunk['label']}]")
+            mem_lines.append(f"  {chunk['content']}")
+        _r = enforce_section('U3_memories', "\n".join(mem_lines), 'user')
+        parts.append(_r.text); _trim_results.append(_r)
 
-    # Active threads (inner agenda)
+    # U4: Active threads (inner agenda)
     active_threads = await db.get_active_threads(limit=3)
     if active_threads:
-        parts.append("\nTHINGS ON MY MIND:")
+        thread_lines = ["\nTHINGS ON MY MIND:"]
         for t in active_threads:
             age_str = ""
             if t.created_at:
                 age_days = (clock.now_utc() - t.created_at).days
                 age_str = f" ({age_days}d old)" if age_days > 0 else " (new)"
             snippet = f" — {t.content[:80]}..." if t.content and len(t.content) > 80 else (f" — {t.content}" if t.content else "")
-            parts.append(f"  [{t.thread_type}] {t.title} [id:{t.id}]{age_str}{snippet}")
+            thread_lines.append(f"  [{t.thread_type}] {t.title} [id:{t.id}]{age_str}{snippet}")
+        _r = enforce_section('U4_active_threads', "\n".join(thread_lines), 'user')
+        parts.append(_r.text); _trim_results.append(_r)
 
-    # Consume framing (when arbiter picked consume focus)
+    # U5: Consume framing (when arbiter picked consume focus)
     # consume_perception already found above for reflection guidance
     if consume_perception:
-        parts.append("\nWHAT I'M CONSUMING:")
-        parts.append(f"  {consume_perception.content}")
+        consume_lines = ["\nWHAT I'M CONSUMING:"]
+        consume_lines.append(f"  {consume_perception.content}")
         if consume_perception.features.get('url'):
-            parts.append(f"  Source: {consume_perception.features['url']}")
+            consume_lines.append(f"  Source: {consume_perception.features['url']}")
         if consume_perception.features.get('readable_text'):
             text_preview = consume_perception.features['readable_text'][:2000]
-            parts.append(f"  Content:\n{text_preview}")
-        parts.append("  → React honestly. Add to collection if it resonates. Create a totem if it lodges.")
+            consume_lines.append(f"  Content:\n{text_preview}")
+        consume_lines.append("  → React honestly. Add to collection if it resonates. Create a totem if it lodges.")
+        _r = enforce_section('U5_consume_framing', "\n".join(consume_lines), 'user')
+        parts.append(_r.text); _trim_results.append(_r)
 
-    # Conversation (last N turns)
+    # U6: Conversation (last N turns)
     if conversation:
-        parts.append("\nCONVERSATION:")
+        convo_lines = ["\nCONVERSATION:"]
         for msg in conversation[-6:]:  # max 6 turns
             role = "Visitor" if msg['role'] == 'visitor' else "Me"
-            parts.append(f"  {role}: {msg['text']}")
+            convo_lines.append(f"  {role}: {msg['text']}")
+        _r = enforce_section('U6_conversation', "\n".join(convo_lines), 'user')
+        parts.append(_r.text); _trim_results.append(_r)
 
-    # Visitor trust context
+    # U7: Visitor trust context
     if visitor:
-        parts.append(f"\nVISITOR TRUST LEVEL: {visitor.trust_level}")
+        trust_lines = [
+            f"\nVISITOR TRUST LEVEL: {visitor.trust_level}",
+        ]
         if visitor.name:
-            parts.append(f"VISITOR NAME: {visitor.name}")
-        parts.append(f"VISIT COUNT: {visitor.visit_count}")
+            trust_lines.append(f"VISITOR NAME: {visitor.name}")
+        trust_lines.append(f"VISIT COUNT: {visitor.visit_count}")
+        _r = enforce_section('U7_visitor_trust_context', "\n".join(trust_lines), 'user')
+        parts.append(_r.text); _trim_results.append(_r)
 
-    # Trait trajectory hints
+    # U8: Trait trajectory hints
     if visitor and visitor.trust_level != 'stranger':
         traits = await db.get_visitor_traits(visitor.id, limit=10)
         if traits:
-            parts.append("\nWHAT I KNOW ABOUT THEM:")
+            trait_lines = ["\nWHAT I KNOW ABOUT THEM:"]
             seen_keys = set()
             for t in traits:
                 if t.trait_key not in seen_keys:
-                    parts.append(f"  {t.trait_key}: {t.trait_value}")
+                    trait_lines.append(f"  {t.trait_key}: {t.trait_value}")
                     seen_keys.add(t.trait_key)
+            _r = enforce_section('U8_visitor_traits', "\n".join(trait_lines), 'user')
+            parts.append(_r.text); _trim_results.append(_r)
 
-    # Multi-visitor presence context (TASK-014)
+    # U9: Multi-visitor presence context (TASK-014)
     if visitors_present and len(visitors_present) > 1:
-        parts.append("\nVISITORS PRESENT:")
+        mv_lines = ["\nVISITORS PRESENT:"]
         for vp in visitors_present:
             vid = vp.get('id', '?')
             name = vp.get('name') or 'unnamed'
             trust = vp.get('trust_level', 'stranger')
             status = vp.get('status', 'browsing')
-            parts.append(f"  [{vid}] {name} — {trust}, {status}")
-        parts.append("  → Use target \"visitor:ID\" to direct actions at a specific person.")
+            mv_lines.append(f"  [{vid}] {name} — {trust}, {status}")
+        mv_lines.append("  → Use target \"visitor:ID\" to direct actions at a specific person.")
+        _r = enforce_section('U9_multi_visitor_presence', "\n".join(mv_lines), 'user')
+        parts.append(_r.text); _trim_results.append(_r)
 
-    # TASK-045: Conversation context integration — surface content relevant to conversation
+    # U10: TASK-045: Conversation context integration
     if visitor and conversation:
-        _surface_relevant_content(parts, perceptions, conversation)
+        u10_parts = []
+        _surface_relevant_content(u10_parts, perceptions, conversation)
+        if u10_parts:
+            _r = enforce_section(
+                'U10_conversation_relevant_content', "\n".join(u10_parts), 'user')
+            parts.append(_r.text); _trim_results.append(_r)
 
-    # Constraints
-    parts.append(f"\nTOKEN BUDGET: {routing.token_budget}")
-    parts.append(f"CYCLE TYPE: {routing.cycle_type}")
+    # U11: Routing metadata
+    routing_text = f"\nTOKEN BUDGET: {routing.token_budget}\nCYCLE TYPE: {routing.cycle_type}"
+    parts.append(routing_text)
 
     user_message = "\n".join(parts)
+
+    # ── TASK-065: Log total prompt budget and any trims ──
+    sys_tokens = estimate_tokens(system)
+    usr_tokens = estimate_tokens(user_message)
+    output_tokens = get_reserved_output_tokens()
+    trimmed = [r for r in _trim_results if r.trimmed]
+    if trimmed:
+        for r in trimmed:
+            print(f"  [Budget] TRIM {r.section_name}: {r.original_tokens} → "
+                  f"{r.final_tokens} tokens (-{r.tokens_cut}) strategy={r.strategy}")
+    print(f"  [Budget] Prompt: system={sys_tokens} user={usr_tokens} "
+          f"total={sys_tokens + usr_tokens} reserved_output={output_tokens}"
+          f"{f' ({len(trimmed)} trims)' if trimmed else ''}")
 
     try:
         print(f"[Cortex] API call start — {routing.cycle_type}")
@@ -417,7 +471,7 @@ async def cortex_call(
             messages=[{"role": "user", "content": user_message}],
             system=system,
             call_site="cortex",
-            max_tokens=1500,
+            max_tokens=output_tokens,
         )
         print(f"[Cortex] API call done — {routing.cycle_type}")
     except asyncio.TimeoutError:
