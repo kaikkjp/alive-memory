@@ -1319,13 +1319,55 @@ class Heartbeat:
         # TASK-053: Internal conflict detection.
         # Conflict = high arousal + negative valence (emotional tension),
         # OR actions were dropped due to suppression (frustrated intent).
-        has_conflict = (
-            (drives_after.mood_arousal > 0.7 and drives_after.mood_valence < 0.3)
-            or any(
-                d.reason and 'suppress' in d.reason.lower()
-                for d in validated.dropped_actions
-            )
+        emotional_tension = (
+            drives_after.mood_arousal > 0.7 and drives_after.mood_valence < 0.3
         )
+        suppressed_actions = [
+            d for d in validated.dropped_actions
+            if d.reason and 'suppress' in d.reason.lower()
+        ]
+        has_conflict = emotional_tension or bool(suppressed_actions)
+
+        # Build a specific description so day_memory records what actually
+        # happened, not a generic "something felt off" fallback.
+        conflict_description = None
+        if has_conflict:
+            parts = []
+            if emotional_tension:
+                arousal_pct = int(drives_after.mood_arousal * 100)
+                valence_pct = int(drives_after.mood_valence * 100)
+                # Pick the most notable drive to name
+                drive_notes = []
+                if drives_after.social_hunger > 0.6:
+                    drive_notes.append(
+                        f"social hunger at {int(drives_after.social_hunger * 100)}%"
+                    )
+                if drives_after.expression_need > 0.6:
+                    drive_notes.append(
+                        f"expression need at {int(drives_after.expression_need * 100)}%"
+                    )
+                if drives_after.energy < 0.3:
+                    drive_notes.append(
+                        f"energy low at {int(drives_after.energy * 100)}%"
+                    )
+                if drive_notes:
+                    parts.append(
+                        f"Tension building — {', '.join(drive_notes[:2])}"
+                        f" (arousal {arousal_pct}%, valence {valence_pct}%)"
+                    )
+                else:
+                    parts.append(
+                        f"Emotional tension — arousal {arousal_pct}%"
+                        f" but valence only {valence_pct}%"
+                    )
+            if suppressed_actions:
+                action_names = [d.action.type.replace('_', ' ')
+                                for d in suppressed_actions[:3]]
+                parts.append(
+                    f"Suppressed {len(suppressed_actions)} action(s): "
+                    + ', '.join(action_names)
+                )
+            conflict_description = '; '.join(parts)
 
         # TASK-053: Executed action types from body output.
         # The salience function needs to know what actually ran, not just what
@@ -1348,6 +1390,7 @@ class Heartbeat:
             'mood_valence': drives_after.mood_valence,
             'had_contradiction': had_contradiction,
             'has_internal_conflict': has_conflict,
+            'internal_conflict_description': conflict_description,
             'is_abrupt_end': is_abrupt_end,
             'is_silence_moment': is_silence_moment,
             'is_novel_topic': False,  # deferred to Phase 2

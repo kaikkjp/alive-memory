@@ -2,7 +2,7 @@
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import clock
@@ -11,6 +11,7 @@ import db
 
 MOMENT_THRESHOLD = 0.35
 MAX_DAY_MEMORIES = 30
+DEDUP_WINDOW_MINUTES = 30  # Skip identical moment_type within this window
 
 # Humanized action names for diegetic summaries (no system language in memories)
 ACTION_NAMES = {
@@ -66,15 +67,25 @@ async def maybe_record_moment(cycle_result: dict, cycle_context: dict) -> None:
     if salience < MOMENT_THRESHOLD:
         return  # not worth remembering today
 
+    moment_type = classify_moment(cycle_result, enriched_ctx)
+
+    # ── Dedup guard: skip if same moment_type was recorded recently ──
+    # Prevents identical memories (e.g. internal_conflict) from flooding
+    # the pool when a state persists across many cycles.
+    if await _is_duplicate_moment(moment_type):
+        print(f"  [DayMemory] Skipped duplicate {moment_type} "
+              f"(within {DEDUP_WINDOW_MINUTES}min window)")
+        return
+
     print(f"  [DayMemory] Recording moment: salience={salience:.3f} "
-          f"type={classify_moment(cycle_result, enriched_ctx)} "
+          f"type={moment_type} "
           f"mode={enriched_ctx.get('mode')}")
 
     moment = DayMemoryEntry(
         id=str(uuid.uuid4()),
         ts=clock.now_utc(),
         salience=salience,
-        moment_type=classify_moment(cycle_result, enriched_ctx),
+        moment_type=moment_type,
         visitor_id=enriched_ctx.get('visitor_id'),
         summary=build_moment_summary(cycle_result, enriched_ctx),
         raw_refs={
@@ -85,6 +96,25 @@ async def maybe_record_moment(cycle_result: dict, cycle_context: dict) -> None:
     )
 
     await db.insert_day_memory(moment)
+
+
+async def _is_duplicate_moment(moment_type: str) -> bool:
+    """Check if a day_memory with the same moment_type exists within the dedup window.
+
+    Prevents the same persistent state (e.g. emotional tension) from writing
+    identical memories every cycle. Only the first occurrence within the
+    window is recorded; later cycles are skipped.
+    """
+    cutoff = clock.now_utc() - timedelta(minutes=DEDUP_WINDOW_MINUTES)
+    try:
+        conn = await db.get_db()
+        cursor = await conn.execute(
+            "SELECT 1 FROM day_memory WHERE moment_type = ? AND ts > ? LIMIT 1",
+            (moment_type, cutoff.isoformat()),
+        )
+        return (await cursor.fetchone()) is not None
+    except Exception:
+        return False  # On DB error, allow the insert (safe default)
 
 
 def compute_moment_salience(result: dict, ctx: dict) -> float:
