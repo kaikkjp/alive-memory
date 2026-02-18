@@ -332,39 +332,37 @@ ORDER BY sim_day;
 
 ---
 
-### TASK-060: Self-authored context injection (Frame 4)
+### TASK-060: Self-Context Injection
 **Status:** BACKLOG
 **Priority:** High
 **Complexity:** Medium
 **Branch:** `feat/self-context`
-**Depends on:** TASK-056 (modify_self must exist)
+**Depends on:** TASK-065 merge (budget must exist first), TASK-059, TASK-064
+**Blocks:** TASK-061 (self-model), TASK-062 (drift detection)
 **Spec:** `tasks/TASK-060-self-context.md`
-**Description:** She forms intentions in cycle N that vanish by cycle N+1. Add a `self_context` table — persistent notes she writes to her future self, injected into cortex prompt for a bounded lifespan. Notes require sleep-phase approval before activating. She can withdraw early. Max 5 active, max 3 pending, max 280 chars, max 200 cycles. Prompt block must include note short IDs so she can reference specific notes for withdrawal.
+**Description:** Give the Shopkeeper awareness of her own state by injecting a structured self-context block into the LLM prompt each cycle. She currently has drives, memory, and scene context but no unified "here's who I am right now" snapshot. This is the foundation for 061-063 (identity evolution chain). Self-context is read-only in this task — she sees herself but doesn't modify herself yet (that's 061+).
+**Self-context block contents:**
+1. Identity summary — name, role, core traits (static seed, evolves in 061+)
+2. Current state snapshot — body state, energy, mood, active drives
+3. Recent behavioral summary — last N actions taken, any habits formed
+4. Temporal awareness — cycle count, time of day, time since last sleep
 **Scope (files you may touch):**
-- `db/context.py` (new — self_context CRUD)
-- `pipeline/output.py` (handle write_self_context action)
-- `pipeline/action_registry.py` (register write_self_context)
-- `pipeline/prompt_assembler.py` (inject self_context block with note IDs)
-- `sleep.py` (pending note review phase — LLM call via Haiku)
-- `heartbeat.py` (tick + expire self_context each cycle)
-- `migrations/` (self_context table)
-- `window/src/components/dashboard/SelfContextPanel.tsx` (new)
-- `api/dashboard_routes.py` (new /api/dashboard/self-context endpoint)
+- `prompt/self_context.py` (new — assembles the self-context block)
+- `pipeline/cortex.py` (post-059 — inject self-context into prompt assembly)
 **Scope (files you may NOT touch):**
-- `pipeline/cortex.py`
 - `pipeline/basal_ganglia.py`
 - `simulate.py`
+**Rules:**
+- Self-context is read-only — she sees herself but doesn't modify herself yet (that's 061+)
+- Must fit within the token budget allocated by TASK-065
+- Content is assembled fresh each cycle, not cached
+- Format: structured text block, not JSON — the LLM reads it as natural language
 **Tests:**
-- Unit: note created with correct bounds (280 chars, 200 cycles max, 5 cycle min)
-- Unit: pending cap enforced (rejects 4th pending)
-- Unit: active cap enforced (rejects 6th active)
-- Unit: sleep review activates coherent notes, discards incoherent
-- Unit: expiry ticks correctly, expired notes disappear from prompt
-- Unit: withdrawal by note ID works
-- Unit: prompt block includes short IDs for each active note
-- Integration: write_self_context → sleep review → prompt injection → visible in next waking cycle
-- Integration: expired notes stop appearing in prompt
-**Definition of done:** She can write notes to her future self. Notes require sleep approval before activating. Active notes appear in cortex prompt with IDs she can reference. Notes auto-expire; she can withdraw by ID. Dashboard shows full note history (operator read-only, cannot modify).
+- Self-context block appears in prompt when enabled
+- Token count stays within budget allocation
+- Content accurately reflects current state (compare against actual drive/energy/mood values)
+- No behavioral change in output — this is additive context, not a directive
+**Definition of done:** Self-context block injected into every LLM prompt. Contains identity summary, current state, recent behavior, and temporal awareness. Respects TASK-065 token budget. Content is accurate and assembled fresh each cycle. Read-only — no self-modification capability yet.
 
 ---
 
@@ -506,20 +504,35 @@ ORDER BY sim_day;
 
 ---
 
-### TASK-065: Prompt token budget strategy
+### TASK-065: Prompt Token Budget
 **Status:** BACKLOG
 **Priority:** Medium
-**Depends on:** Queue before TASK-061 lands
+**Branch:** `feat/prompt-budget`
+**Depends on:** TASK-064 merge (sleep phases cleaned up), TASK-059 merge (prompt structure finalized)
+**Blocks:** TASK-060, TASK-061
 **Spec:** `tasks/TASK-065-prompt-budget.md`
-**Description:** Cortex prompt is gaining new sections: self_context block (060), cognitive state block (061), fitness function block (063). Each competes for context window space with memories, perceptions, and identity. Add a token budget system in `prompt_assembler.py` — each section gets a max allocation, priority order determines what gets trimmed first when total exceeds budget. Perceptions and identity are never trimmed. Self-context and cognitive state trim first.
+**Description:** Enforce token caps on each section of the LLM prompt to prevent context window bloat as features accumulate. TASK-060 through TASK-063 all inject new content into the prompt — without a budget, each addition creeps the token count up until we hit truncation or degraded output quality.
+**Design:**
+1. Define named prompt sections (system, memory, drives, scene, self_context, conversation_history)
+2. Each section gets a max token allocation in config
+3. Total budget = model context window minus reserved output tokens
+4. Before each LLM call, `budget.py` measures each section, truncates/summarizes any that exceed their cap (oldest-first for history, least-relevant-first for memory)
+5. Emit a warning log if any section hits its cap — visibility into what's getting cut
 **Scope (files you may touch):**
-- `pipeline/prompt_assembler.py` (add budget allocation and priority trimming)
-- `config/` (add `prompt_budget.py` or extend existing config)
-**Scope (files you may NOT touch):**
-- `pipeline/cortex.py`
-- `pipeline/basal_ganglia.py`
-**Tests:** Unit: prompt stays under total budget with all sections populated. Unit: low-priority sections trimmed before high-priority.
-**Definition of done:** Every prompt section has a token budget. Total prompt size is bounded. Priority trimming is deterministic and logged.
+- `prompt/budget.py` (new — token counting + section enforcement)
+- `pipeline/cortex.py` (post-059 — integrate budget checks before LLM call)
+- `prompt/budget_config.json` or similar (new — per-section limits)
+**Rules:**
+- Token counting must be fast — use tiktoken or character-estimate heuristic, not an LLM call
+- Truncation strategy per section type (configurable)
+- Never silently drop content — always log what was trimmed
+- Budget config must be tunable without code changes
+**Tests:**
+- Unit: section over budget → truncated to limit
+- Unit: total under budget → nothing touched
+- Integration: full prompt assembly stays within model context window
+- Log output shows trim events when triggered
+**Definition of done:** Every prompt section has a token budget. Total prompt size is bounded. Truncation is per-section with configurable strategy. All trims are logged. Budget config is external and tunable without code changes.
 
 ---
 
