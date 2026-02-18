@@ -138,6 +138,8 @@ async def on_stage(stage: str, data: dict):
             print(f"\n  {Fore.BLUE}[Sleep]{Style.RESET_ALL} She closes her eyes...")
         elif status == 'woke_up':
             print(f"  {Fore.BLUE}[Sleep]{Style.RESET_ALL} Morning. She stirs.\n")
+        elif status == 'deferred':
+            print(f"  {Fore.BLUE}[Sleep]{Style.RESET_ALL} Sleep deferred — she's still engaged with a visitor.")
 
     elif stage == 'end_engagement':
         farewell = data.get('farewell', '')
