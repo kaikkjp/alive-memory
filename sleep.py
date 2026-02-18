@@ -20,6 +20,16 @@ from config.identity import IDENTITY_COMPACT
 
 COLD_SEARCH_ENABLED = os.getenv('COLD_SEARCH_ENABLED', 'false').lower() == 'true'
 
+# Drive fields governed by each parameter category — for meta-sleep review
+_CATEGORY_DRIVE_MAP: dict[str, list[str]] = {
+    'hypothalamus': ['mood_valence', 'social_hunger', 'curiosity', 'expression_need', 'energy', 'rest_need'],
+    'thalamus':     ['curiosity'],
+    'sensorium':    ['social_hunger'],
+    'basal_ganglia': ['energy'],
+    'output':       ['mood_valence', 'mood_arousal'],
+    'sleep':        ['rest_need', 'energy'],
+}
+
 
 async def sleep_cycle() -> int:
     """Daily consolidation. Runs 03:00-06:00 JST.
@@ -120,6 +130,14 @@ async def sleep_cycle() -> int:
 
     # 4. Trait stability review (unchanged)
     await review_trait_stability()
+
+    # 4b. Meta-sleep review: revert self-modifications if governed drives degraded
+    await review_self_modifications()
+
+    # 4c. Auto-promote high-frequency pending actions
+    promoted = await db.promote_pending_actions(threshold=5)
+    if promoted:
+        print(f"  [Sleep] Auto-promoted {len(promoted)} pending actions: {[a['action_name'] for a in promoted]}")
 
     # 5. Thread lifecycle management
     await manage_thread_lifecycle()
@@ -364,6 +382,55 @@ async def review_trait_stability():
             days_old = (clock.now_utc() - trait.observed_at).days
             if days_old > 7:
                 await db.update_trait_status(trait.id, 'archived')
+
+
+async def review_self_modifications() -> None:
+    """Review today's self-modifications. Revert per-parameter if its governed drive degraded.
+
+    For each modified parameter, infer which drive(s) it governs from the
+    parameter's category prefix. If that drive is more than 0.4 away from
+    equilibrium, revert the parameter to its default.
+
+    TECH DEBT v1: uses end-of-day drive state, not a before/after delta.
+    Tune the 0.4 threshold after first experiment run.
+    """
+    from db.parameters import get_todays_self_modifications, reset_param
+    from db.parameters import p_or as param_p_or
+
+    mods = await get_todays_self_modifications()
+    if not mods:
+        print("  [Sleep] No self-modifications to review")
+        return
+
+    print(f"  [Sleep] Reviewing {len(mods)} self-modification(s)")
+    drives = await db.get_drives_state()
+
+    for mod in mods:
+        param_key = mod['param_key']
+        category = param_key.split('.')[0]
+        governed_drives = _CATEGORY_DRIVE_MAP.get(category, [])
+
+        degraded = False
+        for drive_field in governed_drives:
+            eq_key = f'hypothalamus.equilibria.{drive_field}'
+            equilibrium = param_p_or(eq_key, 0.5)
+            current = getattr(drives, drive_field, None)
+            if current is None:
+                continue
+            deviation = abs(current - equilibrium)
+            if deviation > 0.4:
+                degraded = True
+                print(f"    [Sleep] Drive {drive_field} deviation {deviation:.2f} — flagging {param_key} for revert")
+                break
+
+        if degraded:
+            try:
+                await reset_param(param_key, modified_by='meta_sleep_revert')
+                print(f"    [Sleep] Reverted: {param_key} (was {mod['new_value']})")
+            except Exception as e:
+                print(f"    [Sleep] Failed to revert {param_key}: {e}")
+        else:
+            print(f"    [Sleep] Keeping: {param_key} (governed drives within range)")
 
 
 async def manage_thread_lifecycle():

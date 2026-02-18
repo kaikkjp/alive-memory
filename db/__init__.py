@@ -174,6 +174,13 @@ from db.parameters import (
     set_param,
     reset_param,
     get_modification_log,
+    get_todays_self_modifications,
+)
+
+# ── actions ──
+from db.actions import (
+    get_dynamic_action, get_all_dynamic_actions, get_dynamic_actions_by_status,
+    record_unknown_action, resolve_action, promote_pending_actions, get_action_stats,
 )
 
 # ── analytics ──

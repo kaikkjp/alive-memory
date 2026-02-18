@@ -290,6 +290,63 @@ async def check_habits(drives: DrivesState,
     return None  # all matching habits gated out
 
 
+async def _resolve_dynamic_action(action_name: str, decision: ActionDecision) -> str | None:
+    """Resolve an unknown action via the dynamic actions table.
+
+    Returns:
+        'alias'      — action was an alias; decision.action updated to target
+        'body_state' — action is a body state update; decision auto-approved
+        None         — action recorded as pending; decision marked incapable
+    """
+    dyn = await db.get_dynamic_action(action_name)
+
+    if dyn is None:
+        # Never seen before — record it
+        await db.record_unknown_action(action_name)
+        decision.status = 'incapable'
+        decision.suppression_reason = f'Unknown action: {action_name} (recorded as pending)'
+        return None
+
+    if dyn['status'] == 'alias' and dyn['alias_for']:
+        # Redirect to the aliased action
+        target = dyn['alias_for']
+        if target in ACTION_REGISTRY and ACTION_REGISTRY[target].enabled:
+            decision.action = target
+            decision.detail['_original_action'] = action_name
+            return 'alias'
+        else:
+            decision.status = 'incapable'
+            decision.suppression_reason = f'Alias {action_name}→{target} but target disabled'
+            return None
+
+    if dyn['status'] == 'body_state' and dyn['body_state']:
+        # Auto-approve as body state change
+        decision.status = 'approved'
+        decision.detail['_body_state_update'] = dyn['body_state']
+        decision.detail['_original_action'] = action_name
+        return 'body_state'
+
+    # Pending or rejected — increment count, stay incapable
+    await db.record_unknown_action(action_name)  # bumps attempt_count
+    decision.status = 'incapable'
+    decision.suppression_reason = f'Unknown action: {action_name} (seen {dyn["attempt_count"] + 1}x, pending review)'
+    return None
+
+
+async def _has_reflection_evidence() -> bool:
+    """Check if the Shopkeeper has journaled very recently (last 3 events).
+
+    v1 heuristic: tight window — journal must be one of the last 3 events.
+    TECH DEBT: thread cycle_id through here and require same-cycle reflection.
+    """
+    import db as _db  # local import to avoid circular
+    recent = await _db.get_recent_events(limit=3)
+    for ev in recent:
+        if ev.event_type == 'action_journal':
+            return True
+    return False
+
+
 async def select_actions(validated: ValidatedOutput, drives: DrivesState,
                          context: dict = None) -> MotorPlan:
     """Select which intentions fire this cycle.
@@ -325,12 +382,20 @@ async def select_actions(validated: ValidatedOutput, drives: DrivesState,
             source='cortex',
         )
 
-        # Gate 1: Does she know this action?
+        # Gate 1: Action resolution — static → dynamic alias → body_state → pending
         if action_name not in ACTION_REGISTRY:
-            decision.status = 'incapable'
-            decision.suppression_reason = f'Unknown action: {action_name}'
-            decisions.append(decision)
-            continue
+            resolved = await _resolve_dynamic_action(action_name, decision)
+            if resolved is None:
+                # Truly unknown — recorded as pending, marked incapable
+                decisions.append(decision)
+                continue
+            elif resolved == 'alias':
+                # Swap action_name to the alias target, continue through gates
+                action_name = decision.action  # updated by _resolve_dynamic_action
+            elif resolved == 'body_state':
+                # Body state update — auto-approve, skip remaining gates
+                decisions.append(decision)
+                continue
 
         capability = ACTION_REGISTRY[action_name]
 
@@ -387,12 +452,47 @@ async def select_actions(validated: ValidatedOutput, drives: DrivesState,
             decisions.append(decision)
             continue
 
+        # Gate 7: modify_self requires recent reflection evidence
+        if action_name == 'modify_self':
+            has_evidence = await _has_reflection_evidence()
+            if not has_evidence:
+                decision.status = 'suppressed'
+                decision.suppression_reason = 'modify_self requires recent reflection (journal within last 3 events)'
+                decisions.append(decision)
+                continue
+            # Validate parameter key and value are present in the ActionRequest detail
+            action_detail = {}
+            for req in validated.approved_actions:
+                if req.type == action_name:
+                    action_detail = req.detail
+                    break
+            if not action_detail:
+                for req in validated.actions:
+                    if req.type == action_name:
+                        action_detail = req.detail
+                        break
+            param_key = action_detail.get('parameter')
+            new_value = action_detail.get('value')
+            if not param_key or new_value is None:
+                decision.status = 'suppressed'
+                decision.suppression_reason = 'modify_self requires parameter and value in detail'
+                decisions.append(decision)
+                continue
+
         # Passed all gates — calculate priority
         decision.priority = _calculate_priority(
             intention, drives, context
         )
         decision.status = 'approved'
-        decision.detail = _find_matching_detail(action_name, validated)
+        # For aliased actions the cortex sent the original name; look up detail
+        # by the original action name so the payload (e.g. content_id for
+        # read_content) is not lost.  _original_action was stashed by
+        # _resolve_dynamic_action when the alias was resolved.
+        lookup_name = decision.detail.get('_original_action', action_name)
+        fetched_detail = _find_matching_detail(lookup_name, validated)
+        # Merge: keep any resolver metadata already on decision.detail, then
+        # overlay the fetched request payload so caller fields win.
+        decision.detail = {**decision.detail, **fetched_detail}
         decisions.append(decision)
 
     # Sort approved by priority descending
