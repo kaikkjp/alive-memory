@@ -526,7 +526,7 @@ ORDER BY sim_day;
 ---
 
 ### TASK-065: Prompt Token Budget
-**Status:** BACKLOG
+**Status:** DONE (2026-02-19)
 **Priority:** Medium
 **Branch:** `feat/prompt-budget`
 **Depends on:** TASK-064 merge (sleep phases cleaned up), TASK-059 merge (prompt structure finalized)

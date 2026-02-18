@@ -140,6 +140,13 @@ Events → Inbox → Sensorium → Gates → Affect → Hypothalamus → Thalamu
 | `config/location.py` | 13 | Physical location constants (Daikanyama, Tokyo). |
 | `config/feeds.py` | 13 | RSS feed URLs for ambient content ingestion. |
 
+### Token Budget — `prompt/`
+
+| File | Lines | What it does |
+|------|-------|-------------|
+| `prompt/budget.py` | 317 | Per-section token budget enforcement. Measures and trims prompt sections before LLM calls. Strategies: truncate_tail, drop_oldest, drop_least_relevant. |
+| `prompt/budget_config.json` | 320 | External config for per-section token caps, truncation strategies, and budget totals. Tunable without code changes. |
+
 ### Sleep System
 
 | File | Lines | What it does |
