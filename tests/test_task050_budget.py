@@ -492,7 +492,11 @@ class TestPartC_ReadContentUnblocked:
             Intention(action='read_content', content='article', impulse=0.8),
         ]
         validated = _validated_with_intentions(intentions)
-        plan = await select_actions(validated, low_energy_drives, context={})
+        with patch('pipeline.basal_ganglia.db') as mock_db:
+            mock_db.get_inhibitions_for_action = AsyncMock(return_value=[])
+            mock_db.get_room_state = AsyncMock(return_value=None)
+            mock_db.get_all_habits = AsyncMock(return_value=[])
+            plan = await select_actions(validated, low_energy_drives, context={})
 
         # read_content approved even with near-zero energy display value
         assert len(plan.actions) == 1

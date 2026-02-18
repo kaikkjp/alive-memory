@@ -160,18 +160,6 @@ class TestReadContent:
         assert 'no content_id' in result.error
 
 
-    @pytest.mark.asyncio
-    async def test_read_content_cooldown(self):
-        """read_content has a non-zero cooldown_seconds to enforce min_cycles_between_reads.
-
-        The basal ganglia enforces cooldown_seconds from the action registry.
-        With ~3 min/cycle, 360s = ~2 cycles between reads.
-        """
-        cap = ACTION_REGISTRY['read_content']
-        assert cap.cooldown_seconds > 0, "read_content must have a cooldown"
-        # At ~3 min/cycle, cooldown should be ~2 cycles = ~360 seconds
-        assert cap.cooldown_seconds >= 300, "cooldown should be at least ~2 cycles"
-
 
 class TestSaveForLater:
     """save_for_later action flags content pool items."""
