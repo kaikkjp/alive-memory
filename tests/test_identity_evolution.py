@@ -89,9 +89,12 @@ class TestGuardRailConfig:
         config = GuardRailConfig.load()
         assert config.operator_override_enabled is True
 
-    def test_config_missing_file_raises(self, tmp_path):
-        with pytest.raises(FileNotFoundError):
-            GuardRailConfig.load(tmp_path / "nonexistent.json")
+    def test_config_missing_file_falls_back_to_defaults(self, tmp_path):
+        config = GuardRailConfig.load(tmp_path / "nonexistent.json")
+        assert config.protected_traits == []
+        assert config.max_updates_per_sleep == 1
+        assert config.min_sustained_cycles == 3
+        assert config.operator_override_enabled is True
 
 
 # ---------------------------------------------------------------------------
