@@ -219,28 +219,6 @@ ORDER BY sim_day;
 
 ---
 
-### TASK-054: Fix inhibition self_assessment trigger
-**Status:** READY
-**Priority:** High (bug fix)
-**Complexity:** Small — 1 file change + migration
-**Branch:** `fix/inhibition-self-assessment`
-**Description:** Inhibitions form from `self_assessment` trigger within the first 25 minutes of existence. The cortex's normal introspective doubt feeds back into the inhibition system, silencing `write_journal` and `express_thought` in 95% of cycles (244 blocked attempts in 7-day sim, ~31% of core creative output suppressed). The inhibition system was designed for external signals, not internal self-doubt.
-**Scope (files you may touch):**
-- `pipeline/output.py` (exclude self_assessment, mood_decline, repetition from inhibition triggers; add cycle count guard)
-- `migrations/` (new migration to DELETE inhibitions WHERE reason LIKE '%self_assessment%')
-**Scope (files you may NOT touch):**
-- `pipeline/basal_ganglia.py` (inhibition checking is fine, formation is the bug)
-- `pipeline/cortex.py`
-- `heartbeat.py`
-**Tests:**
-- Unit: `self_assessment` trigger does NOT create inhibition
-- Unit: `visitor_displeasure` trigger DOES create inhibition
-- Unit: no inhibitions form before cycle 100
-- Integration: run 200 cycles, confirm no inhibitions on `write_journal` when alone
-**Definition of done:** No inhibitions form from `self_assessment`. Existing broken inhibitions cleared from prod. She journals and expresses thoughts freely when alone.
-
----
-
 ### TASK-055: Extract pipeline parameters to self_parameters DB table
 **Status:** BACKLOG
 **Priority:** High (infrastructure for TASK-056)
