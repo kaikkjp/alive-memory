@@ -354,6 +354,124 @@ ORDER BY sim_day;
 
 ---
 
+### TASK-054: Fix inhibition self_assessment trigger
+**Status:** DONE (2026-02-18)
+**Priority:** High (bug fix)
+**Complexity:** Small — 1 file change + migration
+**Branch:** `fix/inhibition-self-assessment`
+**Description:** Inhibitions form from `self_assessment` trigger within the first 25 minutes of existence. The cortex's normal introspective doubt feeds back into the inhibition system, silencing `write_journal` and `express_thought` in 95% of cycles (244 blocked attempts in 7-day sim, ~31% of core creative output suppressed). The inhibition system was designed for external signals, not internal self-doubt.
+**Scope (files you may touch):**
+- `pipeline/output.py` (exclude self_assessment, mood_decline, repetition from inhibition triggers; add cycle count guard)
+- `migrations/` (new migration to DELETE inhibitions WHERE reason LIKE '%self_assessment%')
+**Scope (files you may NOT touch):**
+- `pipeline/basal_ganglia.py` (inhibition checking is fine, formation is the bug)
+- `pipeline/cortex.py`
+- `heartbeat.py`
+**Tests:**
+- Unit: `self_assessment` trigger does NOT create inhibition
+- Unit: `visitor_displeasure` trigger DOES create inhibition
+- Unit: no inhibitions form before cycle 100
+- Integration: run 200 cycles, confirm no inhibitions on `write_journal` when alone
+**Definition of done:** No inhibitions form from `self_assessment`. Existing broken inhibitions cleared from prod. She journals and expresses thoughts freely when alone.
+
+---
+
+### TASK-055: Extract pipeline parameters to self_parameters DB table
+**Status:** BACKLOG
+**Priority:** High (infrastructure for TASK-056)
+**Complexity:** Large — touches every pipeline module
+**Branch:** `feat/self-parameters`
+**Depends on:** TASK-054
+**Description:** All ~50 cognitive architecture constants are hardcoded in Python files (drive equilibria, routing thresholds, salience weights, gate parameters, inhibition rates, sleep params). Extract them to a `self_parameters` DB table with bounds, modification tracking, and a per-cycle cached load. Required infrastructure for TASK-056 self-modification.
+**Scope (files you may touch):**
+- `db/parameters.py` (new — get_param, set_param, get_params_by_category, reset_param, get_modification_log)
+- `pipeline/hypothalamus.py` (replace hardcoded drive constants)
+- `pipeline/thalamus.py` (replace routing thresholds)
+- `pipeline/sensorium.py` (replace salience weights)
+- `pipeline/basal_ganglia.py` (replace gate parameters)
+- `pipeline/output.py` (replace inhibition parameters)
+- `sleep.py` (replace consolidation parameters)
+- `heartbeat.py` (load params at cycle start, pass through pipeline)
+- `migrations/` (new table + seed data)
+- `heartbeat_server.py` or `api/dashboard_routes.py` (new parameters endpoint)
+- `window/src/components/dashboard/ParametersPanel.tsx` (new)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `simulate.py`
+**Tests:**
+- Unit: `get_param` returns correct values
+- Unit: `set_param` enforces bounds (rejects out-of-range)
+- Unit: `reset_param` restores default
+- Integration: pipeline produces identical output with DB params vs old hardcoded values
+- Regression: run 50 cycles, verify behavior unchanged
+**Definition of done:** All ~50 pipeline constants in `self_parameters` table. Pipeline reads from DB (cached per cycle). Dashboard shows parameters with modification tracking. System behavior identical to pre-migration.
+
+---
+
+### TASK-056: Dynamic action registry + modify_self action
+**Status:** BACKLOG
+**Priority:** High (the self-modification capability)
+**Complexity:** Large
+**Branch:** `feat/dynamic-actions`
+**Depends on:** TASK-055
+**Description:** Two problems: (A) She invents ~100 unique action names that don't exist (browse_web: 242, stand: 118, make_tea: 17, etc.) — all discarded as `incapable`, she never learns. (B) She has no conscious mechanism to adjust her own cognitive parameters. Fix both: dynamic action registry with alias/body_state/pending resolution, and a `modify_self` action gated behind reflection evidence.
+**Scope (files you may touch):**
+- `pipeline/basal_ganglia.py` (action resolution: static → dynamic alias → body_state → pending; modify_self gating)
+- `pipeline/output.py` (modify_self execution, self-modification logging)
+- `db/actions.py` (new — dynamic_actions CRUD)
+- `db/parameters.py` (extend with modification logging)
+- `sleep.py` (meta-sleep review phase — revert degraded modifications)
+- `heartbeat.py` (pass dynamic actions to pipeline)
+- `migrations/` (dynamic_actions table + seed data)
+- `window/src/components/dashboard/ActionsPanel.tsx` (new)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `simulate.py`
+**Tests:**
+- Unit: action resolution order (static → dynamic alias → body_state → pending)
+- Unit: browse_web resolves to read_content
+- Unit: stand creates body_state update
+- Unit: unknown action creates pending entry, promotes after 5 attempts
+- Unit: modify_self rejected without recent reflection evidence
+- Unit: modify_self respects parameter bounds
+- Unit: meta-sleep review reverts degraded modifications
+- Integration: run 100 cycles, verify dynamic actions accumulate and aliases work
+**Definition of done:** browse_web redirects to read_content. Physical actions update room_state. Unknown actions tracked and auto-promoted. modify_self works with reflection prerequisite. Nightly meta-review evaluates and can revert. Dashboard shows registry and modification history. She stops wasting 242 cycles on `incapable`.
+
+---
+
+### TASK-057: Enable X/Twitter social channel
+**Status:** DONE (2026-02-18)
+**Priority:** High (addresses social isolation — social_hunger at 0.742)
+**Complexity:** Medium
+**Branch:** `feat/x-social`
+**Parallel with:** TASK-055, TASK-056 (no overlap)
+**Description:** Social hunger is 0.742 (highest drive), mood valence is -0.546, zero visitors. She's lonely. `post_x_draft` already exists in the action registry but is disabled. Enable it with a human-review queue: she drafts → operator approves → posts to X → replies become visitor events.
+**Scope (files you may touch):**
+- `pipeline/output.py` (handle post_x_draft action, dedup, char limit)
+- `pipeline/cortex.py` (add X posting guidance to prompt when enabled)
+- `db/social.py` (new — x_drafts CRUD)
+- `workers/x_poster.py` (new — X API integration)
+- `heartbeat.py` (enable post_x_draft in registry)
+- `heartbeat_server.py` or `api/dashboard_routes.py` (GET /api/dashboard/x-drafts, POST approve/reject)
+- `window/src/components/dashboard/XDraftsPanel.tsx` (new)
+- `migrations/` (x_drafts table)
+**Scope (files you may NOT touch):**
+- `pipeline/basal_ganglia.py`
+- `pipeline/hypothalamus.py`
+- `sleep.py`
+**Tests:**
+- Unit: draft creation respects 280 char limit
+- Unit: dedup rejects similar drafts within 24h
+- Unit: daily cap of 8 posts enforced
+- Unit: cooldown of 30 min between posts
+- Unit: approve/reject endpoints work
+- Integration: express_thought → draft → approve → post flow
+- Integration: reply → visitor event → cortex response → reply draft
+**Definition of done:** She creates X drafts from express_thought. Dashboard shows pending drafts with approve/reject. Approved drafts post to X via API. Reply ingestion creates visitor events. Daily cap and cooldown prevent spam.
+
+---
+
 ## Completed Tasks
 
 _None yet._

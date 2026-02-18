@@ -366,11 +366,11 @@ async def run_simulation(
             # Attempt sleep if not done today
             if hb._last_sleep_date != today_str:
                 try:
-                    ran = await sleep_cycle()
-                    if ran:
+                    moment_count = await sleep_cycle()
+                    if moment_count >= 0:
                         hb._last_sleep_date = today_str
                         sleep_count += 1
-                        tl.log_sleep(now_jst, 0, quiet=quiet)
+                        tl.log_sleep(now_jst, moment_count, quiet=quiet)
                 except Exception as e:
                     print(f"  [Sim] Sleep error: {e}")
 

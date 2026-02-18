@@ -183,6 +183,11 @@ class Heartbeat:
         self._last_expression_taken: bool = False  # TASK-046: previous cycle had expression action
         self._recent_action_types: list[str] = []  # last 3 cycle primary actions
 
+        # TASK-057: Set X draft cooldown (30 min between posts at gate level)
+        from pipeline.action_registry import ACTION_REGISTRY
+        if 'post_x_draft' in ACTION_REGISTRY:
+            ACTION_REGISTRY['post_x_draft'].cooldown_seconds = 1800
+
     def get_cycle_interval(self) -> int:
         """Return the current cycle interval in seconds."""
         return self._cycle_interval
@@ -379,7 +384,7 @@ class Heartbeat:
                     try:
                         await self._emit_stage('sleep', {'status': 'entering_sleep'})
                         ran = await sleep_cycle()
-                        if ran:
+                        if ran >= 0:
                             self._last_sleep_date = clock.now().date().isoformat()
                             try:
                                 await db.set_setting('last_sleep_date', self._last_sleep_date)

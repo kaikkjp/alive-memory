@@ -16,6 +16,7 @@ import BehavioralPanel from '@/components/dashboard/BehavioralPanel';
 import ContentPoolPanel from '@/components/dashboard/ContentPoolPanel';
 import FeedPanel from '@/components/dashboard/FeedPanel';
 import ConsumptionHistoryPanel from '@/components/dashboard/ConsumptionHistoryPanel';
+import XDraftsPanel from '@/components/dashboard/XDraftsPanel';
 
 export default function DashboardPage() {
   const [authenticated, setAuthenticated] = useState(false);
@@ -107,6 +108,7 @@ export default function DashboardPage() {
           <DrivesPanel />
           <BodyPanel />
           <BehavioralPanel />
+          <XDraftsPanel />
           <CostsPanel />
           <ThreadsPanel />
           <PoolPanel />

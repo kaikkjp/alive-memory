@@ -261,7 +261,7 @@ class TestSleepProcessesRemaining(unittest.IsolatedAsyncioTestCase):
             p.start()
         try:
             result = await sleep.sleep_cycle()
-            assert result is True, "sleep_cycle should return True"
+            assert result >= 0, "sleep_cycle should return >= 0 (moments consolidated)"
             # Verify the moderate moment was processed (not skipped by threshold)
             sleep.db.mark_day_memory_processed.assert_called_once_with('m-moderate')
             # Verify sleep_reflect was called (LLM reflection happened)

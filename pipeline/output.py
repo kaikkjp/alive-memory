@@ -42,10 +42,16 @@ ACTION_DRIVE_EFFECTS = {
     'end_engagement': {'rest_need': -0.03},  # social load lifted
 }
 
+# ── X draft limits (TASK-057) ──
+X_DRAFT_MAX_CHARS = 280
+X_DRAFT_DAILY_CAP = 8
+X_DRAFT_COOLDOWN_SECONDS = 1800  # 30 minutes
 
-# ── Negative feeling patterns for inhibition signal detection ──
-# These are matched against internal_monologue to detect self-assessed
-# negative outcomes. No LLM call — the cortex already told us.
+
+# ── Negative feeling patterns (reserved for future use) ──
+# Patterns for detecting self-assessed negative outcomes from cortex monologue.
+# NOT used for inhibition formation — internal self-doubt must not silence
+# creative output. Reserved for a future emotional logging feature.
 NEGATIVE_FEELING_PATTERNS = [
     r"shouldn't have",
     r"regret",
@@ -56,6 +62,20 @@ NEGATIVE_FEELING_PATTERNS = [
     r"felt wrong",
     r"wished I hadn't",
 ]
+
+# ── Inhibition formation guards ──
+# Triggers that must NEVER form inhibitions. All are internal self-doubt signals
+# that fire on normal introspection. Checked in _maybe_form_inhibition so the
+# guard is enforced at the formation site, not only at the call site.
+INHIBITION_BLOCKED_TRIGGERS = {'self_assessment', 'mood_decline', 'repetition'}
+
+# Minimum cycle count before any inhibitions can form.
+# She needs time to establish baselines before learning avoidance.
+INHIBITION_MIN_CYCLE = 100
+
+# Module-level latch: once we've confirmed cycle_count >= INHIBITION_MIN_CYCLE,
+# we skip the DB call on every subsequent cycle.
+_inhibition_guard_cleared: bool = False
 
 
 async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
@@ -229,6 +249,10 @@ async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
     if motor_plan and cycle_id:
         await _log_motor_plan(motor_plan, body_output, cycle_id)
 
+    # ── Persist X drafts with limits (TASK-057) ──
+    if body_output.executed and motor_plan:
+        await _persist_x_draft(body_output, motor_plan=motor_plan, cycle_id=cycle_id)
+
     # ── Suppression reflection seed (Phase 2) ──
     if motor_plan:
         await _inject_reflection_seed(motor_plan)
@@ -263,6 +287,68 @@ async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
         await _emit_internal_conflict(consistency, validated)
 
     return result
+
+
+async def _persist_x_draft(body_output: BodyOutput, motor_plan: MotorPlan,
+                           cycle_id: str = None) -> None:
+    """Intercept post_x_draft results and persist as queued drafts.
+
+    Enforces: 280 char limit, dedup within 24h, daily cap of 8, 30 min cooldown.
+    Draft text is extracted from motor_plan (body.py doesn't set result.content).
+    """
+    for action_result in body_output.executed:
+        if action_result.action != 'post_x_draft' or not action_result.success:
+            continue
+
+        # Extract draft text from motor plan decision detail
+        draft_text = ''
+        for decision in motor_plan.actions:
+            if decision.action == 'post_x_draft':
+                draft_text = (decision.detail.get('text', '') if decision.detail else '').strip()
+                break
+
+        if not draft_text:
+            print("  [XDraft] No draft text in motor plan, skipping")
+            continue
+
+        # ── Char limit ──
+        if len(draft_text) > X_DRAFT_MAX_CHARS:
+            draft_text = draft_text[:X_DRAFT_MAX_CHARS]
+            print(f"  [XDraft] Truncated to {X_DRAFT_MAX_CHARS} chars")
+
+        # ── Dedup check ──
+        try:
+            is_dup = await db.check_dedup(draft_text)
+            if is_dup:
+                print("  [XDraft] Duplicate draft rejected (similar within 24h)")
+                continue
+        except Exception as e:
+            print(f"  [XDraft] Dedup check failed: {e}")
+
+        # ── Daily cap ──
+        try:
+            daily_count = await db.get_daily_post_count()
+            if daily_count >= X_DRAFT_DAILY_CAP:
+                print(f"  [XDraft] Daily cap reached ({daily_count}/{X_DRAFT_DAILY_CAP})")
+                continue
+        except Exception as e:
+            print(f"  [XDraft] Daily cap check failed: {e}")
+
+        # ── Cooldown ──
+        try:
+            still_cooling = await db.check_cooldown(X_DRAFT_COOLDOWN_SECONDS)
+            if still_cooling:
+                print("  [XDraft] Cooldown active (30 min between drafts)")
+                continue
+        except Exception as e:
+            print(f"  [XDraft] Cooldown check failed: {e}")
+
+        # ── Persist ──
+        try:
+            draft = await db.insert_x_draft(draft_text, cycle_id=cycle_id)
+            print(f"  [XDraft] Draft created: {draft['id'][:8]}... ({len(draft_text)} chars)")
+        except Exception as e:
+            print(f"  [XDraft] Failed to persist draft: {e}")
 
 
 async def _log_motor_plan(motor_plan: MotorPlan, body_output: BodyOutput,
@@ -345,9 +431,11 @@ async def _inject_reflection_seed(motor_plan: MotorPlan) -> None:
 def _detect_negative_signal(cortex_feelings: str) -> bool:
     """Detect negative outcome signals from cortex internal monologue.
 
-    Internal signals: pattern match on feelings the cortex expressed.
-    External signals (visitor left quickly) require heartbeat.py changes
-    and will be added in a future task.
+    RESERVED — not used for inhibition formation (TASK-054).
+    Internal self-doubt must not silence creative output.
+    Future use: emotional logging, reflection seeds, or wellbeing tracking.
+    External inhibition signals (visitor_displeasure) are wired separately —
+    see future task for heartbeat.py integration.
     """
     for pattern in NEGATIVE_FEELING_PATTERNS:
         if re.search(pattern, cortex_feelings, re.IGNORECASE):
@@ -380,10 +468,19 @@ def _build_inhibition_pattern(decision: ActionDecision) -> str:
 
 async def _update_inhibitions(motor_plan: MotorPlan, body_output: BodyOutput,
                               cortex_feelings: str) -> None:
-    """Check executed actions for negative/positive signals and form/weaken inhibitions."""
-    try:
-        negative = _detect_negative_signal(cortex_feelings)
+    """Check executed actions for positive signals and weaken inhibitions.
 
+    Self-assessment signals (internal doubt) are excluded from inhibition
+    formation — they fire on normal introspection and would silence
+    write_journal and express_thought. Only external signals (visitor_displeasure)
+    form new inhibitions, enforced via INHIBITION_BLOCKED_TRIGGERS in
+    _maybe_form_inhibition. External wiring is a future task.
+
+    Positive signals (write_journal success) always run — existing inhibitions
+    can weaken at any cycle, not just after INHIBITION_MIN_CYCLE. The cycle
+    guard lives inside _maybe_form_inhibition and blocks formation only.
+    """
+    try:
         for action_result in body_output.executed:
             positive = _detect_positive_signal(action_result)
 
@@ -396,17 +493,40 @@ async def _update_inhibitions(motor_plan: MotorPlan, body_output: BodyOutput,
             if not decision:
                 continue
 
-            await _maybe_form_inhibition(decision, negative, positive)
+            # Internal negatives (self_assessment) never form inhibitions —
+            # enforced by INHIBITION_BLOCKED_TRIGGERS inside _maybe_form_inhibition.
+            # Positive signals weaken existing inhibitions regardless of cycle count.
+            await _maybe_form_inhibition(decision, negative=False, positive=positive,
+                                         trigger='internal')
     except Exception as e:
         print(f"  [Inhibition] Error updating inhibitions: {e}")
 
 
 async def _maybe_form_inhibition(decision: ActionDecision,
-                                 negative: bool, positive: bool) -> None:
-    """Form, strengthen, or weaken inhibitions based on signals."""
+                                 negative: bool, positive: bool,
+                                 trigger: str = 'external') -> None:
+    """Form, strengthen, or weaken inhibitions based on signals.
+
+    trigger: label for why the inhibition formed (e.g. 'visitor_displeasure').
+    Triggers in INHIBITION_BLOCKED_TRIGGERS are rejected at the formation site,
+    providing a safety net even if a caller passes negative=True incorrectly.
+
+    Cycle guard (formation only): no new inhibitions before INHIBITION_MIN_CYCLE.
+    Positive weakening always runs — existing inhibitions can decay from cycle 0.
+    """
+    global _inhibition_guard_cleared
     pattern_json = _build_inhibition_pattern(decision)
 
     if negative:
+        # Hard gate: internal self-doubt triggers must never form inhibitions
+        if trigger in INHIBITION_BLOCKED_TRIGGERS:
+            return
+        # Cycle guard: no formation before baseline is established
+        if not _inhibition_guard_cleared:
+            cycle_count = await db.count_cycle_logs()
+            if cycle_count < INHIBITION_MIN_CYCLE:
+                return
+            _inhibition_guard_cleared = True
         existing = await db.find_matching_inhibition(decision.action, pattern_json)
         if existing:
             new_strength = min(existing['strength'] + 0.15, 1.0)
@@ -419,7 +539,7 @@ async def _maybe_form_inhibition(decision: ActionDecision,
             reason_seed = json.dumps({
                 'action': decision.action,
                 'target': decision.target,
-                'trigger': 'self_assessment',
+                'trigger': trigger,
             })
             await db.create_inhibition(
                 action=decision.action,

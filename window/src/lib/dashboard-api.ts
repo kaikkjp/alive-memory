@@ -141,4 +141,27 @@ export const dashboardApi = {
     const res = await dashboardFetch('/api/dashboard/consumption-history');
     return res.json();
   },
+
+  async getXDrafts() {
+    const res = await dashboardFetch('/api/dashboard/x-drafts');
+    return res.json();
+  },
+
+  async approveXDraft(draftId: string, autoPost: boolean = false) {
+    const res = await dashboardFetch('/api/dashboard/x-drafts/approve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ draft_id: draftId, auto_post: autoPost }),
+    });
+    return res.json();
+  },
+
+  async rejectXDraft(draftId: string, reason: string = '') {
+    const res = await dashboardFetch('/api/dashboard/x-drafts/reject', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ draft_id: draftId, reason }),
+    });
+    return res.json();
+  },
 };

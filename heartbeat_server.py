@@ -1010,6 +1010,12 @@ class ShopkeeperServer:
                 await dashboard_routes.handle_get_budget(self, writer, authorization)
             elif path == '/api/dashboard/budget' and method == 'POST':
                 await dashboard_routes.handle_set_budget(self, writer, authorization, body_bytes)
+            elif path == '/api/dashboard/x-drafts' and method == 'GET':
+                await dashboard_routes.handle_x_drafts(self, writer, authorization)
+            elif path == '/api/dashboard/x-drafts/approve' and method == 'POST':
+                await dashboard_routes.handle_approve_x_draft(self, writer, authorization, body_bytes)
+            elif path == '/api/dashboard/x-drafts/reject' and method == 'POST':
+                await dashboard_routes.handle_reject_x_draft(self, writer, authorization, body_bytes)
             else:
                 await self._http_json(writer, 404, {'error': 'not found'})
         except (asyncio.TimeoutError, ConnectionResetError, BrokenPipeError):

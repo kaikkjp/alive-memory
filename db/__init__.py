@@ -202,6 +202,22 @@ from db.analytics import (
     update_inhibition,
 )
 
+# ── social ──
+from db.social import (
+    approve_draft,
+    check_cooldown,
+    check_dedup,
+    get_all_drafts,
+    get_daily_post_count,
+    get_draft_by_id,
+    get_pending_count,
+    get_pending_drafts,
+    insert_x_draft,
+    mark_post_failed,
+    mark_posted,
+    reject_draft,
+)
+
 
 # ─── Mutable state proxy ───
 # Tests write ``db._db = None`` and ``db.DB_PATH = "..."``. After the split

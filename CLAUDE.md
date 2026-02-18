@@ -27,9 +27,9 @@ Before writing any code, list the files you will modify. Cross-check against the
 
 ### Step 3: Run tests (before)
 ```bash
-python -m pytest tests/ -v
+python -m pytest tests/test_<module>.py -v
 ```
-Note any pre-existing failures. You are not responsible for those — but you must not add new ones.
+Run only the tests for files you're about to touch. Note any pre-existing failures. You are not responsible for those — but you must not add new ones.
 
 ### Step 4: Do the work
 Implement the task. Stay within scope. If you discover a bug in an out-of-scope file, document it in `TASKS.md` as a new task with its own scope — do NOT fix it now.
@@ -40,9 +40,10 @@ Skip Plan Mode if the task spec already contains numbered implementation steps �
 
 ### Step 5: Run tests (after)
 ```bash
-python -m pytest tests/ -v
+python -m pytest tests/test_<module>.py -v      # targeted — run first
+python -m pytest tests/ --tb=short              # full suite — run before commit
 ```
-All previously-passing tests must still pass. New tests for your work should also pass.
+All previously-passing tests must still pass. New tests for your work should also pass. If the full suite fails on tests unrelated to your changes, note them and proceed.
 
 ### Step 6: Update docs
 ```bash
@@ -245,7 +246,7 @@ python simulate.py --cycles 10
 - `feat/*` — feature branches, one per task
 - Always branch from the latest `main` unless building on an unmerged feature
 - Squash merge to main
-- Run tests before pushing: `python -m pytest tests/ -v`
+- Run full suite before pushing: `python -m pytest tests/ --tb=short`
 
 ## What NOT to Do
 

@@ -26,18 +26,18 @@ NAP_TOP_N = 3
 COLD_SEARCH_ENABLED = os.getenv('COLD_SEARCH_ENABLED', 'false').lower() == 'true'
 
 
-async def sleep_cycle() -> bool:
+async def sleep_cycle() -> int:
     """Daily consolidation. Runs 03:00-06:00 JST.
 
-    Returns True if ran (even if no moments), False if deferred.
-    Heartbeat stamps _last_sleep_date ONLY when this returns True.
+    Returns number of moments consolidated (>=0) if ran, -1 if deferred.
+    Heartbeat stamps _last_sleep_date ONLY when return >= 0.
     """
 
     # 0. Defer if she's mid-conversation
     engagement = await db.get_engagement_state()
     if engagement.status == 'engaged':
         print("[Sleep] Deferred — currently engaged with a visitor.")
-        return False
+        return -1
 
     # 1. Get unprocessed day memories ranked by salience
     moments = await db.get_unprocessed_day_memory(
@@ -57,7 +57,7 @@ async def sleep_cycle() -> bool:
             await write_daily_summary([], [], [])
         await reset_drives_for_morning()
         await flush_day_memory()
-        return True
+        return 0
 
     # 2. Reflect on each moment (crash-safe: each is its own transaction)
     all_reflections = []
@@ -117,7 +117,7 @@ async def sleep_cycle() -> bool:
     # If we had moments but processed none, defer to allow retry
     if moments and processed_count == 0:
         print("[Sleep] All moments failed — deferring for retry.")
-        return False
+        return -1
 
     # 3. Write daily summary (lightweight index, not narrative)
     await write_daily_summary(moments, all_reflections, journal_entry_ids)
@@ -152,7 +152,7 @@ async def sleep_cycle() -> bool:
     # 9. Flush processed day memory + stale cleanup
     await flush_day_memory()
 
-    return True
+    return processed_count
 
 
 async def nap_consolidate(top_n: int = NAP_TOP_N) -> int:
