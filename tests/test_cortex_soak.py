@@ -1,12 +1,8 @@
 """Soak test: simulate 200+ cortex cycles with intermittent failures.
 
-Proves the timeout/circuit-breaker/recovery loop doesn't leak threads,
-accumulate state, or stall — the conditions that caused the original hang
-(BUG-2026-02-13-simulation-api-timeout-hang).
-
-This test runs without a real API key. It uses mocked responses that
-alternate between success, timeout, and various error types to exercise
-every recovery path across many cycles.
+Proves the circuit-breaker/recovery loop doesn't accumulate state or stall.
+Updated for TASK-059: cortex now calls llm_complete() instead of the
+Anthropic SDK. All tests patch 'pipeline.cortex.llm_complete'.
 """
 
 import asyncio
@@ -15,7 +11,6 @@ import time
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import anthropic
 import httpx
 import pytest
 
@@ -73,12 +68,25 @@ VALID_JSON = json.dumps({
 })
 
 
-def _ok_response():
-    block = MagicMock()
-    block.text = VALID_JSON
-    resp = MagicMock()
-    resp.content = [block]
-    return resp
+def _ok_llm_response() -> dict:
+    """Return a valid llm_complete() dict response."""
+    return {
+        "content": [{"type": "text", "text": VALID_JSON}],
+        "usage": {"input_tokens": 100, "output_tokens": 50, "cost_usd": 0.001},
+    }
+
+
+JOURNAL_JSON = json.dumps({
+    "journal": "Today was quiet.",
+    "summary": {"summary_bullets": ["quiet day"], "emotional_arc": "calm"},
+})
+
+
+def _ok_journal_response() -> dict:
+    return {
+        "content": [{"type": "text", "text": JOURNAL_JSON}],
+        "usage": {"input_tokens": 80, "output_tokens": 40, "cost_usd": 0.0005},
+    }
 
 
 @pytest.fixture(autouse=True)
@@ -88,17 +96,11 @@ def _reset():
     cortex._circuit_open_until = 0.0
     cortex._daily_cycle_count = 0
     cortex._daily_cycle_date = ""
-    cortex._client = None
-    # Ensure cortex and llm_logger use our mock db even when real db was imported first
-    import llm_logger
+    # Ensure cortex uses our mock db even when real db was imported first
     _original_cortex_db = cortex.db
-    _original_logger_db = llm_logger.db
     cortex.db = _mock_db
-    llm_logger.db = _mock_db
     yield
     cortex.db = _original_cortex_db
-    llm_logger.db = _original_logger_db
-    cortex._client = None
 
 
 # ── Soak test ──
@@ -109,8 +111,8 @@ async def test_soak_200_cycles_no_leak_no_hang():
     """Run 200 cycles with mixed success/failure patterns.
 
     Failure schedule (every 10 cycles):
-      cycle % 10 == 3  → asyncio.TimeoutError  (stall)
-      cycle % 10 == 5  → anthropic.APIError
+      cycle % 10 == 3  → asyncio.TimeoutError
+      cycle % 10 == 5  → RuntimeError (simulates OpenRouter HTTP error)
       cycle % 10 == 7  → httpx.TimeoutException
       cycle % 10 == 9  → RuntimeError (generic)
       all others        → success
@@ -118,75 +120,62 @@ async def test_soak_200_cycles_no_leak_no_hang():
     import pipeline.cortex as cortex
 
     TOTAL_CYCLES = 200
-    original_timeout = cortex.API_CALL_TIMEOUT
-    cortex.API_CALL_TIMEOUT = 0.3  # fast timeouts for test speed
 
     call_count = 0
     success_count = 0
     fallback_count = 0
 
-    async def _mock_create(**kwargs):
+    async def _mock_complete(**kwargs):
         nonlocal call_count
         cycle = call_count
         call_count += 1
         mod = cycle % 10
 
         if mod == 3:
-            # Simulate stall — will be cancelled by wait_for
-            await asyncio.sleep(10)
+            raise asyncio.TimeoutError()
         elif mod == 5:
-            raise anthropic.APIError(
-                message="server error", request=MagicMock(), body=None,
-            )
+            raise RuntimeError("OpenRouter error 500: server error")
         elif mod == 7:
             raise httpx.TimeoutException("read timed out")
         elif mod == 9:
             raise RuntimeError("unexpected")
         else:
-            return _ok_response()
+            return _ok_llm_response()
 
-    mock_client = AsyncMock()
-    mock_client.messages.create = _mock_create
+    t0 = time.monotonic()
 
-    try:
-        with patch.object(cortex, "_get_client", return_value=mock_client):
-            t0 = time.monotonic()
+    with patch("pipeline.cortex.llm_complete", side_effect=_mock_complete):
+        for i in range(TOTAL_CYCLES):
+            # Reset circuit breaker periodically to keep exercising API
+            # (otherwise it would open and short-circuit most calls)
+            if i % 15 == 0:
+                cortex._consecutive_failures = 0
+                cortex._circuit_open_until = 0.0
 
-            for i in range(TOTAL_CYCLES):
-                # Reset circuit breaker periodically to keep exercising API
-                # (otherwise it would open and short-circuit most calls)
-                if i % 15 == 0:
-                    cortex._consecutive_failures = 0
-                    cortex._circuit_open_until = 0.0
+            result = await cortex.cortex_call(
+                routing=_routing(),
+                perceptions=[_perception()],
+                memory_chunks=[],
+                conversation=[],
+                drives=_drives(),
+            )
 
-                result = await cortex.cortex_call(
-                    routing=_routing(),
-                    perceptions=[_perception()],
-                    memory_chunks=[],
-                    conversation=[],
-                    drives=_drives(),
-                )
+            assert isinstance(result, CortexOutput)
+            if result.dialogue == "Mm.":
+                success_count += 1
+            else:
+                fallback_count += 1
 
-                assert isinstance(result, CortexOutput)
-                if result.dialogue == "Mm.":
-                    success_count += 1
-                else:
-                    fallback_count += 1
-
-            elapsed = time.monotonic() - t0
-    finally:
-        cortex.API_CALL_TIMEOUT = original_timeout
+    elapsed = time.monotonic() - t0
 
     # Sanity checks
     assert success_count > 0, "No successful cycles — mock is broken"
     assert fallback_count > 0, "No fallback cycles — failure injection broken"
     assert success_count + fallback_count == TOTAL_CYCLES
 
-    # Must complete in reasonable time (no leaked stalls)
-    # 200 cycles × 0.3s max timeout = 60s worst case, but most are instant
+    # Must complete in reasonable time
     assert elapsed < 60.0, f"Soak took {elapsed:.1f}s — possible leak"
 
-    # In practice should be much faster (most cycles are instant success)
     print(f"\n[Soak] {TOTAL_CYCLES} cycles in {elapsed:.1f}s "
           f"({success_count} ok, {fallback_count} fallback)")
 
@@ -196,57 +185,37 @@ async def test_soak_maintenance_50_cycles():
     """Run 50 maintenance cycles with mixed failures."""
     import pipeline.cortex as cortex
 
-    original_timeout = cortex.API_CALL_TIMEOUT
-    cortex.API_CALL_TIMEOUT = 0.3
-
     call_count = 0
 
-    JOURNAL_JSON = json.dumps({
-        "journal": "Today was quiet.",
-        "summary": {"summary_bullets": ["quiet day"], "emotional_arc": "calm"},
-    })
-
-    async def _mock_create(**kwargs):
+    async def _mock_complete(**kwargs):
         nonlocal call_count
         cycle = call_count
         call_count += 1
 
         if cycle % 5 == 2:
-            await asyncio.sleep(10)  # stall
+            raise asyncio.TimeoutError()
         elif cycle % 5 == 4:
-            raise anthropic.APIError(
-                message="overloaded", request=MagicMock(), body=None,
-            )
+            raise RuntimeError("OpenRouter error 429: overloaded")
         else:
-            block = MagicMock()
-            block.text = JOURNAL_JSON
-            resp = MagicMock()
-            resp.content = [block]
-            return resp
+            return _ok_journal_response()
 
-    mock_client = AsyncMock()
-    mock_client.messages.create = _mock_create
+    t0 = time.monotonic()
 
-    try:
-        with patch.object(cortex, "_get_client", return_value=mock_client):
-            t0 = time.monotonic()
+    with patch("pipeline.cortex.llm_complete", side_effect=_mock_complete):
+        for i in range(50):
+            if i % 10 == 0:
+                cortex._consecutive_failures = 0
+                cortex._circuit_open_until = 0.0
 
-            for i in range(50):
-                if i % 10 == 0:
-                    cortex._consecutive_failures = 0
-                    cortex._circuit_open_until = 0.0
+            result = await cortex.cortex_call_maintenance(
+                mode="journal",
+                digest={"events": [], "cycle": i},
+            )
 
-                result = await cortex.cortex_call_maintenance(
-                    mode="journal",
-                    digest={"events": [], "cycle": i},
-                )
+            # Must always return a dict with 'journal' key
+            assert "journal" in result
 
-                # Must always return a dict with 'journal' key
-                assert "journal" in result
-
-            elapsed = time.monotonic() - t0
-    finally:
-        cortex.API_CALL_TIMEOUT = original_timeout
+    elapsed = time.monotonic() - t0
 
     assert elapsed < 30.0, f"Maintenance soak took {elapsed:.1f}s"
     print(f"\n[Soak] 50 maintenance cycles in {elapsed:.1f}s")

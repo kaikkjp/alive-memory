@@ -301,7 +301,8 @@ ORDER BY sim_day;
 ---
 
 ### TASK-059: OpenRouter Multi-LLM Integration
-**Status:** BACKLOG
+**Status:** DONE
+**Completed:** 2026-02-19
 **Priority:** High
 **Branch:** `feat/openrouter`
 **Spec:** `tasks/TASK-059-openrouter.md`

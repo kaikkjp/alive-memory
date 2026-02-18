@@ -102,14 +102,18 @@ async def insert_llm_call_log(
     output_tokens: int = 0,
     cost_usd: float = 0.0,
     cycle_id: str = None,
+    call_site: str = None,
+    latency_ms: int = None,
 ):
     """Insert LLM call log entry for cost tracking."""
     now = clock.now_utc().isoformat()
     await _connection._exec_write(
         """INSERT INTO llm_call_log
-           (id, provider, model, purpose, input_tokens, output_tokens, cost_usd, cycle_id, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        (call_id, provider, model, purpose, input_tokens, output_tokens, cost_usd, cycle_id, now)
+           (id, provider, model, purpose, input_tokens, output_tokens, cost_usd,
+            cycle_id, call_site, latency_ms, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (call_id, provider, model, purpose, input_tokens, output_tokens, cost_usd,
+         cycle_id, call_site, latency_ms, now)
     )
 
 

@@ -138,9 +138,9 @@ class ShopkeeperServer:
     async def start(self):
         """Initialize DB, seed, start heartbeat, TCP, WebSocket, and HTTP servers."""
         # Check API key
-        if not os.environ.get('ANTHROPIC_API_KEY'):
-            print(f"\n  {Fore.RED}[Error]{Style.RESET_ALL} ANTHROPIC_API_KEY not set.")
-            print(f"  Run: export ANTHROPIC_API_KEY='sk-ant-...'")
+        if not os.environ.get('OPENROUTER_API_KEY'):
+            print(f"\n  {Fore.RED}[Error]{Style.RESET_ALL} OPENROUTER_API_KEY not set.")
+            print(f"  Run: export OPENROUTER_API_KEY='sk-or-v1-...'")
             return
 
         if not self._server_token:

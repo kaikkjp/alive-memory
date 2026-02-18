@@ -930,9 +930,9 @@ async def standalone_mode():
     """Run with heartbeat in-process."""
     global _input_prompt_active
     # Check API key
-    if not os.environ.get('ANTHROPIC_API_KEY'):
-        print(f"\n  {Fore.RED}[Error]{Style.RESET_ALL} ANTHROPIC_API_KEY not set.")
-        print(f"  Run: export ANTHROPIC_API_KEY='sk-ant-...'")
+    if not os.environ.get('OPENROUTER_API_KEY'):
+        print(f"\n  {Fore.RED}[Error]{Style.RESET_ALL} OPENROUTER_API_KEY not set.")
+        print(f"  Run: export OPENROUTER_API_KEY='sk-or-v1-...'")
         print()
         return
 

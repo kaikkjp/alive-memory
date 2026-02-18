@@ -5,10 +5,10 @@ import json
 import os
 import re
 import time
-import anthropic
 import httpx
 from datetime import datetime, timezone
 import clock
+from llm import complete as llm_complete
 from models.state import DrivesState, Visitor
 from models.pipeline import CortexOutput
 from pipeline.thalamus import RoutingDecision
@@ -16,7 +16,6 @@ from pipeline.sensorium import Perception
 from pipeline.hypothalamus import drives_to_feeling
 from config.identity import IDENTITY_COMPACT, VOICE_CHECKSUM
 import db
-import llm_logger
 
 CORTEX_MODEL = "claude-sonnet-4-5-20250929"
 API_CALL_TIMEOUT = 60.0  # Hard timeout per request (seconds)
@@ -55,30 +54,6 @@ def _record_success():
     global _consecutive_failures, _circuit_open_until
     _consecutive_failures = 0
     _circuit_open_until = 0.0
-
-
-# ── Singleton Async Client ──
-
-_client: anthropic.AsyncAnthropic | None = None
-
-
-def _get_client() -> anthropic.AsyncAnthropic:
-    """Return a reused async Anthropic client.
-
-    Uses AsyncAnthropic so that ``await client.messages.create(...)`` is a
-    true coroutine — ``asyncio.wait_for`` can cancel the underlying httpx
-    request on timeout instead of leaving an orphaned worker thread.
-    """
-    global _client
-    api_key = os.environ.get('ANTHROPIC_API_KEY')
-    if not api_key:
-        raise RuntimeError(
-            "ANTHROPIC_API_KEY not set. Export it before running: "
-            "export ANTHROPIC_API_KEY='sk-ant-...'"
-        )
-    if _client is None:
-        _client = anthropic.AsyncAnthropic(api_key=api_key, timeout=30.0)
-    return _client
 
 
 def _check_daily_cap() -> bool:
@@ -249,8 +224,6 @@ async def cortex_call(
     visitors_present: list = None,
 ) -> CortexOutput:
     """The one LLM call. Build prompt pack, call model, return structured response."""
-
-    client = _get_client()
 
     # Circuit breaker / daily cap check
     if _check_circuit() or _check_daily_cap():
@@ -440,24 +413,24 @@ async def cortex_call(
 
     try:
         print(f"[Cortex] API call start — {routing.cycle_type}")
-        response = await asyncio.wait_for(
-            client.messages.create(
-                model=CORTEX_MODEL,
-                max_tokens=1500,
-                system=system,
-                messages=[{"role": "user", "content": user_message}],
-            ),
-            timeout=API_CALL_TIMEOUT,
+        response = await llm_complete(
+            messages=[{"role": "user", "content": user_message}],
+            system=system,
+            call_site="cortex",
+            max_tokens=1500,
         )
         print(f"[Cortex] API call done — {routing.cycle_type}")
     except asyncio.TimeoutError:
         print(f"[Cortex] Hard timeout ({API_CALL_TIMEOUT}s) — {routing.cycle_type}")
         _record_failure()
         return fallback_response()
-    except (anthropic.APIError, httpx.TimeoutException) as e:
+    except (httpx.TimeoutException, httpx.ConnectError) as e:
         print(f"[Cortex] API error: {type(e).__name__}: {e}")
         _record_failure()
         return fallback_response()
+    except ValueError:
+        # Misconfiguration (e.g. missing OPENROUTER_API_KEY) — re-raise, don't fallback
+        raise
     except Exception as e:
         print(f"[Cortex] Unexpected error: {type(e).__name__}: {e}")
         _record_failure()
@@ -466,19 +439,8 @@ async def cortex_call(
     _record_success()
     _increment_daily()
 
-    # Log LLM call for cost tracking
-    usage = response.usage
-    await llm_logger.log_llm_call(
-        provider='anthropic',
-        model=CORTEX_MODEL,
-        purpose='cortex',
-        input_tokens=usage.input_tokens,
-        output_tokens=usage.output_tokens,
-        cycle_id=routing.cycle_id if hasattr(routing, 'cycle_id') else None,
-    )
-
     # Parse response
-    text = response.content[0].text.strip()
+    text = response["content"][0]["text"].strip()
     text = re.sub(r'^```(?:json)?\s*', '', text)
     text = re.sub(r'\s*```$', '', text)
 
@@ -491,8 +453,6 @@ async def cortex_call(
 
 async def cortex_call_maintenance(mode: str, digest: dict, max_tokens: int = 600) -> dict:
     """Maintenance call for sleep cycle journal writing."""
-
-    client = _get_client()
 
     if _check_circuit() or _check_daily_cap():
         return {
@@ -511,14 +471,11 @@ Return JSON: {{"journal": "your entry", "summary": {{"summary_bullets": ["..."],
 
     try:
         print(f"[Cortex] Maintenance API call start — {mode}")
-        response = await asyncio.wait_for(
-            client.messages.create(
-                model=CORTEX_MODEL,
-                max_tokens=max_tokens,
-                system=system,
-                messages=[{"role": "user", "content": user_message}],
-            ),
-            timeout=API_CALL_TIMEOUT,
+        response = await llm_complete(
+            messages=[{"role": "user", "content": user_message}],
+            system=system,
+            call_site="cortex_maintenance",
+            max_tokens=max_tokens,
         )
         print(f"[Cortex] Maintenance API call done — {mode}")
     except asyncio.TimeoutError:
@@ -528,13 +485,16 @@ Return JSON: {{"journal": "your entry", "summary": {{"summary_bullets": ["..."],
             'journal': 'Today happened. I am still here.',
             'summary': {'summary_bullets': ['another day'], 'emotional_arc': 'quiet'},
         }
-    except (anthropic.APIError, httpx.TimeoutException) as e:
+    except (httpx.TimeoutException, httpx.ConnectError) as e:
         print(f"[Cortex] Maintenance API error: {type(e).__name__}: {e}")
         _record_failure()
         return {
             'journal': 'Today happened. I am still here.',
             'summary': {'summary_bullets': ['another day'], 'emotional_arc': 'quiet'},
         }
+    except ValueError:
+        # Misconfiguration (e.g. missing OPENROUTER_API_KEY) — re-raise, don't fallback
+        raise
     except Exception as e:
         print(f"[Cortex] Maintenance unexpected error: {type(e).__name__}: {e}")
         _record_failure()
@@ -546,17 +506,7 @@ Return JSON: {{"journal": "your entry", "summary": {{"summary_bullets": ["..."],
     _record_success()
     _increment_daily()
 
-    # Log LLM call for cost tracking
-    usage = response.usage
-    await llm_logger.log_llm_call(
-        provider='anthropic',
-        model=CORTEX_MODEL,
-        purpose='cortex_maintenance',
-        input_tokens=usage.input_tokens,
-        output_tokens=usage.output_tokens,
-    )
-
-    text = response.content[0].text.strip()
+    text = response["content"][0]["text"].strip()
     text = re.sub(r'^```(?:json)?\s*', '', text)
     text = re.sub(r'\s*```$', '', text)
 
@@ -628,33 +578,31 @@ async def cortex_call_reflect(system: str, prompt: str, max_tokens: int = 800) -
 
     Separate from cortex_call and cortex_call_maintenance.
     Uses circuit breaker + daily cap — same guard pattern as both existing functions.
-    Uses shared AsyncAnthropic singleton + hard timeout for cancellation safety.
+    Uses llm.complete() via OpenRouter with hard timeout for cancellation safety.
     """
     if _check_circuit() or _check_daily_cap():
         return _empty_reflection()
 
-    client = _get_client()
-
     try:
         print(f"[Cortex] Reflect API call start")
-        response = await asyncio.wait_for(
-            client.messages.create(
-                model=REFLECT_MODEL,
-                max_tokens=max_tokens,
-                system=system,
-                messages=[{"role": "user", "content": prompt}],
-            ),
-            timeout=API_CALL_TIMEOUT,
+        response = await llm_complete(
+            messages=[{"role": "user", "content": prompt}],
+            system=system,
+            call_site="reflect",
+            max_tokens=max_tokens,
         )
         print(f"[Cortex] Reflect API call done")
     except asyncio.TimeoutError:
         print(f"[Cortex] Reflect hard timeout ({API_CALL_TIMEOUT}s)")
         _record_failure()
         return _empty_reflection()
-    except (anthropic.APIError, httpx.TimeoutException) as e:
+    except (httpx.TimeoutException, httpx.ConnectError) as e:
         print(f"[Cortex] Reflect API error: {type(e).__name__}: {e}")
         _record_failure()
         return _empty_reflection()
+    except ValueError:
+        # Misconfiguration (e.g. missing OPENROUTER_API_KEY) — re-raise, don't fallback
+        raise
     except Exception as e:
         print(f"[Cortex] Reflect unexpected error: {type(e).__name__}: {e}")
         _record_failure()
@@ -663,7 +611,7 @@ async def cortex_call_reflect(system: str, prompt: str, max_tokens: int = 800) -
     _record_success()
     _increment_daily()
 
-    text = response.content[0].text.strip()
+    text = response["content"][0]["text"].strip()
     # Strip markdown code fences if present
     text = re.sub(r'^```(?:json)?\s*', '', text)
     text = re.sub(r'\s*```$', '', text)

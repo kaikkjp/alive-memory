@@ -2,8 +2,9 @@
 #
 # Required — system will not start without these
 aiosqlite>=0.20.0,<1.0.0
-anthropic>=0.49.0,<1.0.0
+anthropic>=0.49.0,<1.0.0  # fallback only — remove after migration proven
 colorama>=0.4.6,<1.0.0  # terminal + server color output (module-level import)
+httpx>=0.27.0,<1.0.0    # direct HTTP client for OpenRouter (llm/client.py)
 python-dotenv>=1.0.0,<2.0.0
 
 # Optional — features degrade gracefully if missing
