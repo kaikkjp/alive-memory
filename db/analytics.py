@@ -104,7 +104,7 @@ async def insert_llm_call_log(
     cycle_id: str = None,
 ):
     """Insert LLM call log entry for cost tracking."""
-    now = datetime.now(timezone.utc).isoformat()
+    now = clock.now_utc().isoformat()
     await _connection._exec_write(
         """INSERT INTO llm_call_log
            (id, provider, model, purpose, input_tokens, output_tokens, cost_usd, cycle_id, created_at)
@@ -116,7 +116,7 @@ async def insert_llm_call_log(
 async def get_llm_call_cost_today() -> float:
     """Get total LLM cost for today (JST)."""
     conn = await _connection.get_db()
-    today_jst = datetime.now(JST).date().isoformat()
+    today_jst = clock.now().date().isoformat()
     cursor = await conn.execute(
         "SELECT SUM(cost_usd) as total FROM llm_call_log WHERE date(created_at, '+9 hours') = ?",
         (today_jst,)
@@ -128,7 +128,7 @@ async def get_llm_call_cost_today() -> float:
 async def get_llm_call_count_today() -> int:
     """Get total LLM call count for today (JST)."""
     conn = await _connection.get_db()
-    today_jst = datetime.now(JST).date().isoformat()
+    today_jst = clock.now().date().isoformat()
     cursor = await conn.execute(
         "SELECT COUNT(*) as cnt FROM llm_call_log WHERE date(created_at, '+9 hours') = ?",
         (today_jst,)
@@ -149,7 +149,7 @@ async def get_llm_costs_summary(days: int = 30) -> dict:
         }
     """
     conn = await _connection.get_db()
-    today_jst = datetime.now(JST).date().isoformat()
+    today_jst = clock.now().date().isoformat()
 
     # Today's total
     cursor = await conn.execute(
@@ -160,18 +160,22 @@ async def get_llm_costs_summary(days: int = 30) -> dict:
     today_cost = row['total'] if row and row['total'] else 0.0
 
     # 7-day average (total cost / 7 days, including zero-cost days)
+    seven_days_ago = (clock.now_utc() - timedelta(days=7)).isoformat()
     cursor = await conn.execute(
         """SELECT SUM(cost_usd) as total FROM llm_call_log
-           WHERE created_at >= datetime('now', '-7 days')"""
+           WHERE created_at >= ?""",
+        (seven_days_ago,)
     )
     row = await cursor.fetchone()
     total_7d = row['total'] if row and row['total'] else 0.0
     avg_7d = total_7d / 7.0
 
     # 30-day total
+    thirty_days_ago = (clock.now_utc() - timedelta(days=30)).isoformat()
     cursor = await conn.execute(
         """SELECT SUM(cost_usd) as total FROM llm_call_log
-           WHERE created_at >= datetime('now', '-30 days')"""
+           WHERE created_at >= ?""",
+        (thirty_days_ago,)
     )
     row = await cursor.fetchone()
     total_30d = row['total'] if row and row['total'] else 0.0
@@ -203,13 +207,14 @@ async def get_llm_daily_costs(days: int = 30) -> list[dict]:
         [{'date': 'YYYY-MM-DD', 'cost': float}, ...]
     """
     conn = await _connection.get_db()
+    n_days_ago = (clock.now_utc() - timedelta(days=days)).isoformat()
     cursor = await conn.execute(
         """SELECT date(created_at, '+9 hours') as day, SUM(cost_usd) as cost
            FROM llm_call_log
-           WHERE created_at >= datetime('now', '-' || ? || ' days')
+           WHERE created_at >= ?
            GROUP BY day
            ORDER BY day ASC""",
-        (days,)
+        (n_days_ago,)
     )
     rows = await cursor.fetchall()
     return [{'date': r['day'], 'cost': r['cost']} for r in rows]

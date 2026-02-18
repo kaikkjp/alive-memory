@@ -2465,6 +2465,20 @@ Part C:
 
 ---
 
+### TASK-051: Fix llm_call_log timestamp to use simulation clock
+**Status:** DONE (2026-02-18)
+**Priority:** High
+**Description:** `db/analytics.py` uses `datetime.now(timezone.utc)` for `insert_llm_call_log`, `datetime.now(JST)` in cost/count queries, and SQLite `datetime('now', ...)` in 7d/30d summary windows. In simulation, this creates a mismatch with `last_sleep_reset` (which uses `clock.now_utc()`). After the first simulated sleep, the budget query `WHERE created_at >= last_sleep_reset` returns 0 matching rows because the real-time timestamps are far in the future relative to the simulated sleep reset timestamp, giving infinite budget. The 7d/30d windows also return wrong results since SQLite's `datetime('now')` is wall-clock time.
+**Fix:** Replace all `datetime.now()` and `datetime('now', ...)` calls in `db/analytics.py` with `clock.now_utc()` / `clock.now()`. In production, `clock.now_utc()` returns real time, so this is safe.
+**Scope (files you may touch):**
+- `db/analytics.py`
+**Scope (files you may NOT touch):**
+- Everything else
+**Tests:** Run existing test suite. Verify budget queries use clock module.
+**Definition of done:** No `datetime.now()` or `datetime('now')` calls remain in `db/analytics.py`. All timestamps use `clock` module.
+
+---
+
 ## Completed Tasks
 
 _None yet._
