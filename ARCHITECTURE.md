@@ -140,6 +140,13 @@ Events → Inbox → Sensorium → Gates → Affect → Hypothalamus → Thalamu
 | `config/location.py` | 13 | Physical location constants (Daikanyama, Tokyo). |
 | `config/feeds.py` | 13 | RSS feed URLs for ambient content ingestion. |
 
+### Token Budget — `prompt/`
+
+| File | Lines | What it does |
+|------|-------|-------------|
+| `prompt/budget.py` | 317 | Per-section token budget enforcement. Measures and trims prompt sections before LLM calls. Strategies: truncate_tail, drop_oldest, drop_least_relevant. |
+| `prompt/budget_config.json` | 320 | External config for per-section token caps, truncation strategies, and budget totals. Tunable without code changes. |
+
 ### Sleep System
 
 | File | Lines | What it does |
@@ -356,14 +363,14 @@ Metacognitive monitor in `pipeline/output.py` compares executed behavior against
 
 | Area | Files | Lines |
 |------|-------|-------|
-| Core engine (*.py root) | 16 | ~6,859 |
-| Pipeline (pipeline/*.py) | 31 | ~7,655 |
+| Core engine (*.py root) | 15 | ~6,345 |
+| Pipeline (pipeline/*.py) | 31 | ~7,711 |
 | API | 2 | ~676 |
 | Config | 5 | ~428 |
 | Models | 4 | ~636 |
 | Scripts | 7 | ~941 |
-| Tests | 75 | ~19,872 |
+| Tests | 80 | ~21,651 |
 | Frontend (window/src/) | 50 | ~5,548 |
-| Docs (*.md) | 14 | ~12,339 |
+| Docs (*.md) | 14 | ~12,353 |
 | Deploy | 6 | ~505 |
-| **Total** | **~210** | **~55,447** |
+| **Total** | **~214** | **~56,794** | **~210** | **~55,447** |
