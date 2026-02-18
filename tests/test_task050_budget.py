@@ -116,10 +116,10 @@ class TestPartA_DayMemoryCreation:
             (_base_result(), _base_ctx(has_internal_conflict=True)),
             # thread update
             (_base_result(actions=[{'type': 'thread_update'}]), _base_ctx()),
-            # consume mode
-            (_base_result(), _base_ctx(mode='consume')),
-            # news mode
-            (_base_result(), _base_ctx(mode='news')),
+            # consume channel (TASK-053: channel, not mode)
+            (_base_result(), _base_ctx(channel='consume')),
+            # news channel (TASK-053: channel, not mode)
+            (_base_result(), _base_ctx(channel='news')),
             # contradiction
             (_base_result(), _base_ctx(had_contradiction=True)),
             # gift
@@ -195,11 +195,11 @@ class TestPartA_DayMemoryCreation:
                 _base_ctx(),
             ))
 
-        # 5 consume cycles
+        # 5 consume cycles (TASK-053: channel, not mode)
         for _ in range(5):
             cycle_configs.append((
                 _base_result(resonance=True),
-                _base_ctx(mode='consume'),
+                _base_ctx(channel='consume'),
             ))
 
         # 5 express_thought with content

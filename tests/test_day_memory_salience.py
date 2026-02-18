@@ -110,13 +110,21 @@ class TestBaseSalienceHierarchy:
         assert s >= 0.70
 
     def test_content_consumed(self):
-        """Consume mode gets base 0.60."""
-        s = compute_moment_salience(_base_result(), _base_ctx(mode='consume'))
+        """Consume channel gets base 0.60 (TASK-053: channel, not mode)."""
+        s = compute_moment_salience(_base_result(), _base_ctx(channel='consume'))
         assert s >= 0.60
 
-    def test_news_mode_also_consumes(self):
-        """News mode also triggers content consumed base."""
-        s = compute_moment_salience(_base_result(), _base_ctx(mode='news'))
+    def test_news_channel_also_consumes(self):
+        """News channel also triggers content consumed base."""
+        s = compute_moment_salience(_base_result(), _base_ctx(channel='news'))
+        assert s >= 0.60
+
+    def test_read_content_action_also_consumes(self):
+        """read_content action gets base 0.60 regardless of mode/channel."""
+        s = compute_moment_salience(
+            _base_result(actions=[{'type': 'read_content'}]),
+            _base_ctx(),
+        )
         assert s >= 0.60
 
     def test_thread_work(self):
@@ -164,7 +172,7 @@ class TestBaseSalienceHierarchy:
         s_visitor = compute_moment_salience(
             _base_result(), _base_ctx(mode='engage'))
         s_consume = compute_moment_salience(
-            _base_result(), _base_ctx(mode='consume'))
+            _base_result(), _base_ctx(channel='consume'))
         s_thread = compute_moment_salience(
             _base_result(actions=[{'type': 'thread_update'}]), _base_ctx())
         s_journal = compute_moment_salience(
@@ -408,13 +416,200 @@ class TestThresholdScenarios:
         assert score < MOMENT_THRESHOLD
 
     def test_consume_cycle_above_threshold(self):
-        """Consume cycle scores above threshold."""
+        """Consume channel cycle scores above threshold (TASK-053: channel not mode)."""
         score = compute_moment_salience(
             _base_result(
                 resonance=True,
                 internal_monologue='This article about ceramics reminded me of something.',
                 actions=[{'type': 'collection_add'}],
             ),
-            _base_ctx(mode='consume', max_drive_delta=0.06),
+            _base_ctx(channel='consume', max_drive_delta=0.06),
         )
         assert score >= MOMENT_THRESHOLD
+
+
+class TestTask053ChannelFix:
+    """TASK-053: channel-based content detection replaces broken mode check."""
+
+    def test_channel_consume_gets_content_base(self):
+        """channel='consume' triggers base 0.60."""
+        s = compute_moment_salience(_base_result(), _base_ctx(channel='consume'))
+        assert s >= 0.60
+
+    def test_channel_news_gets_content_base(self):
+        """channel='news' triggers base 0.60."""
+        s = compute_moment_salience(_base_result(), _base_ctx(channel='news'))
+        assert s >= 0.60
+
+    def test_mode_consume_no_longer_works(self):
+        """mode='consume' alone does NOT trigger content base (that's the bug)."""
+        s = compute_moment_salience(_base_result(), _base_ctx(mode='consume'))
+        # Without channel or read_content action, this is just idle
+        assert s < MOMENT_THRESHOLD
+
+    def test_read_content_action_works_without_channel(self):
+        """read_content action triggers 0.60 base regardless of channel."""
+        s = compute_moment_salience(
+            _base_result(actions=[{'type': 'read_content'}]),
+            _base_ctx(mode='idle'),  # typical production mode for content
+        )
+        assert s >= 0.60
+
+    def test_executed_action_types_from_context(self):
+        """executed_action_types in context also triggers base salience."""
+        s = compute_moment_salience(
+            _base_result(),
+            _base_ctx(executed_action_types=['read_content']),
+        )
+        assert s >= 0.60
+
+
+class TestTask053ConflictDetection:
+    """TASK-053: has_internal_conflict is now reachable."""
+
+    def test_internal_conflict_reachable(self):
+        """has_internal_conflict=True reaches the 0.80 base tier."""
+        s = compute_moment_salience(
+            _base_result(), _base_ctx(has_internal_conflict=True))
+        assert s >= 0.80
+
+    def test_conflict_higher_than_visitor(self):
+        """Internal conflict outranks visitor interaction."""
+        s_conflict = compute_moment_salience(
+            _base_result(), _base_ctx(has_internal_conflict=True))
+        s_visitor = compute_moment_salience(
+            _base_result(), _base_ctx(mode='engage'))
+        assert s_conflict > s_visitor
+
+
+class TestTask053ClassifyMoment:
+    """TASK-053: classify_moment uses action types, not just resonance."""
+
+    def test_classify_journal_not_resonance(self):
+        """write_journal → 'self_expression', not 'resonance'."""
+        from pipeline.day_memory import classify_moment
+        mt = classify_moment(
+            _base_result(
+                resonance=True,
+                actions=[{'type': 'write_journal',
+                          'detail': {'text': 'some thought'}}],
+            ),
+            _base_ctx(),
+        )
+        assert mt == 'self_expression'
+
+    def test_classify_read_content(self):
+        """read_content → 'content_engagement'."""
+        from pipeline.day_memory import classify_moment
+        mt = classify_moment(
+            _base_result(actions=[{'type': 'read_content'}]),
+            _base_ctx(),
+        )
+        assert mt == 'content_engagement'
+
+    def test_classify_consume_channel(self):
+        """channel='consume' → 'content_engagement'."""
+        from pipeline.day_memory import classify_moment
+        mt = classify_moment(
+            _base_result(),
+            _base_ctx(channel='consume'),
+        )
+        assert mt == 'content_engagement'
+
+    def test_classify_thread(self):
+        """thread_update → 'thread_work'."""
+        from pipeline.day_memory import classify_moment
+        mt = classify_moment(
+            _base_result(actions=[{'type': 'thread_update'}]),
+            _base_ctx(),
+        )
+        assert mt == 'thread_work'
+
+    def test_classify_rearrange(self):
+        """rearrange → 'environmental_agency'."""
+        from pipeline.day_memory import classify_moment
+        mt = classify_moment(
+            _base_result(actions=[{'type': 'rearrange'}]),
+            _base_ctx(),
+        )
+        assert mt == 'environmental_agency'
+
+    def test_classify_resonance_only(self):
+        """Resonance without specific action → 'resonance'."""
+        from pipeline.day_memory import classify_moment
+        mt = classify_moment(
+            _base_result(resonance=True),
+            _base_ctx(),
+        )
+        assert mt == 'resonance'
+
+    def test_conflict_still_highest(self):
+        """Internal conflict classification still highest priority."""
+        from pipeline.day_memory import classify_moment
+        mt = classify_moment(
+            _base_result(
+                resonance=True,
+                actions=[{'type': 'write_journal',
+                          'detail': {'text': 'thought'}}],
+            ),
+            _base_ctx(has_internal_conflict=True),
+        )
+        assert mt == 'internal_conflict'
+
+    def test_classify_executed_actions_from_context(self):
+        """executed_action_types in context feeds classify_moment."""
+        from pipeline.day_memory import classify_moment
+        mt = classify_moment(
+            _base_result(),
+            _base_ctx(executed_action_types=['write_journal']),
+        )
+        assert mt == 'self_expression'
+
+
+class TestTask053WiderModulation:
+    """TASK-053: Modulation range is wider — spread > 0.15."""
+
+    def test_modulation_wider_spread(self):
+        """Same base (engage), varied modulation → spread > 0.15."""
+        s_minimal = compute_moment_salience(
+            _base_result(),
+            _base_ctx(mode='engage', max_drive_delta=0.0, trust_level='stranger'),
+        )
+        s_maximal = compute_moment_salience(
+            _base_result(
+                resonance=True,
+                internal_monologue='word ' * 100,
+                dialogue='word ' * 100,
+            ),
+            _base_ctx(
+                mode='engage',
+                max_drive_delta=0.5,
+                trust_level='familiar',
+                mood_valence=0.7,
+                event_salience_dynamic=1.0,
+                executed_action_types=['speak', 'write_journal', 'show_item'],
+            ),
+        )
+        spread = s_maximal - s_minimal
+        assert spread > 0.15, f"Spread {spread:.3f} too narrow"
+
+    def test_action_count_modulation(self):
+        """More executed actions → higher modulation."""
+        s_one = compute_moment_salience(
+            _base_result(), _base_ctx(mode='engage', executed_action_types=['speak']))
+        s_three = compute_moment_salience(
+            _base_result(),
+            _base_ctx(mode='engage',
+                      executed_action_types=['speak', 'write_journal', 'show_item']))
+        assert s_three > s_one
+
+    def test_mood_extremes_modulation(self):
+        """Mood valence extremes add modulation."""
+        s_neutral = compute_moment_salience(
+            _base_result(), _base_ctx(mode='engage', mood_valence=0.0))
+        s_extreme_neg = compute_moment_salience(
+            _base_result(), _base_ctx(mode='engage', mood_valence=-0.5))
+        s_extreme_pos = compute_moment_salience(
+            _base_result(), _base_ctx(mode='engage', mood_valence=0.7))
+        assert s_extreme_neg > s_neutral
+        assert s_extreme_pos > s_neutral

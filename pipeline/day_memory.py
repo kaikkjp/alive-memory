@@ -90,33 +90,43 @@ async def maybe_record_moment(cycle_result: dict, cycle_context: dict) -> None:
 def compute_moment_salience(result: dict, ctx: dict) -> float:
     """Deterministic salience scoring for day memory moments.
 
-    TASK-050 Base Salience Model:
-    ─────────────────────────────
+    TASK-053 Base Salience Model (fixes TASK-050 clustering bug):
+    ──────────────────────────────────────────────────────────────
     Each cycle gets a guaranteed BASE salience from its primary trigger.
-    Modulation adds up to ~0.20 on top. This ensures meaningful actions
+    Modulation adds up to ~0.47 on top. This ensures meaningful actions
     always produce moments (base >= threshold), while idle fidgets don't.
 
     BASE SALIENCE (highest matching trigger wins):
       0.80  internal_conflict — she noticed self-inconsistency
+      0.75  contradiction from previous cycle
       0.70  visitor interaction — engage mode with visitor events
-      0.60  read_content executed — she consumed from the pool
+      0.70  gift interaction
+      0.60  content consumed — channel='consume'/'news' OR read_content action
       0.55  thread created or updated
       0.50  write_journal executed (with content)
+      0.50  post_x_draft
       0.40  express_thought with monologue content
+      0.36  resonance alone / dropped actions
       0.00  idle fidget only — no moment
 
     MODULATION (additive, capped):
-      0.00–0.10  drive delta — max abs change * 0.33
+      0.00–0.15  drive delta — max abs change * 0.5
       0.00–0.10  trust bonus — stranger=0, returner=0.03, regular=0.06, familiar=0.10
-      0.00–0.05  content richness — (monologue + dialogue word count) / 1000
+      0.00–0.10  content richness — (monologue + dialogue word count) / 500
       +0.05      resonance flag from cortex
-      +0.05      mood extremes — valence < -0.3 or > 0.5
+      +0.05      mood extremes — valence < -0.3 or > 0.5 (TASK-053: now checked)
       0.00–0.05  event salience from TASK-045
+      0.00–0.12  executed action count — count * 0.04
 
     Recording threshold: 0.35. Final score clamped to [0.0, 1.0].
     """
     actions = result.get('actions', [])
     action_types = {a.get('type', '') for a in actions}
+
+    # TASK-053: Also check executed action types from body output (via context).
+    # These are the actions that actually ran, not just what cortex requested.
+    executed = set(ctx.get('executed_action_types', []))
+    all_action_types = action_types | executed
 
     # ── Determine base salience from highest-priority trigger ──
     base = 0.0
@@ -134,15 +144,18 @@ def compute_moment_salience(result: dict, ctx: dict) -> float:
         base = max(base, 0.70)
 
     # Gift interaction
-    if action_types & {'accept_gift', 'decline_gift'}:
+    if all_action_types & {'accept_gift', 'decline_gift'}:
         base = max(base, 0.70)
 
-    # Content consumed (read_content, consume/news mode)
-    if 'read_content' in action_types or ctx.get('mode') in ('consume', 'news'):
+    # Content consumed: check channel (arbiter) OR action type.
+    # TASK-053 fix: mode is never 'consume'/'news' — those are arbiter channels,
+    # mapped to 'engage'/'idle' as pipeline modes. Check channel instead.
+    if ('read_content' in all_action_types
+            or ctx.get('channel') in ('consume', 'news')):
         base = max(base, 0.60)
 
     # Thread work
-    if action_types & {'thread_update', 'thread_create', 'thread_close'}:
+    if all_action_types & {'thread_update', 'thread_create', 'thread_close'}:
         base = max(base, 0.55)
 
     # Journal with actual content
@@ -152,12 +165,12 @@ def compute_moment_salience(result: dict, ctx: dict) -> float:
         base = max(base, 0.50)
 
     # Post draft
-    if 'post_x_draft' in action_types:
+    if 'post_x_draft' in all_action_types:
         base = max(base, 0.50)
 
     # Express thought with monologue content
     monologue = result.get('internal_monologue') or ''
-    if 'express_thought' in action_types and len(monologue.split()) > 5:
+    if 'express_thought' in all_action_types and len(monologue.split()) > 5:
         base = max(base, 0.40)
 
     # Resonance alone (common, lower base — still above threshold)
@@ -173,12 +186,12 @@ def compute_moment_salience(result: dict, ctx: dict) -> float:
     if base < MOMENT_THRESHOLD:
         return base
 
-    # ── Modulation: small additive variance on top of base ──
+    # ── Modulation: additive variance on top of base ──
     mod = 0.0
 
-    # Drive intensity at time of action
+    # Drive intensity at time of action (TASK-053: widened from *0.33/0.10 cap)
     drive_delta = ctx.get('max_drive_delta', 0.0)
-    mod += min(0.10, drive_delta * 0.33)
+    mod += min(0.15, drive_delta * 0.5)
 
     # Trust level (novelty of first encounter vs familiar comfort)
     trust_bonus = {
@@ -187,41 +200,54 @@ def compute_moment_salience(result: dict, ctx: dict) -> float:
     }
     mod += trust_bonus.get(ctx.get('trust_level', 'stranger'), 0.0)
 
-    # Content richness
+    # Content richness (TASK-053: widened from /1000/0.05 cap)
     dialogue = result.get('dialogue') or ''
     total_words = (len(monologue.split()) if monologue.strip() else 0) + \
                   (len(dialogue.split()) if dialogue.strip() else 0)
-    mod += min(0.05, total_words / 1000)
+    mod += min(0.10, total_words / 500)
 
     # Cortex resonance
     if result.get('resonance'):
         mod += 0.05
 
-    # Mood extremes — she's feeling strongly
-    # (mood_valence not directly available in result, but drive_delta captures it)
+    # TASK-053: Mood extremes — she's feeling strongly.
+    # Now actually checked via drives_after fields in context.
+    mood_valence = ctx.get('mood_valence')
+    if mood_valence is not None and (mood_valence < -0.3 or mood_valence > 0.5):
+        mod += 0.05
 
     # Event salience from TASK-045
     event_sal = ctx.get('event_salience_dynamic', 0.0)
     if event_sal > 0:
         mod += min(0.05, event_sal * 0.1)
 
+    # TASK-053: Executed action count — more actions = richer moment
+    n_executed = len(executed) if executed else len([a for a in actions if a.get('type')])
+    mod += min(0.12, n_executed * 0.04)
+
     return min(1.0, base + mod)
 
 
 def classify_moment(result: dict, ctx: dict) -> str:
-    """Classify the moment type. Returns highest-priority match."""
+    """Classify the moment type. Returns highest-priority match.
+
+    TASK-053: Reordered so action-based classification runs before the
+    resonance fallback. Previously, `resonance=True` (very common) caught
+    everything at position 2, making all moments type 'resonance'.
+    """
+    actions = result.get('actions', [])
+    action_types = {a.get('type', '') for a in actions}
+    executed = set(ctx.get('executed_action_types', []))
+    all_action_types = action_types | executed
+
     # Internal conflict is highest priority (Phase 3)
     if ctx.get('has_internal_conflict'):
         return 'internal_conflict'
 
-    if result.get('resonance'):
-        return 'resonance'
-
     if ctx.get('had_contradiction'):
         return 'contradiction'
 
-    if any(a.get('type') in ('accept_gift', 'decline_gift')
-           for a in result.get('actions', [])):
+    if all_action_types & {'accept_gift', 'decline_gift'}:
         return 'gift'
 
     if ctx.get('max_drive_delta', 0.0) > 0.3:
@@ -230,9 +256,23 @@ def classify_moment(result: dict, ctx: dict) -> str:
     if ctx.get('is_abrupt_end'):
         return 'abrupt_end'
 
-    if any(a.get('type') in ('write_journal', 'post_x_draft')
-           for a in result.get('actions', [])):
+    # TASK-053: Action-based classification BEFORE resonance fallback.
+    # A journal write with resonance should be 'self_expression', not 'resonance'.
+    if all_action_types & {'write_journal', 'post_x_draft'}:
         return 'self_expression'
+
+    # Content engagement — reading from the pool
+    if ('read_content' in all_action_types
+            or ctx.get('channel') in ('consume', 'news')):
+        return 'content_engagement'
+
+    # Thread work
+    if all_action_types & {'thread_update', 'thread_create', 'thread_close'}:
+        return 'thread_work'
+
+    # Environmental agency — rearranging, placing items
+    if all_action_types & {'rearrange', 'place_item', 'show_item'}:
+        return 'environmental_agency'
 
     if ctx.get('is_novel_topic'):
         return 'novel_topic'
@@ -240,8 +280,12 @@ def classify_moment(result: dict, ctx: dict) -> str:
     if ctx.get('is_silence_moment'):
         return 'silence'
 
-    # Fallback: if it passed salience threshold, call it resonance
-    return 'resonance'
+    # Resonance without specific action — pure contemplation
+    if result.get('resonance'):
+        return 'resonance'
+
+    # Fallback: if it passed salience threshold but nothing above matched
+    return 'observation'
 
 
 def build_moment_summary(result: dict, ctx: dict) -> str:

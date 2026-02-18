@@ -2479,6 +2479,75 @@ Part C:
 
 ---
 
+### TASK-053: Fix day_memory salience clustering
+
+**Status:** DONE (2026-02-18)
+**Priority:** High (blocks meaningful sleep consolidation)
+**Branch:** fix/salience-clustering
+
+**Context:** All day_memory moments cluster at salience 0.40–0.65 instead of the designed 0.30–0.90 range. Sleep consolidation processes the top 7 moments by salience, but when everything scores ~0.45, "top 7" is arbitrary. She can't distinguish a profound journal entry from a quiet idle cycle.
+
+Production data: 30 moments, range 0.624–0.654. Simulation run_a: 17 moments, range 0.40–0.58. All 17 moments typed `resonance`.
+
+**Root causes:**
+
+1. **Mode mismatch** — `compute_moment_salience()` checks `ctx.get('mode') in ('consume', 'news')` for the 0.60 base tier. But the arbiter maps `consume → 'engage'` and `news → 'idle'` as pipeline modes. So mode is always `idle/express/rest/micro/engage` — never `consume`/`news`. The 0.60 tier is unreachable via mode.
+2. **`has_internal_conflict` never set** — `_build_cycle_context()` never populates it. The 0.80 base tier is dead code.
+3. **`classify_moment` falls through to `resonance`** — Action types not used as classification signals. Journal writes, content reads, and idle cycles all classify as `resonance`.
+4. **Modulation range too narrow** — Total max modulation ~0.15. For base 0.36, max output is 0.51.
+
+**Fix:**
+
+1. `_build_cycle_context()`: add `channel` from arbiter focus, add `has_internal_conflict` detection, add executed action types.
+2. `compute_moment_salience()`: check `channel` instead of broken mode strings; widen modulation caps.
+3. `classify_moment()`: add action-type-based classification before `resonance` fallthrough.
+
+**Expected salience distribution after fix:**
+
+| Moment Type | Base | Typical Modulated |
+|---|---|---|
+| Quiet idle | 0.36 | 0.38–0.45 |
+| Idle with resonance | 0.36 | 0.42–0.52 |
+| Content read | 0.60 | 0.65–0.80 |
+| Journal write | 0.50 | 0.55–0.70 |
+| Visitor conversation | 0.70 | 0.75–0.90 |
+| Internal conflict | 0.80 | 0.85–1.00 |
+
+**Scope (files you may touch):**
+
+- `pipeline/day_memory.py` (salience scoring + classify_moment)
+- `heartbeat.py` (`_build_cycle_context()` only)
+- `tests/test_day_memory_salience.py`
+
+**Scope (files you may NOT touch):**
+
+- `pipeline/cortex.py`
+- `pipeline/basal_ganglia.py`
+- `pipeline/hypothalamus.py`
+- `db.py`
+- `heartbeat_server.py`
+- `window/`
+
+**Tests:**
+
+- test_channel_consume_gets_content_base — channel='consume' → base 0.60
+- test_channel_news_gets_content_base — channel='news' → base 0.60
+- test_internal_conflict_reachable — has_internal_conflict=True → base 0.80
+- test_classify_journal_not_resonance — write_journal → moment_type 'self_expression'
+- test_classify_read_content — read_content → moment_type 'content_engagement'
+- test_modulation_wider_spread — same base, varied modulation → spread > 0.15
+- test_hierarchy_still_holds — conflict > visitor > content > journal > idle
+
+**Definition of done:**
+
+- Salience spread of at least 0.30 range across moment types
+- At least 3 different `moment_type` values appear (not all `resonance`)
+- Sleep consolidation processes highest-salience moments first
+- All existing tests pass (with adjustments for new scoring)
+- No regression in cycle timing or budget tracking
+
+---
+
 ## Completed Tasks
 
 _None yet._
