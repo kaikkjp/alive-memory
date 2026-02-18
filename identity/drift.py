@@ -20,7 +20,9 @@ from models.event import Event
 # ─── Config ───
 
 _CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'drift_config.json')
-_BASELINE_PATH = os.path.join(os.path.dirname(__file__), 'self_model.json')
+_DATA_DIR = os.environ.get('SHOPKEEPER_DATA_DIR',
+                           os.path.join(os.path.dirname(__file__), '..', 'data'))
+_BASELINE_PATH = os.path.join(_DATA_DIR, 'self_model.json')
 
 _EPSILON = 0.01  # Avoid division by zero
 
@@ -238,18 +240,18 @@ class DriftDetector:
         window_energy = window_data['avg_energy']
         window_cpd = window_data['cycles_per_day']
 
-        # ── Update baseline (EMA) ──
-        self._baseline.update_from_window(
-            window_actions=window_actions,
-            window_dialogue_len=window_dialogue_len,
-            window_mood=window_mood,
-            window_energy=window_energy,
-            window_cycles_per_day=window_cpd,
-            alpha=alpha,
-        )
-
-        # ── Not enough data yet ──
-        if self._baseline.cycle_count < min_cycles:
+        # ── Not enough data for scoring yet? ──
+        # We still update the baseline to bootstrap it, but skip scoring.
+        next_cycle = self._baseline.cycle_count + 1
+        if next_cycle <= min_cycles:
+            self._baseline.update_from_window(
+                window_actions=window_actions,
+                window_dialogue_len=window_dialogue_len,
+                window_mood=window_mood,
+                window_energy=window_energy,
+                window_cycles_per_day=window_cpd,
+                alpha=alpha,
+            )
             self._baseline.save(self._baseline_path)
             self._last_result = DriftResult(
                 composite=0.0,
@@ -258,7 +260,9 @@ class DriftDetector:
             )
             return self._last_result
 
-        # ── Compute per-metric drift ──
+        # ── Compute per-metric drift BEFORE updating baseline ──
+        # Scoring against the pre-update baseline prevents the current
+        # window from damping its own divergence measurement.
         metrics = {}
         metrics['action_frequency'] = _compute_action_frequency_drift(
             self._baseline.action_frequencies, window_actions,
@@ -330,6 +334,16 @@ class DriftDetector:
             await db.append_event(event)
             self._baseline.last_event_cycle = self._baseline.cycle_count
             print(f"  [Drift] {level} drift detected: composite={composite:.3f}")
+
+        # ── Now update baseline EMA (after scoring) ──
+        self._baseline.update_from_window(
+            window_actions=window_actions,
+            window_dialogue_len=window_dialogue_len,
+            window_mood=window_mood,
+            window_energy=window_energy,
+            window_cycles_per_day=window_cpd,
+            alpha=alpha,
+        )
 
         # ── Persist ──
         self._baseline.save(self._baseline_path)
@@ -468,6 +482,7 @@ async def get_drift_state() -> dict:
     """
     detector = get_detector()
     result = detector.last_result
+    min_cycles = detector._config.get('min_cycles_for_detection', 10)
 
     baseline = detector.baseline
     if result is None:
@@ -482,7 +497,7 @@ async def get_drift_state() -> dict:
             'level': 'none',
             'summary': None,
             'baseline_cycles': baseline.cycle_count,
-            'baseline_mature': baseline.cycle_count >= 10,
+            'baseline_mature': baseline.cycle_count >= min_cycles,
         }
 
     return {
@@ -491,5 +506,5 @@ async def get_drift_state() -> dict:
         'level': result.level,
         'summary': result.summary,
         'baseline_cycles': baseline.cycle_count,
-        'baseline_mature': baseline.cycle_count >= 10,
+        'baseline_mature': baseline.cycle_count >= min_cycles,
     }
