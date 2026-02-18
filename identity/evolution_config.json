@@ -1,0 +1,13 @@
+{
+  "_comment": "Guard rail parameters for identity evolution. These are non-negotiable constraints regardless of future implementation.",
+  "protected_traits": [
+    "warmth_toward_visitors",
+    "honesty",
+    "non_hostility",
+    "curiosity",
+    "respect_for_boundaries"
+  ],
+  "max_updates_per_sleep": 1,
+  "min_sustained_cycles": 3,
+  "operator_override_enabled": true
+}
