@@ -1,68 +1,92 @@
-# TASK-065: Prompt token budget strategy
+# TASK-065: Prompt Token Budget
 
 ## Problem
 
-Cortex prompt is gaining new sections:
-- Self-context block (TASK-060)
-- Cognitive state block (TASK-061)
-- Fitness function block (TASK-063)
-
-Each competes for context window space with memories, perceptions, and identity. Without a budget system, prompt size grows unbounded and critical sections get crowded out.
+TASK-060 through TASK-063 all inject new content into the LLM prompt. Without a budget, each addition creeps the token count up until we hit truncation or degraded output quality. Currently there is no enforcement — sections grow unchecked.
 
 ## Solution
 
-Add a token budget system in `prompt_assembler.py`. Each section gets a max allocation. Priority order determines what gets trimmed first when total exceeds budget. Perceptions and identity are never trimmed.
+Enforce token caps on each section of the LLM prompt. A new `prompt/budget.py` module measures each section before the LLM call, truncates any that exceed their cap, and logs all trims.
 
-## Priority order (highest to lowest)
+## Design
 
-1. **Identity** — never trimmed
-2. **Perceptions** — never trimmed (current sensory input)
-3. **Memories** — trimmed last (recall context)
-4. **Self-context notes** — trimmed before memories
-5. **Cognitive state** — trimmed before self-context
-6. **Fitness function** — trimmed first
+1. **Define named prompt sections** — system, memory, drives, scene, self_context, conversation_history (extensible as 060-063 land)
+2. **Per-section max token allocation** in external config (`prompt/budget_config.json`)
+3. **Total budget** = model context window − reserved output tokens
+4. **Before each LLM call**, `budget.py` measures each section, truncates/summarizes any that exceed their cap:
+   - Conversation history: oldest-first truncation
+   - Memory: least-relevant-first truncation
+   - Other sections: configurable strategy
+5. **Emit warning log** if any section hits its cap — visibility into what's getting cut
 
-## Budget allocation (configurable)
+## Token counting
 
-| Section | Max tokens | Trimmable |
-|---------|-----------|-----------|
-| Identity | 800 | No |
-| Perceptions | 1500 | No |
-| Memories | 3000 | Yes (last) |
-| Self-context | 500 | Yes |
-| Cognitive state | 200 | Yes |
-| Fitness function | 300 | Yes |
-| **Total budget** | **6300** | — |
+Must be fast. Options (decide during implementation):
+- `tiktoken` for exact counts (Claude-compatible tokenizer)
+- Character-estimate heuristic (~3.5 chars/token) as fallback
 
-Allocations stored in config (not self_parameters — operator-controlled, not character-controlled).
+**Never use an LLM call for token counting.**
 
-## Trimming strategy
+## Config format
 
-When total assembled prompt exceeds budget:
-1. Trim lowest-priority sections first
-2. Within a section, trim oldest/least-relevant items first
-3. Log what was trimmed and why
-4. Never trim below minimum thresholds (e.g., cognitive state always gets at least the "All organs active" line)
+```json
+{
+  "model_context_window": 200000,
+  "reserved_output_tokens": 4096,
+  "sections": {
+    "system": { "max_tokens": 2000, "truncation": "none" },
+    "memory": { "max_tokens": 3000, "truncation": "least_relevant_first" },
+    "drives": { "max_tokens": 500, "truncation": "none" },
+    "scene": { "max_tokens": 1000, "truncation": "oldest_first" },
+    "self_context": { "max_tokens": 800, "truncation": "oldest_first" },
+    "conversation_history": { "max_tokens": 8000, "truncation": "oldest_first" }
+  }
+}
+```
+
+Config must be tunable without code changes.
+
+## Rules
+
+- Token counting must be fast — no LLM calls
+- Truncation strategy per section type (configurable)
+- Never silently drop content — always log what was trimmed
+- Budget config must be tunable without code changes
+- Sections not yet implemented (e.g. self_context before 060 lands) are simply absent — budget system handles missing sections gracefully
 
 ## Scope
 
 **Files you may touch:**
-- `pipeline/prompt_assembler.py` (add budget allocation and priority trimming)
-- `config/` (add `prompt_budget.py` or extend existing config)
+- `prompt/budget.py` (new — token counting + section enforcement)
+- `pipeline/cortex.py` (post-059 — integrate budget checks before LLM call)
+- `prompt/budget_config.json` or similar (new — per-section limits)
 
 **Files you may NOT touch:**
-- `pipeline/cortex.py`
 - `pipeline/basal_ganglia.py`
+- `simulate.py`
+
+## Depends on
+
+- TASK-064 merge (sleep phases cleaned up)
+- TASK-059 merge (prompt structure finalized)
+
+## Blocks
+
+- TASK-060 (self-context injection — needs budget to respect)
+- TASK-061 (organ awareness — adds another prompt section)
 
 ## Tests
 
-- Unit: prompt stays under total budget with all sections populated
-- Unit: low-priority sections trimmed before high-priority
-- Unit: identity and perceptions never trimmed even under pressure
-- Unit: trimming is deterministic and logged
+- Unit: section over budget → truncated to limit
+- Unit: total under budget → nothing touched
+- Unit: missing section in config → graceful default
+- Integration: full prompt assembly stays within model context window
+- Log output shows trim events when triggered
 
 ## Definition of done
 
 - Every prompt section has a token budget
 - Total prompt size is bounded
-- Priority trimming is deterministic and logged
+- Truncation is per-section with configurable strategy
+- All trims are logged
+- Budget config is external and tunable without code changes
