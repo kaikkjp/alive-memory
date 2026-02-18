@@ -1,0 +1,100 @@
+{
+  "_version": "1.0",
+  "_description": "Risk tiers for The Shopkeeper. Read by agents and scope-check.sh before every merge.",
+  "_updated": "2026-02-19",
+
+  "tiers": {
+    "high": {
+      "description": "Core cognitive architecture. One wrong line breaks the living loop.",
+      "merge_requires": ["scope-check", "tests", "manual-review"],
+      "review_model": "opus",
+      "paths": [
+        "pipeline/*.py",
+        "heartbeat.py",
+        "sleep.py",
+        "db/*.py",
+        "db/connection.py",
+        "models/*.py",
+        "config/identity.py",
+        "compositing.py",
+        "window_state.py",
+        "seed.py"
+      ]
+    },
+    "medium": {
+      "description": "Server, API, workers, config. Breakage is recoverable but costly.",
+      "merge_requires": ["scope-check", "tests"],
+      "review_model": "sonnet",
+      "paths": [
+        "heartbeat_server.py",
+        "api/*.py",
+        "workers/*.py",
+        "config/*.py",
+        "!config/identity.py",
+        "feed_ingester.py",
+        "ingest.py",
+        "llm_logger.py",
+        "prompt_assembler.py",
+        "terminal.py",
+        "simulate.py",
+        "generate_token.py",
+        "timeline.py",
+        "bootstrap_assets.py",
+        "Dockerfile",
+        "docker-compose.yml",
+        "deploy/*.sh",
+        "deploy/*.conf",
+        "deploy/*.service",
+        "nginx/*.conf",
+        "requirements.txt"
+      ]
+    },
+    "low": {
+      "description": "Frontend, tests, docs, scripts, migrations. Safe to iterate fast.",
+      "merge_requires": ["scope-check"],
+      "review_model": "haiku",
+      "paths": [
+        "window/**",
+        "tests/*.py",
+        "scripts/*.py",
+        "scripts/*.sh",
+        "migrations/*.sql",
+        "tasks/*.md",
+        "docs/*.md",
+        "*.md",
+        "my-agent/**",
+        ".gitignore",
+        "TASKS.md",
+        "ARCHITECTURE.md",
+        "CLAUDE.md"
+      ]
+    }
+  },
+
+  "overrides": {
+    "_description": "Per-task clearance overrides. scope-check.sh reads these.",
+    "example": {
+      "task": "TASK-058",
+      "clearance": "low",
+      "reason": "Frontend-only task. Must not touch any Python backend files."
+    }
+  },
+
+  "task_clearances": {
+    "TASK-058": "low",
+    "TASK-059": "high",
+    "TASK-056": "high",
+    "TASK-060": "high",
+    "TASK-061": "high",
+    "TASK-062": "high",
+    "TASK-063": "high",
+    "TASK-064": "high",
+    "TASK-065": "medium"
+  },
+
+  "escalation_rules": {
+    "risk_policy_changed": "If risk-policy.json itself is modified, require manual review regardless of task clearance.",
+    "claude_md_changed": "If CLAUDE.md is modified, require manual review.",
+    "identity_changed": "If config/identity.py is modified, STOP and notify operator. This is her identity."
+  }
+}

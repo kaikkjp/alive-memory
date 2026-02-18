@@ -15,6 +15,18 @@ A persistent AI character engine. Python 3.12+ backend, Next.js frontend. Single
 5. **When done, run the doc update** — `python scripts/update_docs.py`
 6. **Mark your task DONE in `TASKS.md`** — add completion date
 
+## Scope Enforcement
+
+Every agent session MUST be associated with a TASK-XXX ID. Before committing:
+
+1. Run `./scripts/scope-check.sh TASK-XXX` to validate all changed files are within your task's clearance
+2. If you get a VIOLATION, you touched a file outside your scope. Revert it.
+3. If you get an ESCALATION, stop and notify the operator.
+
+To check a specific file's risk tier: `./scripts/scope-check.sh --classify path/to/file.py`
+
+Risk tiers are defined in `risk-policy.json`. Do not modify `risk-policy.json` without operator approval.
+
 ## Task Protocol (MANDATORY)
 
 Every coding session follows this exact sequence. No exceptions.
