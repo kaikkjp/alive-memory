@@ -4,14 +4,11 @@ Phase 5 of the sleep cycle: everything that happens after reflection and review,
 preparing the system for the next day.
 """
 
-import os
 import sys
 
 import clock
 import db
 from db.parameters import p
-
-COLD_SEARCH_ENABLED = os.getenv('COLD_SEARCH_ENABLED', 'false').lower() == 'true'
 
 
 async def run_wake_transition() -> None:

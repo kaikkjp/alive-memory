@@ -345,6 +345,8 @@ class TestRunConsolidation(unittest.IsolatedAsyncioTestCase):
                          new=AsyncMock(return_value=None)),
             patch.object(_consol.db, 'insert_journal', new=AsyncMock(return_value='j1')),
             patch.object(sleep, 'write_daily_summary', new=AsyncMock()),
+            patch.object(sleep, 'reset_drives_for_morning', new=AsyncMock()),
+            patch.object(sleep, 'flush_day_memory', new=AsyncMock()),
         ]
         for p in patches:
             p.start()

@@ -5,13 +5,10 @@ reflect on each via LLM, write individual journal entries, then produce a
 daily summary index.
 """
 
-import os
 import sys
 
 import db
 from db.parameters import p
-
-COLD_SEARCH_ENABLED = os.getenv('COLD_SEARCH_ENABLED', 'false').lower() == 'true'
 
 
 async def run_consolidation() -> int:
@@ -26,6 +23,8 @@ async def run_consolidation() -> int:
     sleep_reflect = _pkg.sleep_reflect
     write_daily_summary = _pkg.write_daily_summary
     hippocampus_consolidate = _pkg.hippocampus_consolidate
+    reset_drives_for_morning = _pkg.reset_drives_for_morning
+    flush_day_memory = _pkg.flush_day_memory
 
     # 1. Get unprocessed day memories ranked by salience
     moments = await db.get_unprocessed_day_memory(
@@ -43,7 +42,8 @@ async def run_consolidation() -> int:
                 tags=['daily', 'sleep_cycle', 'quiet_day'],
             )
             await write_daily_summary([], [], [])
-        # Drive reset + memory flush handled by run_wake_transition() in orchestrator
+        await reset_drives_for_morning()
+        await flush_day_memory()
         return 0
 
     # 2. Reflect on each moment (crash-safe: each is its own transaction)
@@ -65,7 +65,7 @@ async def run_consolidation() -> int:
 
             # b. Cold search (Phase 2 — semantic search over past conversations)
             cold_echoes = []
-            if COLD_SEARCH_ENABLED:
+            if _pkg.COLD_SEARCH_ENABLED:
                 try:
                     from pipeline.cold_search import search_cold_memory
                     cold_echoes = await search_cold_memory(
