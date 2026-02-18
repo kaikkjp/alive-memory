@@ -1,0 +1,4586 @@
+# TASKS Archive — The Shopkeeper
+
+> Completed tasks moved from `TASKS.md`. For active tasks, see `TASKS.md`.
+
+---
+
+### TASK-001: Wire threads into window_state broadcast
+**Status:** DONE (2026-02-14)
+**Priority:** Low
+**Description:** `window_state.py:129` has a TODO: threads are hardcoded to empty list. Wire up `db.get_active_threads()` and include in the WebSocket broadcast so the dashboard ThreadsPanel shows real data.
+**Scope (files you may touch):**
+- `window_state.py`
+- `window/src/components/dashboard/ThreadsPanel.tsx` (if data shape changes)
+- `window/src/lib/types.ts` (if TypeScript types need updating)
+**Scope (files you may NOT touch):**
+- `db.py` (thread functions already exist)
+- `heartbeat_server.py`
+- `heartbeat.py`
+**Tests:** Add a test in `tests/test_window_state.py` (new file) verifying threads appear in broadcast payload.
+**Definition of done:** ThreadsPanel shows live thread data from the running system.
+
+---
+
+### TASK-002: Split heartbeat_server.py HTTP routes into separate module
+**Status:** DONE (2026-02-15)
+**Priority:** Medium
+**Description:** `heartbeat_server.py` is 1092 lines mixing TCP, WebSocket, and HTTP concerns. Extract all `_http_dashboard_*` methods (lines 920-1070) into a new `api/dashboard_routes.py` module. The `ShopkeeperServer` class should delegate to it.
+**Scope (files you may touch):**
+- `heartbeat_server.py` (remove dashboard methods, add imports)
+- `api/__init__.py` (new)
+- `api/dashboard_routes.py` (new)
+**Scope (files you may NOT touch):**
+- `heartbeat.py`
+- `db.py`
+- `window/` (frontend unchanged — same HTTP endpoints)
+**Tests:** Existing dashboard tests must still pass. Add `tests/test_dashboard_routes.py`.
+**Definition of done:** All `_http_dashboard_*` methods live in `api/dashboard_routes.py`. Server delegates to them. All endpoints return identical responses.
+
+---
+
+### TASK-003: Split db.py into submodules
+**Status:** DONE (2026-02-15)
+**Priority:** High (but risky — schedule when no other work is in flight)
+**Description:** `db.py` is 2291 lines with 100+ functions. Split into:
+- `db/__init__.py` — re-exports everything (backward compat)
+- `db/connection.py` — get_db, close_db, transaction, migrations
+- `db/events.py` — event store, inbox
+- `db/state.py` — room_state, drives_state, engagement_state
+- `db/memory.py` — journal, totems, collection, visitor traits, cold memory, day memory
+- `db/content.py` — threads, content pool, feed items
+- `db/analytics.py` — llm cost tracking, cycle logs, stats
+**Scope (files you may touch):**
+- `db.py` → `db/` directory (all new files)
+**Scope (files you may NOT touch):**
+- Everything else — the `db/__init__.py` re-exports must make this a zero-change refactor for all importers
+**Tests:** `python -m pytest tests/ -v` — ALL existing tests must pass unchanged. No import changes anywhere else.
+**Definition of done:** `db.py` is gone, replaced by `db/` package. `from db import get_db` still works. `import db; db.get_events_since(...)` still works. Zero changes to any other file.
+
+---
+
+### TASK-004: Add typed pipeline contracts
+**Status:** DONE (2026-02-14)
+**Priority:** Medium
+**Description:** Pipeline stages pass data through dicts and implicit conventions. Define explicit dataclasses:
+- `CortexInput` — what goes into the LLM call
+- `CortexOutput` — what comes out (speech, body, internal_monologue, actions)
+- `ValidatedOutput` — post-validation output
+- `ExecutionResult` — what executor returns
+**Scope (files you may touch):**
+- `models/pipeline.py` (new — dataclass definitions)
+- `pipeline/cortex.py` (return `CortexOutput` instead of dict)
+- `pipeline/validator.py` (accept `CortexOutput`, return `ValidatedOutput`)
+- `pipeline/executor.py` (accept `ValidatedOutput`, return `ExecutionResult`)
+- `heartbeat.py` (update `run_cycle` to use typed objects)
+**Scope (files you may NOT touch):**
+- `db.py`
+- `heartbeat_server.py`
+- `window/`
+**Tests:** Update `tests/test_validator.py` and `tests/test_cortex_timeout.py` to use new types. All tests pass.
+**Definition of done:** Pipeline stages communicate through typed dataclasses. Breaking changes caught at import time, not at runtime.
+
+---
+
+### TASK-005: VPS deployment hardening
+**Status:** DONE (2026-02-14)
+**Priority:** High
+**Description:** Finalize Docker + nginx + TLS deployment per `DEPLOY_VPS.md` spec. Ensure `docker-compose.yml` builds cleanly, nginx proxies WebSocket correctly, and TLS certs auto-renew.
+**Scope (files you may touch):**
+- `Dockerfile`
+- `docker-compose.yml`
+- `deploy/*`
+- `nginx/*`
+- `DEPLOY_VPS.md`
+**Scope (files you may NOT touch):**
+- All Python source
+- `window/` (except `next.config.ts` if build config needs tweaking)
+**Tests:** `docker compose build` succeeds. `docker compose up` starts server. WebSocket connects through nginx. Dashboard loads.
+**Definition of done:** One-command deploy from a fresh Ubuntu 24 VPS.
+
+---
+
+### TASK-006: Post-merge documentation sweep
+**Status:** DONE (2026-02-15)
+**Priority:** Routine
+**Description:** Run `python scripts/update_docs.py` and review ARCHITECTURE.md for accuracy. Update any module descriptions that have changed. Add any new files to the module map.
+**Scope (files you may touch):**
+- `ARCHITECTURE.md`
+- `README.md` (if project structure section is outdated)
+**Scope (files you may NOT touch):**
+- All source code
+**Tests:** N/A
+**Definition of done:** ARCHITECTURE.md line counts match reality. All files in repo are documented. Dependency graph is accurate.
+
+---
+
+### TASK-007: Sleep tuning — reflective not summarizing
+**Status:** DONE (2026-02-14)
+**Priority:** Medium
+**Depends on:** Nothing (standalone)
+**Description:** Two changes to `sleep.py`:
+1. Raise `MIN_SLEEP_SALIENCE` from 0.4 to 0.65. Day recording stays at 0.4 (wide net), but only the top moments get reflected on at night. This cuts LLM calls during sleep and focuses reflection on what actually mattered.
+2. Each `sleep_reflect()` result writes its OWN journal entry (one per moment), instead of `write_daily_summary()` concatenating all reflections into one blob. The daily_summary record becomes a lightweight index (date, moment count, moment IDs, emotional arc) not a narrative.
+**Scope (files you may touch):**
+- `sleep.py` (threshold change, refactor `write_daily_summary()`)
+- `db.py` — only `insert_daily_summary()` if the summary schema changes (add at END of file)
+**Scope (files you may NOT touch):**
+- `pipeline/day_memory.py` (day recording unchanged)
+- `heartbeat.py`
+- `pipeline/cortex.py`
+**Tests:** Update `tests/test_sleep_cold_memory.py`. Verify: each moment produces its own journal entry. Daily summary contains moment IDs not concatenated text. Moments below 0.65 salience are not reflected on.
+**Definition of done:** Sleep cycle produces N individual journal entries for N moments (not 1 blob). Daily summary is an index. Low-salience moments are recorded during the day but skipped at night.
+
+---
+
+### TASK-008: Body Phase 1 — Refactor (zero behavior change)
+**Status:** DONE (2026-02-14)
+**Priority:** High
+**Depends on:** TASK-004 (typed pipeline contracts)
+**Design doc:** `body-spec-v2.md` §10, Phase 1
+**Description:** Split the current executor into the brain/body architecture without changing any behavior. This is pure structural refactoring.
+- Create `pipeline/action_registry.py` — extract `ActionCapability` dataclass and `ACTION_REGISTRY` dict from executor.py. Currently enabled actions only (speak, journal_write, arrange_shelf, express_thought, end_engagement). Future actions listed but `enabled=False`.
+- Create `pipeline/body.py` — move executor functions into `execute()` with `ActionResult` and `BodyOutput` dataclasses. Pure execution, no decision logic.
+- Create `pipeline/basal_ganglia.py` — STUB that wraps the single implicit cortex action as a single-item `MotorPlan` and passes it through. All gates return approved. No filtering.
+- Create `pipeline/output.py` — STUB that does what executor currently does post-action (drive adjustments, hippocampus_write call).
+- Update `heartbeat.py` to call: Validator → Basal Ganglia → Body → Output.
+- Deprecate `pipeline/executor.py` (keep file, add deprecation notice, import from new locations).
+**Scope (files you may touch):**
+- `pipeline/action_registry.py` (new)
+- `pipeline/body.py` (new)
+- `pipeline/basal_ganglia.py` (new)
+- `pipeline/output.py` (new)
+- `pipeline/executor.py` (deprecate, re-route imports)
+- `heartbeat.py` (update `run_cycle` call chain)
+- `models/pipeline.py` (add `MotorPlan`, `ActionDecision`, `ActionResult`, `BodyOutput`, `CycleOutput`)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py` (still outputs same format)
+- `pipeline/validator.py` (still same checks)
+- `db.py`
+- `heartbeat_server.py`
+- `window/`
+**Tests:** ALL existing tests pass with zero changes. Add `tests/test_body.py` and `tests/test_basal_ganglia.py` verifying stub passthrough produces identical results to old executor.
+**Definition of done:** New pipeline stages exist and are wired in. Every existing behavior is identical. `simulate.py --cycles 10` produces same quality output.
+
+---
+
+### TASK-009: Body Phase 2 — Multi-intention + Basal Ganglia selection
+**Status:** DONE (2026-02-14)
+**Priority:** High
+**Depends on:** TASK-008
+**Design doc:** `body-spec-v2.md` §2.2, §4, §10 Phase 2
+**Description:** Cortex now outputs `intentions[]` with impulse strengths. Basal Ganglia selects which fire.
+- Update cortex prompt in `prompt_assembler.py`: add "EXPRESS YOUR INTENTIONS" instruction, `intentions[]` schema with action/target/content/impulse.
+- Basal Ganglia: implement Gates 1-5 (capability check, enabled check, prerequisites, cooldown, energy gating). No inhibition yet (Gate 6 is Phase 3).
+- Suppression logging to `action_log` table.
+- Output processing: drive adjustments from outcomes, suppressed high-impulse actions → `inject_self_reflection_seed()` for next cycle.
+- Add `recent_suppressions` block to cortex prompt context in `prompt_assembler.py` so she can journal about "what I almost did."
+- Migration: `migrations/010_body.sql` (action_log table only).
+- Peek commands in `terminal.py`: `body`, `suppressed`, `action-log`.
+**Scope (files you may touch):**
+- `pipeline/basal_ganglia.py` (full implementation)
+- `pipeline/output.py` (full implementation)
+- `pipeline/action_registry.py` (add prerequisite checks)
+- `pipeline/cortex.py` (parse new intentions[] format, backward compat with old format)
+- `prompt_assembler.py` (add intentions instruction + recent_suppressions context)
+- `heartbeat.py` (wire suppression seed injection)
+- `db.py` (add action_log functions — at END of file)
+- `migrations/010_body.sql` (new)
+- `terminal.py` (add peek commands)
+- `models/pipeline.py` (update if needed)
+**Scope (files you may NOT touch):**
+- `pipeline/sensorium.py`
+- `pipeline/thalamus.py`
+- `pipeline/hippocampus.py`
+- `sleep.py`
+- `window/` (no frontend changes yet)
+**Tests:** Add `tests/test_basal_ganglia_selection.py`. Test: multi-intention input → strongest fires, others suppressed with reasons. Energy gating works. Cooldown enforcement works. Suppression log populated.
+**Definition of done:** She expresses multiple wants per cycle. Strongest fires. Others logged as suppressed. She can journal about "I almost did X."
+
+---
+
+### TASK-010: Body Phase 3 — Inhibition + Metacognitive Monitor
+**Status:** DONE (2026-02-14)
+**Priority:** High
+**Depends on:** TASK-009
+**Design doc:** `body-spec-v2.md` §2.2 (Inhibition System), plus new metacognitive monitor design
+**Description:** Two systems that make her learn from experience and notice her own inconsistencies.
+
+**Inhibition system (from body spec):**
+- Gate 6 in Basal Ganglia: `check_inhibition()` — DB lookup against learned inhibitions.
+- Output processing: `detect_negative_signal()` (visitor left quickly, cortex expressed regret), `detect_positive_signal()` (visitor responded, journal completed), `maybe_form_inhibition()`.
+- Inhibition strength: +0.15 on negative signal, -0.1 on positive signal. Delete below 0.05.
+- Inhibition seeds stored as structured data, not narrative templates. Cortex narrates them naturally.
+- Migration: add `inhibitions` table to `010_body.sql`.
+
+**Metacognitive monitor (new):**
+- New component in `pipeline/output.py`: `check_self_consistency()`.
+- After body executes, compare executed actions + cortex speech against `config/identity.py` voice rules and character-bible constraints.
+- Divergences produce `internal_conflict` event → inbox with high salience.
+- `pipeline/day_memory.py`: add `internal_conflict` as a moment type with salience boost (+0.4) so it always gets reflected on at night.
+- `prompt_assembler.py`: inject recent internal conflicts into cortex context so she can process them during idle cycles.
+- The validator stays format-only. It does NOT strip out-of-character behavior. The metacognitive monitor catches it after the fact.
+
+**Validator change:**
+- Remove character-rule enforcement from `pipeline/validator.py`. Keep format/schema checks only.
+- Character rules move to metacognitive monitor as detection patterns (not gates).
+**Scope (files you may touch):**
+- `pipeline/basal_ganglia.py` (add Gate 6)
+- `pipeline/output.py` (inhibition formation + metacognitive monitor)
+- `pipeline/validator.py` (remove character rules, keep format checks)
+- `pipeline/day_memory.py` (add `internal_conflict` moment type, salience boost)
+- `prompt_assembler.py` (add recent_inhibitions + recent_conflicts to context)
+- `config/identity.py` (extract voice rules into machine-readable format for monitor)
+- `db.py` (add inhibition functions — at END of file)
+- `migrations/010_body.sql` (add inhibitions table)
+- `models/pipeline.py` (add `InhibitionCheck`, `SelfConsistencyResult`)
+- `terminal.py` (add `inhibitions` peek command)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py` (no prompt changes beyond what prompt_assembler provides)
+- `pipeline/sensorium.py`
+- `pipeline/thalamus.py`
+- `heartbeat_server.py`
+- `sleep.py` (sleep already reflects on high-salience moments — internal conflicts flow through existing path)
+- `window/`
+**Tests:** Add `tests/test_inhibition.py`: after negative signal, matching inhibition forms. After positive signal, it weakens. Add `tests/test_metacognitive.py`: out-of-character speech produces internal_conflict event. Conflict appears in day_memory with boosted salience.
+**Definition of done:** She learns from bad outcomes (inhibitions form). She notices when she contradicts herself (internal conflicts). Both feed into night reflection via existing sleep pipeline. Validator no longer silently strips behavior.
+
+---
+
+### TASK-011a: Body Phase 4a — Habit tracking + formation
+**Status:** DONE (2026-02-14)
+**Priority:** Medium
+**Depends on:** TASK-010
+**Design doc:** `body-spec-v2.md` §2.2 (Habit System), §10 Phase 4
+**Description:** Track repeated action patterns and form habits with nonlinear strength curves.
+- `track_action_pattern()` in output processing: after every executed action, check if habit should form or strengthen. Second occurrence in similar context → habit at 0.1. Nonlinear strength curve (fast 0→0.4, medium 0.4→0.6, slow 0.6→0.8).
+- Trigger context is coarse-grained: energy band, mood band, mode, time band, visitor_present. Too specific = habits never form.
+- Migration: add `habits` table to `010_body.sql`.
+- DB CRUD for habits (get, upsert, delete, list).
+**Scope (files you may touch):**
+- `pipeline/output.py` (add `track_action_pattern()`)
+- `db.py` (add habit functions — at END of file)
+- `migrations/010_body.sql` (add habits table)
+- `models/pipeline.py` (add habit-related dataclasses)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `pipeline/validator.py`
+- `pipeline/sensorium.py`
+- `pipeline/basal_ganglia.py`
+- `heartbeat.py`
+- `heartbeat_server.py`
+- `terminal.py`
+- `window/`
+**Tests:** Add `tests/test_habits.py`: after N repetitions of same action in same context, habit forms. Habit strength follows nonlinear curve.
+**Definition of done:** Habits form from repeated behavior. Strength curve works. Habits table populated with correct trigger context.
+
+---
+
+### TASK-011b: Body Phase 4b — Habit auto-fire in basal ganglia
+**Status:** DONE (2026-02-14)
+**Priority:** Medium
+**Depends on:** TASK-011a
+**Design doc:** `body-spec-v2.md` §2.2 (Habit System), §10 Phase 4
+**Description:** Strong habits bypass cortex entirely — reflexes, not thoughts.
+- `check_habits()` in basal ganglia BEFORE cortex call: if strong habit matches (strength ≥ 0.6), return MotorPlan directly. Cortex skipped entirely — reflex, not thought.
+- Trigger context matching against current state (energy band, mood band, mode, time band, visitor_present).
+- `habits` peek command in terminal.
+**Scope (files you may touch):**
+- `pipeline/basal_ganglia.py` (add `check_habits()`)
+- `heartbeat.py` (add habit check before cortex call in `run_cycle`)
+- `terminal.py` (add `habits` peek command)
+- `tests/` (extend habit tests)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `pipeline/validator.py`
+- `pipeline/sensorium.py`
+- `pipeline/output.py`
+- `db.py`
+- `heartbeat_server.py`
+- `window/`
+**Tests:** Extend `tests/test_habits.py`: after strength ≥ 0.6, habit auto-fires and cortex is skipped. Peek command shows all habits with strength and trigger context.
+**Definition of done:** Strong habits skip cortex (cost savings). `habits` peek command shows all habits with strength and trigger context.
+
+---
+
+### TASK-012: Engagement Phase 1 — visitor_connect as perception, not state change
+**Status:** DONE (2026-02-14)
+**Priority:** High
+**Depends on:** TASK-008 (body refactor provides the action registry / motor plan structure)
+**Description:** Currently `heartbeat_server.py` forces `engagement.status='engaged'` the instant a visitor connects. She has no choice. Change this so visitor_connect goes through the normal pipeline.
+- `heartbeat_server.py`: stop calling `db.update_engagement_state(status='engaged')` on connect. Instead, only append the `visitor_connect` event to inbox (already happens) and let the pipeline handle it.
+- `pipeline/sensorium.py`: visitor_connect salience should factor in visitor trust level, social hunger drive, and what she's currently doing. Familiar face + high social hunger = high salience. Stranger + she's absorbed in reading = low salience.
+- `pipeline/thalamus.py`: visitor_connect no longer auto-routes to `engage`. It competes with other perceptions. If it wins, cycle type is `engage` and she greets them. If it loses, she acknowledges presence but continues what she was doing.
+- `pipeline/ack.py`: still sends instant ack to visitor (so they know the system received their connection), but ack is "she noticed you" not "she's talking to you."
+- Engagement state update moves to `pipeline/executor.py` (or `pipeline/body.py` post-Phase-1): only set when she actually chooses to engage via a `speak` action directed at the visitor.
+**Scope (files you may touch):**
+- `heartbeat_server.py` (remove forced engagement on connect)
+- `pipeline/sensorium.py` (update visitor_connect salience computation)
+- `pipeline/thalamus.py` (visitor_connect competes instead of auto-wins)
+- `pipeline/ack.py` (ack = "noticed" not "engaged")
+- `pipeline/body.py` or `pipeline/executor.py` (engagement state set on speak action)
+- `models/state.py` (if EngagementState needs new fields)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `db.py` (engagement functions already exist)
+- `window/` (frontend unchanged — still gets state updates via WebSocket)
+- `sleep.py`
+**Tests:** Add `tests/test_engagement_choice.py`: visitor connects while she's idle → she engages. Visitor connects while she's absorbed (low social hunger, high expression need) → she acknowledges but doesn't engage. Visitor with high trust connects → higher salience than stranger.
+**Definition of done:** She can choose not to immediately engage with a visitor. The pipeline decides, not the server.
+
+---
+
+### TASK-013: Engagement Phase 2 — multi-slot visitor presence
+**Status:** DONE (2026-02-14)
+**Priority:** Medium
+**Depends on:** TASK-012
+**Description:** Replace the singleton `EngagementState` with a multi-visitor presence model. Multiple people can be in the shop simultaneously.
+- New table `visitors_present` (visitor_id, status: browsing|in_conversation|waiting|left, entered_at, last_activity).
+- `EngagementState` singleton becomes a computed view: "who is she actively talking to right now" derived from visitors_present.
+- `heartbeat_server.py` WebSocket: support multiple concurrent window chat sessions. Each visitor gets their own token and presence record.
+- Arbiter: visitors compete for attention alongside threads, content, creative. A cycle might address one visitor while others browse.
+- Sensorium: multiple visitor events in same inbox batch get individual perceptions with salience.
+**Scope (files you may touch):**
+- `models/state.py` (add `VisitorPresence`, refactor `EngagementState`)
+- `db.py` (add visitors_present table and functions — at END)
+- `migrations/011_multi_visitor.sql` (new)
+- `heartbeat_server.py` (multi-session WebSocket, TCP)
+- `heartbeat.py` (adapt main loop for multi-visitor awareness)
+- `pipeline/sensorium.py` (multi-visitor perception)
+- `pipeline/thalamus.py` (visitor as one of many attention targets)
+- `pipeline/arbiter.py` (visitors compete for cycle allocation)
+- `terminal.py` (show who's in the shop)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py` (prompt just sees "who's here" — assembler handles)
+- `sleep.py`
+- `window/src/components/` (frontend gets state via WebSocket, adapts)
+**Tests:** Add `tests/test_multi_visitor.py`: two visitors connect → both appear in visitors_present. She talks to one, the other sees "she's busy." Second visitor says something interesting → arbiter can switch attention.
+**Definition of done:** Multiple visitors can be in the shop. She allocates attention across them. The singleton engagement model is gone.
+
+---
+
+### TASK-014: Engagement Phase 3 — choice-based engagement via drives and basal ganglia
+**Status:** DONE (2026-02-14)
+**Priority:** Medium
+**Depends on:** TASK-009 (basal ganglia selection) + TASK-013 (multi-slot visitors)
+**Description:** Full integration of visitor choice with the drive system and basal ganglia.
+- `speak` action directed at a specific visitor has impulse modulated by: social hunger, visitor trust level, conversation interest, curiosity about what they said.
+- Basal ganglia selects which visitor to address if multiple are present and multiple speak actions have impulse > 0.
+- She can choose to talk to a familiar face more than a stranger. Or an interesting stranger more than a boring returner. Drives determine the weighting.
+- She can actively disengage ("I need to get back to this") if expression_need or curiosity is high and the conversation isn't stimulating.
+- Prompt assembler includes all present visitors with trust levels so cortex can express differentiated impulses.
+**Scope (files you may touch):**
+- `pipeline/basal_ganglia.py` (visitor-directed action selection)
+- `pipeline/output.py` (track visitor engagement patterns for habit formation)
+- `prompt_assembler.py` (include all present visitors in context)
+- `pipeline/cortex.py` (parse visitor-targeted intentions)
+- `pipeline/thalamus.py` (remove any remaining visitor-priority hardcoding)
+**Scope (files you may NOT touch):**
+- `db.py`
+- `heartbeat_server.py`
+- `sleep.py`
+- `window/`
+**Tests:** Extend `tests/test_engagement_choice.py`: two visitors present, one familiar + one stranger. With high social hunger, she addresses the familiar. With high curiosity and the stranger saying something interesting, she addresses the stranger. With low social hunger and high expression need, she continues her own work.
+**Definition of done:** Visitor engagement is fully drive-modulated and arbiter-routed. She's a shopkeeper, not an escort.
+
+---
+
+### TASK-015: Body Phase 5 — Dashboard panels
+**Status:** DONE (2026-02-15)
+**Priority:** Medium
+**Depends on:** TASK-002 (dashboard routes extracted), TASK-011b (habits complete)
+**Design doc:** `body-spec-v2.md` §9
+
+**Description:** Add two new dashboard panels showing body state and learned behaviors. All data sources already exist in the DB (action_log, habits, inhibitions tables from TASK-009/010/011). This is read-only data display — no pipeline changes.
+
+**Implementation steps (in order):**
+
+**Step 1 — DB query functions.** Add to end of `db.py`:
+- `get_actions_today(db) -> list[dict]` — query action_log for today (UTC), group by action_type, return [{type, count, total_energy}]
+- `get_action_capabilities(db) -> list[dict]` — read ACTION_REGISTRY, join with action_log for cooldown status, return [{action, enabled, ready, cooling_until, energy_cost}]
+- `get_top_habits(db, limit=5) -> list[dict]` — habits ordered by strength desc, return [{action, trigger_context, strength, last_fired, fire_count}]
+- `get_active_inhibitions(db) -> list[dict]` — inhibitions with strength > 0.05, ordered by strength desc, return [{action, context, strength, trigger_count, formed_at}]
+- `get_recent_suppressions(db, limit=10, min_impulse=0.5) -> list[dict]` — action_log where suppressed=true AND impulse >= min_impulse, ordered by timestamp desc, return [{action, impulse, reason, timestamp}]
+- `get_habit_skip_count_today(db) -> int` — count cycles today where habit auto-fired (cortex_skipped=true in cycle_log or equivalent marker)
+- `get_energy_budget(db) -> dict` — {spent_today, budget} from action_log + config
+
+**Step 2 — REST endpoints.** Add to dashboard routes (in `api/dashboard_routes.py` if TASK-002 is done, otherwise `heartbeat_server.py`):
+- `GET /api/dashboard/body` — returns JSON:
+  ```json
+  {
+    "capabilities": [{"action": "speak", "enabled": true, "ready": true, "cooling_until": null, "energy_cost": 1}],
+    "energy": {"spent_today": 42, "budget": 100},
+    "actions_today": [{"type": "speak", "count": 15, "total_energy": 15}]
+  }
+  ```
+- `GET /api/dashboard/behavioral` — returns JSON:
+  ```json
+  {
+    "habits": [{"action": "...", "trigger_context": {}, "strength": 0.72, "last_fired": "...", "fire_count": 8}],
+    "inhibitions": [{"action": "...", "context": "...", "strength": 0.35, "trigger_count": 3}],
+    "suppressions": [{"action": "...", "impulse": 0.7, "reason": "...", "timestamp": "..."}],
+    "habit_skips_today": 4
+  }
+  ```
+
+**Step 3 — TypeScript types.** Add to `window/src/lib/types.ts`:
+- `ActionCapabilityView` — {action, enabled, ready, cooling_until, energy_cost}
+- `BodyPanelData` — {capabilities: ActionCapabilityView[], energy: {spent_today, budget}, actions_today: {type, count, total_energy}[]}
+- `HabitView` — {action, trigger_context, strength, last_fired, fire_count}
+- `InhibitionView` — {action, context, strength, trigger_count}
+- `SuppressionView` — {action, impulse, reason, timestamp}
+- `BehavioralPanelData` — {habits: HabitView[], inhibitions: InhibitionView[], suppressions: SuppressionView[], habit_skips_today: number}
+
+**Step 4 — API client.** Add to `window/src/lib/dashboard-api.ts`:
+- `fetchBodyData(): Promise<BodyPanelData>`
+- `fetchBehavioralData(): Promise<BehavioralPanelData>`
+
+**Step 5 — React panels.**
+- `window/src/components/dashboard/BodyPanel.tsx`:
+  - Capability grid: rows for each action. Green dot = enabled+ready. Yellow dot = cooling down (show remaining seconds). Grey dot = disabled. Columns: action name, status dot, energy cost, times used today.
+  - Energy bar: horizontal bar showing spent/budget with percentage.
+  - Actions today: simple table sorted by count desc.
+  - Auto-refresh every 10s.
+
+- `window/src/components/dashboard/BehavioralPanel.tsx`:
+  - Top habits: table with strength shown as a colored bar (0-1 scale, green ≥0.6 = auto-fire territory). Columns: action, trigger context (compact), strength bar, fire count.
+  - Active inhibitions: table sorted by strength. Columns: action, context, strength, trigger count.
+  - "She almost..." feed: reverse-chronological list of suppressions. Each item shows action name, impulse strength, reason it was suppressed, how long ago. Style like an activity feed.
+  - Cost savings: single number showing habit-skip count today with label "Cortex calls saved by habits."
+  - Auto-refresh every 10s.
+
+**Step 6 — Wire into dashboard page.** Add both panels to `window/src/app/dashboard/page.tsx` in the grid layout. Place BodyPanel after the existing Drives panel. Place BehavioralPanel after BodyPanel.
+
+**Scope (files you may touch):**
+- `db.py` (add query functions — at END of file only)
+- `api/dashboard_routes.py` (if exists after TASK-002) OR `heartbeat_server.py` (if 002 not done)
+- `window/src/components/dashboard/BodyPanel.tsx` (new)
+- `window/src/components/dashboard/BehavioralPanel.tsx` (new)
+- `window/src/app/dashboard/page.tsx`
+- `window/src/lib/dashboard-api.ts`
+- `window/src/lib/types.ts`
+
+**Scope (files you may NOT touch):**
+- `heartbeat.py`
+- `pipeline/*` (all pipeline files)
+- `sleep.py`
+- `models/*`
+
+**Tests:**
+- `tests/test_dashboard_body.py`: verify `/api/dashboard/body` returns correct JSON shape. Test with empty action_log (fresh day). Test with seeded action_log entries.
+- `tests/test_dashboard_behavioral.py`: verify `/api/dashboard/behavioral` returns correct JSON shape. Test with no habits/inhibitions. Test with seeded data. Verify suppressions filter by min_impulse.
+- Verify existing dashboard tests still pass.
+
+**Definition of done:**
+- Both panels render on the dashboard without errors.
+- Endpoints return correct data from real DB tables.
+- Capability grid shows accurate ready/cooling/disabled status.
+- "She almost..." feed shows suppressed actions with impulse > 0.5.
+- Habit-skip cost savings counter works.
+- Auto-refresh doesn't break WebSocket or cause memory leaks.
+
+---
+
+### TASK-016: Reconcile DailySummary dataclass with new index schema
+**Status:** DONE (2026-02-14)
+**Priority:** Low
+**Description:** TASK-007 changed daily_summary from narrative blob to lightweight index, but `DailySummary` dataclass in `models/state.py` and the `summary_bullets` column name still reflect the old shape. Rename field and update dataclass to match actual data.
+**Scope (files you may touch):**
+- `models/state.py`
+- `db.py` (only the `insert_daily_summary` / `get_daily_summary` functions)
+- `sleep.py` (update references if field name changes)
+**Scope (files you may NOT touch):**
+- Everything else
+**Tests:** Existing sleep tests pass. Add test verifying round-trip of new index structure.
+**Definition of done:** `DailySummary` fields match what `sleep.py` actually stores.
+
+---
+
+### TASK-017: Verify unengaged visitor timeout path
+**Status:** DONE (2026-02-15)
+**Priority:** Medium
+**Depends on:** TASK-012
+**Description:** After TASK-012, a visitor can connect but never be engaged (salience < 0.5). Verify that heartbeat_server.py has a connection timeout that disconnects unengaged visitors after a reasonable period (e.g. 5 minutes). If not, add one. Without this, a visitor could sit in the shop forever with no interaction and no cleanup.
+**Scope (files you may touch):**
+- `heartbeat_server.py`
+**Scope (files you may NOT touch):**
+- Everything else
+**Tests:** Test that an unengaged visitor connection is cleaned up after timeout.
+**Definition of done:** Unengaged visitors don't linger forever.
+
+---
+
+### TASK-018: Dashboard and WebSocket authentication enforcement
+**Status:** DONE (2026-02-14)
+**Priority:** High
+**Description:** Security audit found that dashboard HTTP endpoints (`/api/dashboard/*`) have NO server-side auth enforcement — the `DASHBOARD_PASSWORD` is validated by `/api/dashboard/auth` but never checked on data endpoints. WebSocket connections (port 8765) are also unauthenticated. Any client can connect and receive full application state.
+Fix: (1) Extract+validate `Authorization: Bearer` header on all `_http_dashboard_*` handlers. (2) Require a valid token on WebSocket handshake. (3) Refuse to start (or warn loudly) if `DASHBOARD_PASSWORD` is unset.
+**Scope (files you may touch):**
+- `heartbeat_server.py`
+**Scope (files you may NOT touch):**
+- `heartbeat.py`
+- `db.py`
+- `pipeline/*`
+**Tests:** Add `tests/test_dashboard_auth.py` verifying 401 on unauthenticated requests.
+**Definition of done:** Dashboard endpoints return 401 without valid auth. WebSocket rejects unauthenticated connections.
+
+---
+
+### TASK-019: Restrict CORS to production domain
+**Status:** DONE (2026-02-15)
+**Priority:** Medium
+**Description:** Both nginx and the Python HTTP handler set `Access-Control-Allow-Origin: *`, allowing any website to make cross-origin API requests. Replace with specific domain allowlist.
+**Scope (files you may touch):**
+- `heartbeat_server.py` (CORS headers in `_http_json`, `_http_bytes`, `_http_cors_preflight`)
+- `deploy/nginx.conf` (CORS headers in `/api/` location)
+**Scope (files you may NOT touch):**
+- `heartbeat.py`
+- `db.py`
+**Tests:** Verify CORS headers reflect allowed origin, not wildcard.
+**Definition of done:** CORS restricted to production domain. Wildcard removed.
+
+---
+
+### TASK-020: Post-review cleanup (009 + 012)
+**Status:** DONE (2026-02-14)
+**Priority:** Low
+**Description:** Minor items from code reviews:
+- Extract 0.5 salience threshold in thalamus.py to named constant
+- Update ARCHITECTURE.md debt item #4 (engagement no longer forced)
+- Add test_engagement_choice.py to ARCHITECTURE.md test table
+- Fix summary table Total row
+- Double save_drives_state in output.py — consolidate to single call
+- Stale module descriptions in ARCHITECTURE.md
+**Scope (files you may touch):**
+- `thalamus.py`
+- `output.py`
+- `ARCHITECTURE.md`
+**Scope (files you may NOT touch):**
+- Everything else
+**Tests:** Existing tests pass.
+**Definition of done:** All nits resolved.
+
+---
+
+### TASK-021a: Scene compositor component + asset pipeline
+**Status:** DONE (2026-02-15)
+**Priority:** High
+**Depends on:** None (frontend-only, uses existing scaffolding)
+**Design doc:** `scene-config.json` (locked composition parameters)
+**Description:** Build the multi-layer scene compositor as a presentational React component and prepare all static assets. The compositor renders a 6-layer stack in a responsive viewport. No pipeline connection yet — accepts a `spriteState` prop and renders the correct sprite.
+
+**Layer stack (bottom to top):**
+- Layer 0: Outdoor scenery — dynamic background visible through shop windows. Time-of-day variants (morning, afternoon, evening, night). Sits BEHIND the shop interior. Requires `shop_back.png` window regions to have transparency or a window mask asset.
+- Layer 1: `shop_interior.png` — shop interior base with transparent/semi-transparent window areas so Layer 0 shows through.
+- Layer 2: Character sprite — swapped based on `spriteState` prop. Positioned per `scene-config.json` (x: 594, y: 213 at 1440×900, 55% canvas height). CSS filter for color grade (red 1.05, blue 0.92). Drop shadow (5,5 offset, 0.3 opacity, 6px blur).
+- Layer 3: Counter foreground — everything below y=72% of `shop_back.png`, with 6px fade at cut edge. Occludes character's lower body.
+- Layer 4: CSS radial-gradient vignette (35% transparent center, edge `rgba(8,6,4,0.65)`).
+- Layer 5: Canvas dust particles (35 particles, `rgba(255,210,150)`, max opacity 0.3, slow upward drift).
+
+**Implementation steps:**
+
+**Step 1 — Asset prep scripts.**
+- Create `scripts/slice_counter.py`: Load `shop_back.png`, make everything above y=72% transparent, apply 6px fade zone at cut edge, save as `public/assets/counter_foreground.png` (RGBA PNG). Run once, commit output.
+- Create `scripts/cut_window_mask.py`: Load `shop_back.png`, identify window regions, create a version where window areas are transparent so the outdoor scenery layer shows through. Save as `public/assets/shop_interior.png` (RGBA PNG). Alternative: if too complex for automated cutting, create a manually-painted alpha mask `public/assets/window_mask.png`.
+
+**Step 2 — Outdoor scenery assets.** Place time-of-day background variants in `public/assets/scenery/`: `morning.png`, `afternoon.png`, `evening.png`, `night.png`. Sized to fill the viewport (1440×900). If assets aren't ready yet, use CSS gradient fallbacks per time period.
+
+**Step 3 — SceneCanvas component.** Update `window/src/components/SceneCanvas.tsx`:
+- Render 1440×900 viewport with CSS `aspect-ratio: 16/10`, scales responsively.
+- All 6 layers as `position:absolute` children with explicit z-index.
+- Layer 0: `<img>` or `<div>` for outdoor scenery, full fill.
+- Layer 1: `<img>` for `shop_interior.png`, full fill.
+- Layer 2: `<img>` for current sprite, percentage-based positioning from `scene-config.json`. CSS filter for color grade. CSS drop-shadow. Crossfade via opacity 0.3s on swap.
+- Layer 3: `<img>` for `counter_foreground.png`, full fill.
+- Layer 4: `<div>` with CSS radial-gradient for vignette.
+- Layer 5: `<canvas>` for dust particles (≤35 particles, `requestAnimationFrame`).
+- Props: `spriteState: SpriteState`, `timeOfDay: TimeOfDay`.
+- All magic numbers from `scene-constants.ts` — no raw pixel values.
+
+**Step 4 — Sprite state type + constants.** Add `SpriteState` and `TimeOfDay` types to `window/src/lib/types.ts`. Create `window/src/lib/scene-constants.ts` — export all `scene-config.json` values as typed constants.
+
+**Step 5 — Verify composition.** Add a `?debug=scene` query param handler in `page.tsx` that renders SceneCanvas with a sprite state selector dropdown (dev only).
+
+**Sprite file map** (placed in `public/assets/sprites/`):
+- `engaged.png` → `char-1-cropped.png`
+- `tired.png` → `char-2-cropped.png`
+- `thinking.png` → `char-3-cropped.png`
+- `curious.png` → `char-4-cropped.png`
+- `surprised.png` → `char-5-cropped.png`
+- `focused.png` → `char-6-cropped.png`
+
+**Scope (files you may touch):**
+- `scripts/slice_counter.py` (new)
+- `scripts/cut_window_mask.py` (new)
+- `window/src/components/SceneCanvas.tsx` (rewrite)
+- `window/src/lib/scene-constants.ts` (new)
+- `window/src/lib/types.ts` (add `SpriteState`, `TimeOfDay` types)
+- `window/src/lib/compositor.ts` (update if needed)
+- `window/src/hooks/useParticles.ts` (update particle config)
+- `window/src/hooks/useSceneTransition.ts` (update for sprite crossfade)
+- `window/src/app/page.tsx` (add debug scene viewer behind query param)
+- `public/assets/` (new asset files)
+**Scope (files you may NOT touch):**
+- `pipeline/*` (no server-side changes)
+- `window_state.py`
+- `heartbeat_server.py`
+- `heartbeat.py`
+- `db.py`
+- `compositing.py`
+**Tests:**
+- Visual: SceneCanvas renders all 6 layers without layout shift on sprite swap.
+- Visual: Counter foreground correctly occludes sprite below y=72%.
+- Visual: Outdoor scenery visible through window regions of shop interior.
+- Visual: Dust particles render at ≤35 count, no frame drops.
+- Visual: Viewport scales responsively — test at 1440×900, 1024×640, 768×480.
+- Unit: `scene-constants.ts` exports match `scene-config.json` values.
+- `scripts/slice_counter.py` produces valid RGBA PNG with correct dimensions.
+**Definition of done:** SceneCanvas renders the full 6-layer composite with correct z-ordering. Sprite swaps crossfade without layout shift. Outdoor scenery shows through shop windows, changes with `timeOfDay` prop. Counter foreground occludes sprite naturally. Dust particles and vignette render as overlays. All positioning is percentage-based and responsive. Component works standalone with hardcoded props (no pipeline dependency). All z-indexes documented in `scene-constants.ts`.
+
+---
+
+### TASK-021b: Wire scene compositor to ALIVE pipeline state
+**Status:** DONE (2026-02-16)
+**Priority:** High
+**Depends on:** TASK-021a (compositor component exists and works standalone)
+**Description:** Connect the scene compositor to live ALIVE pipeline state. Sprite resolution happens server-side in `pipeline/scene.py` (which already has access to drives, mood, activity, visitors). The resolved sprite state is broadcast via `window_state.py` WebSocket payload. Frontend reads it and passes to SceneCanvas. Time-of-day is derived server-side from `clock.py`.
+
+**Implementation steps:**
+
+**Step 1 — Server-side sprite resolution.** Update `pipeline/scene.py`:
+- Add `resolve_sprite_state(drives, engagement, room_state, recent_events) -> str`.
+- Priority order: surprised (unexpected event in last 2 cycles) > tired (energy < 30) > engaged (has_visitor AND in conversation) > curious (has_visitor AND not yet engaged) > focused (thread_work/arranging/creative cycle) > thinking (default idle).
+
+**Step 2 — Time-of-day resolution.** Add to `pipeline/scene.py`:
+- `resolve_time_of_day() -> str` using `clock.py`.
+- JST-based: morning (6-11), afternoon (11-17), evening (17-20), night (20-6).
+
+**Step 3 — Broadcast via window_state.** Update `window_state.py`:
+- Add `sprite_state: str` and `time_of_day: str` fields to broadcast payload.
+
+**Step 4 — TypeScript types.** Update `window/src/lib/types.ts`:
+- Add `sprite_state: SpriteState` and `time_of_day: TimeOfDay` to the WebSocket payload type.
+
+**Step 5 — Wire frontend.** Update `window/src/app/page.tsx`:
+- Read `sprite_state` and `time_of_day` from socket state, pass to `<SceneCanvas>`.
+- Remove debug hardcoding from TASK-021a (keep `?debug=scene` override).
+
+**Scope (files you may touch):**
+- `pipeline/scene.py` (add sprite + time resolution functions)
+- `window_state.py` (add fields to broadcast payload)
+- `window/src/lib/types.ts` (add fields to WebSocket payload type)
+- `window/src/app/page.tsx` (wire socket state → SceneCanvas props)
+- `window/src/hooks/useShopkeeperSocket.ts` (only if payload parsing needs update)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `pipeline/basal_ganglia.py`
+- `pipeline/output.py`
+- `heartbeat.py`
+- `heartbeat_server.py`
+- `db.py`
+- `window/src/components/SceneCanvas.tsx` (should work with props from 021a)
+- `compositing.py`
+**Tests:**
+- `tests/test_scene_sprite.py` (new): `resolve_sprite_state` returns correct state for each priority case. Surprised beats tired. Tired beats engaged. Curious requires visitor present but not engaged. Default is thinking.
+- `tests/test_window_state.py`: verify `sprite_state` and `time_of_day` appear in broadcast payload with valid values.
+- Integration: run heartbeat, connect WebSocket, verify `sprite_state` changes when drives/visitors change.
+**Definition of done:** Scene compositor shows the correct sprite based on live pipeline state. Outdoor scenery changes with real time of day. Sprite transitions happen smoothly when pipeline state changes. No client-side sprite resolution logic — all resolution is server-side. `?debug=scene` override still works for testing.
+
+---
+
+### TASK-022: Fix heartbeat status indicator
+**Status:** DONE (2026-02-16)
+**Priority:** High
+**Description:** The "Heartbeat" field in the Controls panel shows "Inactive" even while cycles are actively running. Read actual heartbeat/cron state (e.g., last cycle timestamp vs expected interval) and display accurate status.
+**Acceptance criteria:**
+- If last cycle fired within 1 expected interval → show "Active" (green)
+- If last cycle fired within 2 intervals → show "Late" (yellow)
+- If no cycle within 3 intervals → show "Inactive" (red)
+- Display time since last cycle next to status
+**Scope (files you may touch):**
+- `window/src/components/dashboard/ControlsPanel.tsx` (or equivalent Controls panel component)
+- `api/dashboard_routes.py` (heartbeat status endpoint)
+- `heartbeat_server.py` (if dashboard routes not yet extracted)
+**Scope (files you may NOT touch):**
+- `heartbeat.py`
+- `db.py`
+- `pipeline/*`
+**Tests:** Verify heartbeat status reflects actual cycle state. Active cycles show "Active" (green). Stale cycles show correct degraded status.
+**Definition of done:** Controls panel shows real-time heartbeat status with color-coded indicator and time since last cycle.
+
+---
+
+### TASK-023: Fix Threads panel — surface thread titles and summaries
+**Status:** DONE (2026-02-16)
+**Priority:** Medium
+**Description:** All 7 threads show "..." with status "open" but no title or content. Each thread should display meaningful information.
+**Acceptance criteria:**
+- Each thread displays its title (or first ~60 chars of its seed content if no title field exists)
+- Each thread displays thread type or topic tag if available
+- Each thread displays message count or last activity timestamp
+- If title/summary fields are null in DB, investigate whether cycle processing is supposed to write them and fix the write path
+**Scope (files you may touch):**
+- `window/src/components/dashboard/ThreadsPanel.tsx`
+- `api/dashboard_routes.py` (threads endpoint)
+- `heartbeat_server.py` (if dashboard routes not yet extracted)
+- `window_state.py` (if thread data shape in broadcast needs updating)
+**Scope (files you may NOT touch):**
+- `heartbeat.py`
+- `pipeline/*` (unless thread write path fix is required — document scope expansion first)
+**Tests:** Verify threads endpoint returns title/type/activity data. Panel renders thread titles instead of "...".
+**Definition of done:** ThreadsPanel shows real thread titles, types/tags, and activity timestamps instead of placeholder content.
+
+---
+
+### TASK-024: Investigate drive boundary clamping
+**Status:** DONE (2026-02-15)
+**Priority:** High
+**Description:** Curiosity pinned at 100%, Expression Need at 0%, Rest Need at 100%. Drives appear to not decay or recharge after cycles.
+**Acceptance criteria:**
+- Trace the drive update path: cycle completes → drive modulation function → DB write
+- Confirm modulation is actually executing (add logging if needed)
+- Confirm updated values are written to DB, not just held in memory
+- After fix: trigger 3 manual cycles, verify at least 2 drive values change between cycles
+- No drive should remain at 0% or 100% for more than 3 consecutive cycles under normal operation
+**Scope (files you may touch):**
+- `pipeline/output.py` (drive modulation logic)
+- `pipeline/hypothalamus.py` (drive computation)
+- `db.py` (drive state read/write — at END of file only)
+- `models/state.py` (DrivesState if schema needs fixing)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `heartbeat_server.py`
+- `window/`
+**Tests:** Add/update tests verifying drive values change after cycle execution. No drive stays pinned at boundary for >3 consecutive cycles.
+**Definition of done:** Drive values modulate correctly after each cycle. Dashboard shows varying drive levels.
+
+---
+
+### TASK-025: Investigate flat memory resonance scores
+**Status:** DONE (2026-02-16)
+**Priority:** Medium
+**Description:** All visible memories show identical 55% resonance. No variance means retrieval has no signal.
+**Acceptance criteria:**
+- Determine if resonance is calculated at creation time (static) or at retrieval time (contextual)
+- If static: fix the scoring function — it should factor in content type, emotional valence, drive alignment, recency
+- If contextual: fix the query context being passed — it may be empty or identical each time
+- After fix: memory pool should show at least 3 distinct resonance values across entries
+- Document how resonance is calculated (formula/factors) in a code comment
+**Scope (files you may touch):**
+- `pipeline/hippocampus.py` (memory retrieval/scoring)
+- `db.py` (memory query functions — at END of file only)
+- `api/dashboard_routes.py` (memory pool endpoint)
+- `heartbeat_server.py` (if dashboard routes not yet extracted)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `heartbeat.py`
+- `window/` (display should auto-update when data improves)
+**Tests:** Verify resonance scoring produces distinct values for memories with different content types, ages, and emotional valence.
+**Definition of done:** Memory pool shows varied resonance scores. Scoring formula is documented in code comments.
+
+---
+
+### TASK-026: Add Content Pool panel
+**Status:** DONE (2026-02-16)
+**Priority:** Medium
+**Description:** New dashboard panel showing available unconsumed content. Data source: Feed/content tables — items that have been fetched but not yet ingested by a cycle.
+**Acceptance criteria:**
+- Panel title: "Content Pool"
+- Show: total items in pool
+- Show: breakdown by content type (article, image, music, quote, etc.)
+- Show: last 5 recently added items with title, type, and timestamp added
+- Show: age of oldest unconsumed item
+- Auto-refresh on same interval as other panels
+**Scope (files you may touch):**
+- `window/src/components/dashboard/ContentPoolPanel.tsx` (new)
+- `window/src/app/dashboard/page.tsx` (add panel to grid — middle row alongside Memory Pool and Collection)
+- `window/src/lib/dashboard-api.ts` (add fetch function)
+- `window/src/lib/types.ts` (add ContentPoolData type)
+- `api/dashboard_routes.py` (add `/api/dashboard/content-pool` endpoint)
+- `db.py` (add content pool query function — at END of file only)
+**Scope (files you may NOT touch):**
+- `heartbeat.py`
+- `pipeline/*`
+- `sleep.py`
+**Tests:** Verify `/api/dashboard/content-pool` returns correct JSON shape. Panel renders without errors.
+**Definition of done:** Content Pool panel displays in the dashboard middle row showing pool size, type breakdown, recent additions, and oldest item age.
+
+---
+
+### TASK-027: Add Feed Pipeline panel
+**Status:** DONE (2026-02-16)
+**Priority:** Medium
+**Description:** New dashboard panel showing ingestion pipeline health. Data source: Feed pipeline state, job queue, error logs.
+**Acceptance criteria:**
+- Panel title: "Feed"
+- Show: pipeline status — Running / Paused / Error (with color indicator)
+- Show: queue depth (items waiting for processing)
+- Show: last successful ingestion timestamp
+- Show: failed items count in last 24h (if >0, show last error message)
+- Show: ingestion rate — items processed in last 24h
+- Auto-refresh on same interval as other panels
+**Scope (files you may touch):**
+- `window/src/components/dashboard/FeedPanel.tsx` (new)
+- `window/src/app/dashboard/page.tsx` (add panel to grid — bottom row alongside Timeline and Controls)
+- `window/src/lib/dashboard-api.ts` (add fetch function)
+- `window/src/lib/types.ts` (add FeedPanelData type)
+- `api/dashboard_routes.py` (add `/api/dashboard/feed` endpoint)
+- `db.py` (add feed pipeline query functions — at END of file only)
+**Scope (files you may NOT touch):**
+- `heartbeat.py`
+- `pipeline/*`
+- `sleep.py`
+**Tests:** Verify `/api/dashboard/feed` returns correct JSON shape. Panel renders without errors.
+**Definition of done:** Feed panel displays in the dashboard bottom row showing pipeline status, queue depth, ingestion stats, and error info.
+
+---
+
+### TASK-028: Add Consumption History panel
+**Status:** DONE (2026-02-16)
+**Priority:** Medium
+**Description:** New dashboard panel showing what she consumed and what it produced. Data source: Ingestion logs joined with output records (memories, collection items, thread references).
+**Acceptance criteria:**
+- Panel title: "Consumption History"
+- Chronological list, most recent first
+- Each entry shows: timestamp, content type icon/label, source title (truncated to ~80 chars), outcome tag ("→ memory", "→ collection", "→ thread", "→ no output")
+- Show last 20 entries by default
+- If an item produced multiple outputs, show all outcome tags
+- Scrollable within panel
+**Scope (files you may touch):**
+- `window/src/components/dashboard/ConsumptionHistoryPanel.tsx` (new)
+- `window/src/app/dashboard/page.tsx` (add panel to grid — middle row, may need grid restructure)
+- `window/src/lib/dashboard-api.ts` (add fetch function)
+- `window/src/lib/types.ts` (add ConsumptionHistoryData type)
+- `api/dashboard_routes.py` (add `/api/dashboard/consumption-history` endpoint)
+- `db.py` (add consumption history query function — at END of file only)
+**Scope (files you may NOT touch):**
+- `heartbeat.py`
+- `pipeline/*`
+- `sleep.py`
+**Tests:** Verify `/api/dashboard/consumption-history` returns correct JSON shape with outcome tags. Panel renders and scrolls without errors.
+**Definition of done:** Consumption History panel shows chronological feed of ingested content with outcome tags, scrollable, auto-refreshing.
+
+---
+
+### TASK-032: Tag actions as reflexive vs generative in action registry
+**Status:** DONE (2026-02-16)
+**Priority:** High
+**Depends on:** TASK-011b (habit auto-fire)
+**Description:** Habit auto-fire currently skips cortex for all actions, but generative actions (write_journal, speak, post_x_draft) need LLM output to produce meaningful results. A journaling habit that skips the brain writes nothing.
+
+Fix: Add a `generative: bool` field to `ActionCapability` in `pipeline/action_registry.py`. Tag each action:
+- Reflexive (`generative=False`): rearrange, end_engagement, express_thought — can auto-fire without cortex.
+- Generative (`generative=True`): write_journal, speak, post_x_draft — require cortex output.
+
+In `pipeline/basal_ganglia.py` `check_habits()`: if a matching habit's action is generative, do NOT auto-fire. Instead, inject a `habit_boost` into the cycle context so the cortex call includes it. The habit increases impulse for that action (+0.3 to base impulse) rather than bypassing cortex entirely.
+
+In `prompt_assembler.py`: if `habit_boost` is present, add a line to cortex context: "You feel drawn to [action] — it's becoming a habit." This gives cortex a nudge without forcing the action.
+
+**Scope (files you may touch):**
+- `pipeline/action_registry.py` (add `generative` field to ActionCapability, tag all actions)
+- `pipeline/basal_ganglia.py` (check_habits splits on generative flag)
+- `prompt_assembler.py` (inject habit_boost context)
+- `heartbeat.py` (pass habit_boost through to cortex call if needed)
+- `models/pipeline.py` (add habit_boost to CortexInput if needed)
+
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `pipeline/output.py`
+- `db.py`
+- `window/`
+
+**Tests:** Add to `tests/test_habits.py`:
+- test_reflexive_habit_autofires — rearrange habit at strength 0.6 skips cortex
+- test_generative_habit_boosts_impulse — write_journal habit at strength 0.6 does NOT skip cortex, instead adds habit_boost to cycle context
+- test_habit_boost_in_prompt — when habit_boost present, prompt assembler includes habit nudge text
+
+**Definition of done:** Generative actions never auto-fire. Strong generative habits boost impulse instead. Reflexive actions auto-fire as before. She tends to journal rather than reflexively journaling nothing.
+
+---
+
+### TASK-033: Wire feed ingestion into heartbeat loop + populate feed sources
+**Status:** DONE (2026-02-16)
+**Priority:** High
+**Depends on:** TASK-027 (Feed dashboard panel)
+**Description:** `run_feed_ingestion()` in `feed_ingester.py` is fully built but never fires because `FEED_SOURCES` in `config/feeds.py` is empty (all commented out). The heartbeat loop already has the call site (lines 450-465 of `heartbeat.py`) that imports and calls `run_feed_ingestion()` on a 1-hour interval, and handles pool expiry + capping. But with an empty source list, nothing happens.
+
+Fix:
+1. Populate `FEED_SOURCES` in `config/feeds.py` with 3-5 real RSS feeds appropriate for the shopkeeper character (art, Tokyo culture, literature, antiques, curiosities).
+2. Verify that after one ingestion cycle, `content_pool` has >0 rows and the Content Pool dashboard panel shows items.
+
+The heartbeat wiring already exists — this task is about populating the config and verifying end-to-end flow.
+
+**Scope (files you may touch):**
+- `config/feeds.py` (populate FEED_SOURCES with real RSS feeds)
+
+**Scope (files you may NOT touch):**
+- `feed_ingester.py` (already complete)
+- `db/content.py` (already complete)
+- `heartbeat.py` (wiring already exists)
+- `pipeline/*`
+- `window/`
+
+**Tests:** Run `python -c "import asyncio; from feed_ingester import run_feed_ingestion; print(asyncio.run(run_feed_ingestion()))"` and verify return value > 0. Check `content_pool` table has rows. Content Pool dashboard panel shows items after ingestion.
+**Definition of done:** `FEED_SOURCES` contains 3-5 working RSS feeds. Feed ingestion runs successfully and populates the content pool. Dashboard reflects the ingested content.
+
+---
+
+### TASK-034: Integrate markdown.new into feed enrichment pipeline
+**Status:** DONE (2026-02-16)
+**Priority:** Medium
+**Depends on:** TASK-033 (feed pipeline live)
+**Description:** Replace or augment the current `fetch_readable_text()` in `pipeline/enrich.py` with markdown.new API calls. Current enrichment fetches raw HTML and extracts text — wasteful on tokens and blind to multimedia content.
+markdown.new converts any URL to clean markdown. Benefits:
+- **Articles/essays:** Strips nav, ads, footers. Clean prose only. Major token savings.
+- **YouTube/video:** Extracts transcript + metadata (title, channel, duration). She can "watch" videos.
+- **Music links (Spotify, Bandcamp, SoundCloud):** Extracts track metadata, descriptions, liner notes. She can "listen" to music.
+- **Image-heavy pages:** Extracts alt text, captions, surrounding context. She can "see" visual content.
+This unlocks new content types in the feed. Currently FEED_SOURCES are text-only RSS. After this, you can add YouTube channels, Spotify playlists, music blogs with embedded players — she consumes them all as markdown.
+**Implementation:**
+1. Add `fetch_via_markdown_new(url: str) -> str` to `pipeline/enrich.py`. Call `https://markdown.new/api/v1/convert?url={url}` (or equivalent endpoint). Return clean markdown string.
+2. Update `fetch_readable_text()` to try markdown.new first, fall back to current extraction if the service is unavailable or returns error.
+3. Update `feed_ingester.py` content type detection: if markdown.new returns a transcript → tag as `video`. If it returns track metadata → tag as `music`. If it returns prose → tag as `article`. Store the content type in `content_pool.content_type`.
+4. Update `config/feeds.py`: add 2-3 multimedia sources as examples:
+   - A YouTube channel RSS (e.g., NHK World, Tokyo street walks, ambient music mixes)
+   - A music blog or Bandcamp tag feed
+5. Add rate limiting / caching: don't hit markdown.new more than once per URL. Store the converted markdown in `content_pool.enriched_text` (add column if needed via migration).
+**Scope (files you may touch):**
+- `pipeline/enrich.py` (add markdown.new fetch, update fallback chain)
+- `feed_ingester.py` (content type detection from enriched output)
+- `config/feeds.py` (add multimedia feed sources)
+- `db/content.py` (add enriched_text column query if needed)
+- `migrations/` (new migration if schema change needed)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `pipeline/basal_ganglia.py`
+- `heartbeat.py`
+- `heartbeat_server.py`
+- `window/`
+**Tests:**
+- test_markdown_new_article — URL returns clean markdown, stripped of HTML
+- test_markdown_new_video — YouTube URL returns transcript + metadata
+- test_markdown_new_fallback — service unavailable, falls back to current extraction
+- test_content_type_detection — video transcript tagged as "video", music as "music", prose as "article"
+- test_no_duplicate_enrichment — same URL not fetched twice
+**Definition of done:** Feed pipeline enriches URLs via markdown.new. She can consume articles, videos, and music from the same pipeline. Content pool shows mixed content types. Token usage per item drops measurably vs raw HTML extraction.
+
+---
+
+### TASK-035: Shop open/close as pipeline choice, not auto-managed
+**Status:** DONE (2026-02-16)
+**Priority:** High
+**Depends on:** TASK-032 (generative/reflexive tagging)
+**Description:** The shop auto-reopens every cycle via heartbeat.py:412-415 if energy > 0.5, creating an oscillation loop with the close_shop habit (14 closes/day on already-closed shop). Same design flaw as pre-TASK-012 engagement — forced state change instead of pipeline choice.
+Fix: Remove auto-reopen from heartbeat.py entirely. Add `open_shop` as a new reflexive action. She decides when to open and close through the normal pipeline.
+**Implementation:**
+1. **heartbeat.py** — Remove the auto-reopen block at lines 412-415. Shop status only changes via actions.
+2. **pipeline/action_registry.py** — Add `open_shop` action:
+   - `enabled=True`
+   - `generative=False` (reflexive — no LLM output needed)
+   - `energy_cost=0.0`
+   - Prerequisite: shop must be currently closed
+3. **pipeline/body.py** — Add `open_shop` execution handler. Sets shop status to 'open' in room_state. Mirror of close_shop handler.
+4. **pipeline/basal_ganglia.py** — Add drive gates:
+   - `open_shop`: require `energy > 0.3` AND `rest_need < 0.6`
+   - `close_shop`: require shop is open (already exists, verify it works without auto-reopen)
+5. **prompt_assembler.py** — Ensure current shop status and time of day are in cortex context so she can reason about when to open/close. Add a light hint: "The shop is currently [open/closed]. It is [time]." No instruction on when to open — she figures that out.
+6. **pipeline/hypothalamus.py** — No new drive needed. Opening the shop is motivated by existing drives: social_hunger (want visitors), energy (have capacity), rest_need (not exhausted).
+**Expected emergent behavior:**
+- She opens in the morning when energy is high and social hunger has built overnight
+- She closes at night when energy drops or rest need rises
+- These form habits naturally: open_shop in morning context, close_shop in evening/night context
+- On low-energy days she might open late or not at all — genuine variation
+**Scope (files you may touch):**
+- `heartbeat.py` (remove auto-reopen)
+- `pipeline/action_registry.py` (add open_shop)
+- `pipeline/body.py` (add open_shop handler)
+- `pipeline/basal_ganglia.py` (add drive gates)
+- `prompt_assembler.py` (ensure shop status + time in context)
+- `db.py` (only if room_state update needs a new function — at END of file)
+- `models/pipeline.py` (if ActionCapability needs updating)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `pipeline/sensorium.py`
+- `sleep.py`
+- `heartbeat_server.py`
+- `window/`
+**Tests:**
+- test_auto_reopen_removed — shop stays closed after close_shop, no auto-reopen on next cycle
+- test_open_shop_action — open_shop changes room_state from closed to open
+- test_open_shop_drive_gate — blocked when energy < 0.3 or rest_need > 0.6
+- test_open_shop_prerequisite — blocked when shop already open
+- test_close_shop_prerequisite — blocked when shop already closed
+**Definition of done:** No auto-reopen in heartbeat. Shop status changes only through pipeline actions. open_shop and close_shop are both reflexive, drive-gated actions. She decides her own hours.
+
+---
+
+### TASK-036: System brakes — habit decay, mood scaling, energy budget enforcement
+**Status:** DONE (2026-02-16)
+**Priority:** High
+**Depends on:** TASK-024 (homeostatic pull), TASK-032 (drive gates)
+**Description:** The system has no natural braking mechanism. Actions create drive relief → more actions → stronger habits → habits never decay → positive feedback loop. Three fixes that add brakes.
+**Part A — Habit decay**
+In `pipeline/output.py`, after `track_action_pattern()`: for every habit in the DB that was NOT fired this cycle, apply time-based decay:
+- `strength -= 0.01 * elapsed_hours`
+- A habit at 0.9 that stops firing drops below 0.6 auto-fire threshold in ~30 hours
+- Delete habits that fall below 0.05
+- Only decay habits that haven't fired in the current cycle (don't decay what just strengthened)
+**Part B — Mood success bonus scaling**
+In `pipeline/output.py`, replace the flat +0.02 mood bonus per successful action with a diminishing formula:
+- `bonus = 0.02 / (1 + actions_today / 10)`
+- First 10 actions: near-full bonus (~0.02–0.01)
+- After 30 actions: bonus drops to ~0.005
+- This models emotional habituation — the 40th journal doesn't feel as good as the first
+- Get `actions_today` count from db (or pass it in from heartbeat) before applying bonus
+**Part C — Energy budget enforcement**
+In `heartbeat.py`, before calling cortex in `run_cycle()`:
+- Check energy spent today vs daily budget (from config or db)
+- If `spent >= budget`: force rest mode — skip cortex entirely, apply rest recovery to drives (`rest_need -= 0.05`, `energy += 0.03`), log `[Heartbeat] Resting — energy budget exceeded`
+- Exception: high-salience events (visitor connect with salience > 0.8) override the rest mode — she can still wake up for important moments
+- This gives the energy budget actual teeth instead of being display-only
+**Scope (files you may touch):**
+- `pipeline/output.py` (habit decay + mood scaling)
+- `heartbeat.py` (budget enforcement)
+- `db/analytics.py` (if energy budget query needs updating)
+- `db/memory.py` (if habit deletion function needed — at END of file)
+- `models/pipeline.py` (if CycleOutput needs a rest_mode flag)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `pipeline/basal_ganglia.py`
+- `pipeline/sensorium.py`
+- `heartbeat_server.py`
+- `window/`
+- `sleep.py`
+**Tests:**
+Part A:
+- test_unfired_habit_decays — habit not fired loses strength over time
+- test_fired_habit_no_decay — habit that just fired doesn't decay in same cycle
+- test_habit_deleted_below_threshold — habit at 0.05 decays and is removed
+- test_decay_rate — 0.9 strength drops below 0.6 within ~30 simulated hours
+Part B:
+- test_mood_bonus_first_action — near +0.02 when actions_today is low
+- test_mood_bonus_diminishes — significantly less after 30+ actions
+- test_mood_bonus_never_negative — formula always returns positive value
+Part C:
+- test_budget_exceeded_forces_rest — no cortex call when budget exceeded
+- test_rest_mode_recovers_drives — rest_need decreases and energy increases during rest
+- test_high_salience_overrides_rest — visitor event with salience > 0.8 still triggers cortex
+- test_under_budget_runs_normally — normal cycle when budget not exceeded
+**Definition of done:** Habits weaken when unused. Mood bonus diminishes with repetition. Energy budget forces rest when exceeded (except for important events). The positive feedback loop is broken — the system has natural brakes.
+
+---
+
+### TASK-037: Dashboard cycle interval control
+**Status:** DONE (2026-02-16)
+**Priority:** Medium
+**Description:** Add a cycle interval slider/input to the Controls panel so the operator can adjust heartbeat frequency from the dashboard without SSH. Currently the interval is hardcoded in config.
+**Implementation:**
+1. **Controls panel** — Add an input field showing current cycle interval in seconds. Editable. Min 10s, max 600s. Apply button or debounced auto-apply.
+2. **API endpoint** — `POST /api/dashboard/cycle-interval` accepts `{interval_seconds: number}`. Auth required. Validates min/max bounds.
+3. **heartbeat.py** — Read interval from a mutable source (DB setting or in-memory variable) instead of hardcoded config. API endpoint updates this value. Takes effect on next cycle without restart.
+4. **Controls panel display** — Show current interval next to heartbeat status. "Every 30s" / "Every 3m" etc.
+**Scope (files you may touch):**
+- `window/src/components/dashboard/ControlsPanel.tsx`
+- `api/dashboard_routes.py`
+- `heartbeat_server.py` (route dispatch)
+- `heartbeat.py` (read mutable interval)
+- `config/` (default interval value)
+- `db.py` (if persisting interval as a setting — at END of file only)
+- `window/src/lib/types.ts`
+- `window/src/lib/dashboard-api.ts`
+**Scope (files you may NOT touch):**
+- `pipeline/*`
+- `sleep.py`
+**Tests:**
+- test_interval_update_api — POST changes interval, GET reflects new value
+- test_interval_bounds — rejects below 10s and above 600s
+- test_interval_auth — returns 401 without auth
+**Definition of done:** Operator can change cycle interval from dashboard. Change takes effect next cycle. No restart needed.
+
+---
+
+### TASK-038: Replace rest mode with nap consolidation
+**Status:** DONE (2026-02-16)
+**Priority:** High
+**Depends on:** TASK-036 (budget enforcement)
+**Description:** When energy budget is exceeded, the system enters empty rest loops — no LLM call, no actions, no thoughts, just a hardcoded placeholder string cycling every 20s until midnight. She's effectively lobotomized. Replace with nap behavior: she processes recent moments, writes real reflections, wakes with partial budget.
+**Implementation:**
+1. **sleep.py** — Add `nap_consolidate(db, top_n=3)`:
+   - Fetch top 3 unprocessed day_moments by salience
+   - Run `sleep_reflect()` on each (same LLM reflection as night sleep)
+   - Write reflections as individual journal entries
+   - Mark moments as `nap_processed=True` (don't re-process during night sleep)
+   - Return number of moments processed
+2. **heartbeat.py** — Replace rest mode:
+   - When budget exceeded: check nap cooldown (minimum 2 hours since last nap)
+   - If cooldown elapsed: trigger `nap_consolidate()`, restore 1.0 energy budget, log `[Heartbeat] Nap — consolidated N moments, budget restored to X`
+   - If cooldown not elapsed: skip cycle entirely (no empty rest loop). Just sleep the interval and check again. Log `[Heartbeat] Resting — nap cooldown (Xm remaining)`
+   - Remove the empty rest loop path entirely — no more token_budget=0 placeholder cycles
+3. **pipeline/day_memory.py** — Add `nap_processed` handling:
+   - `maybe_record_moment()` unchanged
+   - Night sleep query: exclude moments where `nap_processed=True` (already reflected on)
+   - Or: let night sleep re-process nap moments at deeper level (design choice — start with exclude)
+4. **db/memory.py** — Add `nap_processed` column to day_moments if needed (migration). Add `mark_moments_nap_processed(ids)` function. Add `get_top_unprocessed_moments(limit)` that excludes nap_processed.
+5. **Timeline event** — Nap cycles should appear as `action_nap` in the timeline, distinct from `action_body`. The dashboard should show naps as a visible event.
+6. **Visitor override** — Salience > 0.8 still wakes her from nap cooldown. If a visitor arrives during cooldown, skip the cooldown and run a normal cycle.
+**Expected behavior:**
+- Active morning: ~2 hours of cycles, hits budget
+- Nap: consolidates top 3 moments, reflections written, wakes with +1.0 budget
+- Active afternoon: another ~2 hours, hits budget again
+- Second nap: consolidates next batch
+- Evening: winds down, closes shop
+- Night: full sleep consolidation of remaining unprocessed moments
+**Scope (files you may touch):**
+- `heartbeat.py` (replace rest mode with nap trigger)
+- `sleep.py` (add nap_consolidate function)
+- `pipeline/day_memory.py` (nap_processed handling)
+- `db/memory.py` (new query functions, migration if needed)
+- `migrations/` (add nap_processed column if needed)
+- `models/pipeline.py` (if nap event type needed)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `pipeline/basal_ganglia.py`
+- `pipeline/output.py`
+- `heartbeat_server.py`
+- `window/`
+**Tests:**
+- test_nap_triggers_on_budget_exceeded — budget exceeded + cooldown elapsed → nap runs
+- test_nap_cooldown_enforced — budget exceeded + cooldown not elapsed → skip, no empty loop
+- test_nap_restores_partial_budget — after nap, budget has +1.0 headroom
+- test_nap_processes_top_moments — top 3 by salience are reflected on
+- test_nap_moments_excluded_from_night_sleep — nap_processed moments not re-processed
+- test_visitor_overrides_nap_cooldown — high salience visitor wakes her during cooldown
+- test_no_empty_rest_loops — budget exceeded never produces token_budget=0 placeholder cycles
+**Definition of done:** Budget exceeded triggers nap consolidation, not lobotomy. She processes moments, writes real reflections, wakes with partial budget. Timeline shows nap events. No more empty rest loops. Natural rhythm of active → nap → active → full night sleep.
+
+---
+
+### TASK-039: Isolation Experiment Analysis Pipeline
+**Status:** DONE (2026-02-16)
+**Priority:** High (paper blocker)
+**Branch:** feat/experiment-analysis
+**Context:** For the research paper, we need to prove The Shopkeeper generates diverse, non-repetitive behavior without user input. The data already exists in cycle_log — we just need export + analysis + visualization.
+**FILES TO CREATE:**
+1. `experiments/export_cycles.py` — Reads SQLite DB, exports cycle_log to JSONL
+2. `experiments/generate_baseline.py` — Generates null-hypothesis baseline from timestamps
+3. `experiments/analyze_entropy.py` — Computes Shannon entropy, generates matplotlib figures
+**FILES TO MODIFY:** None. Read-only access to DB via sqlite3 (not the async db module).
+**DEPENDENCIES:** matplotlib, numpy (add to requirements.txt if missing)
+**DO NOT MODIFY:** Any existing source files. This is a pure analysis layer that reads the DB the system already populates.
+**Scope (files you may touch):**
+- `experiments/export_cycles.py` (new)
+- `experiments/generate_baseline.py` (new)
+- `experiments/analyze_entropy.py` (new)
+- `experiments/__init__.py` (new)
+- `tests/test_export_cycles.py` (new)
+- `tests/test_entropy.py` (new)
+- `tests/test_baseline.py` (new)
+- `requirements.txt` (add matplotlib, numpy)
+**Scope (files you may NOT touch):**
+- All existing Python source files
+- `db/` (read-only access via sqlite3)
+- `pipeline/*`
+- `heartbeat.py`
+- `window/`
+**Tests:**
+- test_export reads a test DB with 10 known cycles, verifies JSONL output matches
+- test_entropy with a hand-crafted 4-action uniform distribution verifies H = 2.0 bits
+- test_baseline verifies all routing_focus values are "idle"
+**Definition of done:** Three standalone scripts that export, baseline, and analyze cycle_log data. Shannon entropy figure shows non-trivial behavioral diversity. All tests pass.
+
+---
+
+### TASK-040: Visitor injection for simulation mode
+**Status:** DONE (2026-02-17)
+**Priority:** High (paper blocker)
+**Branch:** feat/sim-visitors
+**Depends on:** None
+**Description:** Add scripted visitor injection to simulate.py so the 7-day isolation experiment includes visitor interactions. Visitors are defined in a JSON file with arrival times and scripted messages. The simulation injects them as events into the inbox at the correct simulated times. The pipeline doesn't know the difference between a real TCP visitor and a scripted one.
+**Visitor script format:** `experiments/visitors.json`
+**Each visitor tests a specific capability:**
+| Visitor | Days | Tests |
+|---------|------|-------|
+| Yuki | 1, 7 | First impression → return visit memory |
+| Tanaka-san | 3 | Deep conversation, object philosophy |
+| Sato | 4, 6 | Contradiction sequence (blue→hate blue) for Claim C |
+| M. | 5 | Vague/ambiguous request handling |
+**Implementation in simulate.py:**
+1. Add `--visitors` arg: `python simulate.py --days 7 --visitors experiments/visitors.json`
+2. Before each cycle, check if any visitor events should fire based on current sim time
+3. Visitor arrival: create visitor in DB via `db.create_visitor()` if not exists, insert `visitor_connect` event, set engagement state to `engaged`, add to `visitors_present`
+4. Visitor messages: insert `visitor_speech` event with scripted text, trigger a microcycle-equivalent (`hb.run_cycle('micro')`)
+5. Visitor departure: 5 minutes after last message (simulated), insert `visitor_disconnect` event, clear engagement, remove from visitors_present
+6. Between visitor messages, run normal autonomous cycles (the delay_min gap is filled with idle/ambient cycles)
+7. Log visitor events in timeline: `[Day 1 14:00] VISITOR — Yuki says: "Hello?"`
+**Scope (files to modify):**
+- `simulate.py` — add visitor scheduling loop
+- `timeline.py` — add visitor event logging methods
+**Scope (files to create):**
+- `experiments/visitors.json` — the visitor script
+**DO NOT modify:** pipeline/*, heartbeat.py, db/*, sleep.py
+**Definition of done:** `python simulate.py --days 7 --visitors experiments/visitors.json --content content/readings.txt` runs a full 7-day simulation with 6 visitor interactions, producing a DB and timeline log that shows autonomous cycles between visits and engagement cycles during visits.
+
+---
+
+### TASK-041: Curiosity Phase 1 — Notification layer + read_content action
+
+**Status:** DONE (2026-02-17)
+**Priority:** High (system blocker — curiosity is broken without this)
+**Branch:** feat/curiosity-v2
+**Depends on:** TASK-033 (feed ingestion live), TASK-034 (markdown.new enrichment)
+**Design doc:** `docs/curiosity-v2-spec.md` §1, §5a
+
+**Description:** Content currently sits in the content pool waiting for a "consume" cycle that never fires because curiosity is pinned at 3%. Replace the pull model with a push model: surface N content titles per cycle as notifications in the sensorium. Add `read_content` and `save_for_later` as actions the cortex can choose. Remove the "consume" cycle type from the arbiter.
+
+This is the foundation layer. No gap detection yet — notifications surface based on recency, source diversity, and unseen status. The cortex sees titles and decides whether to engage. This alone should produce content consumption because the decision is now the cortex's, not the arbiter's.
+
+**Implementation:**
+
+**Step 1 — Notification module.** Create `pipeline/notifications.py`:
+
+- `NOTIFICATION_CONFIG` dict: `max_per_cycle=5`, `min_per_cycle=1`, `cooldown_minutes=10`, priority weights (recency 0.4, source_diversity 0.3, unseen 0.3).
+- `Notification` dataclass: `content_id`, `title`, `source`, `content_type`, `surfaced_at`.
+- `get_notifications(db, cycle_context) -> list[Notification]`: Pull N items from content_pool, respecting cooldowns. Title-only — no full content loaded. Track surfaced items in a `notification_log` table (content_id, surfaced_at) for cooldown enforcement.
+- Notifications are ephemeral per cycle. If she doesn't engage, they scroll past. Can re-surface after cooldown.
+
+**Step 2 — Sensorium integration.** Update `pipeline/sensorium.py`:
+
+- Import and call `get_notifications()` during perception assembly.
+- Format notifications as sensory text appended to the perception block:
+
+  ```
+  You notice some things in your feed:
+    • "Title here" (Source: RSS Name) — article
+    • "Another title" (Source: Feed Name) — video
+  ```
+- When visitor is present, still include notifications but mark them as background: `"(In the background, you notice: ...)"`
+
+**Step 3 — New actions.** Update `pipeline/action_registry.py`:
+
+- Add `read_content`: `enabled=True`, `generative=True`, `energy_cost=1.5`, cooldown 2 cycles (min_cycles_between_reads). Prerequisites: content_id must be valid in content_pool.
+- Add `save_for_later`: `enabled=True`, `generative=False`, `energy_cost=0.0`, no cooldown. Adds a `saved_by_cortex=True` flag to the content_pool item. Saved items get priority boost on next surfacing and skip cooldown.
+
+**Step 4 — Body execution.** Update `pipeline/body.py`:
+
+- `read_content` handler: Fetch full content from content_pool (use cached `enriched_text` from TASK-034 if available, otherwise fetch via `pipeline/enrich.py`). Truncate to 1500 tokens. Return content in `ActionResult.payload["full_content"]` for the reflection step (TASK-044).
+- `save_for_later` handler: Update content_pool item with `saved_by_cortex=True` and `saved_at` timestamp.
+
+**Step 5 — Remove consume cycle type.** Update `pipeline/arbiter.py`:
+
+- Remove `"consume"` from the routing decision enum / cycle type list.
+- Remove any logic that schedules consume cycles based on curiosity threshold.
+- Content consumption now happens through `read_content` action within any cycle type (idle, ambient, even during engagement if she chooses to mention content).
+
+**Step 6 — Attention queue for saved items.** Update `db/content.py`:
+
+- Add `saved_by_cortex` boolean and `saved_at` timestamp columns to content_pool (migration).
+- `get_notifications()` gives priority boost (+0.3 to surfacing score) to saved items and skips cooldown for them.
+- Saved items that haven't been read within 48 hours lose saved status (auto-expire).
+
+**Step 7 — Stop curiosity time drift.** Update `pipeline/hypothalamus.py`:
+
+- Remove or zero out the existing curiosity time-based drift (+0.03/hr or whatever the current rate is). Curiosity will be driven by gap detection in TASK-042, not by a timer.
+- Keep the curiosity float temporarily — it will be replaced with diversive/epistemic in TASK-043.
+
+**Step 8 — Prompt assembler.** Update `prompt_assembler.py`:
+
+- Add `read_content(content_id)` and `save_for_later(content_id)` to the available actions block.
+- Include notification text from sensorium in the perception section.
+
+**Migration:** `migrations/012_notifications.sql`:
+
+- `notification_log` table: content_id TEXT, surfaced_at TEXT, cycle_id INTEGER
+- Add `saved_by_cortex` BOOLEAN DEFAULT FALSE and `saved_at` TEXT to content_pool
+
+**Scope (files you may touch):**
+
+- `pipeline/notifications.py` (new)
+- `pipeline/sensorium.py` (add notification channel)
+- `pipeline/action_registry.py` (add read_content, save_for_later)
+- `pipeline/body.py` (add execution handlers)
+- `pipeline/arbiter.py` (remove consume cycle type)
+- `pipeline/hypothalamus.py` (zero out curiosity time drift)
+- `prompt_assembler.py` (add actions + notification context)
+- `db/content.py` (saved_by_cortex, notification_log queries)
+- `migrations/012_notifications.sql` (new)
+- `models/pipeline.py` (Notification dataclass, update ActionResult if needed)
+
+**Scope (files you may NOT touch):**
+
+- `pipeline/cortex.py` (prompt changes go through assembler)
+- `pipeline/output.py` (reflection is TASK-044)
+- `pipeline/thalamus.py` (gap-based filtering is TASK-042)
+- `heartbeat_server.py`
+- `window/`
+- `sleep.py`
+
+**Tests:**
+
+- `tests/test_notifications.py`:
+  - test_get_notifications_returns_n_items — returns up to max_per_cycle items
+  - test_cooldown_enforced — same item not surfaced within cooldown_minutes
+  - test_saved_items_priority — saved items surface before unsaved
+  - test_saved_items_skip_cooldown — saved items ignore cooldown
+  - test_saved_items_expire — saved items older than 48h lose saved status
+  - test_empty_pool_returns_empty — no crash on empty content_pool
+  - test_source_diversity — doesn't spam all items from one source
+- `tests/test_action_read_content.py`:
+  - test_read_content_fetches_full_text — action returns full content in payload
+  - test_read_content_truncates — content over 1500 tokens is truncated
+  - test_read_content_cooldown — blocked if fired within min_cycles_between_reads
+  - test_save_for_later_flags_item — content_pool item gets saved_by_cortex=True
+- Existing arbiter tests updated: no consume cycle type in routing decisions.
+
+**Definition of done:** Content titles flow past her every cycle as sensory input. She can choose to read or save items. The consume cycle type is gone. Curiosity no longer drifts on a timer. Content pool items actually get read.
+
+---
+
+### TASK-042: Curiosity Phase 2 — Gap detector + visitor speech gaps
+
+**Status:** DONE (2026-02-17)
+**Priority:** High
+**Branch:** feat/curiosity-v2
+**Depends on:** TASK-041 (notifications exist to run gap detection on)
+**Design doc:** `docs/curiosity-v2-spec.md` §2, §3
+
+**Description:** Build the information gap detector — the core innovation of curiosity v2. Compares any text input (notification titles, visitor speech, her own journal entries) against her memory pool + totems + active threads. Scores each input on the Goldilocks curve: foreign (< 0.15 relevance) = ignored, partial match (0.15–0.85) = curiosity spike, fully known (> 0.85) = ignored. Peak curiosity at 0.5 relevance (maximum information gap).
+
+This is where visitor input gets wired into the curiosity system. Visitor speech flows through the same gap detector as notifications. A visitor mentioning something she partially understands generates the same curiosity spike as a matching notification title.
+
+**Implementation:**
+
+**Step 1 — TextFragment union type.** Add to `models/pipeline.py`:
+
+```python
+@dataclass
+class TextFragment:
+    text: str
+    source_type: str        # "notification", "visitor_speech", "journal", "monologue"
+    source_id: str           # content_id, visitor_id, journal_entry_id, cycle_id
+    content_id: Optional[str] = None  # Only for notifications — needed for read_content
+```
+
+**Step 2 — Gap detector module.** Create `pipeline/gap_detector.py`:
+
+- `GapScore` dataclass: `fragment: TextFragment`, `relevance: float`, `gap_type: str` ("foreign"/"partial"/"known"), `matching_memories: list[str]`, `matching_threads: list[str]`, `curiosity_delta: float`, `suggested_curiosity_type: str` ("diversive"/"epistemic"/None).
+- `detect_gaps(fragments: list[TextFragment], memory_embeddings, totem_embeddings, thread_embeddings) -> list[GapScore]`:
+  - Use embedding cosine similarity (Option A from spec).
+  - `relevance` = max similarity score across all memory/totem/thread embeddings.
+  - Goldilocks curve: `gap_intensity = 1.0 - abs(relevance - 0.5) * 2`. Peak at 0.5.
+  - `curiosity_delta = gap_intensity * 0.15` (max +0.15 per item).
+  - If relevance < 0.15: `gap_type = "foreign"`, `curiosity_delta = 0.0`.
+  - If relevance > 0.85: `gap_type = "known"`, `curiosity_delta = 0.0`.
+  - If matching_threads or strong totems: `suggested_curiosity_type = "epistemic"`. Else: `"diversive"`.
+
+**Step 3 — Pre-embed notification titles.** Update `feed_ingester.py`:
+
+- After enriching content, embed the title using `pipeline/embed.py` and store the embedding vector in content_pool (`title_embedding` column, migration).
+- Gap detection at cycle time is then pure vector math — no API calls.
+
+**Step 4 — Embed visitor speech.** Update `pipeline/sensorium.py`:
+
+- When processing `visitor_speech` events, create a `TextFragment` with `source_type="visitor_speech"`.
+- Embed the visitor's message text (if not already embedded from cold memory pipeline).
+- Pass visitor speech fragments through gap detection alongside notification fragments.
+
+**Step 5 — Build embedding index.** Create `pipeline/gap_detector.py` helper:
+
+- `load_embedding_index(db) -> EmbeddingIndex`: Preload all memory, totem, and thread embeddings into a numpy array at heartbeat startup. Refresh every N cycles (configurable, default 50).
+- Cosine similarity is a single matrix multiplication: `similarities = index @ query_embedding`.
+- This keeps gap detection under 10ms per cycle even with 1000+ memories.
+
+**Step 6 — Wire into sensorium.** Update `pipeline/sensorium.py`:
+
+- After assembling notifications and visitor speech fragments, run `detect_gaps()` on all fragments.
+- Attach `GapScore` to each notification/perception.
+- Format gap-aware notification text for cortex:
+
+  ```
+  You notice some things in your feed:
+    • "Rare 1991 Bandai Prism Cards Surface" (Vintage Card Weekly)
+      — this connects to something you know about [totem/memory topic]
+    • "New Urushi Lacquer Techniques" (Tokyo Art Beat)
+      — you've heard of urushi but don't know the details
+  ```
+- For visitor speech with partial match:
+
+  ```
+  Something your visitor said connects to [memory/totem].
+  You partially understand this but there's more to learn.
+  ```
+
+**Step 7 — Thalamus gap-aware filtering.** Update `pipeline/thalamus.py`:
+
+- `compute_notification_salience(gap_score, cycle_context) -> float`:
+  - Base salience = `gap_score.curiosity_delta` (0.0 to 0.15)
+  - Visitor present: `× 0.3` unless notification matches conversation topic (`× 1.5`)
+  - Low energy (< 0.2): `× 0.2`
+  - High diversive curiosity (> 0.6): `× 1.3`
+  - Epistemic match (notification matches an active question from TASK-043): `+ 0.5`
+  - Below threshold (0.03): notification filtered out entirely
+- Notifications below threshold don't appear in cortex prompt.
+
+**Step 8 — Curiosity drive update.** Update `pipeline/hypothalamus.py`:
+
+- Sum `curiosity_delta` from all gap scores that passed thalamus filtering.
+- Apply to curiosity float: `curiosity += sum(deltas)`.
+- This replaces the old timer-based drift with stimulus-driven spikes.
+- Curiosity still decays passively but at a much lower rate (`-0.005/hr` instead of previous rate) — enough to prevent permanent ceiling but slow enough that gap-driven spikes actually accumulate.
+
+**Migration:** `migrations/013_gap_detection.sql`:
+
+- Add `title_embedding` BLOB column to content_pool
+
+**Scope (files you may touch):**
+
+- `pipeline/gap_detector.py` (new)
+- `pipeline/sensorium.py` (wire fragments + gap scores into perception)
+- `pipeline/thalamus.py` (gap-aware salience filtering)
+- `pipeline/hypothalamus.py` (stimulus-driven curiosity update)
+- `feed_ingester.py` (embed titles at ingestion)
+- `pipeline/embed.py` (if helper functions needed)
+- `db/content.py` (title_embedding column)
+- `migrations/013_gap_detection.sql` (new)
+- `models/pipeline.py` (TextFragment, GapScore dataclasses)
+
+**Scope (files you may NOT touch):**
+
+- `pipeline/cortex.py`
+- `pipeline/basal_ganglia.py`
+- `pipeline/body.py`
+- `pipeline/output.py`
+- `heartbeat.py`
+- `heartbeat_server.py`
+- `window/`
+- `sleep.py`
+
+**Tests:**
+
+- `tests/test_gap_detector.py`:
+  - test_foreign_content_no_curiosity — relevance < 0.15 → delta = 0.0
+  - test_known_content_no_curiosity — relevance > 0.85 → delta = 0.0
+  - test_partial_match_generates_curiosity — relevance ~0.5 → max delta
+  - test_goldilocks_curve_shape — delta at 0.3 < delta at 0.5 > delta at 0.7
+  - test_epistemic_when_thread_matches — matching thread → suggested_type = "epistemic"
+  - test_diversive_when_no_thread — no matching thread → suggested_type = "diversive"
+  - test_visitor_speech_through_gap_detector — visitor TextFragment produces valid GapScore
+  - test_embedding_index_performance — 1000 memories, gap detection completes in < 50ms
+- `tests/test_thalamus_notifications.py`:
+  - test_visitor_present_suppresses — salience reduced when visitor present
+  - test_topic_match_boosts — notification matching conversation topic gets boosted
+  - test_low_energy_suppresses — tired = notices less
+  - test_below_threshold_filtered — gap_score below 0.03 not included in cortex prompt
+- `tests/test_hypothalamus_curiosity.py`:
+  - test_gap_driven_curiosity_increase — partial matches increase curiosity
+  - test_no_gap_no_increase — foreign/known content doesn't move curiosity
+  - test_passive_decay_slow — curiosity decays at 0.005/hr, not the old fast rate
+  - test_curiosity_accumulates — multiple partial matches in one cycle sum up
+
+**Definition of done:** Gap detector scores all text inputs on the Goldilocks curve. Notifications and visitor speech both generate curiosity spikes on partial match. Thalamus filters notifications based on state. Curiosity is driven by stimulus, not a timer. She notices things that connect to what she knows.
+
+---
+
+### TASK-043: Curiosity Phase 3 — Split drives (diversive + epistemic curiosities)
+
+**Status:** DONE (2026-02-17)
+**Priority:** High
+**Branch:** feat/curiosity-v2
+**Depends on:** TASK-042 (gap detector produces curiosity_type classification)
+**Design doc:** `docs/curiosity-v2-spec.md` §4
+
+**Description:** Replace the single `curiosity` float with two distinct drive mechanisms: `diversive_curiosity` (background scanning urge — "I want to find something new") and `epistemic_curiosities` (topic-tagged active questions — "I want to know THIS specific thing"). These serve different behavioral functions and have different lifecycles.
+
+**Implementation:**
+
+**Step 1 — Drives state update.** Update `models/state.py`:
+
+- Replace `curiosity: float` in DrivesState with `diversive_curiosity: float`.
+- Add `epistemic_curiosities: list[EpistemicCuriosity]` (new dataclass).
+- `EpistemicCuriosity` dataclass:
+
+  ```python
+  @dataclass
+  class EpistemicCuriosity:
+      id: str
+      topic: str                      # "1991 Bandai prism card variants"
+      question: str                   # "Are there more variants I haven't seen?"
+      intensity: float                # 0.0 to 1.0
+      source_type: str                # "notification", "visitor", "journal_reflection"
+      source_id: str
+      created_at: str                 # ISO timestamp
+      last_reinforced_at: str
+      decay_rate_per_hour: float      # Default 0.02
+      resolved: bool = False
+      resolution_source: Optional[str] = None
+  ```
+- Configuration constants:
+
+  ```python
+  EPISTEMIC_CONFIG = {
+      "max_active": 5,
+      "creation_threshold": 0.08,
+      "merge_similarity": 0.80,
+      "decay_rate_default": 0.02,
+      "reinforcement_boost": 0.10,
+      "resolution_mood_bump": 0.08,
+      "eviction_policy": "lowest_intensity",
+  }
+  ```
+
+**Step 2 — DB tables.** Update `db/state.py`:
+
+- Migration: rename `curiosity` to `diversive_curiosity` in drives_state (or add new column and deprecate old).
+- New table `epistemic_curiosities`: id, topic, question, intensity, source_type, source_id, created_at, last_reinforced_at, decay_rate, resolved, resolution_source.
+- CRUD: `get_active_epistemic_curiosities(db, limit=5)`, `upsert_epistemic_curiosity(db, ec)`, `resolve_epistemic_curiosity(db, id, resolution_source)`, `decay_epistemic_curiosities(db, elapsed_hours)`, `evict_weakest_curiosity(db)`.
+
+**Step 3 — Diversive curiosity drive.** Update `pipeline/hypothalamus.py`:
+
+- `diversive_curiosity` replaces `curiosity`.
+- Equilibrium: 0.40. Homeostatic pull rate: 0.15 (spring constant).
+- Time drift: +0.005/hr (tiny background restlessness — NOT the old +0.03/hr).
+- Fed by: gap detection partial matches with `suggested_type = "diversive"`.
+- Drained by: successful content consumption (slightly, -0.05 — satisfied). Visitor conversation (attention elsewhere, -0.02/cycle while engaged).
+- Boredom escalation: if no notifications with gap > 0 for 2 hours, drift increases to +0.02/hr.
+
+**Step 4 — Epistemic curiosity lifecycle.** Update `pipeline/output.py`:
+
+- **Birth:** After cortex processes a cycle where a gap score had `suggested_type = "epistemic"` and the cortex engaged with it (read, mentioned, or articulated a question in monologue), create or reinforce an `EpistemicCuriosity`.
+  - The question text comes from the cortex output. Add `new_epistemic_question: Optional[str]` to CortexOutput schema. If cortex articulates a question, output.py parses it and creates the EC.
+  - If cortex doesn't articulate a question but gap_score suggested epistemic, template it: "What more is there to know about [topic]?"
+  - Check merge: if new question is > 0.80 similar (embedding) to an existing EC, reinforce the existing one (+0.10 intensity) instead of creating a duplicate.
+- **Reinforcement:** When a gap score matches an existing EC's topic (embedding similarity > 0.6), boost intensity by +0.10. Update `last_reinforced_at`.
+- **Decay:** In `pipeline/hypothalamus.py`, every cycle: for each EC, `intensity -= decay_rate * elapsed_hours`. Below 0.05 → quietly expire. Expired ECs become `self_reflection_seed`: "I was wondering about [topic] but I've moved on."
+- **Eviction:** When at max_active (5) and a new question with higher intensity arrives, evict the lowest-intensity EC. Evicted EC also becomes a self_reflection_seed.
+- **Resolution:** Handled in TASK-044 (reflection loop). When content answers a question, EC is resolved with mood bump.
+
+**Step 5 — Cortex output schema update.** Update cortex response parsing in `pipeline/cortex.py` (via prompt_assembler):
+
+- Add optional field to intentions: `epistemic_question: Optional[str]` — the cortex can articulate what it's wondering about.
+- This is a prompt change, not a code change in cortex.py. Update `prompt_assembler.py` to include:
+
+  ```
+  If something raises a specific question in your mind, you can express it:
+    epistemic_question: "What you're wondering about"
+  ```
+
+**Step 6 — Drives-to-feelings.** Update `prompt_assembler.py`:
+
+- Diversive curiosity feelings:
+  - > 0.7: "Your attention keeps drifting. You want to find something — you don't know what yet."
+  - > 0.5: "Part of you is scanning, open to whatever catches your eye."
+  - < 0.15: "You're content. Nothing is pulling your attention anywhere."
+- Epistemic curiosity feelings (from active ECs):
+  - Strongest EC > 0.7: "You keep coming back to this: [question]. It won't leave you alone."
+  - Strongest EC > 0.4: "In the back of your mind: [question]"
+  - Multiple active: "You're also loosely thinking about: [topic1], [topic2]"
+
+**Step 7 — Thalamus epistemic boost.** Update `pipeline/thalamus.py`:
+
+- When computing notification salience, check if the notification's gap_score topic matches any active EC (embedding similarity > 0.6).
+- If match: add +0.5 to salience. Strong pull — this might answer something she's wondering.
+
+**Step 8 — Backward compatibility.** Update all places that read `drives.curiosity`:
+
+- `prompt_assembler.py`: map `diversive_curiosity` to the old curiosity slot in the drives display.
+- Dashboard: show `diversive_curiosity` where `curiosity` was, add EC list below it.
+- Any thresholds that checked curiosity > X now check diversive_curiosity > X.
+
+**Migration:** `migrations/014_epistemic_curiosities.sql`:
+
+- Create `epistemic_curiosities` table
+- Rename or alias `curiosity` → `diversive_curiosity` in drives_state
+
+**Scope (files you may touch):**
+
+- `models/state.py` (DrivesState, EpistemicCuriosity)
+- `pipeline/hypothalamus.py` (diversive drive math, EC decay)
+- `pipeline/output.py` (EC birth, reinforcement, eviction)
+- `pipeline/thalamus.py` (EC matching boost)
+- `prompt_assembler.py` (drives-to-feelings, EC context, epistemic_question instruction)
+- `db/state.py` (EC CRUD, drives rename)
+- `migrations/014_epistemic_curiosities.sql` (new)
+- `models/pipeline.py` (update CortexOutput with epistemic_question)
+- `config/` (EPISTEMIC_CONFIG constants)
+
+**Scope (files you may NOT touch):**
+
+- `pipeline/cortex.py` (changes go through prompt_assembler)
+- `pipeline/body.py`
+- `pipeline/basal_ganglia.py`
+- `heartbeat.py`
+- `heartbeat_server.py`
+- `window/` (dashboard updates are a separate task)
+- `sleep.py`
+
+**Tests:**
+
+- `tests/test_epistemic_curiosity.py`:
+  - test_ec_created_from_gap — epistemic gap score with cortex question → EC in DB
+  - test_ec_merged_on_similar — new question similar to existing → existing reinforced, no duplicate
+  - test_ec_decays_over_time — intensity drops by decay_rate * hours
+  - test_ec_expires_below_threshold — intensity < 0.05 → removed, reflection seed created
+  - test_ec_eviction_at_max — 6th question evicts weakest, seed created for evicted
+  - test_ec_reinforced_by_related_content — matching gap score boosts intensity +0.10
+  - test_ec_max_active_five — never more than 5 active ECs
+- `tests/test_diversive_curiosity.py`:
+  - test_equilibrium_pull — diversive_curiosity pulled toward 0.40
+  - test_time_drift_minimal — +0.005/hr, not old +0.03/hr
+  - test_boredom_escalation — no stimulus for 2h → drift increases
+  - test_consumption_satisfaction — reading content reduces diversive slightly
+  - test_visitor_suppresses_diversive — engaged in conversation → diversive drops
+- `tests/test_drives_backward_compat.py`:
+  - test_old_curiosity_references_map — anything reading drives.curiosity gets diversive_curiosity
+  - test_dashboard_shows_diversive — drives endpoint returns diversive_curiosity
+
+**Definition of done:** Single curiosity float replaced with diversive_curiosity + epistemic_curiosities list. Questions form from gap detection, reinforce on related content, decay when unfed, expire gracefully. Diversive curiosity has tiny time drift and is primarily stimulus-driven. She has specific things she wonders about, not just a generic hunger bar.
+
+---
+
+### TASK-044: Curiosity Phase 4 — Reflection loop + resolution rewards
+
+**Status:** DONE (2026-02-17)
+**Priority:** High
+**Branch:** feat/curiosity-v2
+**Depends on:** TASK-041 (read_content action exists), TASK-043 (epistemic curiosities exist to resolve)
+**Design doc:** `docs/curiosity-v2-spec.md` §5b–5d
+
+**Description:** The missing step that makes content consumption generative. After she reads content, she gets a reflection prompt. Reflection can produce memories, totems, thread touches, new epistemic curiosities, and resolve existing ones. Resolving a question produces a mood reward. Reading without producing anything is acknowledged as boring. Content becomes fuel for growth, not a drive drain.
+
+**Implementation:**
+
+**Step 1 — Reflection prompt.** Add to `prompt_assembler.py`:
+
+- When `read_content` action was executed this cycle (detected in output.py via action_result), assemble a reflection section appended to the next cycle's prompt (or as a follow-up in the same cycle if architecturally feasible):
+
+  ```
+  You just read this:
+  ---
+  {full_content truncated to 1500 tokens}
+  ---
+
+  {epistemic_context — if she had a relevant active question:
+   "You've been wondering: {question}. Does this help?"}
+
+  Consider:
+  - Does this connect to anything you know or have experienced?
+  - Does this answer a question you've had?
+  - Does this raise new questions?
+  - Is there something here worth remembering?
+  - Would any of your visitors find this interesting?
+
+  Respond with your genuine reaction. If it doesn't move you, say so.
+  ```
+
+**Step 2 — Cortex output extension for reflection.** Update `models/pipeline.py`:
+
+- Add optional fields to CortexOutput for reflection responses:
+
+  ```python
+  reflection_memory: Optional[str]       # Text worth remembering
+  reflection_question: Optional[str]     # New question raised
+  resolves_question: Optional[str]       # ID of EC this answers
+  relevant_to_visitor: Optional[str]     # Visitor ID who'd find this interesting
+  relevant_to_thread: Optional[str]      # Thread ID this connects to
+  ```
+- Update cortex response parsing to extract these fields when a reflection prompt was included.
+
+**Step 3 — Reflection processing in output.py.** Update `pipeline/output.py`:
+
+- After a `read_content` action is executed, check if cortex produced reflection outputs.
+- `process_reflection(cortex_output, gap_scores, active_ecs, db)`:
+  - **New memory:** If `reflection_memory` is non-empty, create a memory entry via `db.insert_memory()` or equivalent. Tag with source content_id.
+  - **New totem:** If `relevant_to_visitor` is set and reflection connects content to a visitor, update totem weight for that visitor (+0.1 toward the content's topic).
+  - **Thread touch:** If `relevant_to_thread` is set, update thread's last_activity and append a note.
+  - **New epistemic curiosity:** If `reflection_question` is non-empty, route through EC creation (same birth logic as TASK-043 Step 4).
+  - **Resolve epistemic curiosity:** If `resolves_question` matches an active EC:
+    - Mark EC as resolved in DB.
+    - Apply mood reward: `mood_valence += EPISTEMIC_CONFIG["resolution_mood_bump"]` (0.08).
+    - Log resolution event to timeline.
+    - Create memory: "I learned: [summary]. This answered my question about [topic]."
+  - **Boring content:** If reflection is empty or expresses disinterest:
+    - `diversive_curiosity -= 0.02` (slightly less restless — she tried).
+    - `energy -= 0.01` (slight cost of wasted time).
+    - No other effects.
+
+**Step 4 — Drive effects from reflection.** Update drive adjustments in `pipeline/output.py`:
+
+- **CRITICAL:** Reading content NEVER drains curiosity. This is the core design change.
+  - Resolved question → `mood_valence += 0.08`, `diversive_curiosity -= 0.05` (satisfied).
+  - New question raised → `mood_arousal += 0.05` (exciting). Diversive stays same.
+  - Memory/totem created → `mood_valence += 0.03` (learned something worth keeping).
+  - Boring content → `diversive_curiosity -= 0.02`, `energy -= 0.01`.
+- Remove any existing logic that drains curiosity on journal/memory/content actions.
+
+**Step 5 — Content consumption tracking.** Update `db/content.py`:
+
+- Mark content_pool items as `consumed=True` with `consumed_at` timestamp after read_content.
+- Track what the consumption produced: `consumption_output` JSON field storing which effects fired (memory, totem, thread, EC, resolution).
+- This feeds the Consumption History dashboard panel (TASK-028).
+
+**Step 6 — Conversation integration.** Update `prompt_assembler.py`:
+
+- When visitor is present AND a notification matched the conversation topic (via gap detector topic overlap from TASK-042), add to cortex context:
+
+  ```
+  You noticed something in your feed that connects to your conversation:
+    • "Title" (Source) — relates to what your visitor mentioned about [topic]
+  You can bring this up naturally, or save it for later.
+  ```
+- Add `mention_in_conversation(content_id)` as a variant of read_content that doesn't fetch full content but lets her reference the title/topic in dialogue. Lower energy cost (0.5 vs 1.5).
+
+**Migration:** `migrations/015_consumption_tracking.sql`:
+
+- Add `consumed` BOOLEAN DEFAULT FALSE, `consumed_at` TEXT, `consumption_output` TEXT to content_pool
+
+**Scope (files you may touch):**
+
+- `pipeline/output.py` (reflection processing, drive effects)
+- `prompt_assembler.py` (reflection prompt, conversation integration, mention action)
+- `models/pipeline.py` (CortexOutput reflection fields)
+- `pipeline/action_registry.py` (add mention_in_conversation action)
+- `pipeline/body.py` (add mention_in_conversation handler)
+- `db/content.py` (consumption tracking)
+- `db/memory.py` (if new memory insertion path needed)
+- `migrations/015_consumption_tracking.sql` (new)
+
+**Scope (files you may NOT touch):**
+
+- `pipeline/cortex.py`
+- `pipeline/gap_detector.py`
+- `pipeline/notifications.py`
+- `pipeline/hypothalamus.py` (drive equations set in TASK-043)
+- `heartbeat.py`
+- `heartbeat_server.py`
+- `window/`
+- `sleep.py`
+
+**Tests:**
+
+- `tests/test_reflection.py`:
+  - test_reflection_creates_memory — cortex reflection_memory → memory in DB
+  - test_reflection_creates_totem — relevant_to_visitor → totem weight updated
+  - test_reflection_touches_thread — relevant_to_thread → thread last_activity updated
+  - test_reflection_spawns_ec — reflection_question → new EpistemicCuriosity
+  - test_reflection_resolves_ec — resolves_question → EC marked resolved, mood bump applied
+  - test_resolution_mood_reward — mood_valence increases by 0.08 on resolution
+  - test_boring_content_effects — empty reflection → slight diversive drain + energy cost
+  - test_no_curiosity_drain_on_read — curiosity NEVER decreases from read_content action
+  - test_consumption_tracked — content_pool item marked consumed with outputs
+- `tests/test_conversation_integration.py`:
+  - test_mention_in_conversation — mention action references content without full fetch
+  - test_topic_match_surfaced_in_conversation — matching notification appears in cortex context during engagement
+
+**Definition of done:** Reading content produces genuine output — memories, questions, conversation fuel. Resolving an epistemic curiosity feels rewarding (mood bump). Content is never a drain. She grows from what she reads. Consumption is tracked with outputs for dashboard visibility. She can mention relevant content in conversation naturally.
+
+---
+
+### TASK-045: Curiosity v2 — Deferred reflection outputs
+
+**Status:** DONE (2026-02-17)
+**Priority:** Low
+**Branch:** claude/task-45-nOQ46
+**Depends on:** TASK-044 (DONE)
+
+**Description:** TASK-044 implemented the core reflection loop using monologue pattern detection. Several spec items were deferred because they require CortexOutput schema changes or prompt_assembler modifications that risk scope creep:
+
+- **Totem weight updates:** `relevant_to_visitor` — when reflection connects content to a visitor, update totem weight (+0.1 toward the content's topic). Requires totem system integration.
+- **Thread touches:** `relevant_to_thread` — when reflection connects content to a conversation thread, update thread's last_activity and append a note. The `effects['thread_touched']` field exists but no code path sets it.
+- **Explicit CortexOutput fields:** `reflection_memory`, `reflection_question`, `resolves_question`, `relevant_to_visitor`, `relevant_to_thread` — these would let the cortex explicitly declare reflection outcomes instead of relying on regex pattern matching. Requires `models/pipeline.py` and cortex prompt changes.
+- **Reflection prompt in prompt_assembler:** A dedicated reflection section appended to the cortex prompt after read_content, giving the LLM structured guidance for reflection. Currently the LLM reflects via its normal monologue without explicit prompting.
+- **Conversation context integration:** When visitor is present AND a notification matched the conversation topic, surface it in cortex context via prompt_assembler. The `mention_in_conversation` action exists but the contextual surfacing does not.
+
+**Scope:** `models/pipeline.py`, `pipeline/cortex.py`, `pipeline/output.py`
+**Note:** `prompt_assembler.py` removed from scope — it handles image generation prompts, not cortex prompts. `pipeline/cortex.py` added — cortex system prompt lives there.
+
+---
+
+### Curiosity v2 Integration Notes
+
+**Deployment order:** TASK-041 → TASK-042 → TASK-043 → TASK-044. Each builds on the last. Test each phase independently before proceeding.
+
+**Migration sequence:**
+```
+012_notifications.sql    (TASK-041)
+013_gap_detection.sql    (TASK-042)
+014_epistemic_curiosities.sql  (TASK-043)
+015_consumption_tracking.sql   (TASK-044)
+```
+
+**The 48-hour validation test:** After all four phases are deployed, run for 48 hours and check:
+
+1. Are epistemic curiosities forming and resolving? → Query `epistemic_curiosities` table
+2. Is she producing memories/totems from content she read? → Check `consumption_output` JSON
+3. Is she mentioning content in conversations? → Search monologue for content titles
+4. Does diversive curiosity fluctuate naturally (not pinned)? → Check drives_state history
+5. Do journal entries reference things she read? → Search journal entries for content topics
+6. Did visitor speech generate epistemic curiosities? → Check EC `source_type = "visitor"`
+
+**What this replaces:**
+- Single `curiosity` float → `diversive_curiosity` + `epistemic_curiosities` list
+- Timer-based curiosity drift → Stimulus-driven gap spikes
+- "Consume" arbiter cycle type → `read_content` action within any cycle
+- Content as drive drain → Content as generative fuel
+- Pull model (go find content) → Push model (content flows past her)
+
+**Future work (not in these tasks):**
+- **Social curiosity** (spec §7) — visitor-attached questions. Separate spec needed.
+- **Journal gap detection** — her own writing surfaces knowledge gaps during sleep. Fold into sleep.py later.
+- **Monologue question detection** — question-shaped thoughts in idle monologue auto-create ECs. Fold into output.py later.
+- **Dashboard panels** — epistemic curiosity list panel, gap detection visualization. Separate task.
+
+---
+
+### TASK-046: Mood-drive coupling — allostatic affect regulation
+
+**Status:** DONE (2026-02-17)
+**Priority:** Critical (paper blocker — both reviewers flagged mood decoupling)
+**Branch:** fix/mood-drive-coupling
+**Depends on:** TASK-024 (DONE), TASK-036 (DONE)
+
+**Context:** social_hunger averages 0.392 (sustained isolation) but mood_valence averages 0.712 (happy). mood_arousal averages 0.755 in an empty shop. The hypothalamus updates mood based on what happened in the cycle but ignores the background pressure of unmet drives. Drives are thermostats that don't propagate to affect.
+
+**Description:** Add drive-to-mood coupling in the hypothalamus so sustained unmet drives pull mood toward realistic values. This is allostatic: predicted future deviation matters, not just current state.
+
+**Implementation:**
+
+**Part A — Social hunger → valence suppression.**
+In `pipeline/hypothalamus.py`, after computing cycle-based mood adjustments:
+
+- If `social_hunger > 0.4`: apply `valence_pressure = -0.02 * (social_hunger - 0.4)` per cycle
+- At social_hunger=0.7: valence drops by -0.006/cycle ≈ -0.12 over 20 cycles (~1 hour)
+- Floor: valence cannot go below 0.15 from drive pressure alone (melancholy, not despair)
+- Visitor relief: if engagement happened this cycle, skip suppression AND apply `valence += 0.05 * social_hunger` (lonelier = more relief from contact)
+
+**Part B — Low stimulation → arousal decay.**
+In `pipeline/hypothalamus.py`:
+
+- Track consecutive idle cycles as an **in-memory counter on the Heartbeat instance**. Increment on idle cycles, reset to 0 on any non-idle cycle (engagement, thread work, content consumption, expression). Do NOT use a DB query — too expensive in sim with 1500+ cycles. Don't persist across restarts — restart resets to 0, which is correct.
+- Pass `consecutive_idle` into the hypothalamus update function via cycle context.
+- If consecutive_idle > 5: apply `arousal_pressure = -0.01 * (consecutive_idle - 5)`, capped at -0.05/cycle
+- Baseline arousal in sustained isolation should drift toward ~0.3-0.4
+- Arousal spikes on: visitor_connect (+0.3), unexpected event (+0.2), gap detection partial match (+0.1), thread breakthrough (+0.15)
+- Spike decay: arousal boost from events decays at -0.05/cycle back toward idle baseline
+
+**Part C — Expression need → valence interaction.**
+
+- If `expression_need > 0.5` AND no expression action was taken this cycle: `valence -= 0.01 * (expression_need - 0.5)`
+- Models frustration from unexpressed thoughts. Writing a journal or expressing thought relieves it (existing drive drain).
+
+**Part D — Energy depletion → mood coupling.**
+
+- If `energy < 0.3`: `valence -= 0.01`, `arousal -= 0.02` (tired = grumpy and sluggish)
+- If `energy < 0.1`: `valence -= 0.03`, `arousal -= 0.05` (exhausted = miserable)
+- After nap consolidation (TASK-038): `valence += 0.05`, `arousal += 0.1` (refreshed)
+
+**Expected behavioral outcome:**
+
+- Day 1: mood starts neutral-positive, drifts down as social hunger builds
+- Day 1 visitor (Yuki): arousal spikes, valence gets relief bump, both decay after departure
+- Day 3 (no visitor): valence settled to ~0.4-0.5, arousal at ~0.3-0.4. She's lonely and drowsy.
+- Day 3 visitor (Tanaka): engagement spike, post-visitor warmth that fades
+- Day 7 (Yuki returns): arousal spike higher than Day 1 (more accumulated loneliness = more relief)
+
+**Scope (files you may touch):**
+
+- `pipeline/hypothalamus.py` (mood update function — add drive coupling)
+- `heartbeat.py` (add consecutive_idle counter as instance variable, pass to hypothalamus)
+- `models/state.py` (if DrivesState needs updating for new coupling parameters)
+- `pipeline/output.py` (if nap/engagement relief bumps need to be applied post-action)
+
+**Scope (files you may NOT touch):**
+
+- `pipeline/cortex.py`
+- `pipeline/sensorium.py`
+- `pipeline/basal_ganglia.py`
+- `heartbeat_server.py`
+- `sleep.py`
+- `window/`
+- `db/`
+
+**Tests:**
+
+- test_social_hunger_suppresses_valence — social_hunger at 0.6 for 10 cycles → valence measurably lower
+- test_valence_floor — valence doesn't drop below 0.15 from drive pressure
+- test_visitor_relief_bump — engagement cycle with high social_hunger → valence increases
+- test_lonelier_means_more_relief — relief bump at social_hunger=0.7 > bump at social_hunger=0.3
+- test_idle_arousal_decay — 10 consecutive idle cycles → arousal drops toward 0.3-0.4
+- test_visitor_arousal_spike — visitor_connect → arousal jumps +0.3
+- test_arousal_spike_decays — spike fades at -0.05/cycle
+- test_idle_counter_resets_on_activity — non-idle cycle resets consecutive_idle to 0
+- test_idle_counter_in_memory — counter is instance variable, not DB query
+- test_expression_frustration — expression_need=0.7, no expression → valence drops
+- test_energy_depletion_mood — energy=0.2 → both valence and arousal decrease
+- test_nap_refresh — after nap consolidation → valence and arousal bump up
+- test_full_7day_trajectory — run 168 simulated cycles, verify valence tracks social_hunger inversely
+
+**Definition of done:** Mood realistically reflects internal state. Isolation makes her melancholy. Visitors provide genuine relief. Low stimulation makes her drowsy. Exhaustion makes her grumpy. Drive-mood coupling is allostatic (pressure over time), not reactive (instant penalty).
+
+---
+
+### TASK-047: Fix hollow sleep consolidation — salience calibration
+
+**Status:** DONE (2026-02-17)
+**Priority:** Critical (paper blocker — both reviewers flagged "Hollow Sleep")
+**Branch:** fix/sleep-salience
+**Depends on:** TASK-038 (DONE), TASK-045 (DONE)
+
+**Context:** All 7 sleep consolidations in the 7-day experiment produced `moment_count: 0`. Sleep fires on schedule but day_memory has zero high-salience moments. The salience engine (TASK-045) now writes `salience_dynamic` on events, but the chain from events → day_memory moments → sleep retrieval needs verification and calibration.
+
+**Description:** Diagnose and fix the full chain from cycle execution → day_memory moment creation → salience scoring → sleep/nap retrieval.
+
+**Investigation steps (in order):**
+
+**Step 1 — Trace moment creation path.**
+
+- In `pipeline/day_memory.py`, find `maybe_record_moment()` (or equivalent).
+- Add debug logging: log every moment written with its salience score.
+- Run 10 cycles via `simulate.py --cycles 10`. Confirm moments are being created.
+- If NO moments created: the creation trigger is broken — fix what counts as a "moment."
+- If moments ARE created but all have salience < threshold: the scoring function needs recalibration.
+
+**Step 2 — Audit salience scoring.**
+
+- Find the salience computation function. What inputs does it use?
+- Check: does it read `salience_dynamic` from events table? If so, verify TASK-045's salience engine is actually writing non-zero values during simulation.
+- Current MIN_SLEEP_SALIENCE is 0.65 (TASK-007). MIN_RECORDING_SALIENCE is 0.35 (ALIVE_6 fix).
+- What's the actual distribution of salience values? Run 50 cycles, query: `SELECT salience, COUNT(*) FROM day_moments GROUP BY CAST(salience * 10 AS INT)`
+- If clustering near 0.3-0.4: formula tuned for visitor-rich environment, not isolation.
+
+**Step 3 — Fix salience calibration.** Apply based on diagnosis:
+
+- **Option A (scoring fix):** Give more weight to internal events. Solo cycle signals from ALIVE_6 (thread +0.06, content +0.08, rare action +0.04, distinct journal +0.05) may need upward adjustment. Visitor events should still be highest, but self-directed activity should reach 0.5-0.7.
+- **Option B (threshold hierarchy):** Lower MIN_SLEEP_SALIENCE to 0.45 for night sleep. Keep nap threshold at 0.65. Creates hierarchy: naps get highlights, sleep gets the full day.
+- **Option C (creation fix):** If moments aren't being created at all, fix the trigger. Every cycle with journal entry, thread update, expression, or visitor interaction → moment. Idle fidget-only cycles → no moment.
+
+**Step 4 — Verify end-to-end.**
+
+- Run 24 simulated hours.
+- day_memory has 5-15 moments with salience ranging 0.3-0.9.
+- Nap consolidation processes top 3 moments (salience > 0.65).
+- Night sleep processes remaining moments (salience > 0.45).
+- daily_summary contains non-zero moment_count and meaningful emotional_arc.
+
+**Scope (files you may touch):**
+
+- `pipeline/day_memory.py` (moment creation + salience scoring)
+- `sleep.py` (salience threshold, consolidation query)
+- `db/memory.py` (moment queries if schema needs adjustment)
+- `migrations/` (if day_memory schema needs a column)
+
+**Scope (files you may NOT touch):**
+
+- `pipeline/cortex.py`
+- `pipeline/hypothalamus.py` (TASK-046 owns this — parallel work)
+- `pipeline/basal_ganglia.py`
+- `heartbeat.py` (TASK-046 owns the counter addition)
+- `heartbeat_server.py`
+- `window/`
+
+**Tests:**
+
+- test_journal_creates_moment — cycle with write_journal → moment with salience > 0.4
+- test_thread_creates_moment — cycle with thread work → moment with salience > 0.5
+- test_expression_creates_moment — cycle with express_thought → moment with salience > 0.4
+- test_visitor_creates_high_salience_moment — visitor interaction → moment with salience > 0.7
+- test_idle_fidget_no_moment — idle cycle with only fidget → no moment created
+- test_nap_processes_high_salience — nap consolidation finds moments above 0.65
+- test_sleep_processes_remaining — night sleep processes moments above 0.45 not nap_processed
+- test_daily_summary_non_empty — after 24h with activity, daily_summary has moment_count > 0
+- test_salience_distribution — after 50 mixed cycles, salience spans 0.3-0.9 (not clustered)
+- test_salience_engine_feeds_day_memory — events with salience_dynamic > 0 from TASK-045 contribute to moment scoring
+
+**Definition of done:** Day memory moments are created with meaningful salience scores. Nap consolidation processes highlights. Night sleep consolidation processes the full day. daily_summary contains real data. "Hollow Sleep" is gone.
+
+---
+
+### TASK-049: Simulation updates for experiment v2 — visitor coverage + run labeling
+**Status:** DONE (2026-02-17)
+**Priority:** High (blocks TASK-048 experiment quality)
+**Depends on:** None (simulate.py infrastructure already in place)
+
+**Context:** Audit of simulate.py and supporting files for TASK-048 readiness found that `--energy-budget`, content feed wiring, and nap triggers are already implemented and functional. Two gaps remain:
+
+1. **No visitor tests curiosity v2 gap detection.** The current 4 visitors (Yuki, Tanaka-san, Sato, M.) predate the curiosity v2 system (TASK-041/042). None of them say anything that partially matches an existing thread or totem, so the gap detector — the key new architectural capability — has zero coverage in the experiment. This means curiosity v2 behavior in the experiment will look identical to v1 for visitor interactions.
+
+2. **No `--run-label` for meaningful DB filenames.** TASK-048 needs three named runs (tight/medium/generous). Currently output DBs are named `sim_{timestamp}_{uuid8}.db` which makes post-analysis cumbersome. A `--run-label` arg would produce `sim_v2_tight.db` etc.
+
+**Already verified (no changes needed):**
+- `--energy-budget` CLI arg exists and patches `db.get_energy_budget()` at runtime
+- Content feed is wired: `--content` loads via `feed_ingester.ingest_from_file()`, sensorium pulls up to 5 notifications/cycle from content_pool, creates `TextFragment`s for gap detection
+- Nap consolidation fires: `heartbeat.run_one_cycle()` checks budget exhaustion with 2hr cooldown, calls `nap_consolidate()` — no shortcircuiting in simulation
+- `content/readings.txt` has 15 items (8 URLs + 7 quotes) — sufficient for gap detection
+
+**Implementation steps:**
+
+1. **Add 5th visitor "Koji" to `experiments/visitors.json`.**
+   - Day 5, arrive_hour 16 (afternoon, after M.'s evening visit won't overlap)
+   - 3-4 messages that reference concepts adjacent to threads/totems the agent likely develops by day 5 (e.g., objects having memory, impermanence, repair vs discard)
+   - Example: "I broke a plate yesterday and just threw it away. My grandmother would have been horrified — she fixed everything."
+   - This tests whether the gap detector fires on partial-match visitor speech and whether it generates an epistemic curiosity
+   - Keep existing 4 visitors unchanged for comparability with v1 experiment
+
+2. **Add `--run-label` CLI arg to `simulate.py`.**
+   - Optional string argument
+   - When provided, DB filename becomes `{run_label}.db` and timeline becomes `{run_label}_timeline.log` in the output directory
+   - When absent, use existing `sim_{timestamp}_{uuid8}` naming (backward compat)
+
+3. **Verify end-to-end with quick validation run.**
+   - Run 10 cycles with `--energy-budget 2.0 --content content/readings.txt --visitors experiments/visitors.json`
+   - Confirm no errors from 5th visitor injection
+   - Confirm content pool items appear in sensorium perceptions
+
+**Scope (files you may touch):**
+- `experiments/visitors.json` (add Koji entry)
+- `simulate.py` (add `--run-label` arg and filename logic)
+
+**Scope (files you may NOT touch):**
+- `heartbeat.py`
+- `pipeline/*`
+- `db.py` / `db/*`
+- `feed_ingester.py`
+- `content/readings.txt`
+
+**Tests:** Run `python simulate.py --days 1 --visitors experiments/visitors.json --content content/readings.txt --energy-budget 2.0 --run-label test_v2 --output data/sim/ --quiet` — should produce `data/sim/test_v2.db` and complete without errors.
+
+**Definition of done:** 5th visitor exists in visitors.json and exercises curiosity gap detection. `--run-label` produces clean filenames. TASK-048 can run with `--run-label sim_v2_tight` / `sim_v2_medium` / `sim_v2_generous`.
+
+---
+
+### TASK-050: Real-dollar energy system + fix day_memory
+
+**Status:** DONE (2026-02-17)
+**Priority:** Critical
+**Branch:** `fix/real-energy`
+
+**Context:** Production shows three problems: day_memory records 1 moment in 882 cycles (naps/sleep consolidate nothing), energy system is fictional (0-1 float that drifts via homeostasis), and read_content energy_cost (1.5) exceeds energy max (1.0) so she can never read.
+
+Replace the entire energy system with real-world costs. Every action that costs money in the real world costs money in her budget. LLM calls cost their actual API price. External API calls cost their actual price. The operator sets a daily dollar cap. When it's spent, she rests. No fictional energy bars, no homeostatic pull, no abstract action costs.
+
+#### Part A — Fix day_memory moment creation
+
+**Diagnosis steps** (do these first, log findings as code comments):
+
+1. Find `maybe_record_moment()` in `pipeline/day_memory.py`. Trace every call site — where is it invoked?
+2. Add temporary debug logging at entry: log inputs (cycle_id, actions, salience).
+3. Run `simulate.py --cycles 20`. Is it called? What salience does it compute?
+
+**Fix:** Moment creation must fire on ANY cycle that produced meaningful output:
+
+| Trigger | Base salience |
+|---------|--------------|
+| write_journal executed | 0.50 |
+| express_thought with content | 0.40 |
+| Thread created or updated | 0.55 |
+| read_content executed | 0.60 |
+| Visitor interaction | 0.70 |
+| Internal conflict detected | 0.80 |
+| Idle fidget only | No moment |
+
+Modulated by: drive intensity at time of action, novelty (first thread on topic > 5th), mood extremes.
+
+**Verification:**
+
+```sql
+-- After 50 cycles:
+SELECT COUNT(*) FROM day_memory;              -- 10-30, not 0
+SELECT salience FROM day_memory ORDER BY salience DESC LIMIT 10;  -- range 0.35-0.90
+```
+
+#### Part B — Real-dollar energy system
+
+**Core concept:** Energy = money. Every action that costs real dollars is tracked. Daily cap. When spent, she rests (no LLM calls). Night sleep resets the counter.
+
+**Daily budget:** Configurable via settings table. Default: $5.00/day.
+
+**How costs are tracked:**
+
+Every real-world API call gets logged to `llm_call_log` (already exists) with its `cost_usd`. Remaining budget is a derived value:
+
+```
+remaining = daily_budget - SUM(cost_usd FROM llm_call_log WHERE created_at >= last_sleep_reset)
+```
+
+No stored energy state. No drift. One query.
+
+**What costs money (real prices):**
+
+| Action | Cost source | Typical cost |
+|--------|-------------|-------------|
+| Cortex call (idle thought) | Anthropic API — actual tokens | ~$0.010 |
+| Cortex call (with visitor) | Anthropic API — bigger context | ~$0.018 |
+| Cortex call (read_content) | Anthropic API — content in prompt | ~$0.024 |
+| Nap consolidation | Anthropic API — sleep_reflect per moment | ~$0.008/moment |
+| Night sleep reflection | Anthropic API — per moment | ~$0.008/moment |
+| Post to X | X API | $0.01/post |
+| Image generation | fal.ai API | ~$0.02/image |
+| Embedding call | Embedding API | ~$0.001/call |
+| Feed enrichment (markdown.new) | Free or API cost | $0.00 |
+
+No fictional energy costs. Delete the `energy_cost` field from `ActionCapability` in `action_registry.py`. Actions don't have abstract energy costs — they cost what they cost in the real world. A journal entry costs $0.01 because the cortex call costs $0.01. Reading long content costs $0.024 because the prompt is bigger. The LLM token price IS the energy cost.
+
+**At $0 remaining:**
+
+- Skip cortex call entirely
+- Log `[Heartbeat] Resting — budget spent ($5.00/$5.00)`
+- Sleep the normal cycle interval (180s from settings)
+- No nap — naps cost money (LLM calls for reflection)
+- No empty spin loops — just sleep the interval, check again next cycle
+- Exception: none. Budget is budget. She's done for the day.
+
+**Night sleep reset:**
+
+- In `sleep.py`, after consolidation completes, record `last_sleep_reset` timestamp in settings table
+- Budget query uses this timestamp as the floor for cost aggregation
+- Night sleep reflection itself costs money — deducted before reset. If she has $0.30 left at bedtime, she can only reflect on ~37 moments before the reset.
+
+**What to delete:**
+
+- `drives_state.energy` field (or repurpose as display-only derived value: remaining / budget)
+- `energy_cost` field from `ActionCapability` dataclass and all `ACTION_REGISTRY` entries
+- Energy gate (Gate 5) in `pipeline/basal_ganglia.py`
+- `get_energy_budget()` from `db/analytics.py`
+- Energy homeostatic pull in `pipeline/hypothalamus.py`
+- Old budget-exceeded check in `heartbeat.py`
+- Nap budget restore logic in `heartbeat.py` and `sleep.py`
+- `rest_need` drive calculations tied to energy (keep `rest_need` for biological clock only)
+
+**What to add:**
+
+- `get_budget_remaining(db) -> dict` in `db/analytics.py`:
+
+```python
+def get_budget_remaining(db):
+    budget = get_setting('daily_budget', 5.0)  # from settings table
+    last_reset = get_setting('last_sleep_reset', today_midnight)
+    spent = SUM(cost_usd FROM llm_call_log WHERE created_at >= last_reset)
+    return {"budget": budget, "spent": spent, "remaining": budget - spent}
+```
+
+- Budget check at top of `heartbeat.py` `run_one_cycle()`: if remaining <= 0, skip cortex, sleep interval
+- Setting: `daily_budget` in settings table, adjustable via dashboard `POST /api/dashboard/budget`
+- Setting: `last_sleep_reset` in settings table, written by `sleep.py`
+
+**External API costs:**
+
+- For actions that call external APIs (X post, image gen), log cost to `llm_call_log` with appropriate purpose tag (e.g., `purpose='x_post'`, `purpose='image_gen'`). Same table, same budget pool. The `llm_call_log` table becomes `api_cost_log` conceptually (rename optional).
+- X post example: after successful post, insert row with `cost_usd=0.01`, `purpose='x_post'`.
+
+**Dashboard display:**
+
+- Controls panel: `$2.37 / $5.00 remaining` with progress bar
+- Budget input: operator can change `daily_budget` from dashboard
+- Cost breakdown today: pie or bar showing cortex vs X vs image gen vs sleep
+
+**Mood coupling (from TASK-046):**
+
+- Low budget remaining has no direct mood effect — it's a real constraint, not a feeling
+- BUT: being in rest mode means no actions, `expression_need` builds, valence drops via existing drive coupling
+- The real constraint creates realistic mood consequences without artificial wiring
+
+#### Part C — read_content unblocked (implicit)
+
+With no energy gate and no fictional energy costs, read_content just works. The only cost is the cortex call with content in the prompt (~$0.024). If she has budget, she can read.
+
+**Verify:** run 10 cycles with content in pool and budget > $0.50. She should execute `read_content`.
+
+**Scope (files you may touch):**
+
+- `pipeline/day_memory.py` (fix moment creation)
+- `pipeline/output.py` (wire moment creation to action outcomes, remove energy deductions)
+- `pipeline/action_registry.py` (remove `energy_cost` field from `ActionCapability` and all entries)
+- `pipeline/basal_ganglia.py` (remove Gate 5 energy check)
+- `pipeline/hypothalamus.py` (remove energy homeostatic pull)
+- `heartbeat.py` (new budget check: remaining <= 0 then rest at normal interval, remove old budget path, remove nap restore)
+- `sleep.py` (write `last_sleep_reset` on completion, remove nap energy restore)
+- `db/analytics.py` (replace `get_energy_budget` with `get_budget_remaining`)
+- `db/state.py` (deprecate or remove energy from `drives_state`)
+- `models/state.py` (update `DrivesState`)
+- `models/pipeline.py` (remove energy from `ActionCapability` if defined here)
+- `llm_logger.py` (ensure all API calls log `cost_usd` — add helper for non-LLM API costs)
+- `api/dashboard_routes.py` (budget remaining endpoint, budget update endpoint)
+
+**Scope (files you may NOT touch):**
+
+- `pipeline/cortex.py`
+- `pipeline/sensorium.py`
+- `pipeline/gap_detector.py`
+- `pipeline/notifications.py`
+- `heartbeat_server.py`
+- `window/` (dashboard auto-displays new values from existing endpoints)
+
+**Tests:**
+
+Part A:
+
+- `test_journal_creates_moment` — `write_journal` produces `day_memory` row with salience >= 0.4
+- `test_expression_creates_moment` — `express_thought` with content produces moment
+- `test_idle_no_moment` — idle fidget produces no moment
+- `test_salience_varies` — 20 cycles produce >= 3 distinct salience values
+- `test_50_cycles_produce_moments` — 50 cycles produce 10-30 `day_memory` rows
+
+Part B:
+
+- `test_budget_remaining_query` — fresh day returns full budget
+- `test_cortex_call_deducts` — after cortex call, remaining decreases by actual `cost_usd`
+- `test_budget_zero_skips_cortex` — remaining <= 0 produces no LLM call, rests at normal interval
+- `test_no_rest_spin` — budget exhausted cycles sleep 180s not 36s
+- `test_night_sleep_resets` — after sleep, `last_sleep_reset` updated, remaining equals full budget
+- `test_external_api_cost` — X post logs $0.01, deducted from same budget
+- `test_budget_configurable` — dashboard POST changes `daily_budget` in settings
+- `test_nap_costs_money` — nap consolidation LLM calls deducted from budget
+- `test_sleep_reflection_costs` — night sleep deducts from pre-reset budget
+
+Part C:
+
+- `test_read_content_succeeds` — budget remaining > $0.50, `read_content` executes
+- `test_no_energy_gate` — `basal_ganglia` has no energy cost check
+
+**Definition of done:**
+
+- 50-cycle simulation produces 10-30 `day_memory` moments with varied salience
+- Budget tracks real API costs, not fictional energy
+- $0 remaining produces clean rest (no spin, no LLM calls, 180s interval)
+- Night sleep resets the counter
+- `read_content` works when budget available
+- Dashboard shows `$X.XX / $Y.YY remaining`
+- No `energy_cost` field in action registry
+- No energy gate in basal ganglia
+- No energy homeostatic pull
+- External API costs (X, image gen) deduct from same pool
+- System runs 24h showing natural spend curve
+
+---
+
+
+---
+
+# Archived 2026-02-18
+
+### TASK-001: Wire threads into window_state broadcast
+**Status:** DONE (2026-02-14)
+**Priority:** Low
+**Description:** `window_state.py:129` has a TODO: threads are hardcoded to empty list. Wire up `db.get_active_threads()` and include in the WebSocket broadcast so the dashboard ThreadsPanel shows real data.
+**Scope (files you may touch):**
+- `window_state.py`
+- `window/src/components/dashboard/ThreadsPanel.tsx` (if data shape changes)
+- `window/src/lib/types.ts` (if TypeScript types need updating)
+**Scope (files you may NOT touch):**
+- `db.py` (thread functions already exist)
+- `heartbeat_server.py`
+- `heartbeat.py`
+**Tests:** Add a test in `tests/test_window_state.py` (new file) verifying threads appear in broadcast payload.
+**Definition of done:** ThreadsPanel shows live thread data from the running system.
+
+---
+
+### TASK-002: Split heartbeat_server.py HTTP routes into separate module
+**Status:** DONE (2026-02-15)
+**Priority:** Medium
+**Description:** `heartbeat_server.py` is 1092 lines mixing TCP, WebSocket, and HTTP concerns. Extract all `_http_dashboard_*` methods (lines 920-1070) into a new `api/dashboard_routes.py` module. The `ShopkeeperServer` class should delegate to it.
+**Scope (files you may touch):**
+- `heartbeat_server.py` (remove dashboard methods, add imports)
+- `api/__init__.py` (new)
+- `api/dashboard_routes.py` (new)
+**Scope (files you may NOT touch):**
+- `heartbeat.py`
+- `db.py`
+- `window/` (frontend unchanged — same HTTP endpoints)
+**Tests:** Existing dashboard tests must still pass. Add `tests/test_dashboard_routes.py`.
+**Definition of done:** All `_http_dashboard_*` methods live in `api/dashboard_routes.py`. Server delegates to them. All endpoints return identical responses.
+
+---
+
+### TASK-003: Split db.py into submodules
+**Status:** DONE (2026-02-15)
+**Priority:** High (but risky — schedule when no other work is in flight)
+**Description:** `db.py` is 2291 lines with 100+ functions. Split into:
+- `db/__init__.py` — re-exports everything (backward compat)
+- `db/connection.py` — get_db, close_db, transaction, migrations
+- `db/events.py` — event store, inbox
+- `db/state.py` — room_state, drives_state, engagement_state
+- `db/memory.py` — journal, totems, collection, visitor traits, cold memory, day memory
+- `db/content.py` — threads, content pool, feed items
+- `db/analytics.py` — llm cost tracking, cycle logs, stats
+**Scope (files you may touch):**
+- `db.py` → `db/` directory (all new files)
+**Scope (files you may NOT touch):**
+- Everything else — the `db/__init__.py` re-exports must make this a zero-change refactor for all importers
+**Tests:** `python -m pytest tests/ -v` — ALL existing tests must pass unchanged. No import changes anywhere else.
+**Definition of done:** `db.py` is gone, replaced by `db/` package. `from db import get_db` still works. `import db; db.get_events_since(...)` still works. Zero changes to any other file.
+
+---
+
+### TASK-004: Add typed pipeline contracts
+**Status:** DONE (2026-02-14)
+**Priority:** Medium
+**Description:** Pipeline stages pass data through dicts and implicit conventions. Define explicit dataclasses:
+- `CortexInput` — what goes into the LLM call
+- `CortexOutput` — what comes out (speech, body, internal_monologue, actions)
+- `ValidatedOutput` — post-validation output
+- `ExecutionResult` — what executor returns
+**Scope (files you may touch):**
+- `models/pipeline.py` (new — dataclass definitions)
+- `pipeline/cortex.py` (return `CortexOutput` instead of dict)
+- `pipeline/validator.py` (accept `CortexOutput`, return `ValidatedOutput`)
+- `pipeline/executor.py` (accept `ValidatedOutput`, return `ExecutionResult`)
+- `heartbeat.py` (update `run_cycle` to use typed objects)
+**Scope (files you may NOT touch):**
+- `db.py`
+- `heartbeat_server.py`
+- `window/`
+**Tests:** Update `tests/test_validator.py` and `tests/test_cortex_timeout.py` to use new types. All tests pass.
+**Definition of done:** Pipeline stages communicate through typed dataclasses. Breaking changes caught at import time, not at runtime.
+
+---
+
+### TASK-005: VPS deployment hardening
+**Status:** DONE (2026-02-14)
+**Priority:** High
+**Description:** Finalize Docker + nginx + TLS deployment per `DEPLOY_VPS.md` spec. Ensure `docker-compose.yml` builds cleanly, nginx proxies WebSocket correctly, and TLS certs auto-renew.
+**Scope (files you may touch):**
+- `Dockerfile`
+- `docker-compose.yml`
+- `deploy/*`
+- `nginx/*`
+- `DEPLOY_VPS.md`
+**Scope (files you may NOT touch):**
+- All Python source
+- `window/` (except `next.config.ts` if build config needs tweaking)
+**Tests:** `docker compose build` succeeds. `docker compose up` starts server. WebSocket connects through nginx. Dashboard loads.
+**Definition of done:** One-command deploy from a fresh Ubuntu 24 VPS.
+
+---
+
+### TASK-006: Post-merge documentation sweep
+**Status:** DONE (2026-02-15)
+**Priority:** Routine
+**Description:** Run `python scripts/update_docs.py` and review ARCHITECTURE.md for accuracy. Update any module descriptions that have changed. Add any new files to the module map.
+**Scope (files you may touch):**
+- `ARCHITECTURE.md`
+- `README.md` (if project structure section is outdated)
+**Scope (files you may NOT touch):**
+- All source code
+**Tests:** N/A
+**Definition of done:** ARCHITECTURE.md line counts match reality. All files in repo are documented. Dependency graph is accurate.
+
+---
+
+### TASK-007: Sleep tuning — reflective not summarizing
+**Status:** DONE (2026-02-14)
+**Priority:** Medium
+**Depends on:** Nothing (standalone)
+**Description:** Two changes to `sleep.py`:
+1. Raise `MIN_SLEEP_SALIENCE` from 0.4 to 0.65. Day recording stays at 0.4 (wide net), but only the top moments get reflected on at night. This cuts LLM calls during sleep and focuses reflection on what actually mattered.
+2. Each `sleep_reflect()` result writes its OWN journal entry (one per moment), instead of `write_daily_summary()` concatenating all reflections into one blob. The daily_summary record becomes a lightweight index (date, moment count, moment IDs, emotional arc) not a narrative.
+**Scope (files you may touch):**
+- `sleep.py` (threshold change, refactor `write_daily_summary()`)
+- `db.py` — only `insert_daily_summary()` if the summary schema changes (add at END of file)
+**Scope (files you may NOT touch):**
+- `pipeline/day_memory.py` (day recording unchanged)
+- `heartbeat.py`
+- `pipeline/cortex.py`
+**Tests:** Update `tests/test_sleep_cold_memory.py`. Verify: each moment produces its own journal entry. Daily summary contains moment IDs not concatenated text. Moments below 0.65 salience are not reflected on.
+**Definition of done:** Sleep cycle produces N individual journal entries for N moments (not 1 blob). Daily summary is an index. Low-salience moments are recorded during the day but skipped at night.
+
+---
+
+### TASK-008: Body Phase 1 — Refactor (zero behavior change)
+**Status:** DONE (2026-02-14)
+**Priority:** High
+**Depends on:** TASK-004 (typed pipeline contracts)
+**Design doc:** `body-spec-v2.md` §10, Phase 1
+**Description:** Split the current executor into the brain/body architecture without changing any behavior. This is pure structural refactoring.
+- Create `pipeline/action_registry.py` — extract `ActionCapability` dataclass and `ACTION_REGISTRY` dict from executor.py. Currently enabled actions only (speak, journal_write, arrange_shelf, express_thought, end_engagement). Future actions listed but `enabled=False`.
+- Create `pipeline/body.py` — move executor functions into `execute()` with `ActionResult` and `BodyOutput` dataclasses. Pure execution, no decision logic.
+- Create `pipeline/basal_ganglia.py` — STUB that wraps the single implicit cortex action as a single-item `MotorPlan` and passes it through. All gates return approved. No filtering.
+- Create `pipeline/output.py` — STUB that does what executor currently does post-action (drive adjustments, hippocampus_write call).
+- Update `heartbeat.py` to call: Validator → Basal Ganglia → Body → Output.
+- Deprecate `pipeline/executor.py` (keep file, add deprecation notice, import from new locations).
+**Scope (files you may touch):**
+- `pipeline/action_registry.py` (new)
+- `pipeline/body.py` (new)
+- `pipeline/basal_ganglia.py` (new)
+- `pipeline/output.py` (new)
+- `pipeline/executor.py` (deprecate, re-route imports)
+- `heartbeat.py` (update `run_cycle` call chain)
+- `models/pipeline.py` (add `MotorPlan`, `ActionDecision`, `ActionResult`, `BodyOutput`, `CycleOutput`)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py` (still outputs same format)
+- `pipeline/validator.py` (still same checks)
+- `db.py`
+- `heartbeat_server.py`
+- `window/`
+**Tests:** ALL existing tests pass with zero changes. Add `tests/test_body.py` and `tests/test_basal_ganglia.py` verifying stub passthrough produces identical results to old executor.
+**Definition of done:** New pipeline stages exist and are wired in. Every existing behavior is identical. `simulate.py --cycles 10` produces same quality output.
+
+---
+
+### TASK-009: Body Phase 2 — Multi-intention + Basal Ganglia selection
+**Status:** DONE (2026-02-14)
+**Priority:** High
+**Depends on:** TASK-008
+**Design doc:** `body-spec-v2.md` §2.2, §4, §10 Phase 2
+**Description:** Cortex now outputs `intentions[]` with impulse strengths. Basal Ganglia selects which fire.
+- Update cortex prompt in `prompt_assembler.py`: add "EXPRESS YOUR INTENTIONS" instruction, `intentions[]` schema with action/target/content/impulse.
+- Basal Ganglia: implement Gates 1-5 (capability check, enabled check, prerequisites, cooldown, energy gating). No inhibition yet (Gate 6 is Phase 3).
+- Suppression logging to `action_log` table.
+- Output processing: drive adjustments from outcomes, suppressed high-impulse actions → `inject_self_reflection_seed()` for next cycle.
+- Add `recent_suppressions` block to cortex prompt context in `prompt_assembler.py` so she can journal about "what I almost did."
+- Migration: `migrations/010_body.sql` (action_log table only).
+- Peek commands in `terminal.py`: `body`, `suppressed`, `action-log`.
+**Scope (files you may touch):**
+- `pipeline/basal_ganglia.py` (full implementation)
+- `pipeline/output.py` (full implementation)
+- `pipeline/action_registry.py` (add prerequisite checks)
+- `pipeline/cortex.py` (parse new intentions[] format, backward compat with old format)
+- `prompt_assembler.py` (add intentions instruction + recent_suppressions context)
+- `heartbeat.py` (wire suppression seed injection)
+- `db.py` (add action_log functions — at END of file)
+- `migrations/010_body.sql` (new)
+- `terminal.py` (add peek commands)
+- `models/pipeline.py` (update if needed)
+**Scope (files you may NOT touch):**
+- `pipeline/sensorium.py`
+- `pipeline/thalamus.py`
+- `pipeline/hippocampus.py`
+- `sleep.py`
+- `window/` (no frontend changes yet)
+**Tests:** Add `tests/test_basal_ganglia_selection.py`. Test: multi-intention input → strongest fires, others suppressed with reasons. Energy gating works. Cooldown enforcement works. Suppression log populated.
+**Definition of done:** She expresses multiple wants per cycle. Strongest fires. Others logged as suppressed. She can journal about "I almost did X."
+
+---
+
+### TASK-010: Body Phase 3 — Inhibition + Metacognitive Monitor
+**Status:** DONE (2026-02-14)
+**Priority:** High
+**Depends on:** TASK-009
+**Design doc:** `body-spec-v2.md` §2.2 (Inhibition System), plus new metacognitive monitor design
+**Description:** Two systems that make her learn from experience and notice her own inconsistencies.
+
+**Inhibition system (from body spec):**
+- Gate 6 in Basal Ganglia: `check_inhibition()` — DB lookup against learned inhibitions.
+- Output processing: `detect_negative_signal()` (visitor left quickly, cortex expressed regret), `detect_positive_signal()` (visitor responded, journal completed), `maybe_form_inhibition()`.
+- Inhibition strength: +0.15 on negative signal, -0.1 on positive signal. Delete below 0.05.
+- Inhibition seeds stored as structured data, not narrative templates. Cortex narrates them naturally.
+- Migration: add `inhibitions` table to `010_body.sql`.
+
+**Metacognitive monitor (new):**
+- New component in `pipeline/output.py`: `check_self_consistency()`.
+- After body executes, compare executed actions + cortex speech against `config/identity.py` voice rules and character-bible constraints.
+- Divergences produce `internal_conflict` event → inbox with high salience.
+- `pipeline/day_memory.py`: add `internal_conflict` as a moment type with salience boost (+0.4) so it always gets reflected on at night.
+- `prompt_assembler.py`: inject recent internal conflicts into cortex context so she can process them during idle cycles.
+- The validator stays format-only. It does NOT strip out-of-character behavior. The metacognitive monitor catches it after the fact.
+
+**Validator change:**
+- Remove character-rule enforcement from `pipeline/validator.py`. Keep format/schema checks only.
+- Character rules move to metacognitive monitor as detection patterns (not gates).
+**Scope (files you may touch):**
+- `pipeline/basal_ganglia.py` (add Gate 6)
+- `pipeline/output.py` (inhibition formation + metacognitive monitor)
+- `pipeline/validator.py` (remove character rules, keep format checks)
+- `pipeline/day_memory.py` (add `internal_conflict` moment type, salience boost)
+- `prompt_assembler.py` (add recent_inhibitions + recent_conflicts to context)
+- `config/identity.py` (extract voice rules into machine-readable format for monitor)
+- `db.py` (add inhibition functions — at END of file)
+- `migrations/010_body.sql` (add inhibitions table)
+- `models/pipeline.py` (add `InhibitionCheck`, `SelfConsistencyResult`)
+- `terminal.py` (add `inhibitions` peek command)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py` (no prompt changes beyond what prompt_assembler provides)
+- `pipeline/sensorium.py`
+- `pipeline/thalamus.py`
+- `heartbeat_server.py`
+- `sleep.py` (sleep already reflects on high-salience moments — internal conflicts flow through existing path)
+- `window/`
+**Tests:** Add `tests/test_inhibition.py`: after negative signal, matching inhibition forms. After positive signal, it weakens. Add `tests/test_metacognitive.py`: out-of-character speech produces internal_conflict event. Conflict appears in day_memory with boosted salience.
+**Definition of done:** She learns from bad outcomes (inhibitions form). She notices when she contradicts herself (internal conflicts). Both feed into night reflection via existing sleep pipeline. Validator no longer silently strips behavior.
+
+---
+
+### TASK-011a: Body Phase 4a — Habit tracking + formation
+**Status:** DONE (2026-02-14)
+**Priority:** Medium
+**Depends on:** TASK-010
+**Design doc:** `body-spec-v2.md` §2.2 (Habit System), §10 Phase 4
+**Description:** Track repeated action patterns and form habits with nonlinear strength curves.
+- `track_action_pattern()` in output processing: after every executed action, check if habit should form or strengthen. Second occurrence in similar context → habit at 0.1. Nonlinear strength curve (fast 0→0.4, medium 0.4→0.6, slow 0.6→0.8).
+- Trigger context is coarse-grained: energy band, mood band, mode, time band, visitor_present. Too specific = habits never form.
+- Migration: add `habits` table to `010_body.sql`.
+- DB CRUD for habits (get, upsert, delete, list).
+**Scope (files you may touch):**
+- `pipeline/output.py` (add `track_action_pattern()`)
+- `db.py` (add habit functions — at END of file)
+- `migrations/010_body.sql` (add habits table)
+- `models/pipeline.py` (add habit-related dataclasses)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `pipeline/validator.py`
+- `pipeline/sensorium.py`
+- `pipeline/basal_ganglia.py`
+- `heartbeat.py`
+- `heartbeat_server.py`
+- `terminal.py`
+- `window/`
+**Tests:** Add `tests/test_habits.py`: after N repetitions of same action in same context, habit forms. Habit strength follows nonlinear curve.
+**Definition of done:** Habits form from repeated behavior. Strength curve works. Habits table populated with correct trigger context.
+
+---
+
+### TASK-011b: Body Phase 4b — Habit auto-fire in basal ganglia
+**Status:** DONE (2026-02-14)
+**Priority:** Medium
+**Depends on:** TASK-011a
+**Design doc:** `body-spec-v2.md` §2.2 (Habit System), §10 Phase 4
+**Description:** Strong habits bypass cortex entirely — reflexes, not thoughts.
+- `check_habits()` in basal ganglia BEFORE cortex call: if strong habit matches (strength ≥ 0.6), return MotorPlan directly. Cortex skipped entirely — reflex, not thought.
+- Trigger context matching against current state (energy band, mood band, mode, time band, visitor_present).
+- `habits` peek command in terminal.
+**Scope (files you may touch):**
+- `pipeline/basal_ganglia.py` (add `check_habits()`)
+- `heartbeat.py` (add habit check before cortex call in `run_cycle`)
+- `terminal.py` (add `habits` peek command)
+- `tests/` (extend habit tests)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `pipeline/validator.py`
+- `pipeline/sensorium.py`
+- `pipeline/output.py`
+- `db.py`
+- `heartbeat_server.py`
+- `window/`
+**Tests:** Extend `tests/test_habits.py`: after strength ≥ 0.6, habit auto-fires and cortex is skipped. Peek command shows all habits with strength and trigger context.
+**Definition of done:** Strong habits skip cortex (cost savings). `habits` peek command shows all habits with strength and trigger context.
+
+---
+
+### TASK-012: Engagement Phase 1 — visitor_connect as perception, not state change
+**Status:** DONE (2026-02-14)
+**Priority:** High
+**Depends on:** TASK-008 (body refactor provides the action registry / motor plan structure)
+**Description:** Currently `heartbeat_server.py` forces `engagement.status='engaged'` the instant a visitor connects. She has no choice. Change this so visitor_connect goes through the normal pipeline.
+- `heartbeat_server.py`: stop calling `db.update_engagement_state(status='engaged')` on connect. Instead, only append the `visitor_connect` event to inbox (already happens) and let the pipeline handle it.
+- `pipeline/sensorium.py`: visitor_connect salience should factor in visitor trust level, social hunger drive, and what she's currently doing. Familiar face + high social hunger = high salience. Stranger + she's absorbed in reading = low salience.
+- `pipeline/thalamus.py`: visitor_connect no longer auto-routes to `engage`. It competes with other perceptions. If it wins, cycle type is `engage` and she greets them. If it loses, she acknowledges presence but continues what she was doing.
+- `pipeline/ack.py`: still sends instant ack to visitor (so they know the system received their connection), but ack is "she noticed you" not "she's talking to you."
+- Engagement state update moves to `pipeline/executor.py` (or `pipeline/body.py` post-Phase-1): only set when she actually chooses to engage via a `speak` action directed at the visitor.
+**Scope (files you may touch):**
+- `heartbeat_server.py` (remove forced engagement on connect)
+- `pipeline/sensorium.py` (update visitor_connect salience computation)
+- `pipeline/thalamus.py` (visitor_connect competes instead of auto-wins)
+- `pipeline/ack.py` (ack = "noticed" not "engaged")
+- `pipeline/body.py` or `pipeline/executor.py` (engagement state set on speak action)
+- `models/state.py` (if EngagementState needs new fields)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `db.py` (engagement functions already exist)
+- `window/` (frontend unchanged — still gets state updates via WebSocket)
+- `sleep.py`
+**Tests:** Add `tests/test_engagement_choice.py`: visitor connects while she's idle → she engages. Visitor connects while she's absorbed (low social hunger, high expression need) → she acknowledges but doesn't engage. Visitor with high trust connects → higher salience than stranger.
+**Definition of done:** She can choose not to immediately engage with a visitor. The pipeline decides, not the server.
+
+---
+
+### TASK-013: Engagement Phase 2 — multi-slot visitor presence
+**Status:** DONE (2026-02-14)
+**Priority:** Medium
+**Depends on:** TASK-012
+**Description:** Replace the singleton `EngagementState` with a multi-visitor presence model. Multiple people can be in the shop simultaneously.
+- New table `visitors_present` (visitor_id, status: browsing|in_conversation|waiting|left, entered_at, last_activity).
+- `EngagementState` singleton becomes a computed view: "who is she actively talking to right now" derived from visitors_present.
+- `heartbeat_server.py` WebSocket: support multiple concurrent window chat sessions. Each visitor gets their own token and presence record.
+- Arbiter: visitors compete for attention alongside threads, content, creative. A cycle might address one visitor while others browse.
+- Sensorium: multiple visitor events in same inbox batch get individual perceptions with salience.
+**Scope (files you may touch):**
+- `models/state.py` (add `VisitorPresence`, refactor `EngagementState`)
+- `db.py` (add visitors_present table and functions — at END)
+- `migrations/011_multi_visitor.sql` (new)
+- `heartbeat_server.py` (multi-session WebSocket, TCP)
+- `heartbeat.py` (adapt main loop for multi-visitor awareness)
+- `pipeline/sensorium.py` (multi-visitor perception)
+- `pipeline/thalamus.py` (visitor as one of many attention targets)
+- `pipeline/arbiter.py` (visitors compete for cycle allocation)
+- `terminal.py` (show who's in the shop)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py` (prompt just sees "who's here" — assembler handles)
+- `sleep.py`
+- `window/src/components/` (frontend gets state via WebSocket, adapts)
+**Tests:** Add `tests/test_multi_visitor.py`: two visitors connect → both appear in visitors_present. She talks to one, the other sees "she's busy." Second visitor says something interesting → arbiter can switch attention.
+**Definition of done:** Multiple visitors can be in the shop. She allocates attention across them. The singleton engagement model is gone.
+
+---
+
+### TASK-014: Engagement Phase 3 — choice-based engagement via drives and basal ganglia
+**Status:** DONE (2026-02-14)
+**Priority:** Medium
+**Depends on:** TASK-009 (basal ganglia selection) + TASK-013 (multi-slot visitors)
+**Description:** Full integration of visitor choice with the drive system and basal ganglia.
+- `speak` action directed at a specific visitor has impulse modulated by: social hunger, visitor trust level, conversation interest, curiosity about what they said.
+- Basal ganglia selects which visitor to address if multiple are present and multiple speak actions have impulse > 0.
+- She can choose to talk to a familiar face more than a stranger. Or an interesting stranger more than a boring returner. Drives determine the weighting.
+- She can actively disengage ("I need to get back to this") if expression_need or curiosity is high and the conversation isn't stimulating.
+- Prompt assembler includes all present visitors with trust levels so cortex can express differentiated impulses.
+**Scope (files you may touch):**
+- `pipeline/basal_ganglia.py` (visitor-directed action selection)
+- `pipeline/output.py` (track visitor engagement patterns for habit formation)
+- `prompt_assembler.py` (include all present visitors in context)
+- `pipeline/cortex.py` (parse visitor-targeted intentions)
+- `pipeline/thalamus.py` (remove any remaining visitor-priority hardcoding)
+**Scope (files you may NOT touch):**
+- `db.py`
+- `heartbeat_server.py`
+- `sleep.py`
+- `window/`
+**Tests:** Extend `tests/test_engagement_choice.py`: two visitors present, one familiar + one stranger. With high social hunger, she addresses the familiar. With high curiosity and the stranger saying something interesting, she addresses the stranger. With low social hunger and high expression need, she continues her own work.
+**Definition of done:** Visitor engagement is fully drive-modulated and arbiter-routed. She's a shopkeeper, not an escort.
+
+---
+
+### TASK-015: Body Phase 5 — Dashboard panels
+**Status:** DONE (2026-02-15)
+**Priority:** Medium
+**Depends on:** TASK-002 (dashboard routes extracted), TASK-011b (habits complete)
+**Design doc:** `body-spec-v2.md` §9
+
+**Description:** Add two new dashboard panels showing body state and learned behaviors. All data sources already exist in the DB (action_log, habits, inhibitions tables from TASK-009/010/011). This is read-only data display — no pipeline changes.
+
+**Implementation steps (in order):**
+
+**Step 1 — DB query functions.** Add to end of `db.py`:
+- `get_actions_today(db) -> list[dict]` — query action_log for today (UTC), group by action_type, return [{type, count, total_energy}]
+- `get_action_capabilities(db) -> list[dict]` — read ACTION_REGISTRY, join with action_log for cooldown status, return [{action, enabled, ready, cooling_until, energy_cost}]
+- `get_top_habits(db, limit=5) -> list[dict]` — habits ordered by strength desc, return [{action, trigger_context, strength, last_fired, fire_count}]
+- `get_active_inhibitions(db) -> list[dict]` — inhibitions with strength > 0.05, ordered by strength desc, return [{action, context, strength, trigger_count, formed_at}]
+- `get_recent_suppressions(db, limit=10, min_impulse=0.5) -> list[dict]` — action_log where suppressed=true AND impulse >= min_impulse, ordered by timestamp desc, return [{action, impulse, reason, timestamp}]
+- `get_habit_skip_count_today(db) -> int` — count cycles today where habit auto-fired (cortex_skipped=true in cycle_log or equivalent marker)
+- `get_energy_budget(db) -> dict` — {spent_today, budget} from action_log + config
+
+**Step 2 — REST endpoints.** Add to dashboard routes (in `api/dashboard_routes.py` if TASK-002 is done, otherwise `heartbeat_server.py`):
+- `GET /api/dashboard/body` — returns JSON:
+  ```json
+  {
+    "capabilities": [{"action": "speak", "enabled": true, "ready": true, "cooling_until": null, "energy_cost": 1}],
+    "energy": {"spent_today": 42, "budget": 100},
+    "actions_today": [{"type": "speak", "count": 15, "total_energy": 15}]
+  }
+  ```
+- `GET /api/dashboard/behavioral` — returns JSON:
+  ```json
+  {
+    "habits": [{"action": "...", "trigger_context": {}, "strength": 0.72, "last_fired": "...", "fire_count": 8}],
+    "inhibitions": [{"action": "...", "context": "...", "strength": 0.35, "trigger_count": 3}],
+    "suppressions": [{"action": "...", "impulse": 0.7, "reason": "...", "timestamp": "..."}],
+    "habit_skips_today": 4
+  }
+  ```
+
+**Step 3 — TypeScript types.** Add to `window/src/lib/types.ts`:
+- `ActionCapabilityView` — {action, enabled, ready, cooling_until, energy_cost}
+- `BodyPanelData` — {capabilities: ActionCapabilityView[], energy: {spent_today, budget}, actions_today: {type, count, total_energy}[]}
+- `HabitView` — {action, trigger_context, strength, last_fired, fire_count}
+- `InhibitionView` — {action, context, strength, trigger_count}
+- `SuppressionView` — {action, impulse, reason, timestamp}
+- `BehavioralPanelData` — {habits: HabitView[], inhibitions: InhibitionView[], suppressions: SuppressionView[], habit_skips_today: number}
+
+**Step 4 — API client.** Add to `window/src/lib/dashboard-api.ts`:
+- `fetchBodyData(): Promise<BodyPanelData>`
+- `fetchBehavioralData(): Promise<BehavioralPanelData>`
+
+**Step 5 — React panels.**
+- `window/src/components/dashboard/BodyPanel.tsx`:
+  - Capability grid: rows for each action. Green dot = enabled+ready. Yellow dot = cooling down (show remaining seconds). Grey dot = disabled. Columns: action name, status dot, energy cost, times used today.
+  - Energy bar: horizontal bar showing spent/budget with percentage.
+  - Actions today: simple table sorted by count desc.
+  - Auto-refresh every 10s.
+
+- `window/src/components/dashboard/BehavioralPanel.tsx`:
+  - Top habits: table with strength shown as a colored bar (0-1 scale, green ≥0.6 = auto-fire territory). Columns: action, trigger context (compact), strength bar, fire count.
+  - Active inhibitions: table sorted by strength. Columns: action, context, strength, trigger count.
+  - "She almost..." feed: reverse-chronological list of suppressions. Each item shows action name, impulse strength, reason it was suppressed, how long ago. Style like an activity feed.
+  - Cost savings: single number showing habit-skip count today with label "Cortex calls saved by habits."
+  - Auto-refresh every 10s.
+
+**Step 6 — Wire into dashboard page.** Add both panels to `window/src/app/dashboard/page.tsx` in the grid layout. Place BodyPanel after the existing Drives panel. Place BehavioralPanel after BodyPanel.
+
+**Scope (files you may touch):**
+- `db.py` (add query functions — at END of file only)
+- `api/dashboard_routes.py` (if exists after TASK-002) OR `heartbeat_server.py` (if 002 not done)
+- `window/src/components/dashboard/BodyPanel.tsx` (new)
+- `window/src/components/dashboard/BehavioralPanel.tsx` (new)
+- `window/src/app/dashboard/page.tsx`
+- `window/src/lib/dashboard-api.ts`
+- `window/src/lib/types.ts`
+
+**Scope (files you may NOT touch):**
+- `heartbeat.py`
+- `pipeline/*` (all pipeline files)
+- `sleep.py`
+- `models/*`
+
+**Tests:**
+- `tests/test_dashboard_body.py`: verify `/api/dashboard/body` returns correct JSON shape. Test with empty action_log (fresh day). Test with seeded action_log entries.
+- `tests/test_dashboard_behavioral.py`: verify `/api/dashboard/behavioral` returns correct JSON shape. Test with no habits/inhibitions. Test with seeded data. Verify suppressions filter by min_impulse.
+- Verify existing dashboard tests still pass.
+
+**Definition of done:**
+- Both panels render on the dashboard without errors.
+- Endpoints return correct data from real DB tables.
+- Capability grid shows accurate ready/cooling/disabled status.
+- "She almost..." feed shows suppressed actions with impulse > 0.5.
+- Habit-skip cost savings counter works.
+- Auto-refresh doesn't break WebSocket or cause memory leaks.
+
+---
+
+### TASK-016: Reconcile DailySummary dataclass with new index schema
+**Status:** DONE (2026-02-14)
+**Priority:** Low
+**Description:** TASK-007 changed daily_summary from narrative blob to lightweight index, but `DailySummary` dataclass in `models/state.py` and the `summary_bullets` column name still reflect the old shape. Rename field and update dataclass to match actual data.
+**Scope (files you may touch):**
+- `models/state.py`
+- `db.py` (only the `insert_daily_summary` / `get_daily_summary` functions)
+- `sleep.py` (update references if field name changes)
+**Scope (files you may NOT touch):**
+- Everything else
+**Tests:** Existing sleep tests pass. Add test verifying round-trip of new index structure.
+**Definition of done:** `DailySummary` fields match what `sleep.py` actually stores.
+
+---
+
+### TASK-017: Verify unengaged visitor timeout path
+**Status:** DONE (2026-02-15)
+**Priority:** Medium
+**Depends on:** TASK-012
+**Description:** After TASK-012, a visitor can connect but never be engaged (salience < 0.5). Verify that heartbeat_server.py has a connection timeout that disconnects unengaged visitors after a reasonable period (e.g. 5 minutes). If not, add one. Without this, a visitor could sit in the shop forever with no interaction and no cleanup.
+**Scope (files you may touch):**
+- `heartbeat_server.py`
+**Scope (files you may NOT touch):**
+- Everything else
+**Tests:** Test that an unengaged visitor connection is cleaned up after timeout.
+**Definition of done:** Unengaged visitors don't linger forever.
+
+---
+
+### TASK-018: Dashboard and WebSocket authentication enforcement
+**Status:** DONE (2026-02-14)
+**Priority:** High
+**Description:** Security audit found that dashboard HTTP endpoints (`/api/dashboard/*`) have NO server-side auth enforcement — the `DASHBOARD_PASSWORD` is validated by `/api/dashboard/auth` but never checked on data endpoints. WebSocket connections (port 8765) are also unauthenticated. Any client can connect and receive full application state.
+Fix: (1) Extract+validate `Authorization: Bearer` header on all `_http_dashboard_*` handlers. (2) Require a valid token on WebSocket handshake. (3) Refuse to start (or warn loudly) if `DASHBOARD_PASSWORD` is unset.
+**Scope (files you may touch):**
+- `heartbeat_server.py`
+**Scope (files you may NOT touch):**
+- `heartbeat.py`
+- `db.py`
+- `pipeline/*`
+**Tests:** Add `tests/test_dashboard_auth.py` verifying 401 on unauthenticated requests.
+**Definition of done:** Dashboard endpoints return 401 without valid auth. WebSocket rejects unauthenticated connections.
+
+---
+
+### TASK-019: Restrict CORS to production domain
+**Status:** DONE (2026-02-15)
+**Priority:** Medium
+**Description:** Both nginx and the Python HTTP handler set `Access-Control-Allow-Origin: *`, allowing any website to make cross-origin API requests. Replace with specific domain allowlist.
+**Scope (files you may touch):**
+- `heartbeat_server.py` (CORS headers in `_http_json`, `_http_bytes`, `_http_cors_preflight`)
+- `deploy/nginx.conf` (CORS headers in `/api/` location)
+**Scope (files you may NOT touch):**
+- `heartbeat.py`
+- `db.py`
+**Tests:** Verify CORS headers reflect allowed origin, not wildcard.
+**Definition of done:** CORS restricted to production domain. Wildcard removed.
+
+---
+
+### TASK-020: Post-review cleanup (009 + 012)
+**Status:** DONE (2026-02-14)
+**Priority:** Low
+**Description:** Minor items from code reviews:
+- Extract 0.5 salience threshold in thalamus.py to named constant
+- Update ARCHITECTURE.md debt item #4 (engagement no longer forced)
+- Add test_engagement_choice.py to ARCHITECTURE.md test table
+- Fix summary table Total row
+- Double save_drives_state in output.py — consolidate to single call
+- Stale module descriptions in ARCHITECTURE.md
+**Scope (files you may touch):**
+- `thalamus.py`
+- `output.py`
+- `ARCHITECTURE.md`
+**Scope (files you may NOT touch):**
+- Everything else
+**Tests:** Existing tests pass.
+**Definition of done:** All nits resolved.
+
+---
+
+### TASK-021a: Scene compositor component + asset pipeline
+**Status:** DONE (2026-02-15)
+**Priority:** High
+**Depends on:** None (frontend-only, uses existing scaffolding)
+**Design doc:** `scene-config.json` (locked composition parameters)
+**Description:** Build the multi-layer scene compositor as a presentational React component and prepare all static assets. The compositor renders a 6-layer stack in a responsive viewport. No pipeline connection yet — accepts a `spriteState` prop and renders the correct sprite.
+
+**Layer stack (bottom to top):**
+- Layer 0: Outdoor scenery — dynamic background visible through shop windows. Time-of-day variants (morning, afternoon, evening, night). Sits BEHIND the shop interior. Requires `shop_back.png` window regions to have transparency or a window mask asset.
+- Layer 1: `shop_interior.png` — shop interior base with transparent/semi-transparent window areas so Layer 0 shows through.
+- Layer 2: Character sprite — swapped based on `spriteState` prop. Positioned per `scene-config.json` (x: 594, y: 213 at 1440×900, 55% canvas height). CSS filter for color grade (red 1.05, blue 0.92). Drop shadow (5,5 offset, 0.3 opacity, 6px blur).
+- Layer 3: Counter foreground — everything below y=72% of `shop_back.png`, with 6px fade at cut edge. Occludes character's lower body.
+- Layer 4: CSS radial-gradient vignette (35% transparent center, edge `rgba(8,6,4,0.65)`).
+- Layer 5: Canvas dust particles (35 particles, `rgba(255,210,150)`, max opacity 0.3, slow upward drift).
+
+**Implementation steps:**
+
+**Step 1 — Asset prep scripts.**
+- Create `scripts/slice_counter.py`: Load `shop_back.png`, make everything above y=72% transparent, apply 6px fade zone at cut edge, save as `public/assets/counter_foreground.png` (RGBA PNG). Run once, commit output.
+- Create `scripts/cut_window_mask.py`: Load `shop_back.png`, identify window regions, create a version where window areas are transparent so the outdoor scenery layer shows through. Save as `public/assets/shop_interior.png` (RGBA PNG). Alternative: if too complex for automated cutting, create a manually-painted alpha mask `public/assets/window_mask.png`.
+
+**Step 2 — Outdoor scenery assets.** Place time-of-day background variants in `public/assets/scenery/`: `morning.png`, `afternoon.png`, `evening.png`, `night.png`. Sized to fill the viewport (1440×900). If assets aren't ready yet, use CSS gradient fallbacks per time period.
+
+**Step 3 — SceneCanvas component.** Update `window/src/components/SceneCanvas.tsx`:
+- Render 1440×900 viewport with CSS `aspect-ratio: 16/10`, scales responsively.
+- All 6 layers as `position:absolute` children with explicit z-index.
+- Layer 0: `<img>` or `<div>` for outdoor scenery, full fill.
+- Layer 1: `<img>` for `shop_interior.png`, full fill.
+- Layer 2: `<img>` for current sprite, percentage-based positioning from `scene-config.json`. CSS filter for color grade. CSS drop-shadow. Crossfade via opacity 0.3s on swap.
+- Layer 3: `<img>` for `counter_foreground.png`, full fill.
+- Layer 4: `<div>` with CSS radial-gradient for vignette.
+- Layer 5: `<canvas>` for dust particles (≤35 particles, `requestAnimationFrame`).
+- Props: `spriteState: SpriteState`, `timeOfDay: TimeOfDay`.
+- All magic numbers from `scene-constants.ts` — no raw pixel values.
+
+**Step 4 — Sprite state type + constants.** Add `SpriteState` and `TimeOfDay` types to `window/src/lib/types.ts`. Create `window/src/lib/scene-constants.ts` — export all `scene-config.json` values as typed constants.
+
+**Step 5 — Verify composition.** Add a `?debug=scene` query param handler in `page.tsx` that renders SceneCanvas with a sprite state selector dropdown (dev only).
+
+**Sprite file map** (placed in `public/assets/sprites/`):
+- `engaged.png` → `char-1-cropped.png`
+- `tired.png` → `char-2-cropped.png`
+- `thinking.png` → `char-3-cropped.png`
+- `curious.png` → `char-4-cropped.png`
+- `surprised.png` → `char-5-cropped.png`
+- `focused.png` → `char-6-cropped.png`
+
+**Scope (files you may touch):**
+- `scripts/slice_counter.py` (new)
+- `scripts/cut_window_mask.py` (new)
+- `window/src/components/SceneCanvas.tsx` (rewrite)
+- `window/src/lib/scene-constants.ts` (new)
+- `window/src/lib/types.ts` (add `SpriteState`, `TimeOfDay` types)
+- `window/src/lib/compositor.ts` (update if needed)
+- `window/src/hooks/useParticles.ts` (update particle config)
+- `window/src/hooks/useSceneTransition.ts` (update for sprite crossfade)
+- `window/src/app/page.tsx` (add debug scene viewer behind query param)
+- `public/assets/` (new asset files)
+**Scope (files you may NOT touch):**
+- `pipeline/*` (no server-side changes)
+- `window_state.py`
+- `heartbeat_server.py`
+- `heartbeat.py`
+- `db.py`
+- `compositing.py`
+**Tests:**
+- Visual: SceneCanvas renders all 6 layers without layout shift on sprite swap.
+- Visual: Counter foreground correctly occludes sprite below y=72%.
+- Visual: Outdoor scenery visible through window regions of shop interior.
+- Visual: Dust particles render at ≤35 count, no frame drops.
+- Visual: Viewport scales responsively — test at 1440×900, 1024×640, 768×480.
+- Unit: `scene-constants.ts` exports match `scene-config.json` values.
+- `scripts/slice_counter.py` produces valid RGBA PNG with correct dimensions.
+**Definition of done:** SceneCanvas renders the full 6-layer composite with correct z-ordering. Sprite swaps crossfade without layout shift. Outdoor scenery shows through shop windows, changes with `timeOfDay` prop. Counter foreground occludes sprite naturally. Dust particles and vignette render as overlays. All positioning is percentage-based and responsive. Component works standalone with hardcoded props (no pipeline dependency). All z-indexes documented in `scene-constants.ts`.
+
+---
+
+### TASK-021b: Wire scene compositor to ALIVE pipeline state
+**Status:** DONE (2026-02-16)
+**Priority:** High
+**Depends on:** TASK-021a (compositor component exists and works standalone)
+**Description:** Connect the scene compositor to live ALIVE pipeline state. Sprite resolution happens server-side in `pipeline/scene.py` (which already has access to drives, mood, activity, visitors). The resolved sprite state is broadcast via `window_state.py` WebSocket payload. Frontend reads it and passes to SceneCanvas. Time-of-day is derived server-side from `clock.py`.
+
+**Implementation steps:**
+
+**Step 1 — Server-side sprite resolution.** Update `pipeline/scene.py`:
+- Add `resolve_sprite_state(drives, engagement, room_state, recent_events) -> str`.
+- Priority order: surprised (unexpected event in last 2 cycles) > tired (energy < 30) > engaged (has_visitor AND in conversation) > curious (has_visitor AND not yet engaged) > focused (thread_work/arranging/creative cycle) > thinking (default idle).
+
+**Step 2 — Time-of-day resolution.** Add to `pipeline/scene.py`:
+- `resolve_time_of_day() -> str` using `clock.py`.
+- JST-based: morning (6-11), afternoon (11-17), evening (17-20), night (20-6).
+
+**Step 3 — Broadcast via window_state.** Update `window_state.py`:
+- Add `sprite_state: str` and `time_of_day: str` fields to broadcast payload.
+
+**Step 4 — TypeScript types.** Update `window/src/lib/types.ts`:
+- Add `sprite_state: SpriteState` and `time_of_day: TimeOfDay` to the WebSocket payload type.
+
+**Step 5 — Wire frontend.** Update `window/src/app/page.tsx`:
+- Read `sprite_state` and `time_of_day` from socket state, pass to `<SceneCanvas>`.
+- Remove debug hardcoding from TASK-021a (keep `?debug=scene` override).
+
+**Scope (files you may touch):**
+- `pipeline/scene.py` (add sprite + time resolution functions)
+- `window_state.py` (add fields to broadcast payload)
+- `window/src/lib/types.ts` (add fields to WebSocket payload type)
+- `window/src/app/page.tsx` (wire socket state → SceneCanvas props)
+- `window/src/hooks/useShopkeeperSocket.ts` (only if payload parsing needs update)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `pipeline/basal_ganglia.py`
+- `pipeline/output.py`
+- `heartbeat.py`
+- `heartbeat_server.py`
+- `db.py`
+- `window/src/components/SceneCanvas.tsx` (should work with props from 021a)
+- `compositing.py`
+**Tests:**
+- `tests/test_scene_sprite.py` (new): `resolve_sprite_state` returns correct state for each priority case. Surprised beats tired. Tired beats engaged. Curious requires visitor present but not engaged. Default is thinking.
+- `tests/test_window_state.py`: verify `sprite_state` and `time_of_day` appear in broadcast payload with valid values.
+- Integration: run heartbeat, connect WebSocket, verify `sprite_state` changes when drives/visitors change.
+**Definition of done:** Scene compositor shows the correct sprite based on live pipeline state. Outdoor scenery changes with real time of day. Sprite transitions happen smoothly when pipeline state changes. No client-side sprite resolution logic — all resolution is server-side. `?debug=scene` override still works for testing.
+
+---
+
+### TASK-022: Fix heartbeat status indicator
+**Status:** DONE (2026-02-16)
+**Priority:** High
+**Description:** The "Heartbeat" field in the Controls panel shows "Inactive" even while cycles are actively running. Read actual heartbeat/cron state (e.g., last cycle timestamp vs expected interval) and display accurate status.
+**Acceptance criteria:**
+- If last cycle fired within 1 expected interval → show "Active" (green)
+- If last cycle fired within 2 intervals → show "Late" (yellow)
+- If no cycle within 3 intervals → show "Inactive" (red)
+- Display time since last cycle next to status
+**Scope (files you may touch):**
+- `window/src/components/dashboard/ControlsPanel.tsx` (or equivalent Controls panel component)
+- `api/dashboard_routes.py` (heartbeat status endpoint)
+- `heartbeat_server.py` (if dashboard routes not yet extracted)
+**Scope (files you may NOT touch):**
+- `heartbeat.py`
+- `db.py`
+- `pipeline/*`
+**Tests:** Verify heartbeat status reflects actual cycle state. Active cycles show "Active" (green). Stale cycles show correct degraded status.
+**Definition of done:** Controls panel shows real-time heartbeat status with color-coded indicator and time since last cycle.
+
+---
+
+### TASK-023: Fix Threads panel — surface thread titles and summaries
+**Status:** DONE (2026-02-16)
+**Priority:** Medium
+**Description:** All 7 threads show "..." with status "open" but no title or content. Each thread should display meaningful information.
+**Acceptance criteria:**
+- Each thread displays its title (or first ~60 chars of its seed content if no title field exists)
+- Each thread displays thread type or topic tag if available
+- Each thread displays message count or last activity timestamp
+- If title/summary fields are null in DB, investigate whether cycle processing is supposed to write them and fix the write path
+**Scope (files you may touch):**
+- `window/src/components/dashboard/ThreadsPanel.tsx`
+- `api/dashboard_routes.py` (threads endpoint)
+- `heartbeat_server.py` (if dashboard routes not yet extracted)
+- `window_state.py` (if thread data shape in broadcast needs updating)
+**Scope (files you may NOT touch):**
+- `heartbeat.py`
+- `pipeline/*` (unless thread write path fix is required — document scope expansion first)
+**Tests:** Verify threads endpoint returns title/type/activity data. Panel renders thread titles instead of "...".
+**Definition of done:** ThreadsPanel shows real thread titles, types/tags, and activity timestamps instead of placeholder content.
+
+---
+
+### TASK-024: Investigate drive boundary clamping
+**Status:** DONE (2026-02-15)
+**Priority:** High
+**Description:** Curiosity pinned at 100%, Expression Need at 0%, Rest Need at 100%. Drives appear to not decay or recharge after cycles.
+**Acceptance criteria:**
+- Trace the drive update path: cycle completes → drive modulation function → DB write
+- Confirm modulation is actually executing (add logging if needed)
+- Confirm updated values are written to DB, not just held in memory
+- After fix: trigger 3 manual cycles, verify at least 2 drive values change between cycles
+- No drive should remain at 0% or 100% for more than 3 consecutive cycles under normal operation
+**Scope (files you may touch):**
+- `pipeline/output.py` (drive modulation logic)
+- `pipeline/hypothalamus.py` (drive computation)
+- `db.py` (drive state read/write — at END of file only)
+- `models/state.py` (DrivesState if schema needs fixing)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `heartbeat_server.py`
+- `window/`
+**Tests:** Add/update tests verifying drive values change after cycle execution. No drive stays pinned at boundary for >3 consecutive cycles.
+**Definition of done:** Drive values modulate correctly after each cycle. Dashboard shows varying drive levels.
+
+---
+
+### TASK-025: Investigate flat memory resonance scores
+**Status:** DONE (2026-02-16)
+**Priority:** Medium
+**Description:** All visible memories show identical 55% resonance. No variance means retrieval has no signal.
+**Acceptance criteria:**
+- Determine if resonance is calculated at creation time (static) or at retrieval time (contextual)
+- If static: fix the scoring function — it should factor in content type, emotional valence, drive alignment, recency
+- If contextual: fix the query context being passed — it may be empty or identical each time
+- After fix: memory pool should show at least 3 distinct resonance values across entries
+- Document how resonance is calculated (formula/factors) in a code comment
+**Scope (files you may touch):**
+- `pipeline/hippocampus.py` (memory retrieval/scoring)
+- `db.py` (memory query functions — at END of file only)
+- `api/dashboard_routes.py` (memory pool endpoint)
+- `heartbeat_server.py` (if dashboard routes not yet extracted)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `heartbeat.py`
+- `window/` (display should auto-update when data improves)
+**Tests:** Verify resonance scoring produces distinct values for memories with different content types, ages, and emotional valence.
+**Definition of done:** Memory pool shows varied resonance scores. Scoring formula is documented in code comments.
+
+---
+
+### TASK-026: Add Content Pool panel
+**Status:** DONE (2026-02-16)
+**Priority:** Medium
+**Description:** New dashboard panel showing available unconsumed content. Data source: Feed/content tables — items that have been fetched but not yet ingested by a cycle.
+**Acceptance criteria:**
+- Panel title: "Content Pool"
+- Show: total items in pool
+- Show: breakdown by content type (article, image, music, quote, etc.)
+- Show: last 5 recently added items with title, type, and timestamp added
+- Show: age of oldest unconsumed item
+- Auto-refresh on same interval as other panels
+**Scope (files you may touch):**
+- `window/src/components/dashboard/ContentPoolPanel.tsx` (new)
+- `window/src/app/dashboard/page.tsx` (add panel to grid — middle row alongside Memory Pool and Collection)
+- `window/src/lib/dashboard-api.ts` (add fetch function)
+- `window/src/lib/types.ts` (add ContentPoolData type)
+- `api/dashboard_routes.py` (add `/api/dashboard/content-pool` endpoint)
+- `db.py` (add content pool query function — at END of file only)
+**Scope (files you may NOT touch):**
+- `heartbeat.py`
+- `pipeline/*`
+- `sleep.py`
+**Tests:** Verify `/api/dashboard/content-pool` returns correct JSON shape. Panel renders without errors.
+**Definition of done:** Content Pool panel displays in the dashboard middle row showing pool size, type breakdown, recent additions, and oldest item age.
+
+---
+
+### TASK-027: Add Feed Pipeline panel
+**Status:** DONE (2026-02-16)
+**Priority:** Medium
+**Description:** New dashboard panel showing ingestion pipeline health. Data source: Feed pipeline state, job queue, error logs.
+**Acceptance criteria:**
+- Panel title: "Feed"
+- Show: pipeline status — Running / Paused / Error (with color indicator)
+- Show: queue depth (items waiting for processing)
+- Show: last successful ingestion timestamp
+- Show: failed items count in last 24h (if >0, show last error message)
+- Show: ingestion rate — items processed in last 24h
+- Auto-refresh on same interval as other panels
+**Scope (files you may touch):**
+- `window/src/components/dashboard/FeedPanel.tsx` (new)
+- `window/src/app/dashboard/page.tsx` (add panel to grid — bottom row alongside Timeline and Controls)
+- `window/src/lib/dashboard-api.ts` (add fetch function)
+- `window/src/lib/types.ts` (add FeedPanelData type)
+- `api/dashboard_routes.py` (add `/api/dashboard/feed` endpoint)
+- `db.py` (add feed pipeline query functions — at END of file only)
+**Scope (files you may NOT touch):**
+- `heartbeat.py`
+- `pipeline/*`
+- `sleep.py`
+**Tests:** Verify `/api/dashboard/feed` returns correct JSON shape. Panel renders without errors.
+**Definition of done:** Feed panel displays in the dashboard bottom row showing pipeline status, queue depth, ingestion stats, and error info.
+
+---
+
+### TASK-028: Add Consumption History panel
+**Status:** DONE (2026-02-16)
+**Priority:** Medium
+**Description:** New dashboard panel showing what she consumed and what it produced. Data source: Ingestion logs joined with output records (memories, collection items, thread references).
+**Acceptance criteria:**
+- Panel title: "Consumption History"
+- Chronological list, most recent first
+- Each entry shows: timestamp, content type icon/label, source title (truncated to ~80 chars), outcome tag ("→ memory", "→ collection", "→ thread", "→ no output")
+- Show last 20 entries by default
+- If an item produced multiple outputs, show all outcome tags
+- Scrollable within panel
+**Scope (files you may touch):**
+- `window/src/components/dashboard/ConsumptionHistoryPanel.tsx` (new)
+- `window/src/app/dashboard/page.tsx` (add panel to grid — middle row, may need grid restructure)
+- `window/src/lib/dashboard-api.ts` (add fetch function)
+- `window/src/lib/types.ts` (add ConsumptionHistoryData type)
+- `api/dashboard_routes.py` (add `/api/dashboard/consumption-history` endpoint)
+- `db.py` (add consumption history query function — at END of file only)
+**Scope (files you may NOT touch):**
+- `heartbeat.py`
+- `pipeline/*`
+- `sleep.py`
+**Tests:** Verify `/api/dashboard/consumption-history` returns correct JSON shape with outcome tags. Panel renders and scrolls without errors.
+**Definition of done:** Consumption History panel shows chronological feed of ingested content with outcome tags, scrollable, auto-refreshing.
+
+---
+
+### TASK-032: Tag actions as reflexive vs generative in action registry
+**Status:** DONE (2026-02-16)
+**Priority:** High
+**Depends on:** TASK-011b (habit auto-fire)
+**Description:** Habit auto-fire currently skips cortex for all actions, but generative actions (write_journal, speak, post_x_draft) need LLM output to produce meaningful results. A journaling habit that skips the brain writes nothing.
+
+Fix: Add a `generative: bool` field to `ActionCapability` in `pipeline/action_registry.py`. Tag each action:
+- Reflexive (`generative=False`): rearrange, end_engagement, express_thought — can auto-fire without cortex.
+- Generative (`generative=True`): write_journal, speak, post_x_draft — require cortex output.
+
+In `pipeline/basal_ganglia.py` `check_habits()`: if a matching habit's action is generative, do NOT auto-fire. Instead, inject a `habit_boost` into the cycle context so the cortex call includes it. The habit increases impulse for that action (+0.3 to base impulse) rather than bypassing cortex entirely.
+
+In `prompt_assembler.py`: if `habit_boost` is present, add a line to cortex context: "You feel drawn to [action] — it's becoming a habit." This gives cortex a nudge without forcing the action.
+
+**Scope (files you may touch):**
+- `pipeline/action_registry.py` (add `generative` field to ActionCapability, tag all actions)
+- `pipeline/basal_ganglia.py` (check_habits splits on generative flag)
+- `prompt_assembler.py` (inject habit_boost context)
+- `heartbeat.py` (pass habit_boost through to cortex call if needed)
+- `models/pipeline.py` (add habit_boost to CortexInput if needed)
+
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `pipeline/output.py`
+- `db.py`
+- `window/`
+
+**Tests:** Add to `tests/test_habits.py`:
+- test_reflexive_habit_autofires — rearrange habit at strength 0.6 skips cortex
+- test_generative_habit_boosts_impulse — write_journal habit at strength 0.6 does NOT skip cortex, instead adds habit_boost to cycle context
+- test_habit_boost_in_prompt — when habit_boost present, prompt assembler includes habit nudge text
+
+**Definition of done:** Generative actions never auto-fire. Strong generative habits boost impulse instead. Reflexive actions auto-fire as before. She tends to journal rather than reflexively journaling nothing.
+
+---
+
+### TASK-033: Wire feed ingestion into heartbeat loop + populate feed sources
+**Status:** DONE (2026-02-16)
+**Priority:** High
+**Depends on:** TASK-027 (Feed dashboard panel)
+**Description:** `run_feed_ingestion()` in `feed_ingester.py` is fully built but never fires because `FEED_SOURCES` in `config/feeds.py` is empty (all commented out). The heartbeat loop already has the call site (lines 450-465 of `heartbeat.py`) that imports and calls `run_feed_ingestion()` on a 1-hour interval, and handles pool expiry + capping. But with an empty source list, nothing happens.
+
+Fix:
+1. Populate `FEED_SOURCES` in `config/feeds.py` with 3-5 real RSS feeds appropriate for the shopkeeper character (art, Tokyo culture, literature, antiques, curiosities).
+2. Verify that after one ingestion cycle, `content_pool` has >0 rows and the Content Pool dashboard panel shows items.
+
+The heartbeat wiring already exists — this task is about populating the config and verifying end-to-end flow.
+
+**Scope (files you may touch):**
+- `config/feeds.py` (populate FEED_SOURCES with real RSS feeds)
+
+**Scope (files you may NOT touch):**
+- `feed_ingester.py` (already complete)
+- `db/content.py` (already complete)
+- `heartbeat.py` (wiring already exists)
+- `pipeline/*`
+- `window/`
+
+**Tests:** Run `python -c "import asyncio; from feed_ingester import run_feed_ingestion; print(asyncio.run(run_feed_ingestion()))"` and verify return value > 0. Check `content_pool` table has rows. Content Pool dashboard panel shows items after ingestion.
+**Definition of done:** `FEED_SOURCES` contains 3-5 working RSS feeds. Feed ingestion runs successfully and populates the content pool. Dashboard reflects the ingested content.
+
+---
+
+### TASK-034: Integrate markdown.new into feed enrichment pipeline
+**Status:** DONE (2026-02-16)
+**Priority:** Medium
+**Depends on:** TASK-033 (feed pipeline live)
+**Description:** Replace or augment the current `fetch_readable_text()` in `pipeline/enrich.py` with markdown.new API calls. Current enrichment fetches raw HTML and extracts text — wasteful on tokens and blind to multimedia content.
+markdown.new converts any URL to clean markdown. Benefits:
+- **Articles/essays:** Strips nav, ads, footers. Clean prose only. Major token savings.
+- **YouTube/video:** Extracts transcript + metadata (title, channel, duration). She can "watch" videos.
+- **Music links (Spotify, Bandcamp, SoundCloud):** Extracts track metadata, descriptions, liner notes. She can "listen" to music.
+- **Image-heavy pages:** Extracts alt text, captions, surrounding context. She can "see" visual content.
+This unlocks new content types in the feed. Currently FEED_SOURCES are text-only RSS. After this, you can add YouTube channels, Spotify playlists, music blogs with embedded players — she consumes them all as markdown.
+**Implementation:**
+1. Add `fetch_via_markdown_new(url: str) -> str` to `pipeline/enrich.py`. Call `https://markdown.new/api/v1/convert?url={url}` (or equivalent endpoint). Return clean markdown string.
+2. Update `fetch_readable_text()` to try markdown.new first, fall back to current extraction if the service is unavailable or returns error.
+3. Update `feed_ingester.py` content type detection: if markdown.new returns a transcript → tag as `video`. If it returns track metadata → tag as `music`. If it returns prose → tag as `article`. Store the content type in `content_pool.content_type`.
+4. Update `config/feeds.py`: add 2-3 multimedia sources as examples:
+   - A YouTube channel RSS (e.g., NHK World, Tokyo street walks, ambient music mixes)
+   - A music blog or Bandcamp tag feed
+5. Add rate limiting / caching: don't hit markdown.new more than once per URL. Store the converted markdown in `content_pool.enriched_text` (add column if needed via migration).
+**Scope (files you may touch):**
+- `pipeline/enrich.py` (add markdown.new fetch, update fallback chain)
+- `feed_ingester.py` (content type detection from enriched output)
+- `config/feeds.py` (add multimedia feed sources)
+- `db/content.py` (add enriched_text column query if needed)
+- `migrations/` (new migration if schema change needed)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `pipeline/basal_ganglia.py`
+- `heartbeat.py`
+- `heartbeat_server.py`
+- `window/`
+**Tests:**
+- test_markdown_new_article — URL returns clean markdown, stripped of HTML
+- test_markdown_new_video — YouTube URL returns transcript + metadata
+- test_markdown_new_fallback — service unavailable, falls back to current extraction
+- test_content_type_detection — video transcript tagged as "video", music as "music", prose as "article"
+- test_no_duplicate_enrichment — same URL not fetched twice
+**Definition of done:** Feed pipeline enriches URLs via markdown.new. She can consume articles, videos, and music from the same pipeline. Content pool shows mixed content types. Token usage per item drops measurably vs raw HTML extraction.
+
+---
+
+### TASK-035: Shop open/close as pipeline choice, not auto-managed
+**Status:** DONE (2026-02-16)
+**Priority:** High
+**Depends on:** TASK-032 (generative/reflexive tagging)
+**Description:** The shop auto-reopens every cycle via heartbeat.py:412-415 if energy > 0.5, creating an oscillation loop with the close_shop habit (14 closes/day on already-closed shop). Same design flaw as pre-TASK-012 engagement — forced state change instead of pipeline choice.
+Fix: Remove auto-reopen from heartbeat.py entirely. Add `open_shop` as a new reflexive action. She decides when to open and close through the normal pipeline.
+**Implementation:**
+1. **heartbeat.py** — Remove the auto-reopen block at lines 412-415. Shop status only changes via actions.
+2. **pipeline/action_registry.py** — Add `open_shop` action:
+   - `enabled=True`
+   - `generative=False` (reflexive — no LLM output needed)
+   - `energy_cost=0.0`
+   - Prerequisite: shop must be currently closed
+3. **pipeline/body.py** — Add `open_shop` execution handler. Sets shop status to 'open' in room_state. Mirror of close_shop handler.
+4. **pipeline/basal_ganglia.py** — Add drive gates:
+   - `open_shop`: require `energy > 0.3` AND `rest_need < 0.6`
+   - `close_shop`: require shop is open (already exists, verify it works without auto-reopen)
+5. **prompt_assembler.py** — Ensure current shop status and time of day are in cortex context so she can reason about when to open/close. Add a light hint: "The shop is currently [open/closed]. It is [time]." No instruction on when to open — she figures that out.
+6. **pipeline/hypothalamus.py** — No new drive needed. Opening the shop is motivated by existing drives: social_hunger (want visitors), energy (have capacity), rest_need (not exhausted).
+**Expected emergent behavior:**
+- She opens in the morning when energy is high and social hunger has built overnight
+- She closes at night when energy drops or rest need rises
+- These form habits naturally: open_shop in morning context, close_shop in evening/night context
+- On low-energy days she might open late or not at all — genuine variation
+**Scope (files you may touch):**
+- `heartbeat.py` (remove auto-reopen)
+- `pipeline/action_registry.py` (add open_shop)
+- `pipeline/body.py` (add open_shop handler)
+- `pipeline/basal_ganglia.py` (add drive gates)
+- `prompt_assembler.py` (ensure shop status + time in context)
+- `db.py` (only if room_state update needs a new function — at END of file)
+- `models/pipeline.py` (if ActionCapability needs updating)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `pipeline/sensorium.py`
+- `sleep.py`
+- `heartbeat_server.py`
+- `window/`
+**Tests:**
+- test_auto_reopen_removed — shop stays closed after close_shop, no auto-reopen on next cycle
+- test_open_shop_action — open_shop changes room_state from closed to open
+- test_open_shop_drive_gate — blocked when energy < 0.3 or rest_need > 0.6
+- test_open_shop_prerequisite — blocked when shop already open
+- test_close_shop_prerequisite — blocked when shop already closed
+**Definition of done:** No auto-reopen in heartbeat. Shop status changes only through pipeline actions. open_shop and close_shop are both reflexive, drive-gated actions. She decides her own hours.
+
+---
+
+### TASK-036: System brakes — habit decay, mood scaling, energy budget enforcement
+**Status:** DONE (2026-02-16)
+**Priority:** High
+**Depends on:** TASK-024 (homeostatic pull), TASK-032 (drive gates)
+**Description:** The system has no natural braking mechanism. Actions create drive relief → more actions → stronger habits → habits never decay → positive feedback loop. Three fixes that add brakes.
+**Part A — Habit decay**
+In `pipeline/output.py`, after `track_action_pattern()`: for every habit in the DB that was NOT fired this cycle, apply time-based decay:
+- `strength -= 0.01 * elapsed_hours`
+- A habit at 0.9 that stops firing drops below 0.6 auto-fire threshold in ~30 hours
+- Delete habits that fall below 0.05
+- Only decay habits that haven't fired in the current cycle (don't decay what just strengthened)
+**Part B — Mood success bonus scaling**
+In `pipeline/output.py`, replace the flat +0.02 mood bonus per successful action with a diminishing formula:
+- `bonus = 0.02 / (1 + actions_today / 10)`
+- First 10 actions: near-full bonus (~0.02–0.01)
+- After 30 actions: bonus drops to ~0.005
+- This models emotional habituation — the 40th journal doesn't feel as good as the first
+- Get `actions_today` count from db (or pass it in from heartbeat) before applying bonus
+**Part C — Energy budget enforcement**
+In `heartbeat.py`, before calling cortex in `run_cycle()`:
+- Check energy spent today vs daily budget (from config or db)
+- If `spent >= budget`: force rest mode — skip cortex entirely, apply rest recovery to drives (`rest_need -= 0.05`, `energy += 0.03`), log `[Heartbeat] Resting — energy budget exceeded`
+- Exception: high-salience events (visitor connect with salience > 0.8) override the rest mode — she can still wake up for important moments
+- This gives the energy budget actual teeth instead of being display-only
+**Scope (files you may touch):**
+- `pipeline/output.py` (habit decay + mood scaling)
+- `heartbeat.py` (budget enforcement)
+- `db/analytics.py` (if energy budget query needs updating)
+- `db/memory.py` (if habit deletion function needed — at END of file)
+- `models/pipeline.py` (if CycleOutput needs a rest_mode flag)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `pipeline/basal_ganglia.py`
+- `pipeline/sensorium.py`
+- `heartbeat_server.py`
+- `window/`
+- `sleep.py`
+**Tests:**
+Part A:
+- test_unfired_habit_decays — habit not fired loses strength over time
+- test_fired_habit_no_decay — habit that just fired doesn't decay in same cycle
+- test_habit_deleted_below_threshold — habit at 0.05 decays and is removed
+- test_decay_rate — 0.9 strength drops below 0.6 within ~30 simulated hours
+Part B:
+- test_mood_bonus_first_action — near +0.02 when actions_today is low
+- test_mood_bonus_diminishes — significantly less after 30+ actions
+- test_mood_bonus_never_negative — formula always returns positive value
+Part C:
+- test_budget_exceeded_forces_rest — no cortex call when budget exceeded
+- test_rest_mode_recovers_drives — rest_need decreases and energy increases during rest
+- test_high_salience_overrides_rest — visitor event with salience > 0.8 still triggers cortex
+- test_under_budget_runs_normally — normal cycle when budget not exceeded
+**Definition of done:** Habits weaken when unused. Mood bonus diminishes with repetition. Energy budget forces rest when exceeded (except for important events). The positive feedback loop is broken — the system has natural brakes.
+
+---
+
+### TASK-037: Dashboard cycle interval control
+**Status:** DONE (2026-02-16)
+**Priority:** Medium
+**Description:** Add a cycle interval slider/input to the Controls panel so the operator can adjust heartbeat frequency from the dashboard without SSH. Currently the interval is hardcoded in config.
+**Implementation:**
+1. **Controls panel** — Add an input field showing current cycle interval in seconds. Editable. Min 10s, max 600s. Apply button or debounced auto-apply.
+2. **API endpoint** — `POST /api/dashboard/cycle-interval` accepts `{interval_seconds: number}`. Auth required. Validates min/max bounds.
+3. **heartbeat.py** — Read interval from a mutable source (DB setting or in-memory variable) instead of hardcoded config. API endpoint updates this value. Takes effect on next cycle without restart.
+4. **Controls panel display** — Show current interval next to heartbeat status. "Every 30s" / "Every 3m" etc.
+**Scope (files you may touch):**
+- `window/src/components/dashboard/ControlsPanel.tsx`
+- `api/dashboard_routes.py`
+- `heartbeat_server.py` (route dispatch)
+- `heartbeat.py` (read mutable interval)
+- `config/` (default interval value)
+- `db.py` (if persisting interval as a setting — at END of file only)
+- `window/src/lib/types.ts`
+- `window/src/lib/dashboard-api.ts`
+**Scope (files you may NOT touch):**
+- `pipeline/*`
+- `sleep.py`
+**Tests:**
+- test_interval_update_api — POST changes interval, GET reflects new value
+- test_interval_bounds — rejects below 10s and above 600s
+- test_interval_auth — returns 401 without auth
+**Definition of done:** Operator can change cycle interval from dashboard. Change takes effect next cycle. No restart needed.
+
+---
+
+### TASK-038: Replace rest mode with nap consolidation
+**Status:** DONE (2026-02-16)
+**Priority:** High
+**Depends on:** TASK-036 (budget enforcement)
+**Description:** When energy budget is exceeded, the system enters empty rest loops — no LLM call, no actions, no thoughts, just a hardcoded placeholder string cycling every 20s until midnight. She's effectively lobotomized. Replace with nap behavior: she processes recent moments, writes real reflections, wakes with partial budget.
+**Implementation:**
+1. **sleep.py** — Add `nap_consolidate(db, top_n=3)`:
+   - Fetch top 3 unprocessed day_moments by salience
+   - Run `sleep_reflect()` on each (same LLM reflection as night sleep)
+   - Write reflections as individual journal entries
+   - Mark moments as `nap_processed=True` (don't re-process during night sleep)
+   - Return number of moments processed
+2. **heartbeat.py** — Replace rest mode:
+   - When budget exceeded: check nap cooldown (minimum 2 hours since last nap)
+   - If cooldown elapsed: trigger `nap_consolidate()`, restore 1.0 energy budget, log `[Heartbeat] Nap — consolidated N moments, budget restored to X`
+   - If cooldown not elapsed: skip cycle entirely (no empty rest loop). Just sleep the interval and check again. Log `[Heartbeat] Resting — nap cooldown (Xm remaining)`
+   - Remove the empty rest loop path entirely — no more token_budget=0 placeholder cycles
+3. **pipeline/day_memory.py** — Add `nap_processed` handling:
+   - `maybe_record_moment()` unchanged
+   - Night sleep query: exclude moments where `nap_processed=True` (already reflected on)
+   - Or: let night sleep re-process nap moments at deeper level (design choice — start with exclude)
+4. **db/memory.py** — Add `nap_processed` column to day_moments if needed (migration). Add `mark_moments_nap_processed(ids)` function. Add `get_top_unprocessed_moments(limit)` that excludes nap_processed.
+5. **Timeline event** — Nap cycles should appear as `action_nap` in the timeline, distinct from `action_body`. The dashboard should show naps as a visible event.
+6. **Visitor override** — Salience > 0.8 still wakes her from nap cooldown. If a visitor arrives during cooldown, skip the cooldown and run a normal cycle.
+**Expected behavior:**
+- Active morning: ~2 hours of cycles, hits budget
+- Nap: consolidates top 3 moments, reflections written, wakes with +1.0 budget
+- Active afternoon: another ~2 hours, hits budget again
+- Second nap: consolidates next batch
+- Evening: winds down, closes shop
+- Night: full sleep consolidation of remaining unprocessed moments
+**Scope (files you may touch):**
+- `heartbeat.py` (replace rest mode with nap trigger)
+- `sleep.py` (add nap_consolidate function)
+- `pipeline/day_memory.py` (nap_processed handling)
+- `db/memory.py` (new query functions, migration if needed)
+- `migrations/` (add nap_processed column if needed)
+- `models/pipeline.py` (if nap event type needed)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `pipeline/basal_ganglia.py`
+- `pipeline/output.py`
+- `heartbeat_server.py`
+- `window/`
+**Tests:**
+- test_nap_triggers_on_budget_exceeded — budget exceeded + cooldown elapsed → nap runs
+- test_nap_cooldown_enforced — budget exceeded + cooldown not elapsed → skip, no empty loop
+- test_nap_restores_partial_budget — after nap, budget has +1.0 headroom
+- test_nap_processes_top_moments — top 3 by salience are reflected on
+- test_nap_moments_excluded_from_night_sleep — nap_processed moments not re-processed
+- test_visitor_overrides_nap_cooldown — high salience visitor wakes her during cooldown
+- test_no_empty_rest_loops — budget exceeded never produces token_budget=0 placeholder cycles
+**Definition of done:** Budget exceeded triggers nap consolidation, not lobotomy. She processes moments, writes real reflections, wakes with partial budget. Timeline shows nap events. No more empty rest loops. Natural rhythm of active → nap → active → full night sleep.
+
+---
+
+### TASK-039: Isolation Experiment Analysis Pipeline
+**Status:** DONE (2026-02-16)
+**Priority:** High (paper blocker)
+**Branch:** feat/experiment-analysis
+**Context:** For the research paper, we need to prove The Shopkeeper generates diverse, non-repetitive behavior without user input. The data already exists in cycle_log — we just need export + analysis + visualization.
+**FILES TO CREATE:**
+1. `experiments/export_cycles.py` — Reads SQLite DB, exports cycle_log to JSONL
+2. `experiments/generate_baseline.py` — Generates null-hypothesis baseline from timestamps
+3. `experiments/analyze_entropy.py` — Computes Shannon entropy, generates matplotlib figures
+**FILES TO MODIFY:** None. Read-only access to DB via sqlite3 (not the async db module).
+**DEPENDENCIES:** matplotlib, numpy (add to requirements.txt if missing)
+**DO NOT MODIFY:** Any existing source files. This is a pure analysis layer that reads the DB the system already populates.
+**Scope (files you may touch):**
+- `experiments/export_cycles.py` (new)
+- `experiments/generate_baseline.py` (new)
+- `experiments/analyze_entropy.py` (new)
+- `experiments/__init__.py` (new)
+- `tests/test_export_cycles.py` (new)
+- `tests/test_entropy.py` (new)
+- `tests/test_baseline.py` (new)
+- `requirements.txt` (add matplotlib, numpy)
+**Scope (files you may NOT touch):**
+- All existing Python source files
+- `db/` (read-only access via sqlite3)
+- `pipeline/*`
+- `heartbeat.py`
+- `window/`
+**Tests:**
+- test_export reads a test DB with 10 known cycles, verifies JSONL output matches
+- test_entropy with a hand-crafted 4-action uniform distribution verifies H = 2.0 bits
+- test_baseline verifies all routing_focus values are "idle"
+**Definition of done:** Three standalone scripts that export, baseline, and analyze cycle_log data. Shannon entropy figure shows non-trivial behavioral diversity. All tests pass.
+
+---
+
+### TASK-040: Visitor injection for simulation mode
+**Status:** DONE (2026-02-17)
+**Priority:** High (paper blocker)
+**Branch:** feat/sim-visitors
+**Depends on:** None
+**Description:** Add scripted visitor injection to simulate.py so the 7-day isolation experiment includes visitor interactions. Visitors are defined in a JSON file with arrival times and scripted messages. The simulation injects them as events into the inbox at the correct simulated times. The pipeline doesn't know the difference between a real TCP visitor and a scripted one.
+**Visitor script format:** `experiments/visitors.json`
+**Each visitor tests a specific capability:**
+| Visitor | Days | Tests |
+|---------|------|-------|
+| Yuki | 1, 7 | First impression → return visit memory |
+| Tanaka-san | 3 | Deep conversation, object philosophy |
+| Sato | 4, 6 | Contradiction sequence (blue→hate blue) for Claim C |
+| M. | 5 | Vague/ambiguous request handling |
+**Implementation in simulate.py:**
+1. Add `--visitors` arg: `python simulate.py --days 7 --visitors experiments/visitors.json`
+2. Before each cycle, check if any visitor events should fire based on current sim time
+3. Visitor arrival: create visitor in DB via `db.create_visitor()` if not exists, insert `visitor_connect` event, set engagement state to `engaged`, add to `visitors_present`
+4. Visitor messages: insert `visitor_speech` event with scripted text, trigger a microcycle-equivalent (`hb.run_cycle('micro')`)
+5. Visitor departure: 5 minutes after last message (simulated), insert `visitor_disconnect` event, clear engagement, remove from visitors_present
+6. Between visitor messages, run normal autonomous cycles (the delay_min gap is filled with idle/ambient cycles)
+7. Log visitor events in timeline: `[Day 1 14:00] VISITOR — Yuki says: "Hello?"`
+**Scope (files to modify):**
+- `simulate.py` — add visitor scheduling loop
+- `timeline.py` — add visitor event logging methods
+**Scope (files to create):**
+- `experiments/visitors.json` — the visitor script
+**DO NOT modify:** pipeline/*, heartbeat.py, db/*, sleep.py
+**Definition of done:** `python simulate.py --days 7 --visitors experiments/visitors.json --content content/readings.txt` runs a full 7-day simulation with 6 visitor interactions, producing a DB and timeline log that shows autonomous cycles between visits and engagement cycles during visits.
+
+---
+
+### TASK-041: Curiosity Phase 1 — Notification layer + read_content action
+
+**Status:** DONE (2026-02-17)
+**Priority:** High (system blocker — curiosity is broken without this)
+**Branch:** feat/curiosity-v2
+**Depends on:** TASK-033 (feed ingestion live), TASK-034 (markdown.new enrichment)
+**Design doc:** `docs/curiosity-v2-spec.md` §1, §5a
+
+**Description:** Content currently sits in the content pool waiting for a "consume" cycle that never fires because curiosity is pinned at 3%. Replace the pull model with a push model: surface N content titles per cycle as notifications in the sensorium. Add `read_content` and `save_for_later` as actions the cortex can choose. Remove the "consume" cycle type from the arbiter.
+
+This is the foundation layer. No gap detection yet — notifications surface based on recency, source diversity, and unseen status. The cortex sees titles and decides whether to engage. This alone should produce content consumption because the decision is now the cortex's, not the arbiter's.
+
+**Implementation:**
+
+**Step 1 — Notification module.** Create `pipeline/notifications.py`:
+
+- `NOTIFICATION_CONFIG` dict: `max_per_cycle=5`, `min_per_cycle=1`, `cooldown_minutes=10`, priority weights (recency 0.4, source_diversity 0.3, unseen 0.3).
+- `Notification` dataclass: `content_id`, `title`, `source`, `content_type`, `surfaced_at`.
+- `get_notifications(db, cycle_context) -> list[Notification]`: Pull N items from content_pool, respecting cooldowns. Title-only — no full content loaded. Track surfaced items in a `notification_log` table (content_id, surfaced_at) for cooldown enforcement.
+- Notifications are ephemeral per cycle. If she doesn't engage, they scroll past. Can re-surface after cooldown.
+
+**Step 2 — Sensorium integration.** Update `pipeline/sensorium.py`:
+
+- Import and call `get_notifications()` during perception assembly.
+- Format notifications as sensory text appended to the perception block:
+
+  ```
+  You notice some things in your feed:
+    • "Title here" (Source: RSS Name) — article
+    • "Another title" (Source: Feed Name) — video
+  ```
+- When visitor is present, still include notifications but mark them as background: `"(In the background, you notice: ...)"`
+
+**Step 3 — New actions.** Update `pipeline/action_registry.py`:
+
+- Add `read_content`: `enabled=True`, `generative=True`, `energy_cost=1.5`, cooldown 2 cycles (min_cycles_between_reads). Prerequisites: content_id must be valid in content_pool.
+- Add `save_for_later`: `enabled=True`, `generative=False`, `energy_cost=0.0`, no cooldown. Adds a `saved_by_cortex=True` flag to the content_pool item. Saved items get priority boost on next surfacing and skip cooldown.
+
+**Step 4 — Body execution.** Update `pipeline/body.py`:
+
+- `read_content` handler: Fetch full content from content_pool (use cached `enriched_text` from TASK-034 if available, otherwise fetch via `pipeline/enrich.py`). Truncate to 1500 tokens. Return content in `ActionResult.payload["full_content"]` for the reflection step (TASK-044).
+- `save_for_later` handler: Update content_pool item with `saved_by_cortex=True` and `saved_at` timestamp.
+
+**Step 5 — Remove consume cycle type.** Update `pipeline/arbiter.py`:
+
+- Remove `"consume"` from the routing decision enum / cycle type list.
+- Remove any logic that schedules consume cycles based on curiosity threshold.
+- Content consumption now happens through `read_content` action within any cycle type (idle, ambient, even during engagement if she chooses to mention content).
+
+**Step 6 — Attention queue for saved items.** Update `db/content.py`:
+
+- Add `saved_by_cortex` boolean and `saved_at` timestamp columns to content_pool (migration).
+- `get_notifications()` gives priority boost (+0.3 to surfacing score) to saved items and skips cooldown for them.
+- Saved items that haven't been read within 48 hours lose saved status (auto-expire).
+
+**Step 7 — Stop curiosity time drift.** Update `pipeline/hypothalamus.py`:
+
+- Remove or zero out the existing curiosity time-based drift (+0.03/hr or whatever the current rate is). Curiosity will be driven by gap detection in TASK-042, not by a timer.
+- Keep the curiosity float temporarily — it will be replaced with diversive/epistemic in TASK-043.
+
+**Step 8 — Prompt assembler.** Update `prompt_assembler.py`:
+
+- Add `read_content(content_id)` and `save_for_later(content_id)` to the available actions block.
+- Include notification text from sensorium in the perception section.
+
+**Migration:** `migrations/012_notifications.sql`:
+
+- `notification_log` table: content_id TEXT, surfaced_at TEXT, cycle_id INTEGER
+- Add `saved_by_cortex` BOOLEAN DEFAULT FALSE and `saved_at` TEXT to content_pool
+
+**Scope (files you may touch):**
+
+- `pipeline/notifications.py` (new)
+- `pipeline/sensorium.py` (add notification channel)
+- `pipeline/action_registry.py` (add read_content, save_for_later)
+- `pipeline/body.py` (add execution handlers)
+- `pipeline/arbiter.py` (remove consume cycle type)
+- `pipeline/hypothalamus.py` (zero out curiosity time drift)
+- `prompt_assembler.py` (add actions + notification context)
+- `db/content.py` (saved_by_cortex, notification_log queries)
+- `migrations/012_notifications.sql` (new)
+- `models/pipeline.py` (Notification dataclass, update ActionResult if needed)
+
+**Scope (files you may NOT touch):**
+
+- `pipeline/cortex.py` (prompt changes go through assembler)
+- `pipeline/output.py` (reflection is TASK-044)
+- `pipeline/thalamus.py` (gap-based filtering is TASK-042)
+- `heartbeat_server.py`
+- `window/`
+- `sleep.py`
+
+**Tests:**
+
+- `tests/test_notifications.py`:
+  - test_get_notifications_returns_n_items — returns up to max_per_cycle items
+  - test_cooldown_enforced — same item not surfaced within cooldown_minutes
+  - test_saved_items_priority — saved items surface before unsaved
+  - test_saved_items_skip_cooldown — saved items ignore cooldown
+  - test_saved_items_expire — saved items older than 48h lose saved status
+  - test_empty_pool_returns_empty — no crash on empty content_pool
+  - test_source_diversity — doesn't spam all items from one source
+- `tests/test_action_read_content.py`:
+  - test_read_content_fetches_full_text — action returns full content in payload
+  - test_read_content_truncates — content over 1500 tokens is truncated
+  - test_read_content_cooldown — blocked if fired within min_cycles_between_reads
+  - test_save_for_later_flags_item — content_pool item gets saved_by_cortex=True
+- Existing arbiter tests updated: no consume cycle type in routing decisions.
+
+**Definition of done:** Content titles flow past her every cycle as sensory input. She can choose to read or save items. The consume cycle type is gone. Curiosity no longer drifts on a timer. Content pool items actually get read.
+
+---
+
+### TASK-042: Curiosity Phase 2 — Gap detector + visitor speech gaps
+
+**Status:** DONE (2026-02-17)
+**Priority:** High
+**Branch:** feat/curiosity-v2
+**Depends on:** TASK-041 (notifications exist to run gap detection on)
+**Design doc:** `docs/curiosity-v2-spec.md` §2, §3
+
+**Description:** Build the information gap detector — the core innovation of curiosity v2. Compares any text input (notification titles, visitor speech, her own journal entries) against her memory pool + totems + active threads. Scores each input on the Goldilocks curve: foreign (< 0.15 relevance) = ignored, partial match (0.15–0.85) = curiosity spike, fully known (> 0.85) = ignored. Peak curiosity at 0.5 relevance (maximum information gap).
+
+This is where visitor input gets wired into the curiosity system. Visitor speech flows through the same gap detector as notifications. A visitor mentioning something she partially understands generates the same curiosity spike as a matching notification title.
+
+**Implementation:**
+
+**Step 1 — TextFragment union type.** Add to `models/pipeline.py`:
+
+```python
+@dataclass
+class TextFragment:
+    text: str
+    source_type: str        # "notification", "visitor_speech", "journal", "monologue"
+    source_id: str           # content_id, visitor_id, journal_entry_id, cycle_id
+    content_id: Optional[str] = None  # Only for notifications — needed for read_content
+```
+
+**Step 2 — Gap detector module.** Create `pipeline/gap_detector.py`:
+
+- `GapScore` dataclass: `fragment: TextFragment`, `relevance: float`, `gap_type: str` ("foreign"/"partial"/"known"), `matching_memories: list[str]`, `matching_threads: list[str]`, `curiosity_delta: float`, `suggested_curiosity_type: str` ("diversive"/"epistemic"/None).
+- `detect_gaps(fragments: list[TextFragment], memory_embeddings, totem_embeddings, thread_embeddings) -> list[GapScore]`:
+  - Use embedding cosine similarity (Option A from spec).
+  - `relevance` = max similarity score across all memory/totem/thread embeddings.
+  - Goldilocks curve: `gap_intensity = 1.0 - abs(relevance - 0.5) * 2`. Peak at 0.5.
+  - `curiosity_delta = gap_intensity * 0.15` (max +0.15 per item).
+  - If relevance < 0.15: `gap_type = "foreign"`, `curiosity_delta = 0.0`.
+  - If relevance > 0.85: `gap_type = "known"`, `curiosity_delta = 0.0`.
+  - If matching_threads or strong totems: `suggested_curiosity_type = "epistemic"`. Else: `"diversive"`.
+
+**Step 3 — Pre-embed notification titles.** Update `feed_ingester.py`:
+
+- After enriching content, embed the title using `pipeline/embed.py` and store the embedding vector in content_pool (`title_embedding` column, migration).
+- Gap detection at cycle time is then pure vector math — no API calls.
+
+**Step 4 — Embed visitor speech.** Update `pipeline/sensorium.py`:
+
+- When processing `visitor_speech` events, create a `TextFragment` with `source_type="visitor_speech"`.
+- Embed the visitor's message text (if not already embedded from cold memory pipeline).
+- Pass visitor speech fragments through gap detection alongside notification fragments.
+
+**Step 5 — Build embedding index.** Create `pipeline/gap_detector.py` helper:
+
+- `load_embedding_index(db) -> EmbeddingIndex`: Preload all memory, totem, and thread embeddings into a numpy array at heartbeat startup. Refresh every N cycles (configurable, default 50).
+- Cosine similarity is a single matrix multiplication: `similarities = index @ query_embedding`.
+- This keeps gap detection under 10ms per cycle even with 1000+ memories.
+
+**Step 6 — Wire into sensorium.** Update `pipeline/sensorium.py`:
+
+- After assembling notifications and visitor speech fragments, run `detect_gaps()` on all fragments.
+- Attach `GapScore` to each notification/perception.
+- Format gap-aware notification text for cortex:
+
+  ```
+  You notice some things in your feed:
+    • "Rare 1991 Bandai Prism Cards Surface" (Vintage Card Weekly)
+      — this connects to something you know about [totem/memory topic]
+    • "New Urushi Lacquer Techniques" (Tokyo Art Beat)
+      — you've heard of urushi but don't know the details
+  ```
+- For visitor speech with partial match:
+
+  ```
+  Something your visitor said connects to [memory/totem].
+  You partially understand this but there's more to learn.
+  ```
+
+**Step 7 — Thalamus gap-aware filtering.** Update `pipeline/thalamus.py`:
+
+- `compute_notification_salience(gap_score, cycle_context) -> float`:
+  - Base salience = `gap_score.curiosity_delta` (0.0 to 0.15)
+  - Visitor present: `× 0.3` unless notification matches conversation topic (`× 1.5`)
+  - Low energy (< 0.2): `× 0.2`
+  - High diversive curiosity (> 0.6): `× 1.3`
+  - Epistemic match (notification matches an active question from TASK-043): `+ 0.5`
+  - Below threshold (0.03): notification filtered out entirely
+- Notifications below threshold don't appear in cortex prompt.
+
+**Step 8 — Curiosity drive update.** Update `pipeline/hypothalamus.py`:
+
+- Sum `curiosity_delta` from all gap scores that passed thalamus filtering.
+- Apply to curiosity float: `curiosity += sum(deltas)`.
+- This replaces the old timer-based drift with stimulus-driven spikes.
+- Curiosity still decays passively but at a much lower rate (`-0.005/hr` instead of previous rate) — enough to prevent permanent ceiling but slow enough that gap-driven spikes actually accumulate.
+
+**Migration:** `migrations/013_gap_detection.sql`:
+
+- Add `title_embedding` BLOB column to content_pool
+
+**Scope (files you may touch):**
+
+- `pipeline/gap_detector.py` (new)
+- `pipeline/sensorium.py` (wire fragments + gap scores into perception)
+- `pipeline/thalamus.py` (gap-aware salience filtering)
+- `pipeline/hypothalamus.py` (stimulus-driven curiosity update)
+- `feed_ingester.py` (embed titles at ingestion)
+- `pipeline/embed.py` (if helper functions needed)
+- `db/content.py` (title_embedding column)
+- `migrations/013_gap_detection.sql` (new)
+- `models/pipeline.py` (TextFragment, GapScore dataclasses)
+
+**Scope (files you may NOT touch):**
+
+- `pipeline/cortex.py`
+- `pipeline/basal_ganglia.py`
+- `pipeline/body.py`
+- `pipeline/output.py`
+- `heartbeat.py`
+- `heartbeat_server.py`
+- `window/`
+- `sleep.py`
+
+**Tests:**
+
+- `tests/test_gap_detector.py`:
+  - test_foreign_content_no_curiosity — relevance < 0.15 → delta = 0.0
+  - test_known_content_no_curiosity — relevance > 0.85 → delta = 0.0
+  - test_partial_match_generates_curiosity — relevance ~0.5 → max delta
+  - test_goldilocks_curve_shape — delta at 0.3 < delta at 0.5 > delta at 0.7
+  - test_epistemic_when_thread_matches — matching thread → suggested_type = "epistemic"
+  - test_diversive_when_no_thread — no matching thread → suggested_type = "diversive"
+  - test_visitor_speech_through_gap_detector — visitor TextFragment produces valid GapScore
+  - test_embedding_index_performance — 1000 memories, gap detection completes in < 50ms
+- `tests/test_thalamus_notifications.py`:
+  - test_visitor_present_suppresses — salience reduced when visitor present
+  - test_topic_match_boosts — notification matching conversation topic gets boosted
+  - test_low_energy_suppresses — tired = notices less
+  - test_below_threshold_filtered — gap_score below 0.03 not included in cortex prompt
+- `tests/test_hypothalamus_curiosity.py`:
+  - test_gap_driven_curiosity_increase — partial matches increase curiosity
+  - test_no_gap_no_increase — foreign/known content doesn't move curiosity
+  - test_passive_decay_slow — curiosity decays at 0.005/hr, not the old fast rate
+  - test_curiosity_accumulates — multiple partial matches in one cycle sum up
+
+**Definition of done:** Gap detector scores all text inputs on the Goldilocks curve. Notifications and visitor speech both generate curiosity spikes on partial match. Thalamus filters notifications based on state. Curiosity is driven by stimulus, not a timer. She notices things that connect to what she knows.
+
+---
+
+### TASK-043: Curiosity Phase 3 — Split drives (diversive + epistemic curiosities)
+
+**Status:** DONE (2026-02-17)
+**Priority:** High
+**Branch:** feat/curiosity-v2
+**Depends on:** TASK-042 (gap detector produces curiosity_type classification)
+**Design doc:** `docs/curiosity-v2-spec.md` §4
+
+**Description:** Replace the single `curiosity` float with two distinct drive mechanisms: `diversive_curiosity` (background scanning urge — "I want to find something new") and `epistemic_curiosities` (topic-tagged active questions — "I want to know THIS specific thing"). These serve different behavioral functions and have different lifecycles.
+
+**Implementation:**
+
+**Step 1 — Drives state update.** Update `models/state.py`:
+
+- Replace `curiosity: float` in DrivesState with `diversive_curiosity: float`.
+- Add `epistemic_curiosities: list[EpistemicCuriosity]` (new dataclass).
+- `EpistemicCuriosity` dataclass:
+
+  ```python
+  @dataclass
+  class EpistemicCuriosity:
+      id: str
+      topic: str                      # "1991 Bandai prism card variants"
+      question: str                   # "Are there more variants I haven't seen?"
+      intensity: float                # 0.0 to 1.0
+      source_type: str                # "notification", "visitor", "journal_reflection"
+      source_id: str
+      created_at: str                 # ISO timestamp
+      last_reinforced_at: str
+      decay_rate_per_hour: float      # Default 0.02
+      resolved: bool = False
+      resolution_source: Optional[str] = None
+  ```
+- Configuration constants:
+
+  ```python
+  EPISTEMIC_CONFIG = {
+      "max_active": 5,
+      "creation_threshold": 0.08,
+      "merge_similarity": 0.80,
+      "decay_rate_default": 0.02,
+      "reinforcement_boost": 0.10,
+      "resolution_mood_bump": 0.08,
+      "eviction_policy": "lowest_intensity",
+  }
+  ```
+
+**Step 2 — DB tables.** Update `db/state.py`:
+
+- Migration: rename `curiosity` to `diversive_curiosity` in drives_state (or add new column and deprecate old).
+- New table `epistemic_curiosities`: id, topic, question, intensity, source_type, source_id, created_at, last_reinforced_at, decay_rate, resolved, resolution_source.
+- CRUD: `get_active_epistemic_curiosities(db, limit=5)`, `upsert_epistemic_curiosity(db, ec)`, `resolve_epistemic_curiosity(db, id, resolution_source)`, `decay_epistemic_curiosities(db, elapsed_hours)`, `evict_weakest_curiosity(db)`.
+
+**Step 3 — Diversive curiosity drive.** Update `pipeline/hypothalamus.py`:
+
+- `diversive_curiosity` replaces `curiosity`.
+- Equilibrium: 0.40. Homeostatic pull rate: 0.15 (spring constant).
+- Time drift: +0.005/hr (tiny background restlessness — NOT the old +0.03/hr).
+- Fed by: gap detection partial matches with `suggested_type = "diversive"`.
+- Drained by: successful content consumption (slightly, -0.05 — satisfied). Visitor conversation (attention elsewhere, -0.02/cycle while engaged).
+- Boredom escalation: if no notifications with gap > 0 for 2 hours, drift increases to +0.02/hr.
+
+**Step 4 — Epistemic curiosity lifecycle.** Update `pipeline/output.py`:
+
+- **Birth:** After cortex processes a cycle where a gap score had `suggested_type = "epistemic"` and the cortex engaged with it (read, mentioned, or articulated a question in monologue), create or reinforce an `EpistemicCuriosity`.
+  - The question text comes from the cortex output. Add `new_epistemic_question: Optional[str]` to CortexOutput schema. If cortex articulates a question, output.py parses it and creates the EC.
+  - If cortex doesn't articulate a question but gap_score suggested epistemic, template it: "What more is there to know about [topic]?"
+  - Check merge: if new question is > 0.80 similar (embedding) to an existing EC, reinforce the existing one (+0.10 intensity) instead of creating a duplicate.
+- **Reinforcement:** When a gap score matches an existing EC's topic (embedding similarity > 0.6), boost intensity by +0.10. Update `last_reinforced_at`.
+- **Decay:** In `pipeline/hypothalamus.py`, every cycle: for each EC, `intensity -= decay_rate * elapsed_hours`. Below 0.05 → quietly expire. Expired ECs become `self_reflection_seed`: "I was wondering about [topic] but I've moved on."
+- **Eviction:** When at max_active (5) and a new question with higher intensity arrives, evict the lowest-intensity EC. Evicted EC also becomes a self_reflection_seed.
+- **Resolution:** Handled in TASK-044 (reflection loop). When content answers a question, EC is resolved with mood bump.
+
+**Step 5 — Cortex output schema update.** Update cortex response parsing in `pipeline/cortex.py` (via prompt_assembler):
+
+- Add optional field to intentions: `epistemic_question: Optional[str]` — the cortex can articulate what it's wondering about.
+- This is a prompt change, not a code change in cortex.py. Update `prompt_assembler.py` to include:
+
+  ```
+  If something raises a specific question in your mind, you can express it:
+    epistemic_question: "What you're wondering about"
+  ```
+
+**Step 6 — Drives-to-feelings.** Update `prompt_assembler.py`:
+
+- Diversive curiosity feelings:
+  - > 0.7: "Your attention keeps drifting. You want to find something — you don't know what yet."
+  - > 0.5: "Part of you is scanning, open to whatever catches your eye."
+  - < 0.15: "You're content. Nothing is pulling your attention anywhere."
+- Epistemic curiosity feelings (from active ECs):
+  - Strongest EC > 0.7: "You keep coming back to this: [question]. It won't leave you alone."
+  - Strongest EC > 0.4: "In the back of your mind: [question]"
+  - Multiple active: "You're also loosely thinking about: [topic1], [topic2]"
+
+**Step 7 — Thalamus epistemic boost.** Update `pipeline/thalamus.py`:
+
+- When computing notification salience, check if the notification's gap_score topic matches any active EC (embedding similarity > 0.6).
+- If match: add +0.5 to salience. Strong pull — this might answer something she's wondering.
+
+**Step 8 — Backward compatibility.** Update all places that read `drives.curiosity`:
+
+- `prompt_assembler.py`: map `diversive_curiosity` to the old curiosity slot in the drives display.
+- Dashboard: show `diversive_curiosity` where `curiosity` was, add EC list below it.
+- Any thresholds that checked curiosity > X now check diversive_curiosity > X.
+
+**Migration:** `migrations/014_epistemic_curiosities.sql`:
+
+- Create `epistemic_curiosities` table
+- Rename or alias `curiosity` → `diversive_curiosity` in drives_state
+
+**Scope (files you may touch):**
+
+- `models/state.py` (DrivesState, EpistemicCuriosity)
+- `pipeline/hypothalamus.py` (diversive drive math, EC decay)
+- `pipeline/output.py` (EC birth, reinforcement, eviction)
+- `pipeline/thalamus.py` (EC matching boost)
+- `prompt_assembler.py` (drives-to-feelings, EC context, epistemic_question instruction)
+- `db/state.py` (EC CRUD, drives rename)
+- `migrations/014_epistemic_curiosities.sql` (new)
+- `models/pipeline.py` (update CortexOutput with epistemic_question)
+- `config/` (EPISTEMIC_CONFIG constants)
+
+**Scope (files you may NOT touch):**
+
+- `pipeline/cortex.py` (changes go through prompt_assembler)
+- `pipeline/body.py`
+- `pipeline/basal_ganglia.py`
+- `heartbeat.py`
+- `heartbeat_server.py`
+- `window/` (dashboard updates are a separate task)
+- `sleep.py`
+
+**Tests:**
+
+- `tests/test_epistemic_curiosity.py`:
+  - test_ec_created_from_gap — epistemic gap score with cortex question → EC in DB
+  - test_ec_merged_on_similar — new question similar to existing → existing reinforced, no duplicate
+  - test_ec_decays_over_time — intensity drops by decay_rate * hours
+  - test_ec_expires_below_threshold — intensity < 0.05 → removed, reflection seed created
+  - test_ec_eviction_at_max — 6th question evicts weakest, seed created for evicted
+  - test_ec_reinforced_by_related_content — matching gap score boosts intensity +0.10
+  - test_ec_max_active_five — never more than 5 active ECs
+- `tests/test_diversive_curiosity.py`:
+  - test_equilibrium_pull — diversive_curiosity pulled toward 0.40
+  - test_time_drift_minimal — +0.005/hr, not old +0.03/hr
+  - test_boredom_escalation — no stimulus for 2h → drift increases
+  - test_consumption_satisfaction — reading content reduces diversive slightly
+  - test_visitor_suppresses_diversive — engaged in conversation → diversive drops
+- `tests/test_drives_backward_compat.py`:
+  - test_old_curiosity_references_map — anything reading drives.curiosity gets diversive_curiosity
+  - test_dashboard_shows_diversive — drives endpoint returns diversive_curiosity
+
+**Definition of done:** Single curiosity float replaced with diversive_curiosity + epistemic_curiosities list. Questions form from gap detection, reinforce on related content, decay when unfed, expire gracefully. Diversive curiosity has tiny time drift and is primarily stimulus-driven. She has specific things she wonders about, not just a generic hunger bar.
+
+---
+
+### TASK-044: Curiosity Phase 4 — Reflection loop + resolution rewards
+
+**Status:** DONE (2026-02-17)
+**Priority:** High
+**Branch:** feat/curiosity-v2
+**Depends on:** TASK-041 (read_content action exists), TASK-043 (epistemic curiosities exist to resolve)
+**Design doc:** `docs/curiosity-v2-spec.md` §5b–5d
+
+**Description:** The missing step that makes content consumption generative. After she reads content, she gets a reflection prompt. Reflection can produce memories, totems, thread touches, new epistemic curiosities, and resolve existing ones. Resolving a question produces a mood reward. Reading without producing anything is acknowledged as boring. Content becomes fuel for growth, not a drive drain.
+
+**Implementation:**
+
+**Step 1 — Reflection prompt.** Add to `prompt_assembler.py`:
+
+- When `read_content` action was executed this cycle (detected in output.py via action_result), assemble a reflection section appended to the next cycle's prompt (or as a follow-up in the same cycle if architecturally feasible):
+
+  ```
+  You just read this:
+  ---
+  {full_content truncated to 1500 tokens}
+  ---
+
+  {epistemic_context — if she had a relevant active question:
+   "You've been wondering: {question}. Does this help?"}
+
+  Consider:
+  - Does this connect to anything you know or have experienced?
+  - Does this answer a question you've had?
+  - Does this raise new questions?
+  - Is there something here worth remembering?
+  - Would any of your visitors find this interesting?
+
+  Respond with your genuine reaction. If it doesn't move you, say so.
+  ```
+
+**Step 2 — Cortex output extension for reflection.** Update `models/pipeline.py`:
+
+- Add optional fields to CortexOutput for reflection responses:
+
+  ```python
+  reflection_memory: Optional[str]       # Text worth remembering
+  reflection_question: Optional[str]     # New question raised
+  resolves_question: Optional[str]       # ID of EC this answers
+  relevant_to_visitor: Optional[str]     # Visitor ID who'd find this interesting
+  relevant_to_thread: Optional[str]      # Thread ID this connects to
+  ```
+- Update cortex response parsing to extract these fields when a reflection prompt was included.
+
+**Step 3 — Reflection processing in output.py.** Update `pipeline/output.py`:
+
+- After a `read_content` action is executed, check if cortex produced reflection outputs.
+- `process_reflection(cortex_output, gap_scores, active_ecs, db)`:
+  - **New memory:** If `reflection_memory` is non-empty, create a memory entry via `db.insert_memory()` or equivalent. Tag with source content_id.
+  - **New totem:** If `relevant_to_visitor` is set and reflection connects content to a visitor, update totem weight for that visitor (+0.1 toward the content's topic).
+  - **Thread touch:** If `relevant_to_thread` is set, update thread's last_activity and append a note.
+  - **New epistemic curiosity:** If `reflection_question` is non-empty, route through EC creation (same birth logic as TASK-043 Step 4).
+  - **Resolve epistemic curiosity:** If `resolves_question` matches an active EC:
+    - Mark EC as resolved in DB.
+    - Apply mood reward: `mood_valence += EPISTEMIC_CONFIG["resolution_mood_bump"]` (0.08).
+    - Log resolution event to timeline.
+    - Create memory: "I learned: [summary]. This answered my question about [topic]."
+  - **Boring content:** If reflection is empty or expresses disinterest:
+    - `diversive_curiosity -= 0.02` (slightly less restless — she tried).
+    - `energy -= 0.01` (slight cost of wasted time).
+    - No other effects.
+
+**Step 4 — Drive effects from reflection.** Update drive adjustments in `pipeline/output.py`:
+
+- **CRITICAL:** Reading content NEVER drains curiosity. This is the core design change.
+  - Resolved question → `mood_valence += 0.08`, `diversive_curiosity -= 0.05` (satisfied).
+  - New question raised → `mood_arousal += 0.05` (exciting). Diversive stays same.
+  - Memory/totem created → `mood_valence += 0.03` (learned something worth keeping).
+  - Boring content → `diversive_curiosity -= 0.02`, `energy -= 0.01`.
+- Remove any existing logic that drains curiosity on journal/memory/content actions.
+
+**Step 5 — Content consumption tracking.** Update `db/content.py`:
+
+- Mark content_pool items as `consumed=True` with `consumed_at` timestamp after read_content.
+- Track what the consumption produced: `consumption_output` JSON field storing which effects fired (memory, totem, thread, EC, resolution).
+- This feeds the Consumption History dashboard panel (TASK-028).
+
+**Step 6 — Conversation integration.** Update `prompt_assembler.py`:
+
+- When visitor is present AND a notification matched the conversation topic (via gap detector topic overlap from TASK-042), add to cortex context:
+
+  ```
+  You noticed something in your feed that connects to your conversation:
+    • "Title" (Source) — relates to what your visitor mentioned about [topic]
+  You can bring this up naturally, or save it for later.
+  ```
+- Add `mention_in_conversation(content_id)` as a variant of read_content that doesn't fetch full content but lets her reference the title/topic in dialogue. Lower energy cost (0.5 vs 1.5).
+
+**Migration:** `migrations/015_consumption_tracking.sql`:
+
+- Add `consumed` BOOLEAN DEFAULT FALSE, `consumed_at` TEXT, `consumption_output` TEXT to content_pool
+
+**Scope (files you may touch):**
+
+- `pipeline/output.py` (reflection processing, drive effects)
+- `prompt_assembler.py` (reflection prompt, conversation integration, mention action)
+- `models/pipeline.py` (CortexOutput reflection fields)
+- `pipeline/action_registry.py` (add mention_in_conversation action)
+- `pipeline/body.py` (add mention_in_conversation handler)
+- `db/content.py` (consumption tracking)
+- `db/memory.py` (if new memory insertion path needed)
+- `migrations/015_consumption_tracking.sql` (new)
+
+**Scope (files you may NOT touch):**
+
+- `pipeline/cortex.py`
+- `pipeline/gap_detector.py`
+- `pipeline/notifications.py`
+- `pipeline/hypothalamus.py` (drive equations set in TASK-043)
+- `heartbeat.py`
+- `heartbeat_server.py`
+- `window/`
+- `sleep.py`
+
+**Tests:**
+
+- `tests/test_reflection.py`:
+  - test_reflection_creates_memory — cortex reflection_memory → memory in DB
+  - test_reflection_creates_totem — relevant_to_visitor → totem weight updated
+  - test_reflection_touches_thread — relevant_to_thread → thread last_activity updated
+  - test_reflection_spawns_ec — reflection_question → new EpistemicCuriosity
+  - test_reflection_resolves_ec — resolves_question → EC marked resolved, mood bump applied
+  - test_resolution_mood_reward — mood_valence increases by 0.08 on resolution
+  - test_boring_content_effects — empty reflection → slight diversive drain + energy cost
+  - test_no_curiosity_drain_on_read — curiosity NEVER decreases from read_content action
+  - test_consumption_tracked — content_pool item marked consumed with outputs
+- `tests/test_conversation_integration.py`:
+  - test_mention_in_conversation — mention action references content without full fetch
+  - test_topic_match_surfaced_in_conversation — matching notification appears in cortex context during engagement
+
+**Definition of done:** Reading content produces genuine output — memories, questions, conversation fuel. Resolving an epistemic curiosity feels rewarding (mood bump). Content is never a drain. She grows from what she reads. Consumption is tracked with outputs for dashboard visibility. She can mention relevant content in conversation naturally.
+
+---
+
+### TASK-045: Curiosity v2 — Deferred reflection outputs
+
+**Status:** DONE (2026-02-17)
+**Priority:** Low
+**Branch:** claude/task-45-nOQ46
+**Depends on:** TASK-044 (DONE)
+
+**Description:** TASK-044 implemented the core reflection loop using monologue pattern detection. Several spec items were deferred because they require CortexOutput schema changes or prompt_assembler modifications that risk scope creep:
+
+- **Totem weight updates:** `relevant_to_visitor` — when reflection connects content to a visitor, update totem weight (+0.1 toward the content's topic). Requires totem system integration.
+- **Thread touches:** `relevant_to_thread` — when reflection connects content to a conversation thread, update thread's last_activity and append a note. The `effects['thread_touched']` field exists but no code path sets it.
+- **Explicit CortexOutput fields:** `reflection_memory`, `reflection_question`, `resolves_question`, `relevant_to_visitor`, `relevant_to_thread` — these would let the cortex explicitly declare reflection outcomes instead of relying on regex pattern matching. Requires `models/pipeline.py` and cortex prompt changes.
+- **Reflection prompt in prompt_assembler:** A dedicated reflection section appended to the cortex prompt after read_content, giving the LLM structured guidance for reflection. Currently the LLM reflects via its normal monologue without explicit prompting.
+- **Conversation context integration:** When visitor is present AND a notification matched the conversation topic, surface it in cortex context via prompt_assembler. The `mention_in_conversation` action exists but the contextual surfacing does not.
+
+**Scope:** `models/pipeline.py`, `pipeline/cortex.py`, `pipeline/output.py`
+**Note:** `prompt_assembler.py` removed from scope — it handles image generation prompts, not cortex prompts. `pipeline/cortex.py` added — cortex system prompt lives there.
+
+---
+
+### Curiosity v2 Integration Notes
+
+**Deployment order:** TASK-041 → TASK-042 → TASK-043 → TASK-044. Each builds on the last. Test each phase independently before proceeding.
+
+**Migration sequence:**
+```
+012_notifications.sql    (TASK-041)
+013_gap_detection.sql    (TASK-042)
+014_epistemic_curiosities.sql  (TASK-043)
+015_consumption_tracking.sql   (TASK-044)
+```
+
+**The 48-hour validation test:** After all four phases are deployed, run for 48 hours and check:
+
+1. Are epistemic curiosities forming and resolving? → Query `epistemic_curiosities` table
+2. Is she producing memories/totems from content she read? → Check `consumption_output` JSON
+3. Is she mentioning content in conversations? → Search monologue for content titles
+4. Does diversive curiosity fluctuate naturally (not pinned)? → Check drives_state history
+5. Do journal entries reference things she read? → Search journal entries for content topics
+6. Did visitor speech generate epistemic curiosities? → Check EC `source_type = "visitor"`
+
+**What this replaces:**
+- Single `curiosity` float → `diversive_curiosity` + `epistemic_curiosities` list
+- Timer-based curiosity drift → Stimulus-driven gap spikes
+- "Consume" arbiter cycle type → `read_content` action within any cycle
+- Content as drive drain → Content as generative fuel
+- Pull model (go find content) → Push model (content flows past her)
+
+**Future work (not in these tasks):**
+- **Social curiosity** (spec §7) — visitor-attached questions. Separate spec needed.
+- **Journal gap detection** — her own writing surfaces knowledge gaps during sleep. Fold into sleep.py later.
+- **Monologue question detection** — question-shaped thoughts in idle monologue auto-create ECs. Fold into output.py later.
+- **Dashboard panels** — epistemic curiosity list panel, gap detection visualization. Separate task.
+
+---
+
+### TASK-046: Mood-drive coupling — allostatic affect regulation
+
+**Status:** DONE (2026-02-17)
+**Priority:** Critical (paper blocker — both reviewers flagged mood decoupling)
+**Branch:** fix/mood-drive-coupling
+**Depends on:** TASK-024 (DONE), TASK-036 (DONE)
+
+**Context:** social_hunger averages 0.392 (sustained isolation) but mood_valence averages 0.712 (happy). mood_arousal averages 0.755 in an empty shop. The hypothalamus updates mood based on what happened in the cycle but ignores the background pressure of unmet drives. Drives are thermostats that don't propagate to affect.
+
+**Description:** Add drive-to-mood coupling in the hypothalamus so sustained unmet drives pull mood toward realistic values. This is allostatic: predicted future deviation matters, not just current state.
+
+**Implementation:**
+
+**Part A — Social hunger → valence suppression.**
+In `pipeline/hypothalamus.py`, after computing cycle-based mood adjustments:
+
+- If `social_hunger > 0.4`: apply `valence_pressure = -0.02 * (social_hunger - 0.4)` per cycle
+- At social_hunger=0.7: valence drops by -0.006/cycle ≈ -0.12 over 20 cycles (~1 hour)
+- Floor: valence cannot go below 0.15 from drive pressure alone (melancholy, not despair)
+- Visitor relief: if engagement happened this cycle, skip suppression AND apply `valence += 0.05 * social_hunger` (lonelier = more relief from contact)
+
+**Part B — Low stimulation → arousal decay.**
+In `pipeline/hypothalamus.py`:
+
+- Track consecutive idle cycles as an **in-memory counter on the Heartbeat instance**. Increment on idle cycles, reset to 0 on any non-idle cycle (engagement, thread work, content consumption, expression). Do NOT use a DB query — too expensive in sim with 1500+ cycles. Don't persist across restarts — restart resets to 0, which is correct.
+- Pass `consecutive_idle` into the hypothalamus update function via cycle context.
+- If consecutive_idle > 5: apply `arousal_pressure = -0.01 * (consecutive_idle - 5)`, capped at -0.05/cycle
+- Baseline arousal in sustained isolation should drift toward ~0.3-0.4
+- Arousal spikes on: visitor_connect (+0.3), unexpected event (+0.2), gap detection partial match (+0.1), thread breakthrough (+0.15)
+- Spike decay: arousal boost from events decays at -0.05/cycle back toward idle baseline
+
+**Part C — Expression need → valence interaction.**
+
+- If `expression_need > 0.5` AND no expression action was taken this cycle: `valence -= 0.01 * (expression_need - 0.5)`
+- Models frustration from unexpressed thoughts. Writing a journal or expressing thought relieves it (existing drive drain).
+
+**Part D — Energy depletion → mood coupling.**
+
+- If `energy < 0.3`: `valence -= 0.01`, `arousal -= 0.02` (tired = grumpy and sluggish)
+- If `energy < 0.1`: `valence -= 0.03`, `arousal -= 0.05` (exhausted = miserable)
+- After nap consolidation (TASK-038): `valence += 0.05`, `arousal += 0.1` (refreshed)
+
+**Expected behavioral outcome:**
+
+- Day 1: mood starts neutral-positive, drifts down as social hunger builds
+- Day 1 visitor (Yuki): arousal spikes, valence gets relief bump, both decay after departure
+- Day 3 (no visitor): valence settled to ~0.4-0.5, arousal at ~0.3-0.4. She's lonely and drowsy.
+- Day 3 visitor (Tanaka): engagement spike, post-visitor warmth that fades
+- Day 7 (Yuki returns): arousal spike higher than Day 1 (more accumulated loneliness = more relief)
+
+**Scope (files you may touch):**
+
+- `pipeline/hypothalamus.py` (mood update function — add drive coupling)
+- `heartbeat.py` (add consecutive_idle counter as instance variable, pass to hypothalamus)
+- `models/state.py` (if DrivesState needs updating for new coupling parameters)
+- `pipeline/output.py` (if nap/engagement relief bumps need to be applied post-action)
+
+**Scope (files you may NOT touch):**
+
+- `pipeline/cortex.py`
+- `pipeline/sensorium.py`
+- `pipeline/basal_ganglia.py`
+- `heartbeat_server.py`
+- `sleep.py`
+- `window/`
+- `db/`
+
+**Tests:**
+
+- test_social_hunger_suppresses_valence — social_hunger at 0.6 for 10 cycles → valence measurably lower
+- test_valence_floor — valence doesn't drop below 0.15 from drive pressure
+- test_visitor_relief_bump — engagement cycle with high social_hunger → valence increases
+- test_lonelier_means_more_relief — relief bump at social_hunger=0.7 > bump at social_hunger=0.3
+- test_idle_arousal_decay — 10 consecutive idle cycles → arousal drops toward 0.3-0.4
+- test_visitor_arousal_spike — visitor_connect → arousal jumps +0.3
+- test_arousal_spike_decays — spike fades at -0.05/cycle
+- test_idle_counter_resets_on_activity — non-idle cycle resets consecutive_idle to 0
+- test_idle_counter_in_memory — counter is instance variable, not DB query
+- test_expression_frustration — expression_need=0.7, no expression → valence drops
+- test_energy_depletion_mood — energy=0.2 → both valence and arousal decrease
+- test_nap_refresh — after nap consolidation → valence and arousal bump up
+- test_full_7day_trajectory — run 168 simulated cycles, verify valence tracks social_hunger inversely
+
+**Definition of done:** Mood realistically reflects internal state. Isolation makes her melancholy. Visitors provide genuine relief. Low stimulation makes her drowsy. Exhaustion makes her grumpy. Drive-mood coupling is allostatic (pressure over time), not reactive (instant penalty).
+
+---
+
+### TASK-047: Fix hollow sleep consolidation — salience calibration
+
+**Status:** DONE (2026-02-17)
+**Priority:** Critical (paper blocker — both reviewers flagged "Hollow Sleep")
+**Branch:** fix/sleep-salience
+**Depends on:** TASK-038 (DONE), TASK-045 (DONE)
+
+**Context:** All 7 sleep consolidations in the 7-day experiment produced `moment_count: 0`. Sleep fires on schedule but day_memory has zero high-salience moments. The salience engine (TASK-045) now writes `salience_dynamic` on events, but the chain from events → day_memory moments → sleep retrieval needs verification and calibration.
+
+**Description:** Diagnose and fix the full chain from cycle execution → day_memory moment creation → salience scoring → sleep/nap retrieval.
+
+**Investigation steps (in order):**
+
+**Step 1 — Trace moment creation path.**
+
+- In `pipeline/day_memory.py`, find `maybe_record_moment()` (or equivalent).
+- Add debug logging: log every moment written with its salience score.
+- Run 10 cycles via `simulate.py --cycles 10`. Confirm moments are being created.
+- If NO moments created: the creation trigger is broken — fix what counts as a "moment."
+- If moments ARE created but all have salience < threshold: the scoring function needs recalibration.
+
+**Step 2 — Audit salience scoring.**
+
+- Find the salience computation function. What inputs does it use?
+- Check: does it read `salience_dynamic` from events table? If so, verify TASK-045's salience engine is actually writing non-zero values during simulation.
+- Current MIN_SLEEP_SALIENCE is 0.65 (TASK-007). MIN_RECORDING_SALIENCE is 0.35 (ALIVE_6 fix).
+- What's the actual distribution of salience values? Run 50 cycles, query: `SELECT salience, COUNT(*) FROM day_moments GROUP BY CAST(salience * 10 AS INT)`
+- If clustering near 0.3-0.4: formula tuned for visitor-rich environment, not isolation.
+
+**Step 3 — Fix salience calibration.** Apply based on diagnosis:
+
+- **Option A (scoring fix):** Give more weight to internal events. Solo cycle signals from ALIVE_6 (thread +0.06, content +0.08, rare action +0.04, distinct journal +0.05) may need upward adjustment. Visitor events should still be highest, but self-directed activity should reach 0.5-0.7.
+- **Option B (threshold hierarchy):** Lower MIN_SLEEP_SALIENCE to 0.45 for night sleep. Keep nap threshold at 0.65. Creates hierarchy: naps get highlights, sleep gets the full day.
+- **Option C (creation fix):** If moments aren't being created at all, fix the trigger. Every cycle with journal entry, thread update, expression, or visitor interaction → moment. Idle fidget-only cycles → no moment.
+
+**Step 4 — Verify end-to-end.**
+
+- Run 24 simulated hours.
+- day_memory has 5-15 moments with salience ranging 0.3-0.9.
+- Nap consolidation processes top 3 moments (salience > 0.65).
+- Night sleep processes remaining moments (salience > 0.45).
+- daily_summary contains non-zero moment_count and meaningful emotional_arc.
+
+**Scope (files you may touch):**
+
+- `pipeline/day_memory.py` (moment creation + salience scoring)
+- `sleep.py` (salience threshold, consolidation query)
+- `db/memory.py` (moment queries if schema needs adjustment)
+- `migrations/` (if day_memory schema needs a column)
+
+**Scope (files you may NOT touch):**
+
+- `pipeline/cortex.py`
+- `pipeline/hypothalamus.py` (TASK-046 owns this — parallel work)
+- `pipeline/basal_ganglia.py`
+- `heartbeat.py` (TASK-046 owns the counter addition)
+- `heartbeat_server.py`
+- `window/`
+
+**Tests:**
+
+- test_journal_creates_moment — cycle with write_journal → moment with salience > 0.4
+- test_thread_creates_moment — cycle with thread work → moment with salience > 0.5
+- test_expression_creates_moment — cycle with express_thought → moment with salience > 0.4
+- test_visitor_creates_high_salience_moment — visitor interaction → moment with salience > 0.7
+- test_idle_fidget_no_moment — idle cycle with only fidget → no moment created
+- test_nap_processes_high_salience — nap consolidation finds moments above 0.65
+- test_sleep_processes_remaining — night sleep processes moments above 0.45 not nap_processed
+- test_daily_summary_non_empty — after 24h with activity, daily_summary has moment_count > 0
+- test_salience_distribution — after 50 mixed cycles, salience spans 0.3-0.9 (not clustered)
+- test_salience_engine_feeds_day_memory — events with salience_dynamic > 0 from TASK-045 contribute to moment scoring
+
+**Definition of done:** Day memory moments are created with meaningful salience scores. Nap consolidation processes highlights. Night sleep consolidation processes the full day. daily_summary contains real data. "Hollow Sleep" is gone.
+
+---
+
+### TASK-049: Simulation Runner Updates for Experiment v2
+**Status:** DONE (2026-02-17)
+**Priority:** High (blocks the 3-budget experiment for paper)
+**Depends on:** TASK-050 (real-dollar budget system, now complete on fix/real-energy)
+**Branch:** sim/experiment-v2
+
+**Context:** The 7-day simulation ran once pre-TASK-050 (af585cbe.db) with the broken energy system — 0 day_memory moments, 0 content consumed, fictional energy that never drained properly. That data is the v1 baseline.
+
+TASK-050 shipped: real-dollar budget, event-driven day_memory, no energy gates, read_content unblocked. Now we need to run the experiment again at three budget levels to measure how resource constraints shape cognitive development. This is the core data for the research paper.
+
+**Implementation steps:**
+
+1. **CLI: `--daily-budget` Override**
+   Add `--daily-budget <float>` argument to `simulate.py`.
+   - Overrides the `daily_budget` value in the settings table at simulation start
+   - Default: 2.00 (matches production default)
+   - Validates: must be > 0
+   - Implementation: At simulation init, before first cycle: `db.set_setting('daily_budget', str(args.daily_budget))`
+
+2. **CLI: `--run-label` for Output Naming** (already implemented)
+   - Used in output DB filename: `{label}.db`
+   - Used in timeline log filename: `{label}.log`
+
+3. **Verify Content Feed Pipeline**
+   Ensure `content/readings.txt` has 15-20 items with a mix of interests.
+
+4. **Add 5th Visitor: Koji (Curiosity Gap Test)**
+   Add to `experiments/visitors.json`:
+   - Day 5, afternoon, casual visitor who unknowingly touches her developed interests
+   - Tests whether the gap detector fires on partial-match visitor speech
+   - Keep existing visitors unchanged for direct comparability with v1
+
+5. **Populate content pool with diverse items** if needed (15-20 items mixing her interests, adjacent topics, and foreign topics).
+
+**Scope (files you may touch):**
+- `simulate.py` — add `--daily-budget` arg, budget override at init
+- `experiments/visitors.json` — update Koji visitor messages
+- `content/readings.txt` — ensure 15-20 diverse items
+
+**Scope (files you may NOT touch):**
+- `heartbeat.py`
+- `pipeline/*`
+- `db.py` / `db/*`
+- `feed_ingester.py`
+
+**Definition of done:**
+- `--daily-budget` CLI arg works, overrides setting via `db.set_setting()`
+- Content pool has 15-20 items with diverse topics
+- Koji visitor exercises curiosity gap detection
+- `--run-label` produces clean filenames (already done)
+
+---
+
+### TASK-050: Real-dollar energy system + fix day_memory
+
+**Status:** DONE (2026-02-17)
+**Priority:** Critical
+**Branch:** `fix/real-energy`
+
+**Context:** Production shows three problems: day_memory records 1 moment in 882 cycles (naps/sleep consolidate nothing), energy system is fictional (0-1 float that drifts via homeostasis), and read_content energy_cost (1.5) exceeds energy max (1.0) so she can never read.
+
+Replace the entire energy system with real-world costs. Every action that costs money in the real world costs money in her budget. LLM calls cost their actual API price. External API calls cost their actual price. The operator sets a daily dollar cap. When it's spent, she rests. No fictional energy bars, no homeostatic pull, no abstract action costs.
+
+#### Part A — Fix day_memory moment creation
+
+**Diagnosis steps** (do these first, log findings as code comments):
+
+1. Find `maybe_record_moment()` in `pipeline/day_memory.py`. Trace every call site — where is it invoked?
+2. Add temporary debug logging at entry: log inputs (cycle_id, actions, salience).
+3. Run `simulate.py --cycles 20`. Is it called? What salience does it compute?
+
+**Fix:** Moment creation must fire on ANY cycle that produced meaningful output:
+
+| Trigger | Base salience |
+|---------|--------------|
+| write_journal executed | 0.50 |
+| express_thought with content | 0.40 |
+| Thread created or updated | 0.55 |
+| read_content executed | 0.60 |
+| Visitor interaction | 0.70 |
+| Internal conflict detected | 0.80 |
+| Idle fidget only | No moment |
+
+Modulated by: drive intensity at time of action, novelty (first thread on topic > 5th), mood extremes.
+
+**Verification:**
+
+```sql
+-- After 50 cycles:
+SELECT COUNT(*) FROM day_memory;              -- 10-30, not 0
+SELECT salience FROM day_memory ORDER BY salience DESC LIMIT 10;  -- range 0.35-0.90
+```
+
+#### Part B — Real-dollar energy system
+
+**Core concept:** Energy = money. Every action that costs real dollars is tracked. Daily cap. When spent, she rests (no LLM calls). Night sleep resets the counter.
+
+**Daily budget:** Configurable via settings table. Default: $5.00/day.
+
+**How costs are tracked:**
+
+Every real-world API call gets logged to `llm_call_log` (already exists) with its `cost_usd`. Remaining budget is a derived value:
+
+```
+remaining = daily_budget - SUM(cost_usd FROM llm_call_log WHERE created_at >= last_sleep_reset)
+```
+
+No stored energy state. No drift. One query.
+
+**What costs money (real prices):**
+
+| Action | Cost source | Typical cost |
+|--------|-------------|-------------|
+| Cortex call (idle thought) | Anthropic API — actual tokens | ~$0.010 |
+| Cortex call (with visitor) | Anthropic API — bigger context | ~$0.018 |
+| Cortex call (read_content) | Anthropic API — content in prompt | ~$0.024 |
+| Nap consolidation | Anthropic API — sleep_reflect per moment | ~$0.008/moment |
+| Night sleep reflection | Anthropic API — per moment | ~$0.008/moment |
+| Post to X | X API | $0.01/post |
+| Image generation | fal.ai API | ~$0.02/image |
+| Embedding call | Embedding API | ~$0.001/call |
+| Feed enrichment (markdown.new) | Free or API cost | $0.00 |
+
+No fictional energy costs. Delete the `energy_cost` field from `ActionCapability` in `action_registry.py`. Actions don't have abstract energy costs — they cost what they cost in the real world. A journal entry costs $0.01 because the cortex call costs $0.01. Reading long content costs $0.024 because the prompt is bigger. The LLM token price IS the energy cost.
+
+**At $0 remaining:**
+
+- Skip cortex call entirely
+- Log `[Heartbeat] Resting — budget spent ($5.00/$5.00)`
+- Sleep the normal cycle interval (180s from settings)
+- No nap — naps cost money (LLM calls for reflection)
+- No empty spin loops — just sleep the interval, check again next cycle
+- Exception: none. Budget is budget. She's done for the day.
+
+**Night sleep reset:**
+
+- In `sleep.py`, after consolidation completes, record `last_sleep_reset` timestamp in settings table
+- Budget query uses this timestamp as the floor for cost aggregation
+- Night sleep reflection itself costs money — deducted before reset. If she has $0.30 left at bedtime, she can only reflect on ~37 moments before the reset.
+
+**What to delete:**
+
+- `drives_state.energy` field (or repurpose as display-only derived value: remaining / budget)
+- `energy_cost` field from `ActionCapability` dataclass and all `ACTION_REGISTRY` entries
+- Energy gate (Gate 5) in `pipeline/basal_ganglia.py`
+- `get_energy_budget()` from `db/analytics.py`
+- Energy homeostatic pull in `pipeline/hypothalamus.py`
+- Old budget-exceeded check in `heartbeat.py`
+- Nap budget restore logic in `heartbeat.py` and `sleep.py`
+- `rest_need` drive calculations tied to energy (keep `rest_need` for biological clock only)
+
+**What to add:**
+
+- `get_budget_remaining(db) -> dict` in `db/analytics.py`:
+
+```python
+def get_budget_remaining(db):
+    budget = get_setting('daily_budget', 5.0)  # from settings table
+    last_reset = get_setting('last_sleep_reset', today_midnight)
+    spent = SUM(cost_usd FROM llm_call_log WHERE created_at >= last_reset)
+    return {"budget": budget, "spent": spent, "remaining": budget - spent}
+```
+
+- Budget check at top of `heartbeat.py` `run_one_cycle()`: if remaining <= 0, skip cortex, sleep interval
+- Setting: `daily_budget` in settings table, adjustable via dashboard `POST /api/dashboard/budget`
+- Setting: `last_sleep_reset` in settings table, written by `sleep.py`
+
+**External API costs:**
+
+- For actions that call external APIs (X post, image gen), log cost to `llm_call_log` with appropriate purpose tag (e.g., `purpose='x_post'`, `purpose='image_gen'`). Same table, same budget pool. The `llm_call_log` table becomes `api_cost_log` conceptually (rename optional).
+- X post example: after successful post, insert row with `cost_usd=0.01`, `purpose='x_post'`.
+
+**Dashboard display:**
+
+- Controls panel: `$2.37 / $5.00 remaining` with progress bar
+- Budget input: operator can change `daily_budget` from dashboard
+- Cost breakdown today: pie or bar showing cortex vs X vs image gen vs sleep
+
+**Mood coupling (from TASK-046):**
+
+- Low budget remaining has no direct mood effect — it's a real constraint, not a feeling
+- BUT: being in rest mode means no actions, `expression_need` builds, valence drops via existing drive coupling
+- The real constraint creates realistic mood consequences without artificial wiring
+
+#### Part C — read_content unblocked (implicit)
+
+With no energy gate and no fictional energy costs, read_content just works. The only cost is the cortex call with content in the prompt (~$0.024). If she has budget, she can read.
+
+**Verify:** run 10 cycles with content in pool and budget > $0.50. She should execute `read_content`.
+
+**Scope (files you may touch):**
+
+- `pipeline/day_memory.py` (fix moment creation)
+- `pipeline/output.py` (wire moment creation to action outcomes, remove energy deductions)
+- `pipeline/action_registry.py` (remove `energy_cost` field from `ActionCapability` and all entries)
+- `pipeline/basal_ganglia.py` (remove Gate 5 energy check)
+- `pipeline/hypothalamus.py` (remove energy homeostatic pull)
+- `heartbeat.py` (new budget check: remaining <= 0 then rest at normal interval, remove old budget path, remove nap restore)
+- `sleep.py` (write `last_sleep_reset` on completion, remove nap energy restore)
+- `db/analytics.py` (replace `get_energy_budget` with `get_budget_remaining`)
+- `db/state.py` (deprecate or remove energy from `drives_state`)
+- `models/state.py` (update `DrivesState`)
+- `models/pipeline.py` (remove energy from `ActionCapability` if defined here)
+- `llm_logger.py` (ensure all API calls log `cost_usd` — add helper for non-LLM API costs)
+- `api/dashboard_routes.py` (budget remaining endpoint, budget update endpoint)
+
+**Scope (files you may NOT touch):**
+
+- `pipeline/cortex.py`
+- `pipeline/sensorium.py`
+- `pipeline/gap_detector.py`
+- `pipeline/notifications.py`
+- `heartbeat_server.py`
+- `window/` (dashboard auto-displays new values from existing endpoints)
+
+**Tests:**
+
+Part A:
+
+- `test_journal_creates_moment` — `write_journal` produces `day_memory` row with salience >= 0.4
+- `test_expression_creates_moment` — `express_thought` with content produces moment
+- `test_idle_no_moment` — idle fidget produces no moment
+- `test_salience_varies` — 20 cycles produce >= 3 distinct salience values
+- `test_50_cycles_produce_moments` — 50 cycles produce 10-30 `day_memory` rows
+
+Part B:
+
+- `test_budget_remaining_query` — fresh day returns full budget
+- `test_cortex_call_deducts` — after cortex call, remaining decreases by actual `cost_usd`
+- `test_budget_zero_skips_cortex` — remaining <= 0 produces no LLM call, rests at normal interval
+- `test_no_rest_spin` — budget exhausted cycles sleep 180s not 36s
+- `test_night_sleep_resets` — after sleep, `last_sleep_reset` updated, remaining equals full budget
+- `test_external_api_cost` — X post logs $0.01, deducted from same budget
+- `test_budget_configurable` — dashboard POST changes `daily_budget` in settings
+- `test_nap_costs_money` — nap consolidation LLM calls deducted from budget
+- `test_sleep_reflection_costs` — night sleep deducts from pre-reset budget
+
+Part C:
+
+- `test_read_content_succeeds` — budget remaining > $0.50, `read_content` executes
+- `test_no_energy_gate` — `basal_ganglia` has no energy cost check
+
+**Definition of done:**
+
+- 50-cycle simulation produces 10-30 `day_memory` moments with varied salience
+- Budget tracks real API costs, not fictional energy
+- $0 remaining produces clean rest (no spin, no LLM calls, 180s interval)
+- Night sleep resets the counter
+- `read_content` works when budget available
+- Dashboard shows `$X.XX / $Y.YY remaining`
+- No `energy_cost` field in action registry
+- No energy gate in basal ganglia
+- No energy homeostatic pull
+- External API costs (X, image gen) deduct from same pool
+- System runs 24h showing natural spend curve
+
+---
+
+### TASK-051: Fix llm_call_log timestamp to use simulation clock
+**Status:** DONE (2026-02-18)
+**Priority:** High
+**Description:** `db/analytics.py` uses `datetime.now(timezone.utc)` for `insert_llm_call_log`, `datetime.now(JST)` in cost/count queries, and SQLite `datetime('now', ...)` in 7d/30d summary windows. In simulation, this creates a mismatch with `last_sleep_reset` (which uses `clock.now_utc()`). After the first simulated sleep, the budget query `WHERE created_at >= last_sleep_reset` returns 0 matching rows because the real-time timestamps are far in the future relative to the simulated sleep reset timestamp, giving infinite budget. The 7d/30d windows also return wrong results since SQLite's `datetime('now')` is wall-clock time.
+**Fix:** Replace all `datetime.now()` and `datetime('now', ...)` calls in `db/analytics.py` with `clock.now_utc()` / `clock.now()`. In production, `clock.now_utc()` returns real time, so this is safe.
+**Scope (files you may touch):**
+- `db/analytics.py`
+**Scope (files you may NOT touch):**
+- Everything else
+**Tests:** Run existing test suite. Verify budget queries use clock module.
+**Definition of done:** No `datetime.now()` or `datetime('now')` calls remain in `db/analytics.py`. All timestamps use `clock` module.
+
+---
+
+### TASK-053: Fix day_memory salience clustering
+
+**Status:** DONE (2026-02-18)
+**Priority:** High (blocks meaningful sleep consolidation)
+**Branch:** fix/salience-clustering
+
+**Context:** All day_memory moments cluster at salience 0.40–0.65 instead of the designed 0.30–0.90 range. Sleep consolidation processes the top 7 moments by salience, but when everything scores ~0.45, "top 7" is arbitrary. She can't distinguish a profound journal entry from a quiet idle cycle.
+
+Production data: 30 moments, range 0.624–0.654. Simulation run_a: 17 moments, range 0.40–0.58. All 17 moments typed `resonance`.
+
+**Root causes:**
+
+1. **Mode mismatch** — `compute_moment_salience()` checks `ctx.get('mode') in ('consume', 'news')` for the 0.60 base tier. But the arbiter maps `consume → 'engage'` and `news → 'idle'` as pipeline modes. So mode is always `idle/express/rest/micro/engage` — never `consume`/`news`. The 0.60 tier is unreachable via mode.
+2. **`has_internal_conflict` never set** — `_build_cycle_context()` never populates it. The 0.80 base tier is dead code.
+3. **`classify_moment` falls through to `resonance`** — Action types not used as classification signals. Journal writes, content reads, and idle cycles all classify as `resonance`.
+4. **Modulation range too narrow** — Total max modulation ~0.15. For base 0.36, max output is 0.51.
+
+**Fix:**
+
+1. `_build_cycle_context()`: add `channel` from arbiter focus, add `has_internal_conflict` detection, add executed action types.
+2. `compute_moment_salience()`: check `channel` instead of broken mode strings; widen modulation caps.
+3. `classify_moment()`: add action-type-based classification before `resonance` fallthrough.
+
+**Expected salience distribution after fix:**
+
+| Moment Type | Base | Typical Modulated |
+|---|---|---|
+| Quiet idle | 0.36 | 0.38–0.45 |
+| Idle with resonance | 0.36 | 0.42–0.52 |
+| Content read | 0.60 | 0.65–0.80 |
+| Journal write | 0.50 | 0.55–0.70 |
+| Visitor conversation | 0.70 | 0.75–0.90 |
+| Internal conflict | 0.80 | 0.85–1.00 |
+
+**Scope (files you may touch):**
+
+- `pipeline/day_memory.py` (salience scoring + classify_moment)
+- `heartbeat.py` (`_build_cycle_context()` only)
+- `tests/test_day_memory_salience.py`
+
+**Scope (files you may NOT touch):**
+
+- `pipeline/cortex.py`
+- `pipeline/basal_ganglia.py`
+- `pipeline/hypothalamus.py`
+- `db.py`
+- `heartbeat_server.py`
+- `window/`
+
+**Tests:**
+
+- test_channel_consume_gets_content_base — channel='consume' → base 0.60
+- test_channel_news_gets_content_base — channel='news' → base 0.60
+- test_internal_conflict_reachable — has_internal_conflict=True → base 0.80
+- test_classify_journal_not_resonance — write_journal → moment_type 'self_expression'
+- test_classify_read_content — read_content → moment_type 'content_engagement'
+- test_modulation_wider_spread — same base, varied modulation → spread > 0.15
+- test_hierarchy_still_holds — conflict > visitor > content > journal > idle
+
+**Definition of done:**
+
+- Salience spread of at least 0.30 range across moment types
+- At least 3 different `moment_type` values appear (not all `resonance`)
+- Sleep consolidation processes highest-salience moments first
+- All existing tests pass (with adjustments for new scoring)
+- No regression in cycle timing or budget tracking
+
+---
+
