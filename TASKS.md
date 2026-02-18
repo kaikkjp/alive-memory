@@ -486,7 +486,7 @@ ORDER BY sim_day;
 ---
 
 ### TASK-064: Sleep Phase Extraction
-**Status:** BACKLOG
+**Status:** DONE (2026-02-19)
 **Priority:** Medium
 **Branch:** `refactor/sleep-phases`
 **Depends on:** TASK-059 merge (holds sleep.py — don't touch LLM call signatures)
