@@ -2635,7 +2635,7 @@ Production data: 30 moments, range 0.624–0.654. Simulation run_a: 17 moments, 
 ---
 
 ### TASK-057: Enable X/Twitter social channel
-**Status:** BACKLOG
+**Status:** DONE (2026-02-18)
 **Priority:** High (addresses social isolation — social_hunger at 0.742)
 **Complexity:** Medium
 **Branch:** `feat/x-social`

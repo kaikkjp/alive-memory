@@ -242,3 +242,22 @@ export interface ConsumptionHistoryEntry {
 export interface ConsumptionHistoryData {
   entries: ConsumptionHistoryEntry[];
 }
+
+// ─── Dashboard: X Drafts Panel (TASK-057) ───
+
+export interface XDraft {
+  id: string;
+  draft_text: string;
+  status: 'pending' | 'approved' | 'rejected' | 'posted' | 'failed';
+  created_at: string;
+  reviewed_at?: string;
+  posted_at?: string;
+  x_post_id?: string;
+  rejection_reason?: string;
+  error_message?: string;
+}
+
+export interface XDraftsData {
+  drafts: XDraft[];
+  pending_count: number;
+}

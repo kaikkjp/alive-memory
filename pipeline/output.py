@@ -42,6 +42,11 @@ ACTION_DRIVE_EFFECTS = {
     'end_engagement': {'rest_need': -0.03},  # social load lifted
 }
 
+# ── X draft limits (TASK-057) ──
+X_DRAFT_MAX_CHARS = 280
+X_DRAFT_DAILY_CAP = 8
+X_DRAFT_COOLDOWN_SECONDS = 1800  # 30 minutes
+
 
 # ── Negative feeling patterns (reserved for future use) ──
 # Patterns for detecting self-assessed negative outcomes from cortex monologue.
@@ -244,6 +249,10 @@ async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
     if motor_plan and cycle_id:
         await _log_motor_plan(motor_plan, body_output, cycle_id)
 
+    # ── Persist X drafts with limits (TASK-057) ──
+    if body_output.executed and motor_plan:
+        await _persist_x_draft(body_output, motor_plan=motor_plan, cycle_id=cycle_id)
+
     # ── Suppression reflection seed (Phase 2) ──
     if motor_plan:
         await _inject_reflection_seed(motor_plan)
@@ -278,6 +287,68 @@ async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
         await _emit_internal_conflict(consistency, validated)
 
     return result
+
+
+async def _persist_x_draft(body_output: BodyOutput, motor_plan: MotorPlan,
+                           cycle_id: str = None) -> None:
+    """Intercept post_x_draft results and persist as queued drafts.
+
+    Enforces: 280 char limit, dedup within 24h, daily cap of 8, 30 min cooldown.
+    Draft text is extracted from motor_plan (body.py doesn't set result.content).
+    """
+    for action_result in body_output.executed:
+        if action_result.action != 'post_x_draft' or not action_result.success:
+            continue
+
+        # Extract draft text from motor plan decision detail
+        draft_text = ''
+        for decision in motor_plan.actions:
+            if decision.action == 'post_x_draft':
+                draft_text = (decision.detail.get('text', '') if decision.detail else '').strip()
+                break
+
+        if not draft_text:
+            print("  [XDraft] No draft text in motor plan, skipping")
+            continue
+
+        # ── Char limit ──
+        if len(draft_text) > X_DRAFT_MAX_CHARS:
+            draft_text = draft_text[:X_DRAFT_MAX_CHARS]
+            print(f"  [XDraft] Truncated to {X_DRAFT_MAX_CHARS} chars")
+
+        # ── Dedup check ──
+        try:
+            is_dup = await db.check_dedup(draft_text)
+            if is_dup:
+                print("  [XDraft] Duplicate draft rejected (similar within 24h)")
+                continue
+        except Exception as e:
+            print(f"  [XDraft] Dedup check failed: {e}")
+
+        # ── Daily cap ──
+        try:
+            daily_count = await db.get_daily_post_count()
+            if daily_count >= X_DRAFT_DAILY_CAP:
+                print(f"  [XDraft] Daily cap reached ({daily_count}/{X_DRAFT_DAILY_CAP})")
+                continue
+        except Exception as e:
+            print(f"  [XDraft] Daily cap check failed: {e}")
+
+        # ── Cooldown ──
+        try:
+            still_cooling = await db.check_cooldown(X_DRAFT_COOLDOWN_SECONDS)
+            if still_cooling:
+                print("  [XDraft] Cooldown active (30 min between drafts)")
+                continue
+        except Exception as e:
+            print(f"  [XDraft] Cooldown check failed: {e}")
+
+        # ── Persist ──
+        try:
+            draft = await db.insert_x_draft(draft_text, cycle_id=cycle_id)
+            print(f"  [XDraft] Draft created: {draft['id'][:8]}... ({len(draft_text)} chars)")
+        except Exception as e:
+            print(f"  [XDraft] Failed to persist draft: {e}")
 
 
 async def _log_motor_plan(motor_plan: MotorPlan, body_output: BodyOutput,
