@@ -5,7 +5,7 @@
  */
 
 import { authManager } from './auth-manager';
-import type { ActionsPanelData, DynamicAction } from './types';
+import type { ActionsPanelData, DriftData, DynamicAction } from './types';
 
 const API_BASE =
   process.env.NEXT_PUBLIC_DASHBOARD_API_URL ?? '';
@@ -195,6 +195,11 @@ export const dashboardApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ draft_id: draftId, reason }),
     });
+    return res.json();
+  },
+
+  async getDrift(): Promise<DriftData> {
+    const res = await dashboardFetch('/api/dashboard/drift');
     return res.json();
   },
 

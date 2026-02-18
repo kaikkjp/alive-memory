@@ -409,11 +409,11 @@ ORDER BY sim_day;
 ---
 
 ### TASK-062: Drift Detection
-**Status:** BACKLOG
+**Status:** DONE (2026-02-19)
 **Priority:** High
 **Complexity:** Medium
 **Branch:** `feat/drift-detection`
-**Depends on:** TASK-061
+**Depends on:** TASK-061 (building with interface stub — self-model not yet implemented)
 **Blocks:** TASK-063
 **Spec:** `tasks/TASK-062-drift-detection.md`
 **Description:** Compare her current behavioral patterns against her self-model baseline. Detect when she's meaningfully diverging from her established identity. Drift is NOT deviation in a single cycle — it's a sustained divergence over N cycles (configurable, default ~20) where behavioral patterns consistently differ from the self-model baseline.

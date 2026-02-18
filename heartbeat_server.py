@@ -1130,6 +1130,8 @@ class ShopkeeperServer:
                 await dashboard_routes.handle_actions(self, writer, authorization)
             elif path == '/api/dashboard/actions/resolve' and method == 'POST':
                 await dashboard_routes.handle_resolve_action(self, writer, authorization, body_bytes)
+            elif path == '/api/dashboard/drift' and method == 'GET':
+                await dashboard_routes.handle_drift(self, writer, authorization)
             elif path == '/api/weather' and method == 'GET':
                 await self._http_weather(writer)
             elif path == '/api/outdoor' and method == 'GET':

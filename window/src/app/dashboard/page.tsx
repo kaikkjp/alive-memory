@@ -20,6 +20,7 @@ import ParametersPanel from '@/components/dashboard/ParametersPanel';
 import XDraftsPanel from '@/components/dashboard/XDraftsPanel';
 import ActionsPanel from '@/components/dashboard/ActionsPanel';
 import BudgetPanel from '@/components/dashboard/BudgetPanel';
+import DriftPanel from '@/components/dashboard/DriftPanel';
 
 export default function DashboardPage() {
   const [authenticated, setAuthenticated] = useState(false);
@@ -127,6 +128,7 @@ export default function DashboardPage() {
             <BehavioralPanel />
             <CostsPanel />
             <BudgetPanel />
+            <DriftPanel />
           </div>
         </section>
 

@@ -661,3 +661,15 @@ async def handle_resolve_action(server, writer: asyncio.StreamWriter,
         resolved_by='dashboard',
     )
     await server._http_json(writer, 200, result)
+
+
+# ─── Drift Detection (TASK-062) ───
+
+async def handle_drift(server, writer, authorization):
+    """GET /api/dashboard/drift — current drift state."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+    from identity.drift import get_drift_state
+    state = await get_drift_state()
+    await server._http_json(writer, 200, state)

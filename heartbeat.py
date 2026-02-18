@@ -148,6 +148,15 @@ async def build_self_state(visitor, unread: list) -> str | None:
         if isinstance(hint, str) and hint:
             parts.append(f'  You were about to {hint}.')
 
+    # TASK-062: Inject drift summary into self-context when significant
+    try:
+        from identity.drift import get_detector
+        drift_summary = get_detector().get_drift_summary()
+        if drift_summary:
+            parts.append(f'  {drift_summary}.')
+    except Exception:
+        pass  # Drift module not loaded or not ready — skip silently
+
     return '\n'.join(parts)
 
 
@@ -1221,6 +1230,17 @@ class Heartbeat:
         except Exception as e:
             # Day memory failure must not break the main cycle
             print(f"  [DayMemory] Error recording moment: {e}")
+
+        # ── TASK-062: Drift detection ──
+        try:
+            from identity.drift import get_detector
+            drift_result = await get_detector().check(log, drives)
+            if drift_result and drift_result.level != 'none':
+                print(f"  [Drift] level={drift_result.level} "
+                      f"composite={drift_result.composite:.3f}")
+        except Exception as e:
+            # Drift failure must not break the main cycle
+            print(f"  [Drift] Error: {e}")
 
         # Broadcast to all subscribers (bounded queues, drop oldest if full)
         for sub_id, q in list(self._cycle_log_subscribers.items()):

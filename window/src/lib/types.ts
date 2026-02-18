@@ -365,3 +365,21 @@ export interface XDraftsData {
   drafts: XDraft[];
   pending_count: number;
 }
+
+// ─── Dashboard: Drift Detection (TASK-062) ───
+
+export interface DriftMetrics {
+  action_frequency: number;
+  drive_response: number;
+  conversation_style: number;
+  sleep_wake_rhythm: number;
+}
+
+export interface DriftData {
+  composite: number;
+  metrics: DriftMetrics;
+  level: 'none' | 'notable' | 'significant';
+  summary: string | null;
+  baseline_cycles: number;
+  baseline_mature: boolean;
+}
