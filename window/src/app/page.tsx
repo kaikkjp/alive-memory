@@ -1,21 +1,34 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useShopkeeperSocket } from '@/hooks/useShopkeeperSocket';
-import { useSceneTransition } from '@/hooks/useSceneTransition';
+import { useExpression } from '@/hooks/useExpression';
+
+// Scene
+import SceneViewport from '@/components/scene/SceneViewport';
+import CharacterSprite from '@/components/scene/CharacterSprite';
+import DustParticles from '@/components/scene/DustParticles';
+import GlassOverlay from '@/components/scene/GlassOverlay';
+import SleepOverlay from '@/components/scene/SleepOverlay';
+
+// Stream
+import ActivityStream from '@/components/stream/ActivityStream';
+
+// Chat
+import ChatGate from '@/components/chat/ChatGate';
+import TokenAuth from '@/components/chat/TokenAuth';
+import ChatPanel from '@/components/chat/ChatPanel';
+
+// UI
+import TopBar from '@/components/ui/TopBar';
+import BottomBar from '@/components/ui/BottomBar';
+import LoadingScreen from '@/components/ui/LoadingScreen';
+
+// Legacy (debug mode only)
 import SceneCanvas from '@/components/SceneCanvas';
-import TextStream from '@/components/TextStream';
-import StatePanel from '@/components/StatePanel';
-import ActivityOverlay from '@/components/ActivityOverlay';
-import ConnectionIndicator from '@/components/ConnectionIndicator';
-import ChatGate from '@/components/ChatGate';
-import ChatPanel from '@/components/ChatPanel';
 import type { SpriteState, TimeOfDay } from '@/lib/types';
-import {
-  DEFAULT_SPRITE_STATE,
-  DEFAULT_TIME_OF_DAY,
-} from '@/lib/scene-constants';
+import { DEFAULT_SPRITE_STATE, DEFAULT_TIME_OF_DAY } from '@/lib/scene-constants';
 
 const SPRITE_STATES: SpriteState[] = [
   'surprised', 'tired', 'engaged', 'curious', 'focused', 'thinking',
@@ -34,13 +47,124 @@ export default function WindowPage() {
 
 function WindowPageInner() {
   const searchParams = useSearchParams();
-  const debugScene = searchParams.get('debug') === 'scene';
+  const mode = searchParams.get('debug');
 
-  if (debugScene) {
-    return <DebugSceneViewer />;
-  }
+  if (mode === 'scene') return <DebugSceneViewer />;
 
   return <LiveWindow />;
+}
+
+// ─── Production: Through the Glass ───
+
+function LiveWindow() {
+  const {
+    fragments,
+    windowState,
+    connected,
+    chatMessages,
+    sendChat,
+    sendDisconnect,
+    addVisitorMessage,
+    clearChatMessages,
+  } = useShopkeeperSocket();
+
+  const [sceneLoaded, setSceneLoaded] = useState(false);
+  const [chatPhase, setChatPhase] = useState<'watching' | 'token' | 'chatting'>('watching');
+  const [chatToken, setChatToken] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState('Visitor');
+
+  const status = windowState?.status ?? 'awake';
+  const sleeping = status === 'sleeping';
+  const weather = windowState?.weather_diegetic ?? '';
+  const timeOfDay = windowState?.time_label ?? '';
+
+  const expression = useExpression(windowState?.sprite_state);
+
+  const sceneImageUrl = '/assets/shop_interior.png';
+
+  const handleEnterShop = useCallback(() => {
+    setChatPhase('token');
+  }, []);
+
+  const handleTokenValidated = useCallback((token: string, name: string) => {
+    clearChatMessages();
+    setChatToken(token);
+    setDisplayName(name);
+    setChatPhase('chatting');
+  }, [clearChatMessages]);
+
+  const handleTokenCancel = useCallback(() => {
+    setChatPhase('watching');
+  }, []);
+
+  const handleChatClose = useCallback(() => {
+    if (chatToken) sendDisconnect(chatToken);
+    clearChatMessages();
+    setChatPhase('watching');
+  }, [chatToken, sendDisconnect, clearChatMessages]);
+
+  const handleChatSend = useCallback((text: string): boolean => {
+    if (!chatToken) return false;
+    // Only show the optimistic bubble if the message was actually sent.
+    // sendChat returns false when WS is not open, preventing ghost messages.
+    const sent = sendChat(text, chatToken);
+    if (sent) addVisitorMessage(text);
+    return sent;
+  }, [chatToken, sendChat, addVisitorMessage]);
+
+  return (
+    <div className="window-viewport">
+      <LoadingScreen loaded={sceneLoaded} />
+
+      {/* Z-0: Background scene */}
+      <SceneViewport
+        imageUrl={sceneImageUrl}
+        onLoad={() => setSceneLoaded(true)}
+      />
+
+      {/* Z-1: Character sprite */}
+      <CharacterSprite expression={expression} hidden={sleeping} />
+
+      {/* Z-2: Dust particles */}
+      <DustParticles weather={windowState?.weather_diegetic} />
+
+      {/* Z-3: Glass reflection + vignette */}
+      <GlassOverlay />
+
+      {/* Z-4: Sleep overlay */}
+      <SleepOverlay sleeping={sleeping} />
+
+      {/* UI: Top bar */}
+      <TopBar timeOfDay={timeOfDay} weather={weather} connected={connected} />
+
+      {/* UI: Activity stream */}
+      <ActivityStream fragments={fragments} />
+
+      {/* UI: Bottom bar */}
+      <BottomBar />
+
+      {/* Chat gate / token auth */}
+      {chatPhase === 'watching' && (
+        <ChatGate onEnter={handleEnterShop} sleeping={sleeping} />
+      )}
+
+      {chatPhase === 'token' && (
+        <TokenAuth
+          onValidated={handleTokenValidated}
+          onCancel={handleTokenCancel}
+        />
+      )}
+
+      {/* Chat panel (slide-up) */}
+      <ChatPanel
+        open={chatPhase === 'chatting'}
+        messages={chatMessages}
+        displayName={displayName}
+        onSend={handleChatSend}
+        onClose={handleChatClose}
+      />
+    </div>
+  );
 }
 
 // ─── Debug scene viewer (dev only) ───
@@ -76,102 +200,9 @@ function DebugSceneViewer() {
             ))}
           </select>
         </label>
-        <span style={{ opacity: 0.5, fontSize: 13 }}>
-          ?debug=scene
-        </span>
+        <span style={{ opacity: 0.5, fontSize: 13 }}>?debug=scene</span>
       </div>
       <SceneCanvas spriteState={spriteState} timeOfDay={timeOfDay} />
-    </div>
-  );
-}
-
-// ─── Live window (production) ───
-
-function LiveWindow() {
-  const {
-    layers,
-    textEntries,
-    windowState,
-    currentThought,
-    activityLabel,
-    connected,
-    sendChat,
-    sendDisconnect,
-  } = useShopkeeperSocket();
-
-  const { activeLayers, prevLayers, opacity } = useSceneTransition(layers);
-
-  const [chatToken, setChatToken] = useState<string | null>(null);
-  const [chatOpen, setChatOpen] = useState(false);
-
-  // Restore token from localStorage on mount
-  useEffect(() => {
-    const stored = localStorage.getItem('shopkeeper-token');
-    if (stored) setChatToken(stored);
-  }, []);
-
-  const handleAuthenticated = useCallback((token: string) => {
-    setChatToken(token);
-    setChatOpen(true);
-  }, []);
-
-  const handleChatClose = useCallback(() => {
-    if (chatToken) sendDisconnect(chatToken);
-    setChatOpen(false);
-  }, [chatToken, sendDisconnect]);
-
-  const weather = activeLayers?.weather ?? '';
-
-  // Scene compositor state from WebSocket payload
-  const spriteState: SpriteState = useMemo(() => {
-    const ws = windowState?.sprite_state;
-    if (ws && SPRITE_STATES.includes(ws)) return ws;
-    return DEFAULT_SPRITE_STATE;
-  }, [windowState?.sprite_state]);
-
-  const timeOfDay: TimeOfDay = useMemo(() => {
-    const ws = windowState?.time_of_day;
-    if (ws && TIME_OF_DAY_OPTIONS.includes(ws)) return ws;
-    return DEFAULT_TIME_OF_DAY;
-  }, [windowState?.time_of_day]);
-
-  return (
-    <div
-      className={`window-layout ${chatOpen ? 'window-layout--chat-open' : ''}`}
-    >
-      {/* Main scene area */}
-      <main className="window-main">
-        <SceneCanvas
-          spriteState={spriteState}
-          timeOfDay={timeOfDay}
-          activeLayers={activeLayers}
-          prevLayers={prevLayers}
-          opacity={opacity}
-          weather={weather}
-        />
-        <ActivityOverlay label={activityLabel} />
-      </main>
-
-      {/* Sidebar: text stream + state + chat gate */}
-      <div className="window-sidebar">
-        <StatePanel state={windowState} activityLabel={activityLabel} />
-        <TextStream entries={textEntries} currentThought={currentThought} />
-        {!chatOpen && (
-          <ChatGate onAuthenticated={handleAuthenticated} />
-        )}
-      </div>
-
-      {/* Chat panel slides up from bottom */}
-      {chatOpen && chatToken && (
-        <ChatPanel
-          token={chatToken}
-          sendChat={sendChat}
-          onClose={handleChatClose}
-        />
-      )}
-
-      {/* Connection indicator */}
-      <ConnectionIndicator connected={connected} />
     </div>
   );
 }

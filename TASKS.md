@@ -284,7 +284,7 @@ ORDER BY sim_day;
 ---
 
 ### TASK-058: Production Visitor UI — Full Redesign
-**Status:** BACKLOG
+**Status:** DONE (2026-02-18)
 **Priority:** High
 **Branch:** `feat/visitor-ui`
 **Spec:** `tasks/TASK-058-visitor-ui.md`

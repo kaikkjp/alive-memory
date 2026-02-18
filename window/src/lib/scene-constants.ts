@@ -68,6 +68,7 @@ export const SPRITE_MAP: Record<SpriteState, string> = {
   curious: 'char-4-cropped.png',
   surprised: 'char-5-cropped.png',
   focused: 'char-6-cropped.png',
+  smiling: 'char-1-cropped.png',
 };
 
 // ─── Scenery gradient fallbacks (when PNG assets not available) ───

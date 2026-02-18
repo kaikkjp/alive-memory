@@ -1,5 +1,54 @@
 /** TypeScript types matching backend WebSocket/REST payloads. */
 
+// ─── Fragment Types ───
+
+export type FragmentType =
+  | 'journal'
+  | 'thought'
+  | 'action'
+  | 'speech'
+  | 'sleep_reflection'
+  | 'thread_update'
+  | 'response'
+  | 'visitor_speech';
+
+export interface Fragment {
+  id: string;
+  content: string;
+  type: FragmentType;
+  timestamp: string;
+}
+
+// ─── Chat Messages ───
+
+export interface ChatMessage {
+  id: string;
+  content: string;
+  sender: 'visitor' | 'shopkeeper';
+  timestamp: string;
+}
+
+// ─── Scene Types ───
+
+export type SpriteState =
+  | 'surprised'
+  | 'tired'
+  | 'engaged'
+  | 'curious'
+  | 'focused'
+  | 'thinking'
+  | 'smiling';
+
+export type TimeOfDay =
+  | 'morning'
+  | 'afternoon'
+  | 'evening'
+  | 'night';
+
+export type ShopkeeperStatus = 'awake' | 'sleeping' | 'resting';
+
+// ─── Scene Layers (legacy compositor) ───
+
 export interface SceneLayers {
   background: string;
   shop: string;
@@ -26,18 +75,7 @@ export interface Position {
   height: number;
 }
 
-export interface TextEntry {
-  content: string;
-  type: FragmentType;
-  timestamp: string;
-}
-
-export type FragmentType =
-  | 'journal'
-  | 'thought'
-  | 'thread_update'
-  | 'response'
-  | 'visitor_speech';
+// ─── Window State ───
 
 export interface ThreadInfo {
   id: string;
@@ -49,33 +87,25 @@ export interface ThreadInfo {
   last_touched?: string | null;
 }
 
-// ─── Scene Compositor Types ───
-
-export type SpriteState =
-  | 'surprised'
-  | 'tired'
-  | 'engaged'
-  | 'curious'
-  | 'focused'
-  | 'thinking';
-
-export type TimeOfDay =
-  | 'morning'
-  | 'afternoon'
-  | 'evening'
-  | 'night';
-
 export interface WindowState {
   threads: ThreadInfo[];
   weather_diegetic: string;
   time_label: string;
-  status: 'awake' | 'sleeping' | 'resting';
+  status: ShopkeeperStatus;
   visitor_present: boolean;
   sprite_state: SpriteState;
   time_of_day: TimeOfDay;
 }
 
-// ─── WebSocket Messages ───
+// ─── Text Entry (legacy compat) ───
+
+export interface TextEntry {
+  content: string;
+  type: FragmentType;
+  timestamp: string;
+}
+
+// ─── WebSocket Messages: Server → Client ───
 
 export interface SceneUpdateMessage {
   type: 'scene_update';
@@ -96,6 +126,12 @@ export interface TextFragmentMessage {
   timestamp: string;
 }
 
+export interface ExpressionChangeMessage {
+  type: 'expression_change';
+  expression: string;
+  sprite_url: string;
+}
+
 export interface ItemAddedMessage {
   type: 'item_added';
   item: ShelfItem & { description?: string };
@@ -104,8 +140,22 @@ export interface ItemAddedMessage {
 
 export interface StatusMessage {
   type: 'status';
-  status: 'awake' | 'sleeping' | 'resting';
+  status: ShopkeeperStatus;
   message: string;
+}
+
+export interface ChatResponseMessage {
+  type: 'chat_response';
+  content: string;
+  expression: string;
+  timestamp: string;
+}
+
+export interface TokenResultMessage {
+  type: 'token_result';
+  valid: boolean;
+  display_name?: string;
+  error?: string;
 }
 
 export interface ChatErrorMessage {
@@ -116,11 +166,14 @@ export interface ChatErrorMessage {
 export type ServerMessage =
   | SceneUpdateMessage
   | TextFragmentMessage
+  | ExpressionChangeMessage
   | ItemAddedMessage
   | StatusMessage
+  | ChatResponseMessage
+  | TokenResultMessage
   | ChatErrorMessage;
 
-// ─── Client → Server ───
+// ─── WebSocket Messages: Client → Server ───
 
 export interface VisitorMessage {
   type: 'visitor_message';
@@ -130,6 +183,11 @@ export interface VisitorMessage {
 
 export interface VisitorDisconnect {
   type: 'visitor_disconnect';
+  token: string;
+}
+
+export interface TokenValidateMessage {
+  type: 'token_validate';
   token: string;
 }
 
@@ -144,7 +202,9 @@ export interface ShopkeeperState {
   connected: boolean;
 }
 
-// ─── Dashboard: Body Panel ───
+// ═══════════════════════════════════════════════
+// Dashboard types (unchanged — for /dashboard)
+// ═══════════════════════════════════════════════
 
 export interface ActionCapabilityView {
   action: string;
@@ -159,15 +219,11 @@ export interface BodyPanelData {
   actions_today: { type: string; count: number; total_energy: number }[];
 }
 
-// ─── Dashboard: Budget ───
-
 export interface BudgetData {
   budget: number;
   spent: number;
   remaining: number;
 }
-
-// ─── Dashboard: Behavioral Panel ───
 
 export interface HabitView {
   action: string;
@@ -198,8 +254,6 @@ export interface BehavioralPanelData {
   habit_skips_today: number;
 }
 
-// ─── Dashboard: Content Pool Panel ───
-
 export interface ContentPoolTypeBreakdown {
   source_type: string;
   count: number;
@@ -218,8 +272,6 @@ export interface ContentPoolData {
   oldest_age_hours: number | null;
 }
 
-// ─── Dashboard: Feed Panel ───
-
 export interface FeedPanelData {
   status: 'running' | 'paused' | 'error';
   queue_depth: number;
@@ -228,8 +280,6 @@ export interface FeedPanelData {
   last_error: string | null;
   rate_24h: number;
 }
-
-// ─── Dashboard: Consumption History Panel ───
 
 export interface ConsumptionHistoryEntry {
   id: string;
@@ -273,6 +323,7 @@ export interface ParametersPanelData {
 }
 
 // ─── Dashboard: X Drafts Panel (TASK-057) ───
+
 
 export interface XDraft {
   id: string;
