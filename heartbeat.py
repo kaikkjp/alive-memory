@@ -32,6 +32,7 @@ from pipeline.ambient import fetch_ambient_context
 from pipeline.enrich import fetch_readable_text
 from sleep import sleep_cycle, nap_consolidate
 from pipeline.day_memory import maybe_record_moment
+from identity.self_model import SelfModel
 
 # Type for stage callbacks: async fn(stage_name, stage_data)
 StageCallback = Optional[Callable[[str, dict], Awaitable[None]]]
@@ -191,6 +192,7 @@ class Heartbeat:
         self._consecutive_idle: int = 0  # TASK-046: in-memory idle counter for arousal decay
         self._last_expression_taken: bool = False  # TASK-046: previous cycle had expression action
         self._recent_action_types: list[str] = []  # last 3 cycle primary actions
+        self._self_model: Optional[SelfModel] = None  # TASK-061: persistent behavioral mirror
 
         # TASK-057: Set X draft cooldown (30 min between posts at gate level)
         from pipeline.action_registry import ACTION_REGISTRY
@@ -297,6 +299,8 @@ class Heartbeat:
                 print(f"  [Heartbeat] Restored last_sleep_date: {saved_sleep}")
         except Exception:
             pass
+        # TASK-061: Load persistent self-model
+        self._self_model = SelfModel.load('identity/self_model.json')
         self._loop_task = asyncio.create_task(self._main_loop())
 
     async def stop(self):
@@ -399,6 +403,13 @@ class Heartbeat:
                                 await db.set_setting('last_sleep_date', self._last_sleep_date)
                             except Exception:
                                 pass  # best-effort persist
+                            # TASK-061: Record sleep event in self-model
+                            if self._self_model is not None:
+                                try:
+                                    self._self_model.record_sleep()
+                                    self._self_model.save('identity/self_model.json')
+                                except Exception as e:
+                                    print(f"  [SelfModel] Sleep record failed: {e}")
                             await self._emit_stage('sleep', {'status': 'woke_up'})
                         else:
                             # Deferred — do NOT stamp _last_sleep_date.
@@ -678,6 +689,8 @@ class Heartbeat:
                 'last_thread_focus_ts': None, 'last_express_ts': None,
                 'recent_focus_keywords': [], 'current_date_jst': '',
             }
+        # TASK-061: Load persistent self-model
+        self._self_model = SelfModel.load('identity/self_model.json')
 
     async def schedule_microcycle(self):
         """Signal that a microcycle should run."""
@@ -1230,6 +1243,27 @@ class Heartbeat:
         except Exception as e:
             # Day memory failure must not break the main cycle
             print(f"  [DayMemory] Error recording moment: {e}")
+
+        # ── Self-Model Update: record behavioral observation ──
+        if self._self_model is not None:
+            try:
+                visitor_interaction = None
+                if visitor_id and visitor:
+                    visitor_interaction = {
+                        'visitor_id': visitor_id,
+                        'turn_count': engagement.turn_count,
+                        'had_dialogue': validated.dialogue is not None,
+                    }
+                self._self_model.update(cycle_data={
+                    'actions': [a.type for a in approved],
+                    'drives': drives,
+                    'mood': (drives.mood_valence, drives.mood_arousal),
+                    'visitor_interaction': visitor_interaction,
+                    'cycle_number': self._self_model.last_updated_cycle + 1,
+                })
+                self._self_model.save('identity/self_model.json')
+            except Exception as e:
+                print(f"  [SelfModel] Update failed: {e}")
 
         # ── TASK-062: Drift detection ──
         try:

@@ -146,6 +146,13 @@ Events → Inbox → Sensorium → Gates → Affect → Hypothalamus → Thalamu
 |------|-------|-------------|
 | `sleep.py` | 349 | End-of-day processing: per-moment reflective journal entries, lightweight daily summary index, memory consolidation. Runs when `rest_need` is high or during JST night hours. |
 
+### Identity (self-model)
+
+| File | Lines | What it does |
+|------|-------|-------------|
+| `identity/__init__.py` | 1 | Package marker. |
+| `identity/self_model.py` | 407 | Persistent behavioral self-model. Tracks emergent trait weights, action frequency signatures, relational stance, and self-narrative via exponential moving averages. Updated at end of each wake cycle. Persists to `identity/self_model.json`. Read-only mirror — no decision-making. |
+
 ### Content Ingestion
 
 | File | Lines | What it does |
@@ -349,7 +356,7 @@ Metacognitive monitor in `pipeline/output.py` compares executed behavior against
 
 | Area | Files | Lines |
 |------|-------|-------|
-| Core engine (*.py root) | 16 | ~6,847 |
+| Core engine (*.py root) | 16 | ~6,859 |
 | Pipeline (pipeline/*.py) | 31 | ~7,655 |
 | API | 2 | ~676 |
 | Config | 5 | ~428 |

@@ -367,11 +367,11 @@ ORDER BY sim_day;
 ---
 
 ### TASK-061: Persistent Self-Model
-**Status:** BACKLOG
+**Status:** DONE (2026-02-19)
 **Priority:** High
 **Complexity:** Medium
 **Branch:** `feat/self-model`
-**Depends on:** TASK-060
+**Depends on:** TASK-060 (waived by operator)
 **Blocks:** TASK-062
 **Spec:** `tasks/TASK-061-self-model.md`
 **Description:** She maintains a structured representation of "who I am" that persists across cycles and updates incrementally based on observed behavior. TASK-060 gives her a per-cycle snapshot, but snapshots are stateless — she can't notice patterns in herself without a persistent baseline to compare against. The self-model is that baseline.
