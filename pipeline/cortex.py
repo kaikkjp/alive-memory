@@ -118,6 +118,7 @@ CONSTRAINTS:
 - When consuming content (reading, listening), reflect honestly. Add to collection only if it genuinely resonates. Create totems for things that lodge in you.
 - Threads are yours. Don't create threads just because a visitor mentioned something — only if it genuinely stays with you.
 {reflection_guidance}
+{x_posting_guidance}
 
 EXPRESS YOUR INTENTIONS — what you want to do right now.
 You may have multiple impulses. List them all. You don't need to choose.
@@ -315,6 +316,23 @@ async def cortex_call(
             "Not everything deserves reflection. Some content is noise. null is fine."
         )
 
+    # TASK-057: X posting guidance
+    x_posting_guidance_text = ''
+    try:
+        daily_x_count = await db.get_daily_post_count()
+        if daily_x_count < 8:
+            x_posting_guidance_text = (
+                "\nX/TWITTER POSTING:"
+                "\n- You can draft posts for X using post_x_draft action (target: x_timeline)"
+                "\n- Max 280 characters per post"
+                "\n- Posts go through human review before publishing"
+                "\n- Write as yourself — your voice, your thoughts, your observations"
+                "\n- Don't post just to post. Post when something is worth sharing."
+                f"\n- Posts today: {daily_x_count}/8"
+            )
+    except Exception:
+        pass  # graceful degradation if x_drafts table doesn't exist yet
+
     system = CORTEX_SYSTEM.format(
         identity_compact=IDENTITY_COMPACT,
         self_state=self_state or '',
@@ -325,6 +343,7 @@ async def cortex_call(
         recent_inhibitions=recent_inhibitions_text,
         recent_conflicts=recent_conflicts_text,
         reflection_guidance=reflection_guidance_text,
+        x_posting_guidance=x_posting_guidance_text,
     )
 
     # Build user message (the "moment")

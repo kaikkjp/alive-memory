@@ -62,9 +62,10 @@ Terminal/Web Client
 | File | Lines | What it does | Depends on |
 |------|-------|-------------|------------|
 | `heartbeat.py` | 1087 | **The brain's clock.** Runs the main async loop: sleep → wake → process inbox → run cycle → sleep. Contains the `Heartbeat` class with `run_cycle()`, `run_silence_cycle()`, sleep scheduling, fidget behaviors. | db, all pipeline/*, sleep, clock |
-| `db/` | ~3,111 | **All persistence.** Package with 7 modules: `connection.py` (DB setup, migrations, transactions), `events.py` (event store, inbox), `state.py` (room/drives/engagement state), `memory.py` (visitors, traits, totems, collection, journal, day memory, cold search), `content.py` (threads, content pool, arbiter), `analytics.py` (cycle log, LLM costs, actions, habits). `__init__.py` re-exports everything for backward compatibility. SQLite + aiosqlite. | models/*, clock |
+| `db/` | ~3,289 | **All persistence.** Package with 8 modules: `connection.py` (DB setup, migrations, transactions), `events.py` (event store, inbox), `state.py` (room/drives/engagement state), `memory.py` (visitors, traits, totems, collection, journal, day memory, cold search), `content.py` (threads, content pool, arbiter), `analytics.py` (cycle log, LLM costs, actions, habits), `social.py` (X/Twitter draft CRUD, dedup, limits). `__init__.py` re-exports everything for backward compatibility. SQLite + aiosqlite. | models/*, clock |
 | `clock.py` | 78 | Time abstraction. Returns real time normally, simulated time during `simulate.py`. | — |
 | `seed.py` | 85 | Initial database seeding for fresh instances. | db |
+| `workers/x_poster.py` | 122 | **X/Twitter integration.** Posts approved drafts via tweepy, fetches replies and converts to visitor events. Called from dashboard approve endpoint. | db, tweepy |
 
 ### Pipeline (the cognitive architecture)
 
@@ -348,14 +349,14 @@ Metacognitive monitor in `pipeline/output.py` compares executed behavior against
 
 | Area | Files | Lines |
 |------|-------|-------|
-| Core engine (*.py root) | 17 | ~6,649 |
-| Pipeline (pipeline/*.py) | 31 | ~7,449 |
-| API | 2 | ~463 |
+| Core engine (*.py root) | 16 | ~6,557 |
+| Pipeline (pipeline/*.py) | 31 | ~7,564 |
+| API | 2 | ~546 |
 | Config | 5 | ~428 |
 | Models | 4 | ~636 |
-| Scripts | 7 | ~815 |
-| Tests | 60 | ~15,540 |
-| Frontend (window/src/) | 33 | ~3,793 |
-| Docs (*.md) | 31 | ~20,544 |
-| Deploy | 7 | ~559 |
-| **Total** | **~197** | **~56,876** | **~196** | **~55,936** | **~195** | **~53,295** | **~174** | **~44,878** | **~173** | **~44,376** | **~172** | **~43,587** | **~171** | **~42,950** | **~163** | **~40,552** | **~173** | **~44,586** | **~172** | **~43,816** | **~170** | **~43,252** | **~166** | **~41,956** | **~165** | **~41,631** | **~148** | **~33,417** |
+| Scripts | 6 | ~629 |
+| Tests | 61 | ~16,080 |
+| Frontend (window/src/) | 34 | ~4,005 |
+| Docs (*.md) | 12 | ~9,497 |
+| Deploy | 6 | ~505 |
+| **Total** | **~177** | **~46,447** | **~197** | **~56,876** |

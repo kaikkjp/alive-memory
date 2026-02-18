@@ -460,3 +460,86 @@ async def handle_set_budget(server, writer: asyncio.StreamWriter,
     await db.set_setting('daily_budget', str(round(daily_budget, 2)))
     budget = await db.get_budget_remaining()
     await server._http_json(writer, 200, budget)
+
+
+# ── X Drafts (TASK-057) ──
+
+async def handle_x_drafts(server, writer: asyncio.StreamWriter,
+                          authorization: str):
+    """Handle GET /api/dashboard/x-drafts — return X draft queue."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+    drafts = await db.get_all_drafts(limit=50)
+    pending_count = await db.get_pending_count()
+    await server._http_json(writer, 200, {
+        'drafts': drafts,
+        'pending_count': pending_count,
+    })
+
+
+async def handle_approve_x_draft(server, writer: asyncio.StreamWriter,
+                                  authorization: str, body_bytes: bytes):
+    """Handle POST /api/dashboard/x-drafts/approve — approve and optionally post."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+    try:
+        data = json.loads(body_bytes.decode('utf-8'))
+        draft_id = data.get('draft_id', '')
+        auto_post = data.get('auto_post', False)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        await server._http_json(writer, 400, {'error': 'bad request'})
+        return
+
+    if not draft_id:
+        await server._http_json(writer, 400, {'error': 'draft_id required'})
+        return
+
+    success = await db.approve_draft(draft_id)
+    if not success:
+        await server._http_json(writer, 404, {'error': 'draft not found or not pending'})
+        return
+
+    post_result = None
+    if auto_post:
+        try:
+            from workers.x_poster import post_tweet
+            post_result = await post_tweet(draft_id)
+        except Exception as e:
+            post_result = {'success': False, 'error': str(e)}
+
+    await server._http_json(writer, 200, {
+        'approved': True,
+        'draft_id': draft_id,
+        'post_result': post_result,
+    })
+
+
+async def handle_reject_x_draft(server, writer: asyncio.StreamWriter,
+                                 authorization: str, body_bytes: bytes):
+    """Handle POST /api/dashboard/x-drafts/reject — reject a draft."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+    try:
+        data = json.loads(body_bytes.decode('utf-8'))
+        draft_id = data.get('draft_id', '')
+        reason = data.get('reason', '')
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        await server._http_json(writer, 400, {'error': 'bad request'})
+        return
+
+    if not draft_id:
+        await server._http_json(writer, 400, {'error': 'draft_id required'})
+        return
+
+    success = await db.reject_draft(draft_id, reason)
+    if not success:
+        await server._http_json(writer, 404, {'error': 'draft not found or not pending'})
+        return
+
+    await server._http_json(writer, 200, {
+        'rejected': True,
+        'draft_id': draft_id,
+    })
