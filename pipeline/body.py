@@ -105,6 +105,8 @@ async def execute_body(motor_plan: MotorPlan, validated: ValidatedOutput,
         # Use detail dict carried on ActionDecision (set by basal_ganglia)
         action_req = ActionRequest(type=decision.action, detail=decision.detail)
         result = await _execute_single_action(action_req, visitor_id, monologue=monologue)
+        if result.payload.get('body_state_update'):
+            validated.body_state = result.payload['body_state_update']
         output.executed.append(result)
 
     return output
@@ -363,14 +365,14 @@ async def _execute_single_action(action: ActionRequest, visitor_id: str,
         elif '_body_state_update' in detail:
             import json
             state_update = json.loads(detail['_body_state_update'])
-            if 'body_state' in state_update:
-                validated.body_state = state_update['body_state']
             await db.append_event(Event(
                 event_type='action_body',
                 source='self',
                 payload=state_update,
             ))
             result.payload = state_update
+            if 'body_state' in state_update:
+                result.payload['body_state_update'] = state_update['body_state']
             result.side_effects.append('body_state_updated')
             result.success = True
 
