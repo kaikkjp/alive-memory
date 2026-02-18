@@ -7,9 +7,9 @@ notification visibility based on state context.
 import pytest
 
 from models.pipeline import TextFragment, GapScore
+from db.parameters import p
 from pipeline.thalamus import (
     compute_notification_salience,
-    NOTIFICATION_SALIENCE_THRESHOLD,
 )
 
 

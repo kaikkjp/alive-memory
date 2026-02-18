@@ -14,9 +14,9 @@ from models.pipeline import (
     ValidatedOutput, CycleOutput,
 )
 from models.state import DrivesState, EngagementState
+from db.parameters import p
 from pipeline.output import (
     _decay_unfired_habits,
-    HABIT_DECAY_RATE, HABIT_DELETE_THRESHOLD,
 )
 
 
@@ -320,6 +320,7 @@ class TestEnergyBudgetEnforcement:
                 hour=12, date=MagicMock(return_value=MagicMock(isoformat=MagicMock(return_value='2026-02-16')))
             )
 
+            mock_db.refresh_params_cache = AsyncMock()
             mock_db.inbox_get_unread = AsyncMock(return_value=[])
             mock_db.get_drives_state = AsyncMock(return_value=drives)
             mock_db.get_engagement_state = AsyncMock(
@@ -389,6 +390,7 @@ class TestEnergyBudgetEnforcement:
                 hour=12, date=MagicMock(return_value=MagicMock(isoformat=MagicMock(return_value='2026-02-16')))
             )
 
+            mock_db.refresh_params_cache = AsyncMock()
             mock_db.inbox_get_unread = AsyncMock(return_value=[])
             mock_db.get_drives_state = AsyncMock(return_value=drives)
             mock_db.get_engagement_state = AsyncMock(
@@ -456,6 +458,7 @@ class TestEnergyBudgetEnforcement:
                                                         tzinfo=timezone.utc)
             mock_clock.now.return_value = MagicMock(hour=12)
 
+            mock_db.refresh_params_cache = AsyncMock()
             mock_db.inbox_get_unread = AsyncMock(return_value=[])
             mock_db.get_drives_state = AsyncMock(return_value=drives)
             mock_db.get_engagement_state = AsyncMock(

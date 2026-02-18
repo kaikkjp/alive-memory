@@ -24,6 +24,7 @@ from models.pipeline import (
 from pipeline.action_registry import ACTION_REGISTRY
 from pipeline.hippocampus_write import hippocampus_consolidate
 from pipeline.hypothalamus import clamp
+from db.parameters import p
 import db
 
 
@@ -32,15 +33,17 @@ import db
 # EXPRESSION_RELIEF in hypothalamus.py already handles.
 # Tech debt: when action registry grows, these should pull from
 # registry metadata instead of being hardcoded here.
-ACTION_DRIVE_EFFECTS = {
-    # TASK-044: Removed curiosity drains. Curiosity is stimulus-driven,
-    # not drained by actions. Content consumption produces growth, not drain.
-    'speak':          {},                          # conversation — no curiosity drain
-    'write_journal':  {},                          # journaling — no curiosity drain
-    'post_x_draft':   {},                          # creative output — no curiosity drain
-    'rearrange':      {},                          # physical activity — no curiosity drain
-    'end_engagement': {'rest_need': -0.03},  # social load lifted
-}
+def _build_action_drive_effects() -> dict:
+    """Build action drive effects from parameters."""
+    return {
+        # TASK-044: Removed curiosity drains. Curiosity is stimulus-driven,
+        # not drained by actions. Content consumption produces growth, not drain.
+        'speak':          {},                          # conversation — no curiosity drain
+        'write_journal':  {},                          # journaling — no curiosity drain
+        'post_x_draft':   {},                          # creative output — no curiosity drain
+        'rearrange':      {},                          # physical activity — no curiosity drain
+        'end_engagement': {'rest_need': p('output.drives.end_engagement_rest_relief')},  # social load lifted
+    }
 
 # ── X draft limits (TASK-057) ──
 X_DRAFT_MAX_CHARS = 280
@@ -151,10 +154,10 @@ async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
         drives_changed = False
 
         if validated.resonance:
-            drives.social_hunger = max(0.0, drives.social_hunger - 0.15)
-            drives.mood_valence = min(1.0, drives.mood_valence + 0.1)
-            drives.curiosity = clamp(drives.curiosity - 0.03)  # engaging conversation
-            drives.mood_arousal = clamp(drives.mood_arousal + 0.06)  # arousal spike
+            drives.social_hunger = max(0.0, drives.social_hunger - p('output.resonance.social_relief'))
+            drives.mood_valence = min(1.0, drives.mood_valence + p('output.resonance.valence_boost'))
+            drives.curiosity = clamp(drives.curiosity - p('output.resonance.curiosity_relief'))  # engaging conversation
+            drives.mood_arousal = clamp(drives.mood_arousal + p('output.resonance.arousal_boost'))  # arousal spike
             drives_changed = True
             result.resonance_applied = True
 
@@ -162,14 +165,14 @@ async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
             failures = [r for r in body_output.executed if not r.success]
             successes = [r for r in body_output.executed if r.success]
             if failures:
-                drives.mood_valence = max(-1.0, drives.mood_valence - 0.05 * len(failures))
+                drives.mood_valence = max(-1.0, drives.mood_valence + p('output.drives.failure_valence_penalty') * len(failures))
                 drives_changed = True
             if successes:
                 # Diminishing mood bonus (TASK-036): emotional habituation
                 # First 10 actions: near-full bonus. After 30: ~0.005.
                 actions_today_count = await db.get_executed_action_count_today()
                 for _ in successes:
-                    bonus = 0.02 / (1 + actions_today_count / 10)
+                    bonus = p('output.drives.success_bonus_base') / (1 + actions_today_count / p('output.drives.success_habituation_divisor'))
                     drives.mood_valence = min(1.0, drives.mood_valence + bonus)
                     actions_today_count += 1  # each success in this batch counts
                 drives_changed = True
@@ -179,17 +182,18 @@ async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
         # curiosity, rest_need, and energy respond to what she actually did.
         _ROUTINE_ACTIONS = {'write_journal', 'express_thought'}
         if body_output.executed:
+            action_drive_effects = _build_action_drive_effects()
             for action_result in body_output.executed:
                 if not action_result.success:
                     continue
-                effects = ACTION_DRIVE_EFFECTS.get(action_result.action, {})
+                effects = action_drive_effects.get(action_result.action, {})
                 for field_name, delta in effects.items():
                     current = getattr(drives, field_name)
                     setattr(drives, field_name, clamp(current + delta))
                     drives_changed = True
                 # Non-routine actions bump arousal (novelty/engagement)
                 if action_result.action not in _ROUTINE_ACTIONS:
-                    drives.mood_arousal = clamp(drives.mood_arousal + 0.04)
+                    drives.mood_arousal = clamp(drives.mood_arousal + p('output.drives.non_routine_arousal_bump'))
                     drives_changed = True
 
         # TASK-044: Content engagement no longer drains curiosity.
@@ -198,7 +202,7 @@ async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
 
         # Quiet cycles (no actions, no dialogue) provide mild rest
         if is_quiet_cycle:
-            drives.rest_need = clamp(drives.rest_need - 0.03)
+            drives.rest_need = clamp(drives.rest_need + p('output.drives.quiet_cycle_rest_relief'))
             drives_changed = True
 
         if drives_changed:
@@ -529,7 +533,7 @@ async def _maybe_form_inhibition(decision: ActionDecision,
             _inhibition_guard_cleared = True
         existing = await db.find_matching_inhibition(decision.action, pattern_json)
         if existing:
-            new_strength = min(existing['strength'] + 0.15, 1.0)
+            new_strength = min(existing['strength'] + p('output.inhibition.strength_increment'), 1.0)
             await db.update_inhibition(
                 existing['id'],
                 strength=new_strength,
@@ -545,14 +549,14 @@ async def _maybe_form_inhibition(decision: ActionDecision,
                 action=decision.action,
                 pattern=pattern_json,
                 reason=reason_seed,
-                strength=0.3,
+                strength=p('output.inhibition.initial_strength'),
             )
 
     elif positive:
         existing = await db.find_matching_inhibition(decision.action, pattern_json)
         if existing:
-            new_strength = max(existing['strength'] - 0.1, 0.0)
-            if new_strength < 0.05:
+            new_strength = max(existing['strength'] - p('output.inhibition.decay_amount'), 0.0)
+            if new_strength < p('output.inhibition.delete_threshold'):
                 await db.delete_inhibition(existing['id'])
             else:
                 await db.update_inhibition(existing['id'], strength=new_strength)
@@ -560,19 +564,15 @@ async def _maybe_form_inhibition(decision: ActionDecision,
 
 # ── Habit tracking (Phase 4) ──
 
-HABIT_STRENGTH_CAP = 0.9
-HABIT_DECAY_RATE = 0.01          # strength lost per hour of inactivity
-HABIT_DELETE_THRESHOLD = 0.05    # habits below this are pruned
-
 
 def _habit_delta(current_strength: float) -> float:
     """Piecewise strength increment: fast 0→0.4, medium 0.4→0.6, slow 0.6+."""
     if current_strength < 0.4:
-        return 0.12
+        return p('output.habit.delta_fast')
     elif current_strength < 0.6:
-        return 0.06
+        return p('output.habit.delta_medium')
     else:
-        return 0.03
+        return p('output.habit.delta_slow')
 
 
 async def _track_action_patterns(motor_plan: MotorPlan,
@@ -613,7 +613,7 @@ async def _track_single_action(action: str, trigger_key: str) -> None:
     existing = await db.find_matching_habit(action, trigger_key)
     if existing:
         new_count = existing['repetition_count'] + 1
-        new_strength = min(HABIT_STRENGTH_CAP,
+        new_strength = min(p('output.habit.strength_cap'),
                            existing['strength'] + _habit_delta(existing['strength']))
         await db.update_habit(
             existing['id'],
@@ -631,7 +631,7 @@ async def _decay_unfired_habits(fired_actions: set[str]) -> None:
     """Decay habits that did NOT fire this cycle based on time since last trigger.
 
     Only affects habits whose action was NOT among those just executed.
-    Habits below HABIT_DELETE_THRESHOLD are pruned.
+    Habits below delete threshold are pruned.
     """
     try:
         from datetime import datetime as _dt, timezone as _tz
@@ -655,9 +655,9 @@ async def _decay_unfired_habits(fired_actions: set[str]) -> None:
                 lt = lt.replace(tzinfo=_tz.utc)
 
             elapsed_hours = (now - lt).total_seconds() / 3600.0
-            new_strength = habit['strength'] - HABIT_DECAY_RATE * elapsed_hours
+            new_strength = habit['strength'] - p('output.habit.decay_rate') * elapsed_hours
 
-            if new_strength < HABIT_DELETE_THRESHOLD:
+            if new_strength < p('output.habit.delete_threshold'):
                 await db.delete_habit(habit['id'])
             else:
                 await db.update_habit(habit['id'], strength=round(new_strength, 6))
@@ -856,7 +856,7 @@ def _topics_similar(topic_a: str, topic_b: str) -> bool:
 
     overlap = len(ka & kb)
     min_size = min(len(ka), len(kb))
-    return overlap / min_size > 0.5 if min_size > 0 else False
+    return overlap / min_size > p('output.reflection.topic_similarity_threshold') if min_size > 0 else False
 
 
 # ── Reflection processing (TASK-044) ──
@@ -918,7 +918,7 @@ async def process_reflection(validated: ValidatedOutput,
             # Boring: slight diversive drain
             try:
                 drives = await db.get_drives_state()
-                drives.diversive_curiosity = clamp(drives.diversive_curiosity - 0.02)
+                drives.diversive_curiosity = clamp(drives.diversive_curiosity + p('output.reflection.boring_curiosity_drain'))
                 await db.save_drives_state(drives)
             except Exception as e:
                 print(f"  [Reflection] Failed to update boring drives: {e}")
@@ -996,11 +996,11 @@ async def process_reflection(validated: ValidatedOutput,
                     drives.mood_valence + EPISTEMIC_CONFIG['resolution_mood_bump'],
                     -1.0, 1.0)
                 drives.diversive_curiosity = clamp(
-                    drives.diversive_curiosity - 0.05)  # satisfied
+                    drives.diversive_curiosity + p('output.reflection.resolved_curiosity_drain'))  # satisfied
             if effects['memory_created']:
-                drives.mood_valence = clamp(drives.mood_valence + 0.03, -1.0, 1.0)
+                drives.mood_valence = clamp(drives.mood_valence + p('output.reflection.memory_valence_bump'), -1.0, 1.0)
             if effects['question_raised']:
-                drives.mood_arousal = clamp(drives.mood_arousal + 0.05)
+                drives.mood_arousal = clamp(drives.mood_arousal + p('output.reflection.question_arousal_bump'))
             await db.save_drives_state(drives)
         except Exception as e:
             print(f"  [Reflection] Failed to update drives: {e}")
@@ -1021,14 +1021,14 @@ async def _update_totem_for_visitor(visitor_id: str, content_title: str) -> None
     """TASK-045: Boost totem weight when content connects to a visitor.
 
     Finds totems for the visitor whose entity overlaps with the content title,
-    and boosts weight by +0.1. If no matching totem, creates one.
+    and boosts weight. If no matching totem, creates one.
     """
     try:
         totems = await db.get_totems(visitor_id=visitor_id, limit=20)
         matched = False
         for totem in totems:
             if _topics_similar(totem.entity, content_title):
-                new_weight = min(1.0, totem.weight + 0.1)
+                new_weight = min(1.0, totem.weight + p('output.reflection.totem_weight_boost'))
                 await db.update_totem(
                     entity=totem.entity,
                     visitor_id=visitor_id,
@@ -1043,7 +1043,7 @@ async def _update_totem_for_visitor(visitor_id: str, content_title: str) -> None
             await db.insert_totem(
                 visitor_id=visitor_id,
                 entity=content_title,
-                weight=0.3,
+                weight=p('output.reflection.new_totem_weight'),
                 context=f'Content reflection connected to visitor',
                 category='content',
             )
@@ -1088,7 +1088,7 @@ def _is_boring_reflection(monologue: str) -> bool:
         r"(?:moved on|skimming|boring)",
     ]
     text_lower = monologue.lower()
-    return any(re.search(p, text_lower) for p in boring_patterns)
+    return any(re.search(pat, text_lower) for pat in boring_patterns)
 
 
 def _has_memory_signal(monologue: str) -> bool:
@@ -1103,7 +1103,7 @@ def _has_memory_signal(monologue: str) -> bool:
         r"(?:interesting|fascinating|surprising|unexpected)",
     ]
     text_lower = monologue.lower()
-    return any(re.search(p, text_lower) for p in memory_patterns)
+    return any(re.search(pat, text_lower) for pat in memory_patterns)
 
 
 def _has_resolution_signal(monologue: str) -> bool:
@@ -1118,4 +1118,4 @@ def _has_resolution_signal(monologue: str) -> bool:
         r"(?:makes sense now|mystery solved|so that's)",
     ]
     text_lower = monologue.lower()
-    return any(re.search(p, text_lower) for p in resolution_patterns)
+    return any(re.search(pat, text_lower) for pat in resolution_patterns)

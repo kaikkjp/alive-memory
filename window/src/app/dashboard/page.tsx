@@ -16,6 +16,7 @@ import BehavioralPanel from '@/components/dashboard/BehavioralPanel';
 import ContentPoolPanel from '@/components/dashboard/ContentPoolPanel';
 import FeedPanel from '@/components/dashboard/FeedPanel';
 import ConsumptionHistoryPanel from '@/components/dashboard/ConsumptionHistoryPanel';
+import ParametersPanel from '@/components/dashboard/ParametersPanel';
 import XDraftsPanel from '@/components/dashboard/XDraftsPanel';
 
 export default function DashboardPage() {
@@ -116,6 +117,7 @@ export default function DashboardPage() {
           <ContentPoolPanel />
           <FeedPanel />
           <ConsumptionHistoryPanel />
+          <ParametersPanel />
           <TimelinePanel />
           <ControlsPanel />
         </div>

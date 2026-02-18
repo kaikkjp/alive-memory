@@ -243,6 +243,35 @@ export interface ConsumptionHistoryData {
   entries: ConsumptionHistoryEntry[];
 }
 
+export interface ParameterView {
+  key: string;
+  value: number;
+  default_value: number;
+  min_bound: number | null;
+  max_bound: number | null;
+  category: string;
+  description: string;
+  modified_by: string;
+  modified_at: string;
+  created_at: string;
+}
+
+export interface ParameterModification {
+  id: number;
+  param_key: string;
+  old_value: number;
+  new_value: number;
+  modified_by: string;
+  reason: string | null;
+  ts: string;
+}
+
+export interface ParametersPanelData {
+  categories: Record<string, ParameterView[]>;
+  recent_modifications: ParameterModification[];
+  total_count: number;
+}
+
 // ─── Dashboard: X Drafts Panel (TASK-057) ───
 
 export interface XDraft {

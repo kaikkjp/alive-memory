@@ -242,7 +242,7 @@ ORDER BY sim_day;
 ---
 
 ### TASK-055: Extract pipeline parameters to self_parameters DB table
-**Status:** BACKLOG
+**Status:** DONE (2026-02-18)
 **Priority:** High (infrastructure for TASK-056)
 **Complexity:** Large — touches every pipeline module
 **Branch:** `feat/self-parameters`

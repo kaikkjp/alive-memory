@@ -729,6 +729,9 @@ class Heartbeat:
         cycle_id = str(uuid.uuid4())[:8]
         start_time = clock.now_utc()
 
+        # 0a. Refresh parameter cache for this cycle
+        await db.refresh_params_cache()
+
         # 0. Ghost engagement sanity check — if engaged but no active visitor,
         # clear immediately. Prevents stuck-in-conversation loops when a
         # WebSocket drops without sending visitor_disconnect.

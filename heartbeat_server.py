@@ -1010,6 +1010,10 @@ class ShopkeeperServer:
                 await dashboard_routes.handle_get_budget(self, writer, authorization)
             elif path == '/api/dashboard/budget' and method == 'POST':
                 await dashboard_routes.handle_set_budget(self, writer, authorization, body_bytes)
+            elif path == '/api/dashboard/parameters' and method == 'GET':
+                await dashboard_routes.handle_parameters(self, writer, authorization)
+            elif path == '/api/dashboard/parameters' and method == 'POST':
+                await dashboard_routes.handle_set_parameter(self, writer, authorization, body_bytes)
             elif path == '/api/dashboard/x-drafts' and method == 'GET':
                 await dashboard_routes.handle_x_drafts(self, writer, authorization)
             elif path == '/api/dashboard/x-drafts/approve' and method == 'POST':

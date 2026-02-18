@@ -4,9 +4,10 @@ import pytest
 
 from models.event import Event
 from models.state import DrivesState
+from db.parameters import p
 from pipeline.hypothalamus import (
     clamp, drives_to_feeling, update_drives,
-    _homeostatic_pull, DRIVE_EQUILIBRIA, HOMEOSTATIC_PULL_RATE,
+    _homeostatic_pull,
 )
 
 
@@ -213,11 +214,11 @@ class TestHomeostaticPull:
     async def test_near_equilibrium_minimal_pull(self):
         """Drives near equilibrium have negligible homeostatic pull."""
         d = DrivesState(
-            social_hunger=DRIVE_EQUILIBRIA['social_hunger'],
-            curiosity=DRIVE_EQUILIBRIA['curiosity'],
-            expression_need=DRIVE_EQUILIBRIA['expression_need'],
-            rest_need=DRIVE_EQUILIBRIA['rest_need'],
-            energy=DRIVE_EQUILIBRIA['energy'],
+            social_hunger=p('hypothalamus.equilibria.social_hunger'),
+            curiosity=p('hypothalamus.equilibria.diversive_curiosity'),
+            expression_need=p('hypothalamus.equilibria.expression_need'),
+            rest_need=p('hypothalamus.equilibria.rest_need'),
+            energy=p('hypothalamus.equilibria.energy'),
         )
         new, _ = await update_drives(d, elapsed_hours=0.05, events=[])
         # Time-based forces still apply but homeostatic pull is near zero.

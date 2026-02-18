@@ -4,12 +4,9 @@ from dataclasses import dataclass, field
 from models.pipeline import GapScore
 from models.state import DrivesState, EngagementState, Visitor
 from pipeline.sensorium import Perception
+from db.parameters import p
 import clock
 import db
-
-# Salience threshold for visitor_connect routing.
-# Above this → engage (greet). Below → idle (notice but continue).
-VISITOR_CONNECT_SALIENCE_THRESHOLD = 0.5
 
 
 @dataclass
@@ -42,14 +39,14 @@ async def route(
         # Visitor arrival competes with other perceptions via salience.
         # High salience (familiar face, lonely) → engage and greet.
         # Low salience (stranger, she's absorbed) → idle, she notices but continues.
-        cycle_type = 'engage' if focus.salience >= VISITOR_CONNECT_SALIENCE_THRESHOLD else 'idle'
+        cycle_type = 'engage' if focus.salience >= p('thalamus.routing.connect_salience_threshold') else 'idle'
     elif focus.p_type == 'visitor_disconnect':
         cycle_type = 'idle'  # she's alone now — reflect, don't engage
     elif focus.p_type == 'visitor_silence':
         # Silence competes via salience: high-salience silence (she's invested
         # in the conversation) stays engage. Low-salience silence (boring
         # conversation, she's absorbed) drifts to idle.
-        cycle_type = 'engage' if focus.salience >= 0.4 else 'idle'
+        cycle_type = 'engage' if focus.salience >= p('thalamus.routing.silence_salience_threshold') else 'idle'
     elif focus.p_type == 'fidget_mismatch':
         cycle_type = 'engage'  # visitor referenced a fidget — she's in conversation
     elif focus.p_type == 'ambient_discovery':
@@ -60,9 +57,9 @@ async def route(
         cycle_type = 'idle'
     elif focus.p_type == 'ambient_weather':
         cycle_type = 'idle'
-    elif drives.expression_need > 0.7:
+    elif drives.expression_need > p('thalamus.routing.express_drive_threshold'):
         cycle_type = 'express'
-    elif drives.rest_need > 0.7:
+    elif drives.rest_need > p('thalamus.routing.rest_drive_threshold'):
         cycle_type = 'rest'
     else:
         cycle_type = 'idle'
@@ -84,9 +81,9 @@ async def route(
 
 async def autonomous_routing(drives: DrivesState) -> RoutingDecision:
     """Routing when no perceptions — she's alone."""
-    if drives.expression_need > 0.7:
+    if drives.expression_need > p('thalamus.routing.express_drive_threshold'):
         cycle_type = 'express'
-    elif drives.rest_need > 0.7:
+    elif drives.rest_need > p('thalamus.routing.rest_drive_threshold'):
         cycle_type = 'rest'
     else:
         cycle_type = 'idle'
@@ -113,7 +110,7 @@ async def autonomous_routing(drives: DrivesState) -> RoutingDecision:
         memory_requests.append({
             'type': 'day_context',
             'max_items': 3,
-            'min_salience': 0.5,
+            'min_salience': p('thalamus.memory.day_context_salience_idle'),
             'priority': 3,
         })
 
@@ -122,7 +119,7 @@ async def autonomous_routing(drives: DrivesState) -> RoutingDecision:
         focus=focus,
         background=[],
         memory_requests=memory_requests,
-        token_budget=3000,
+        token_budget=int(p('thalamus.budget.autonomous_tokens')),
     )
 
 
@@ -130,18 +127,17 @@ async def get_token_budget(salience: float, drives: DrivesState) -> int:
     """Dynamic budget based on salience. Flashbulb moments get more context."""
 
     flashbulbs_today = await db.get_flashbulb_count_today()
-    DAILY_FLASHBULB_LIMIT = 5
 
     if salience > 0.8:
-        if flashbulbs_today < DAILY_FLASHBULB_LIMIT:
-            return 10000   # flashbulb: full memory palace
+        if flashbulbs_today < int(p('thalamus.budget.flashbulb_daily_limit')):
+            return int(p('thalamus.budget.flashbulb_tokens'))   # flashbulb: full memory palace
         else:
-            return 5000    # budget exhausted, fall back
+            return int(p('thalamus.budget.deep_tokens'))    # budget exhausted, fall back
 
     if salience > 0.6:
-        return 5000        # deep conversation
+        return int(p('thalamus.budget.deep_tokens'))        # deep conversation
 
-    return 3000            # casual
+    return int(p('thalamus.budget.casual_tokens'))            # casual
 
 
 def build_memory_requests(
@@ -167,8 +163,8 @@ def build_memory_requests(
         requests.append({
             'type': 'visitor_totems',
             'visitor_id': visitor.id,
-            'max_items': 5 if budget >= 5000 else 3,
-            'min_weight': 0.3 if budget >= 5000 else 0.6,
+            'max_items': int(p('thalamus.memory.totem_max_large')) if budget >= 5000 else int(p('thalamus.memory.totem_max_small')),
+            'min_weight': p('thalamus.memory.totem_min_weight_large') if budget >= 5000 else p('thalamus.memory.totem_min_weight_small'),
             'priority': 2,
         })
 
@@ -212,14 +208,14 @@ def build_memory_requests(
             'type': 'day_context',
             'visitor_id': visitor.id,
             'max_items': 3,
-            'min_salience': 0.3,
+            'min_salience': p('thalamus.memory.day_context_salience_engage'),
             'priority': 2,
         })
     if cycle_type in ('idle', 'express'):
         requests.append({
             'type': 'day_context',
             'max_items': 3,
-            'min_salience': 0.5,
+            'min_salience': p('thalamus.memory.day_context_salience_idle'),
             'priority': 3,
         })
 
@@ -229,8 +225,6 @@ def build_memory_requests(
 
 
 # ── Gap-aware notification salience (TASK-042) ──
-
-NOTIFICATION_SALIENCE_THRESHOLD = 0.03
 
 
 def compute_notification_salience(
@@ -257,20 +251,20 @@ def compute_notification_salience(
     # Visitor present suppresses unless topic matches
     if visitor_present:
         if conversation_topic_match:
-            base *= 1.5
+            base *= p('thalamus.notification.topic_match_boost')
         else:
-            base *= 0.3
+            base *= p('thalamus.notification.visitor_suppress')
 
     # Low energy suppresses
     if energy < 0.2:
-        base *= 0.2
+        base *= p('thalamus.notification.low_energy_suppress')
 
     # High curiosity amplifies
     if diversive_curiosity > 0.6:
-        base *= 1.3
+        base *= p('thalamus.notification.high_curiosity_boost')
 
     # Below threshold: filter out
-    if base < NOTIFICATION_SALIENCE_THRESHOLD:
+    if base < p('thalamus.notification.salience_threshold'):
         return 0.0
 
     return min(1.0, base)

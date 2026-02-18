@@ -19,6 +19,7 @@ ensure_aiohttp_stub()
 
 import db
 import sleep
+from db.parameters import p
 from pipeline.day_memory import (
     compute_moment_salience,
     maybe_record_moment,
@@ -204,8 +205,8 @@ class TestNapProcessesHighSalience(unittest.IsolatedAsyncioTestCase):
             patch.object(sleep.db, 'mark_day_memory_processed', new=AsyncMock()),
             patch.object(sleep.db, 'mark_moments_nap_processed', new=AsyncMock()),
         ]
-        for p in patches:
-            p.start()
+        for pat in patches:
+            pat.start()
         try:
             count = await sleep.nap_consolidate(top_n=3)
             assert count == 2, f"Expected 2 moments processed, got {count}"
@@ -214,8 +215,8 @@ class TestNapProcessesHighSalience(unittest.IsolatedAsyncioTestCase):
             processed_ids = sleep.db.mark_moments_nap_processed.call_args[0][0]
             assert 'm-high' in processed_ids
         finally:
-            for p in patches:
-                p.stop()
+            for pat in patches:
+                pat.stop()
 
 
 # ─── Test 7: Night sleep processes moments above 0.45 not nap_processed ───
@@ -225,8 +226,8 @@ class TestSleepProcessesRemaining(unittest.IsolatedAsyncioTestCase):
 
     async def test_sleep_threshold_is_045(self):
         """sleep_cycle queries with min_salience=0.45 (not 0.65)."""
-        assert sleep.MIN_SLEEP_SALIENCE == 0.45, (
-            f"MIN_SLEEP_SALIENCE is {sleep.MIN_SLEEP_SALIENCE}, expected 0.45"
+        assert p('sleep.consolidation.min_salience') == 0.45, (
+            f"MIN_SLEEP_SALIENCE is {p('sleep.consolidation.min_salience')}, expected 0.45"
         )
 
     async def test_sleep_finds_moderate_salience_moments(self):
@@ -257,8 +258,8 @@ class TestSleepProcessesRemaining(unittest.IsolatedAsyncioTestCase):
             patch.object(sleep, 'flush_day_memory', new=AsyncMock()),
             patch.object(sleep.db, 'set_setting', new=AsyncMock()),
         ]
-        for p in patches:
-            p.start()
+        for pat in patches:
+            pat.start()
         try:
             result = await sleep.sleep_cycle()
             assert result >= 0, "sleep_cycle should return >= 0 (moments consolidated)"
@@ -267,8 +268,8 @@ class TestSleepProcessesRemaining(unittest.IsolatedAsyncioTestCase):
             # Verify sleep_reflect was called (LLM reflection happened)
             sleep.sleep_reflect.assert_called_once()
         finally:
-            for p in patches:
-                p.stop()
+            for pat in patches:
+                pat.stop()
 
 
 # ─── Test 8: Daily summary non-empty after activity ───

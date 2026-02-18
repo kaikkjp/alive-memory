@@ -142,6 +142,29 @@ export const dashboardApi = {
     return res.json();
   },
 
+  async getParameters() {
+    const res = await dashboardFetch('/api/dashboard/parameters');
+    return res.json();
+  },
+
+  async setParameter(key: string, value: number, reason?: string) {
+    const res = await dashboardFetch('/api/dashboard/parameters', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key, value, reason }),
+    });
+    return res.json();
+  },
+
+  async resetParameter(key: string) {
+    const res = await dashboardFetch('/api/dashboard/parameters', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key, reset: true }),
+    });
+    return res.json();
+  },
+
   async getXDrafts() {
     const res = await dashboardFetch('/api/dashboard/x-drafts');
     return res.json();

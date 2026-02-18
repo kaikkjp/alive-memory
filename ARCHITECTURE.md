@@ -359,4 +359,4 @@ Metacognitive monitor in `pipeline/output.py` compares executed behavior against
 | Frontend (window/src/) | 34 | ~4,005 |
 | Docs (*.md) | 12 | ~9,497 |
 | Deploy | 6 | ~505 |
-| **Total** | **~177** | **~46,447** | **~197** | **~56,876** |
+| **Total** | **~177** | **~46,447** |

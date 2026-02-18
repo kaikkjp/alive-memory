@@ -14,9 +14,10 @@ from models.pipeline import (
     ActionDecision, MotorPlan, ActionResult, BodyOutput, TriggerContext,
 )
 from models.state import DrivesState, EngagementState
+from db.parameters import p
 from pipeline.output import (
     _track_single_action, _track_action_patterns,
-    _habit_delta, HABIT_STRENGTH_CAP,
+    _habit_delta,
 )
 from pipeline.context_bands import compute_trigger_context
 
@@ -172,7 +173,7 @@ class TestHabitDelta:
         s = 0.1
         reps = 0
         while s < 0.4:
-            s = min(HABIT_STRENGTH_CAP, s + _habit_delta(s))
+            s = min(p('output.habit.strength_cap'), s + _habit_delta(s))
             reps += 1
         assert reps <= 3
 
@@ -181,7 +182,7 @@ class TestHabitDelta:
         s = 0.4
         reps = 0
         while s < 0.6:
-            s = min(HABIT_STRENGTH_CAP, s + _habit_delta(s))
+            s = min(p('output.habit.strength_cap'), s + _habit_delta(s))
             reps += 1
         assert 3 <= reps <= 4
 
@@ -189,8 +190,8 @@ class TestHabitDelta:
         """After 50 reps, strength must not exceed 0.9."""
         s = 0.1
         for _ in range(50):
-            s = min(HABIT_STRENGTH_CAP, s + _habit_delta(s))
-        assert s <= HABIT_STRENGTH_CAP
+            s = min(p('output.habit.strength_cap'), s + _habit_delta(s))
+        assert s <= p('output.habit.strength_cap')
 
 
 # ── Single Action Tracking Tests ──
@@ -251,7 +252,7 @@ class TestTrackSingleAction:
             await _track_single_action('speak', existing['trigger_context'])
 
             call_kwargs = mock_db.update_habit.call_args
-            assert call_kwargs.kwargs['strength'] == HABIT_STRENGTH_CAP
+            assert call_kwargs.kwargs['strength'] == p('output.habit.strength_cap')
 
     @pytest.mark.asyncio
     async def test_last_triggered_updated(self):

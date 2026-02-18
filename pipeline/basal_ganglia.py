@@ -17,6 +17,7 @@ from collections import Counter
 
 import clock
 import db
+from db.parameters import p
 from models.pipeline import (
     Intention, ValidatedOutput, ActionDecision, MotorPlan, InhibitionCheck,
     HabitBoost,
@@ -26,13 +27,8 @@ from pipeline.action_registry import ACTION_REGISTRY, check_prerequisites
 from pipeline.context_bands import compute_trigger_context
 
 
-# ── Trust-based priority boost for visitor-directed actions ──
-_TRUST_PRIORITY_BONUS = {
-    'stranger': 0.0,
-    'returner': 0.05,
-    'regular': 0.10,
-    'familiar': 0.15,
-}
+# ── Trust-based priority boost: loaded from self_parameters at call time ──
+_TRUST_LEVELS = ('stranger', 'returner', 'regular', 'familiar')
 
 
 def _is_visitor_target(target: str | None) -> tuple[bool, str | None]:
@@ -54,7 +50,7 @@ def _is_visitor_target(target: str | None) -> tuple[bool, str | None]:
 
 def _calculate_priority(intention: Intention, drives: DrivesState,
                         context: dict = None) -> float:
-    """Priority calculation per body-spec-v2.md §2.2.
+    """Priority calculation per body-spec-v2.md S2.2.
 
     Phase 3b: visitor-directed priority modulated by trust, interest, and
     competing drives. When multiple visitors are present, this determines
@@ -67,8 +63,8 @@ def _calculate_priority(intention: Intention, drives: DrivesState,
     is_visitor, visitor_id = _is_visitor_target(intention.target)
 
     if is_visitor:
-        # Social drive boosts visitor-directed actions (increased from 0.2)
-        base += drives.social_hunger * 0.3
+        # Social drive boosts visitor-directed actions
+        base += drives.social_hunger * p('basal_ganglia.priority.social_hunger_factor')
 
         # Trust boost — familiar faces pull harder
         visitor_trust = context.get('visitor_trust', {})
@@ -76,7 +72,9 @@ def _calculate_priority(intention: Intention, drives: DrivesState,
             trust_level = visitor_trust[visitor_id]
         else:
             trust_level = 'stranger'
-        base += _TRUST_PRIORITY_BONUS.get(trust_level, 0.0)
+        if trust_level in _TRUST_LEVELS:
+            base += p(f'basal_ganglia.trust_bonus.{trust_level}')
+        # unknown trust_level -> no bonus (0.0)
 
         # Conversation interest — questions, gifts, personal content
         visitor_features = context.get('visitor_features', {})
@@ -84,11 +82,11 @@ def _calculate_priority(intention: Intention, drives: DrivesState,
             feats = visitor_features[visitor_id]
             if feats.get('contains_question') or feats.get('contains_gift') \
                     or feats.get('contains_personal_question'):
-                base += 0.1
+                base += p('basal_ganglia.priority.interest_bonus')
 
         # Active disengagement — if she's absorbed and conversation is dull
         if drives.expression_need > 0.7 and intention.impulse < 0.4:
-            base *= 0.5
+            base *= p('basal_ganglia.priority.disengagement_factor')
 
     return min(base, 1.0)
 
@@ -102,7 +100,7 @@ def _matches_pattern(pattern_json: str, context: dict) -> bool:
     try:
         pattern = json.loads(pattern_json)
     except (json.JSONDecodeError, TypeError):
-        return True  # malformed pattern → match conservatively
+        return True  # malformed pattern -> match conservatively
 
     # Each key in the pattern must match the context
     for key, val in pattern.items():
@@ -121,7 +119,7 @@ async def _check_inhibition(action_name: str, context: dict) -> InhibitionCheck:
         return InhibitionCheck()  # graceful degradation
 
     for inhib in inhibitions:
-        if inhib['strength'] < 0.2:
+        if inhib['strength'] < p('basal_ganglia.inhibition.strength_threshold'):
             continue  # too weak to matter
 
         if not _matches_pattern(inhib['pattern'], context):
@@ -151,6 +149,8 @@ async def _check_inhibition(action_name: str, context: dict) -> InhibitionCheck:
 # ── Drive gates for habit auto-fire ──
 # Habits should only fire when the relevant drive supports the action.
 # Without this, write_journal fires every cycle and drains curiosity to 0.
+# NOTE: This is a structural mapping (action -> (drive_field, threshold)).
+# The open_shop rest gate is evaluated at check time via p().
 HABIT_DRIVE_GATES: dict[str, tuple[str, float]] = {
     'write_journal':   ('expression_need', 0.2),
     'express_thought': ('expression_need', 0.2),
@@ -162,9 +162,11 @@ HABIT_DRIVE_GATES: dict[str, tuple[str, float]] = {
     'close_shop':      ('rest_need', 0.0),  # always allowed by drive; gated by shop status
 }
 
-# Per-action cooldown: same action can't habit-fire twice within N cycles.
+# Backward-compat export (used by tests/test_habits.py).
+# Actual logic reads from p('basal_ganglia.habit.cooldown_cycles').
 HABIT_COOLDOWN_CYCLES = 3
-_habit_fire_history: dict[str, int] = {}  # action → cycle_number of last fire
+
+_habit_fire_history: dict[str, int] = {}  # action -> cycle_number of last fire
 _habit_cycle_counter: int = 0
 
 
@@ -172,12 +174,12 @@ def _passes_drive_gate(action: str, drives: DrivesState) -> bool:
     """Check if the relevant drive supports this habit firing."""
     gate = HABIT_DRIVE_GATES.get(action)
     if gate is None:
-        return True  # no gate defined → always allowed
+        return True  # no gate defined -> always allowed
     field, threshold = gate
     if not getattr(drives, field) > threshold:
         return False
-    # Composite gate: open_shop also requires rest_need < 0.6
-    if action == 'open_shop' and drives.rest_need >= 0.6:
+    # Composite gate: open_shop also requires rest_need below threshold
+    if action == 'open_shop' and drives.rest_need >= p('basal_ganglia.habit.open_shop_rest_gate'):
         return False
     return True
 
@@ -189,13 +191,13 @@ async def _passes_shop_gate(action: str) -> bool:
             room = await db.get_room_state()
             return room.shop_status == 'open'
         except Exception:
-            return False  # can't verify → don't fire
+            return False  # can't verify -> don't fire
     if action == 'open_shop':
         try:
             room = await db.get_room_state()
             return room.shop_status == 'closed'
         except Exception:
-            return False  # can't verify → don't fire
+            return False  # can't verify -> don't fire
     return True
 
 
@@ -204,7 +206,7 @@ def _passes_cooldown_gate(action: str) -> bool:
     last_fire = _habit_fire_history.get(action)
     if last_fire is None:
         return True
-    return (_habit_cycle_counter - last_fire) >= HABIT_COOLDOWN_CYCLES
+    return (_habit_cycle_counter - last_fire) >= int(p('basal_ganglia.habit.cooldown_cycles'))
 
 
 def _record_habit_fire(action: str) -> None:
@@ -217,7 +219,7 @@ async def check_habits(drives: DrivesState,
     """Check if a strong habit should fire.
 
     Called BEFORE cortex. If a habit matches the current context with
-    strength >= 0.6 AND passes drive/cooldown gates:
+    strength >= habit.strength_threshold AND passes drive/cooldown gates:
     - Reflexive action (generative=False): returns MotorPlan directly.
       Cortex is skipped entirely — reflex, not thought.
     - Generative action (generative=True): returns HabitBoost.
@@ -236,8 +238,9 @@ async def check_habits(drives: DrivesState,
     except Exception:
         return None  # graceful degradation
 
+    habit_threshold = p('basal_ganglia.habit.strength_threshold')
     matches = [h for h in all_habits
-               if h['strength'] >= 0.6 and h['trigger_context'] == trigger_key]
+               if h['strength'] >= habit_threshold and h['trigger_context'] == trigger_key]
 
     if not matches:
         return None
@@ -303,7 +306,7 @@ async def select_actions(validated: ValidatedOutput, drives: DrivesState,
 
     intentions = validated.intentions
 
-    # ── Backward compat: no intentions → Phase 1 passthrough ──
+    # ── Backward compat: no intentions -> Phase 1 passthrough ──
     if not intentions:
         return _phase1_passthrough(validated, drives)
 
@@ -370,7 +373,7 @@ async def select_actions(validated: ValidatedOutput, drives: DrivesState,
 
         # Gate 5b: Drive gates for shop actions
         if action_name == 'open_shop':
-            if drives.rest_need >= 0.6:
+            if drives.rest_need >= p('basal_ganglia.habit.open_shop_rest_gate'):
                 decision.status = 'suppressed'
                 decision.suppression_reason = f'Need rest first (rest_need {drives.rest_need:.2f})'
                 decisions.append(decision)

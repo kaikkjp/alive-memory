@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 import clock
 import db
 from db import JST
+from db.parameters import p
 from pipeline.cortex import cortex_call_reflect, SLEEP_REFLECTION_SYSTEM
 from pipeline.hippocampus import (
     compress_visitor, format_totems, format_journal_entries, relative_time,
@@ -17,12 +18,6 @@ from pipeline.hippocampus import (
 from pipeline.hippocampus_write import hippocampus_consolidate
 from config.identity import IDENTITY_COMPACT
 
-MAX_SLEEP_REFLECTIONS = 7
-# TASK-047: Threshold hierarchy — night sleep gets the full day (0.45),
-# nap consolidation still requires highlights (0.65 via get_top_unprocessed_moments).
-MIN_SLEEP_SALIENCE = 0.45
-MAX_MOMENT_RETRIES = 3
-NAP_TOP_N = 3
 COLD_SEARCH_ENABLED = os.getenv('COLD_SEARCH_ENABLED', 'false').lower() == 'true'
 
 
@@ -41,8 +36,8 @@ async def sleep_cycle() -> int:
 
     # 1. Get unprocessed day memories ranked by salience
     moments = await db.get_unprocessed_day_memory(
-        min_salience=MIN_SLEEP_SALIENCE,
-        limit=MAX_SLEEP_REFLECTIONS,
+        min_salience=p('sleep.consolidation.min_salience'),
+        limit=int(p('sleep.consolidation.max_reflections')),
     )
 
     if not moments:
@@ -63,12 +58,13 @@ async def sleep_cycle() -> int:
     all_reflections = []
     journal_entry_ids = []
     processed_count = 0
+    max_retries = int(p('sleep.consolidation.max_retries'))
     for moment in moments:
         # Poison moment protection
-        if moment.retry_count >= MAX_MOMENT_RETRIES:
+        if moment.retry_count >= max_retries:
             await db.mark_day_memory_processed(moment.id)
             processed_count += 1  # poison skip counts as handled
-            print(f"[Sleep] Poison moment {moment.id} skipped after {MAX_MOMENT_RETRIES} retries")
+            print(f"[Sleep] Poison moment {moment.id} skipped after {max_retries} retries")
             continue
 
         try:
@@ -155,7 +151,7 @@ async def sleep_cycle() -> int:
     return processed_count
 
 
-async def nap_consolidate(top_n: int = NAP_TOP_N) -> int:
+async def nap_consolidate(top_n: int = None) -> int:
     """Nap consolidation — process top moments mid-day.
 
     Fetches the top N unprocessed day moments by salience, runs the same
@@ -164,14 +160,17 @@ async def nap_consolidate(top_n: int = NAP_TOP_N) -> int:
 
     Returns the number of moments processed.
     """
+    if top_n is None:
+        top_n = int(p('sleep.consolidation.nap_top_n'))
     moments = await db.get_top_unprocessed_moments(limit=top_n)
     if not moments:
         print("[Nap] No unprocessed moments to consolidate.")
         return 0
 
+    max_retries = int(p('sleep.consolidation.max_retries'))
     processed_ids = []
     for moment in moments:
-        if moment.retry_count >= MAX_MOMENT_RETRIES:
+        if moment.retry_count >= max_retries:
             processed_ids.append(moment.id)
             print(f"[Nap] Poison moment {moment.id} skipped")
             continue
@@ -335,7 +334,7 @@ async def flush_day_memory() -> None:
     unbounded accumulation).
     """
     await db.delete_processed_day_memory()
-    await db.delete_stale_day_memory(max_age_days=2)
+    await db.delete_stale_day_memory(max_age_days=int(p('sleep.cleanup.stale_day_memory_days')))
 
 
 # ─── Unchanged from original sleep.py ───
@@ -374,7 +373,8 @@ async def manage_thread_lifecycle():
     - Dormant threads >7 days → archived
     """
     # Transition untouched threads to dormant
-    dormant_candidates = await db.get_dormant_threads(older_than_hours=48)
+    dormant_candidates = await db.get_dormant_threads(
+        older_than_hours=int(p('sleep.cleanup.dormant_thread_hours')))
     for thread in dormant_candidates:
         if thread.status in ('open', 'active'):
             await db.touch_thread(
@@ -384,7 +384,8 @@ async def manage_thread_lifecycle():
             )
 
     # Archive stale dormant threads
-    archived_count = await db.archive_stale_threads(older_than_days=7)
+    archived_count = await db.archive_stale_threads(
+        older_than_days=int(p('sleep.cleanup.archive_thread_days')))
     if archived_count > 0:
         print(f"  [Sleep] Archived {archived_count} stale threads.")
 
@@ -399,13 +400,13 @@ async def cleanup_content_pool():
 async def reset_drives_for_morning():
     """Reset drives to morning defaults."""
     drives = await db.get_drives_state()
-    drives.social_hunger = 0.5
-    drives.curiosity = 0.5
-    drives.expression_need = 0.3
-    drives.rest_need = 0.2
+    drives.social_hunger = p('sleep.morning.social_hunger')
+    drives.curiosity = p('sleep.morning.curiosity')
+    drives.expression_need = p('sleep.morning.expression_need')
+    drives.rest_need = p('sleep.morning.rest_need')
     # NOTE: energy is now a display-only derived value from real-dollar budget
     # (TASK-050). After sleep reset writes last_sleep_reset, budget is full,
     # so energy will read as 1.0 on next cycle's budget check.
-    drives.energy = 1.0  # display hint — actual value derived from budget
+    drives.energy = p('sleep.morning.energy')  # display hint — actual value derived from budget
     # Keep mood — it carries over
     await db.save_drives_state(drives)

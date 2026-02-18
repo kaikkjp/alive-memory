@@ -11,7 +11,8 @@ import pytest
 
 from models.event import Event
 from models.state import DrivesState
-from pipeline.hypothalamus import update_drives, clamp, DRIVE_EQUILIBRIA
+from db.parameters import p
+from pipeline.hypothalamus import update_drives, clamp
 
 
 @pytest.fixture(autouse=True)

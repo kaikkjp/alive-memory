@@ -11,8 +11,9 @@ import pytest
 
 from models.event import Event
 from models.state import DrivesState
+from db.parameters import p
 from pipeline.hypothalamus import (
-    update_drives, clamp, DRIVE_EQUILIBRIA, drives_to_feeling,
+    update_drives, clamp, drives_to_feeling,
 )
 
 
@@ -53,7 +54,7 @@ class TestDiversiveCuriosity:
         # Should move toward 0.40
         assert new.diversive_curiosity < drives.diversive_curiosity
         # Equilibrium is 0.40
-        assert DRIVE_EQUILIBRIA['diversive_curiosity'] == 0.40
+        assert p('hypothalamus.equilibria.diversive_curiosity') == 0.40
 
     @pytest.mark.asyncio
     async def test_time_drift_minimal(self):

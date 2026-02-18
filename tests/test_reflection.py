@@ -17,7 +17,7 @@ from pipeline.output import (
     _is_boring_reflection,
     _has_memory_signal,
     _has_resolution_signal,
-    ACTION_DRIVE_EFFECTS,
+    _build_action_drive_effects,
 )
 
 
@@ -220,11 +220,11 @@ class TestReflectionLoop:
 
     @pytest.mark.asyncio
     async def test_no_curiosity_drain_on_read(self):
-        """read_content should NEVER appear in ACTION_DRIVE_EFFECTS with curiosity drain."""
-        # Check ACTION_DRIVE_EFFECTS doesn't drain curiosity for any action
-        for action, effects in ACTION_DRIVE_EFFECTS.items():
+        """read_content should NEVER appear in _build_action_drive_effects() with curiosity drain."""
+        # Check _build_action_drive_effects() doesn't drain curiosity for any action
+        for action, effects in _build_action_drive_effects().items():
             assert 'curiosity' not in effects, \
-                f"ACTION_DRIVE_EFFECTS['{action}'] still has curiosity drain"
+                f"_build_action_drive_effects()['{action}'] still has curiosity drain"
 
     @pytest.mark.asyncio
     async def test_consumption_tracked(self, _patch_db):

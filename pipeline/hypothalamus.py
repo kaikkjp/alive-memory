@@ -2,31 +2,12 @@
 
 from models.event import Event
 from models.state import DrivesState, EpistemicCuriosity, EPISTEMIC_CONFIG
+from db.parameters import p
 import db as _db
 
 
 def clamp(v: float, lo: float = 0.0, hi: float = 1.0) -> float:
     return max(lo, min(hi, v))
-
-
-# ─── Homeostatic equilibria ───
-# Each drive has a natural resting point it returns to when not actively
-# pushed by events or time. Prevents permanent saturation at 0% or 100%.
-# NOTE: These values are character assertions — they define who she is at rest.
-# curiosity=0.50 means she's a moderately curious person by nature.
-# Tuning these changes her personality, not just her behavior.
-DRIVE_EQUILIBRIA = {
-    'social_hunger':       0.45,   # comfortable alone, but not a recluse
-    'diversive_curiosity': 0.40,   # TASK-043: background scanning urge (was 0.50)
-    'curiosity':           0.40,   # backward compat alias for diversive_curiosity
-    'expression_need':     0.35,   # expresses when moved, not constantly
-    'rest_need':           0.25,   # generally rested, tiredness builds from activity
-    'energy':              0.70,   # alert by default
-    'mood_valence':        0.05,   # slightly positive neutral (range: -1 to 1)
-    'mood_arousal':        0.30,   # calm baseline
-}
-
-HOMEOSTATIC_PULL_RATE = 0.15  # strength per hour — how fast drives revert
 
 
 def _homeostatic_pull(current: float, equilibrium: float,
@@ -39,7 +20,7 @@ def _homeostatic_pull(current: float, equilibrium: float,
     which competes meaningfully with time-based forces (+0.03-0.06/hr).
     Near equilibrium, pull vanishes, letting natural variation emerge.
     """
-    delta = (equilibrium - current) * HOMEOSTATIC_PULL_RATE * elapsed_hours
+    delta = (equilibrium - current) * p('hypothalamus.homeostatic_pull_rate') * elapsed_hours
     return clamp(current + delta, lo, hi)
 
 
@@ -64,12 +45,12 @@ async def update_drives(
     new = drives.copy()
 
     # Time-based decay/buildup
-    new.social_hunger = clamp(new.social_hunger + 0.05 * elapsed_hours)
+    new.social_hunger = clamp(new.social_hunger + p('hypothalamus.time_decay.social_hunger_per_hour') * elapsed_hours)
     # TASK-043: Diversive curiosity has tiny background restlessness (+0.005/hr).
     # This is NOT the old +0.03/hr timer — it's barely perceptible.
     # Stimulus-driven spikes from gap detection are the primary driver.
-    new.diversive_curiosity = clamp(new.diversive_curiosity + 0.005 * elapsed_hours)
-    new.expression_need = clamp(new.expression_need + 0.04 * elapsed_hours)
+    new.diversive_curiosity = clamp(new.diversive_curiosity + p('hypothalamus.time_decay.curiosity_per_hour') * elapsed_hours)
+    new.expression_need = clamp(new.expression_need + p('hypothalamus.time_decay.expression_per_hour') * elapsed_hours)
     # NOTE: energy field is now a display-only derived value from real-dollar
     # budget (TASK-050). No time-based decay or homeostatic pull on energy.
 
@@ -80,62 +61,62 @@ async def update_drives(
         for e in events
     )
     if has_visitor_events:
-        new.rest_need = clamp(new.rest_need + 0.06 * elapsed_hours)
+        new.rest_need = clamp(new.rest_need + p('hypothalamus.time_decay.rest_engaged_per_hour') * elapsed_hours)
     else:
-        new.rest_need = clamp(new.rest_need + 0.03 * elapsed_hours)
+        new.rest_need = clamp(new.rest_need + p('hypothalamus.time_decay.rest_idle_per_hour') * elapsed_hours)
 
     # ─── Homeostatic pull (prevents drive saturation) ───
     # Each drive is pulled toward its equilibrium. Further from equilibrium
     # = stronger pull. This counterbalances the unidirectional time forces
     # above and prevents drives from permanently clamping at 0% or 100%.
     new.social_hunger = _homeostatic_pull(
-        new.social_hunger, DRIVE_EQUILIBRIA['social_hunger'], elapsed_hours)
+        new.social_hunger, p('hypothalamus.equilibria.social_hunger'), elapsed_hours)
     new.diversive_curiosity = _homeostatic_pull(
-        new.diversive_curiosity, DRIVE_EQUILIBRIA['diversive_curiosity'], elapsed_hours)
+        new.diversive_curiosity, p('hypothalamus.equilibria.diversive_curiosity'), elapsed_hours)
     new.expression_need = _homeostatic_pull(
-        new.expression_need, DRIVE_EQUILIBRIA['expression_need'], elapsed_hours)
+        new.expression_need, p('hypothalamus.equilibria.expression_need'), elapsed_hours)
     new.rest_need = _homeostatic_pull(
-        new.rest_need, DRIVE_EQUILIBRIA['rest_need'], elapsed_hours)
+        new.rest_need, p('hypothalamus.equilibria.rest_need'), elapsed_hours)
     new.mood_valence = _homeostatic_pull(
-        new.mood_valence, DRIVE_EQUILIBRIA['mood_valence'], elapsed_hours, -1.0, 1.0)
+        new.mood_valence, p('hypothalamus.equilibria.mood_valence'), elapsed_hours, -1.0, 1.0)
     new.mood_arousal = _homeostatic_pull(
-        new.mood_arousal, DRIVE_EQUILIBRIA['mood_arousal'], elapsed_hours)
+        new.mood_arousal, p('hypothalamus.equilibria.mood_arousal'), elapsed_hours)
 
     # Event-based changes
     for event in events:
         if event.event_type == 'visitor_speech':
-            new.social_hunger = clamp(new.social_hunger - 0.08)
-            new.rest_need = clamp(new.rest_need + 0.04)  # each interaction tires her
+            new.social_hunger = clamp(new.social_hunger - p('hypothalamus.event.visitor_speech_social_relief'))
+            new.rest_need = clamp(new.rest_need + p('hypothalamus.event.visitor_speech_rest_cost'))  # each interaction tires her
 
         if event.event_type == 'action_speak':
-            new.expression_need = clamp(new.expression_need - 0.05)
+            new.expression_need = clamp(new.expression_need - p('hypothalamus.event.action_speak_expression_relief'))
 
         if event.event_type == 'visitor_connect':
-            new.mood_arousal = clamp(new.mood_arousal + 0.1)
+            new.mood_arousal = clamp(new.mood_arousal + p('hypothalamus.event.visitor_connect_arousal'))
 
         if event.event_type == 'visitor_disconnect':
-            new.mood_arousal = clamp(new.mood_arousal - 0.05)
-            new.social_hunger = clamp(new.social_hunger + 0.03)
+            new.mood_arousal = clamp(new.mood_arousal + p('hypothalamus.event.visitor_disconnect_arousal'))
+            new.social_hunger = clamp(new.social_hunger + p('hypothalamus.event.visitor_disconnect_social'))
 
     # Cortex resonance flags (from previous cycle)
     if cortex_flags and cortex_flags.get('resonance'):
-        new.social_hunger = clamp(new.social_hunger - 0.15)  # bonus
-        new.mood_valence = clamp(new.mood_valence + 0.1, -1.0, 1.0)
-        new.mood_arousal = clamp(new.mood_arousal + 0.08)     # arousal spike
+        new.social_hunger = clamp(new.social_hunger - p('hypothalamus.resonance.social_relief'))  # bonus
+        new.mood_valence = clamp(new.mood_valence + p('hypothalamus.resonance.valence_boost'), -1.0, 1.0)
+        new.mood_arousal = clamp(new.mood_arousal + p('hypothalamus.resonance.arousal_boost'))     # arousal spike
 
     # ─── Arousal sources (event-driven) ───
     # Content consumed: she read something interesting
     for event in events:
         if event.event_type == 'content_consumed':
-            new.mood_arousal = clamp(new.mood_arousal + 0.05)
+            new.mood_arousal = clamp(new.mood_arousal + p('hypothalamus.event.content_consumed_arousal'))
 
         # Thread touched: she's developing an idea
         if event.event_type == 'thread_updated':
-            new.mood_arousal = clamp(new.mood_arousal + 0.04)
+            new.mood_arousal = clamp(new.mood_arousal + p('hypothalamus.event.thread_updated_arousal'))
 
     # Action variety: novelty bump if recent actions are diverse
     if cortex_flags and cortex_flags.get('action_variety'):
-        new.mood_arousal = clamp(new.mood_arousal + 0.03)
+        new.mood_arousal = clamp(new.mood_arousal + p('hypothalamus.event.action_variety_arousal'))
 
     # ─── Gap-driven curiosity spikes (TASK-042/043) ───
     # Sum curiosity_delta from all gap scores that passed thalamus filtering.
@@ -147,7 +128,7 @@ async def update_drives(
     # ─── Visitor conversation suppresses diversive curiosity (TASK-043) ───
     # Engaged in conversation → attention is elsewhere, not scanning.
     if has_visitor_events:
-        new.diversive_curiosity = clamp(new.diversive_curiosity - 0.02 * elapsed_hours)
+        new.diversive_curiosity = clamp(new.diversive_curiosity - p('hypothalamus.conversation.curiosity_suppress_per_hour') * elapsed_hours)
 
     # NOTE: Rest recovery gate removed (TASK-024). The old gate required
     # `not events and elapsed_hours > 0.5`, which was impossible with
@@ -166,36 +147,37 @@ async def update_drives(
     if engaged_this_cycle:
         # Visitor relief: lonelier = more relief from contact
         new.mood_valence = clamp(
-            new.mood_valence + 0.05 * new.social_hunger, -1.0, 1.0)
-    elif new.social_hunger > 0.4:
+            new.mood_valence + p('hypothalamus.coupling.visitor_relief_factor') * new.social_hunger, -1.0, 1.0)
+    elif new.social_hunger > p('hypothalamus.coupling.social_valence_threshold'):
         valence_before = new.mood_valence
-        valence_pressure = -0.02 * (new.social_hunger - 0.4)
+        valence_pressure = p('hypothalamus.coupling.social_valence_pressure') * (new.social_hunger - p('hypothalamus.coupling.social_valence_threshold'))
         new.mood_valence = clamp(new.mood_valence + valence_pressure, -1.0, 1.0)
-        # Floor: social hunger pressure alone cannot push below 0.15
-        if valence_before >= 0.15 and new.mood_valence < 0.15:
-            new.mood_valence = 0.15
+        # Floor: social hunger pressure alone cannot push below floor
+        floor = p('hypothalamus.coupling.social_valence_floor')
+        if valence_before >= floor and new.mood_valence < floor:
+            new.mood_valence = floor
 
     # Part B: Low stimulation → arousal decay
     # Consecutive idle cycles make her drowsy. Events spike arousal.
-    if consecutive_idle > 5:
-        arousal_pressure = -0.01 * (consecutive_idle - 5)
-        arousal_pressure = max(arousal_pressure, -0.05)  # cap at -0.05/cycle
+    if consecutive_idle > p('hypothalamus.coupling.idle_arousal_threshold'):
+        arousal_pressure = p('hypothalamus.coupling.idle_arousal_pressure') * (consecutive_idle - p('hypothalamus.coupling.idle_arousal_threshold'))
+        arousal_pressure = max(arousal_pressure, p('hypothalamus.coupling.idle_arousal_cap'))  # cap
         new.mood_arousal = clamp(new.mood_arousal + arousal_pressure)
 
     # Arousal spikes from events (stronger than existing +0.1 on visitor_connect)
     for event in events:
         if event.event_type == 'visitor_connect':
-            new.mood_arousal = clamp(new.mood_arousal + 0.2)  # +0.2 on top of existing +0.1 = +0.3 total
+            new.mood_arousal = clamp(new.mood_arousal + p('hypothalamus.coupling.visitor_connect_extra_arousal'))  # on top of existing
         if event.event_type == 'gap_detection_partial':
-            new.mood_arousal = clamp(new.mood_arousal + 0.1)
+            new.mood_arousal = clamp(new.mood_arousal + p('hypothalamus.coupling.gap_detection_arousal'))
         if event.event_type == 'thread_breakthrough':
-            new.mood_arousal = clamp(new.mood_arousal + 0.15)
+            new.mood_arousal = clamp(new.mood_arousal + p('hypothalamus.coupling.thread_breakthrough_arousal'))
 
     # Part C: Expression need → valence interaction
     # Unexpressed thoughts cause frustration
-    if new.expression_need > 0.5 and not expression_taken:
+    if new.expression_need > p('hypothalamus.coupling.expression_frustration_threshold') and not expression_taken:
         new.mood_valence = clamp(
-            new.mood_valence - 0.01 * (new.expression_need - 0.5), -1.0, 1.0)
+            new.mood_valence + p('hypothalamus.coupling.expression_frustration_pressure') * (new.expression_need - p('hypothalamus.coupling.expression_frustration_threshold')), -1.0, 1.0)
 
     # NOTE: Energy is now a display-only derived value from real-dollar budget
     # (TASK-050). No energy-to-mood coupling — being in rest mode means no
@@ -277,18 +259,20 @@ def drives_to_feeling(d: DrivesState,
 # Called directly by executor after HER OWN actions complete.
 # Bypasses inbox/event loop — drive relief is immediate, not queued.
 
-EXPRESSION_RELIEF = {
-    'action_speak':    {'expression_need': -0.05, 'social_hunger': -0.03},
-    'write_journal':   {'expression_need': -0.12, 'rest_need': 0.02},
-    'write_journal_skipped': {'expression_need': -0.06},  # intended but nothing new to say
-    'post_x_draft':    {'expression_need': -0.10, 'rest_need': 0.02},
-    'rearrange':       {'expression_need': -0.06},
-}
+def _build_expression_relief() -> dict:
+    """Build expression relief dict from parameters."""
+    return {
+        'action_speak':    {'expression_need': p('hypothalamus.expression_relief.speak_expression'), 'social_hunger': p('hypothalamus.expression_relief.speak_social')},
+        'write_journal':   {'expression_need': p('hypothalamus.expression_relief.write_journal_expression'), 'rest_need': p('hypothalamus.expression_relief.write_journal_rest')},
+        'write_journal_skipped': {'expression_need': p('hypothalamus.expression_relief.write_journal_skipped_expression')},
+        'post_x_draft':    {'expression_need': p('hypothalamus.expression_relief.post_x_expression'), 'rest_need': p('hypothalamus.expression_relief.post_x_rest')},
+        'rearrange':       {'expression_need': p('hypothalamus.expression_relief.rearrange_expression')},
+    }
 
 
 async def apply_expression_relief(action_type: str):
     """Immediate drive update after her own action. No event loop. No inbox."""
-    relief = EXPRESSION_RELIEF.get(action_type)
+    relief = _build_expression_relief().get(action_type)
     if not relief:
         return
 

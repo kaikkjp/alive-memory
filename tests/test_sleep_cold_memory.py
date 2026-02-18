@@ -12,6 +12,7 @@ from pipeline import cold_search as cold_search_mod
 from pipeline import embed_cold as embed_cold_mod
 import sleep
 from db import _row_to_daily_summary
+from db.parameters import p
 from models.state import DailySummary
 
 
@@ -56,9 +57,9 @@ class SleepColdMemoryTests(unittest.IsolatedAsyncioTestCase):
             patch.object(sleep.db, "transaction", new=lambda: _Tx()),
             patch.object(sleep.db, "set_setting", new=AsyncMock()),
         ]
-        for p in patches:
-            p.start()
-            self.addCleanup(p.stop)
+        for pat in patches:
+            pat.start()
+            self.addCleanup(pat.stop)
         with patch.object(sleep, "COLD_SEARCH_ENABLED", True):
             return await sleep.sleep_cycle()
 
@@ -125,7 +126,7 @@ class SleepReflectiveJournalTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_min_sleep_salience_is_0_45(self):
         """MIN_SLEEP_SALIENCE should be 0.45 (TASK-047 threshold hierarchy)."""
-        self.assertEqual(sleep.MIN_SLEEP_SALIENCE, 0.45)
+        self.assertEqual(p('sleep.consolidation.min_salience'), 0.45)
 
     async def test_each_moment_gets_own_journal_entry(self):
         """Each reflected moment should produce its own journal entry."""
@@ -163,9 +164,9 @@ class SleepReflectiveJournalTests(unittest.IsolatedAsyncioTestCase):
             patch.object(sleep.db, "transaction", new=lambda: _Tx()),
             patch.object(sleep.db, "set_setting", new=AsyncMock()),
         ]
-        for p in patches:
-            p.start()
-            self.addCleanup(p.stop)
+        for pat in patches:
+            pat.start()
+            self.addCleanup(pat.stop)
 
         await sleep.sleep_cycle()
 
@@ -214,9 +215,9 @@ class SleepReflectiveJournalTests(unittest.IsolatedAsyncioTestCase):
             patch.object(sleep.db, "transaction", new=lambda: _Tx()),
             patch.object(sleep.db, "set_setting", new=AsyncMock()),
         ]
-        for p in patches:
-            p.start()
-            self.addCleanup(p.stop)
+        for pat in patches:
+            pat.start()
+            self.addCleanup(pat.stop)
 
         await sleep.sleep_cycle()
 
@@ -247,9 +248,9 @@ class SleepReflectiveJournalTests(unittest.IsolatedAsyncioTestCase):
             patch.object(sleep.db, "insert_daily_summary", new=insert_summary_mock),
             patch.object(sleep.clock, "now", return_value=datetime(2026, 2, 14, 12, 0, 0)),
         ]
-        for p in patches:
-            p.start()
-            self.addCleanup(p.stop)
+        for pat in patches:
+            pat.start()
+            self.addCleanup(pat.stop)
 
         await sleep.write_daily_summary(moments, reflections, journal_ids)
 
@@ -293,9 +294,9 @@ class SleepReflectiveJournalTests(unittest.IsolatedAsyncioTestCase):
             patch.object(sleep.db, "transaction", new=lambda: _Tx()),
             patch.object(sleep.db, "set_setting", new=AsyncMock()),
         ]
-        for p in patches:
-            p.start()
-            self.addCleanup(p.stop)
+        for pat in patches:
+            pat.start()
+            self.addCleanup(pat.stop)
 
         await sleep.sleep_cycle()
 
@@ -337,9 +338,9 @@ class SleepReflectiveJournalTests(unittest.IsolatedAsyncioTestCase):
             patch.object(sleep.db, "transaction", new=lambda: _Tx()),
             patch.object(sleep.db, "set_setting", new=AsyncMock()),
         ]
-        for p in patches:
-            p.start()
-            self.addCleanup(p.stop)
+        for pat in patches:
+            pat.start()
+            self.addCleanup(pat.stop)
 
         await sleep.sleep_cycle()
 

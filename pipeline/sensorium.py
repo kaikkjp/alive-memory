@@ -11,6 +11,7 @@ from pipeline.notifications import get_notifications, format_notifications_text
 from pipeline.gap_detector import (
     detect_gaps, format_gap_annotation, EmbeddingIndex,
 )
+from db.parameters import p, p_or
 import db
 
 
@@ -43,9 +44,9 @@ async def build_perceptions(unread_events: list[Event], drives: DrivesState,
 
     # ── Focus perception injection (from arbiter) ──
     if focus_context and focus_context.payload:
-        focus_p = _build_focus_perception(focus_context)
-        if focus_p:
-            perceptions.append(focus_p)
+        focus_perc = _build_focus_perception(focus_context)
+        if focus_perc:
+            perceptions.append(focus_perc)
 
     for event in unread_events:
         if event.event_type == 'visitor_speech':
@@ -67,7 +68,7 @@ async def build_perceptions(unread_events: list[Event], drives: DrivesState,
                     source_id=event.id if hasattr(event, 'id') else vid,
                 ))
 
-            p = Perception(
+            perc = Perception(
                 p_type='visitor_speech',
                 source=event.source,
                 ts=event.ts,
@@ -75,7 +76,7 @@ async def build_perceptions(unread_events: list[Event], drives: DrivesState,
                 features=extract_features(text),
                 salience=calculate_salience(event, drives, visitor),
             )
-            perceptions.append(p)
+            perceptions.append(perc)
 
         elif event.event_type == 'visitor_connect':
             vid = event.source.split(':')[1] if ':' in event.source else event.source
@@ -93,7 +94,7 @@ async def build_perceptions(unread_events: list[Event], drives: DrivesState,
                 name = visitor.name or "someone I know well"
                 content = f"{name} walks in. Something shifts."
 
-            p = Perception(
+            perc = Perception(
                 p_type='visitor_connect',
                 source=event.source,
                 ts=event.ts,
@@ -101,13 +102,13 @@ async def build_perceptions(unread_events: list[Event], drives: DrivesState,
                 features={'is_arrival': True, 'trust_level': trust},
                 salience=calculate_connect_salience(drives, trust),
             )
-            perceptions.append(p)
+            perceptions.append(perc)
 
         elif event.event_type == 'visitor_disconnect':
             vid = event.source.split(':')[1] if ':' in event.source else event.source
             visitor = await db.get_visitor(vid)
             name = visitor.name if visitor and visitor.name else "they"
-            p = Perception(
+            perc = Perception(
                 p_type='visitor_disconnect',
                 source=event.source,
                 ts=event.ts,
@@ -115,7 +116,7 @@ async def build_perceptions(unread_events: list[Event], drives: DrivesState,
                 features={'is_departure': True},
                 salience=0.4,
             )
-            perceptions.append(p)
+            perceptions.append(perc)
 
         elif event.event_type == 'ambient_discovery':
             title = event.payload.get('title', 'something')
@@ -124,7 +125,7 @@ async def build_perceptions(unread_events: list[Event], drives: DrivesState,
                 content = f"Something appeared on the counter: {title}"
             else:
                 content = f'Something appeared on the counter: "{title}"'
-            p = Perception(
+            perc = Perception(
                 p_type='ambient_discovery',
                 source='world',
                 ts=event.ts,
@@ -136,10 +137,10 @@ async def build_perceptions(unread_events: list[Event], drives: DrivesState,
                 },
                 salience=0.5,
             )
-            perceptions.append(p)
+            perceptions.append(perc)
 
         elif event.event_type == 'ambient_weather':
-            p = Perception(
+            perc = Perception(
                 p_type='ambient_weather',
                 source='ambient',
                 ts=event.ts,
@@ -147,7 +148,7 @@ async def build_perceptions(unread_events: list[Event], drives: DrivesState,
                 features={'is_weather': True, **event.payload},
                 salience=0.1,
             )
-            perceptions.append(p)
+            perceptions.append(perc)
 
     # ── Notification injection (TASK-041) + gap detection (TASK-042) ──
     # Surface content titles from the feed as background perceptions.
@@ -230,8 +231,8 @@ async def build_perceptions(unread_events: list[Event], drives: DrivesState,
 
     # Sort by salience, cap at focus(1) + background(5)
     # Increased cap from 4 to 6 to accommodate notifications alongside other perceptions
-    perceptions.sort(key=lambda p: p.salience, reverse=True)
-    return perceptions[:6]
+    perceptions.sort(key=lambda perc: perc.salience, reverse=True)
+    return perceptions[:int(p('sensorium.perception.max_count'))]
 
 
 def extract_features(text: str) -> dict:
@@ -261,34 +262,35 @@ def extract_features(text: str) -> dict:
 def calculate_salience(event: Event, drives: DrivesState,
                        visitor: Visitor = None) -> float:
     """Salience = how much she should care about this input."""
-    base = 0.5
+    base = p('sensorium.salience.base')
 
     text = event.payload.get('text', '')
     features = extract_features(text)
 
-    # Trust amplifies salience
-    trust_bonus = {'stranger': 0.0, 'returner': 0.1, 'regular': 0.2, 'familiar': 0.3}
-    base += trust_bonus.get(visitor.trust_level if visitor else 'stranger', 0.0)
+    # Trust amplifies salience (p_or: unknown trust_level falls back to 0.0)
+    trust = visitor.trust_level if visitor else 'stranger'
+    trust_key = f'sensorium.salience.trust_{trust}'
+    base += p_or(trust_key, 0.0)
 
     # Gifts are always interesting
     if features['contains_gift']:
-        base += 0.2
+        base += p('sensorium.salience.gift_bonus')
 
     # Questions demand attention
     if features['contains_question']:
-        base += 0.1
+        base += p('sensorium.salience.question_bonus')
 
     # Personal questions are high stakes
     if features['contains_personal_question'] or features['contains_name_question']:
-        base += 0.15
+        base += p('sensorium.salience.personal_bonus')
 
     # Social hunger amplifies visitor salience
     if drives.social_hunger > 0.7:
-        base += 0.15
+        base += p('sensorium.salience.social_hunger_bonus')
 
     # Low energy dampens salience
     if drives.energy < 0.3:
-        base -= 0.1
+        base += p('sensorium.salience.low_energy_penalty')
 
     return max(0.0, min(1.0, base))
 
@@ -300,25 +302,25 @@ def calculate_connect_salience(drives: DrivesState, trust_level: str) -> float:
     A familiar face when she's lonely = high salience.
     A stranger when she's absorbed in writing = low salience.
     """
-    base = 0.3
+    base = p('sensorium.connect.base')
 
-    # Trust amplifies: familiar faces pull harder
-    trust_bonus = {'stranger': 0.0, 'returner': 0.15, 'regular': 0.3, 'familiar': 0.45}
-    base += trust_bonus.get(trust_level, 0.0)
+    # Trust amplifies: familiar faces pull harder (p_or: unknown trust falls back to 0.0)
+    trust_key = f'sensorium.connect.trust_{trust_level}'
+    base += p_or(trust_key, 0.0)
 
     # Social hunger: lonely = more drawn to visitors
     if drives.social_hunger > 0.7:
-        base += 0.2
+        base += p('sensorium.connect.social_hunger_high_bonus')
     elif drives.social_hunger > 0.4:
-        base += 0.1
+        base += p('sensorium.connect.social_hunger_mid_bonus')
 
     # Absorption penalty: if she's deep in expression, arrivals matter less
     if drives.expression_need > 0.7:
-        base -= 0.15
+        base += p('sensorium.connect.expression_penalty')
 
     # Low energy dampens attention to arrivals
     if drives.energy < 0.3:
-        base -= 0.1
+        base += p('sensorium.connect.low_energy_penalty')
 
     return max(0.0, min(1.0, base))
 
@@ -363,9 +365,6 @@ FIDGET_KEYWORDS = {
 }
 
 
-FIDGET_RECENCY_SECONDS = 300  # only match fidgets from the last 5 minutes
-
-
 def check_fidget_reference(text: str, recent_fidgets: list = None) -> Perception | None:
     """Check if visitor speech references a recent fidget behavior.
 
@@ -380,7 +379,7 @@ def check_fidget_reference(text: str, recent_fidgets: list = None) -> Perception
 
     for behavior_key, description, ts in recent_fidgets:
         # Skip stale fidgets outside the recency window
-        if ts and (now - ts).total_seconds() > FIDGET_RECENCY_SECONDS:
+        if ts and (now - ts).total_seconds() > p('sensorium.fidget.recency_seconds'):
             continue
         keywords = FIDGET_KEYWORDS.get(behavior_key, [])
         for keyword in keywords:
@@ -398,7 +397,7 @@ def check_fidget_reference(text: str, recent_fidgets: list = None) -> Perception
                         'fidget_key': behavior_key,
                         'fidget_description': description,
                     },
-                    salience=0.4,  # below speech so it augments, never replaces focus
+                    salience=p('sensorium.fidget.mismatch_salience'),
                 )
 
     return None

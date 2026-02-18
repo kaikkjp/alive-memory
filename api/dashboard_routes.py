@@ -462,6 +462,59 @@ async def handle_set_budget(server, writer: asyncio.StreamWriter,
     await server._http_json(writer, 200, budget)
 
 
+async def handle_parameters(server, writer: asyncio.StreamWriter,
+                             authorization: str):
+    """Handle GET /api/dashboard/parameters — return all self_parameters."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+    all_params = await db.get_all_params()
+    modifications = await db.get_modification_log(limit=20)
+
+    # Group by category
+    categories: dict[str, list] = {}
+    for param in all_params:
+        cat = param.get('category', 'uncategorized')
+        categories.setdefault(cat, []).append(param)
+
+    await server._http_json(writer, 200, {
+        'categories': categories,
+        'recent_modifications': modifications,
+        'total_count': len(all_params),
+    })
+
+
+async def handle_set_parameter(server, writer: asyncio.StreamWriter,
+                                authorization: str, body_bytes: bytes):
+    """Handle POST /api/dashboard/parameters — set or reset a parameter."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+    try:
+        data = json.loads(body_bytes.decode('utf-8'))
+        key = data.get('key')
+        if not key:
+            await server._http_json(writer, 400, {'error': 'key required'})
+            return
+
+        if data.get('reset'):
+            result = await db.reset_param(key, modified_by='dashboard')
+        else:
+            value = data.get('value')
+            if value is None:
+                await server._http_json(writer, 400, {'error': 'value required'})
+                return
+            reason = data.get('reason', '')
+            result = await db.set_param(key, float(value),
+                                         modified_by='dashboard', reason=reason)
+
+        await server._http_json(writer, 200, result)
+    except ValueError as e:
+        await server._http_json(writer, 400, {'error': str(e)})
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        await server._http_json(writer, 400, {'error': 'bad request'})
+
+
 # ── X Drafts (TASK-057) ──
 
 async def handle_x_drafts(server, writer: asyncio.StreamWriter,
