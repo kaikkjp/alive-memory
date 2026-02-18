@@ -74,15 +74,22 @@ class GuardRailConfig:
 
     @classmethod
     def load(cls, path: Optional[Path] = None) -> "GuardRailConfig":
-        """Load guard rail configuration from JSON file."""
+        """Load guard rail configuration from JSON file.
+
+        Falls back to defaults if the file is missing or unreadable,
+        since the evolution feature is disabled behind a philosophical gate.
+        """
         if path is None:
             path = Path(__file__).parent / "evolution_config.json"
         if not path.exists():
-            raise FileNotFoundError(
-                f"Guard rail config not found: {path}"
-            )
-        with open(path) as f:
-            data = json.load(f)
+            print(f"[IdentityEvolution] Config not found: {path} — using defaults")
+            return cls()
+        try:
+            with open(path) as f:
+                data = json.load(f)
+        except (json.JSONDecodeError, OSError) as exc:
+            print(f"[IdentityEvolution] Failed to read config: {exc} — using defaults")
+            return cls()
         return cls(
             protected_traits=data.get("protected_traits", []),
             max_updates_per_sleep=data.get("max_updates_per_sleep", 1),
