@@ -25,6 +25,9 @@ tests/
 deploy/
 nginx/
 scripts/
+!scripts/prepare_assets.sh
+!scripts/cut_window_mask.py
+!scripts/slice_counter.py
 ARCHITECTURE.md
 CLAUDE.md
 DEPLOY_VPS.md
