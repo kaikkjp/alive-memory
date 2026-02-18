@@ -1207,6 +1207,7 @@ class Heartbeat:
                 visitor_id=visitor_id, engagement=engagement,
                 drives_before=drives_before, drives_after=drives,
                 unread=unread, routing=routing, validated=validated,
+                focus_context=focus_context, body_output=body_output,
             )
             await maybe_record_moment(validated.to_dict(), cycle_context)
         except Exception as e:
@@ -1265,6 +1266,8 @@ class Heartbeat:
         unread: list,
         routing,
         validated: ValidatedOutput,
+        focus_context=None,
+        body_output=None,
     ) -> dict:
         """Build the cycle_context dict for day memory moment extraction.
 
@@ -1303,19 +1306,48 @@ class Heartbeat:
             idle_s = (clock.now_utc() - engagement.last_activity).total_seconds()
             is_silence_moment = idle_s > 1800
 
+        # TASK-053: Arbiter channel — 'consume'/'news' are channels, not modes.
+        # The pipeline mode for 'consume' is 'engage', for 'news' is 'idle',
+        # so checking mode alone misses content-consumption cycles.
+        channel = focus_context.channel if focus_context else None
+
+        # TASK-053: Internal conflict detection.
+        # Conflict = high arousal + negative valence (emotional tension),
+        # OR actions were dropped due to suppression (frustrated intent).
+        has_conflict = (
+            (drives_after.mood_arousal > 0.7 and drives_after.mood_valence < 0.3)
+            or any(
+                d.reason and 'suppress' in d.reason.lower()
+                for d in validated.dropped_actions
+            )
+        )
+
+        # TASK-053: Executed action types from body output.
+        # The salience function needs to know what actually ran, not just what
+        # cortex requested. body_output.executed has ActionResult with .action str.
+        executed_action_types = []
+        if body_output and body_output.executed:
+            executed_action_types = [
+                ar.action for ar in body_output.executed if ar.success
+            ]
+
         return {
             'cycle_id': cycle_id,
             'mode': mode,
+            'channel': channel,
             'visitor_id': visitor_id,
             'visitor_name': visitor.name if visitor else None,
             'trust_level': visitor.trust_level if visitor else 'stranger',
             'event_ids': [e.id for e in unread],
             'max_drive_delta': max_delta,
+            'mood_valence': drives_after.mood_valence,
             'had_contradiction': had_contradiction,
+            'has_internal_conflict': has_conflict,
             'is_abrupt_end': is_abrupt_end,
             'is_silence_moment': is_silence_moment,
             'is_novel_topic': False,  # deferred to Phase 2
             'turn_count': engagement.turn_count,
+            'executed_action_types': executed_action_types,
         }
 
     def subscribe_cycle_logs(self, subscriber_id: str, maxsize: int = 50) -> asyncio.Queue:
