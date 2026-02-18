@@ -121,6 +121,12 @@ class ShopkeeperServer:
         self._ws_server = None
         self._http_server = None
         self._window_clients: set = set()  # WebSocket connections for window viewers
+        self._ws_visitor_map: dict = {}  # websocket → {visitor_id, display_name, token}
+        self._chat_history: list[dict] = []  # Recent chat messages (visitor + shopkeeper)
+        self._CHAT_HISTORY_MAX = 50
+        self._weather_cache: dict = {}  # {data, fetched_at}
+        self._WEATHER_CACHE_TTL = 600  # 10 minutes
+        self._last_chat_response_content: str = ''  # dedup tracker
         self._sprite_gen_task = None
         self._visitor_timeout_task = None
         self._missing_assets_logged: set[str] = set()
@@ -264,6 +270,9 @@ class ShopkeeperServer:
             except Exception:
                 pass
         self._window_clients.clear()
+        self._ws_visitor_map.clear()
+        self._chat_history.clear()
+        self._weather_cache.clear()
 
         if self._server:
             self._server.close()
@@ -592,8 +601,15 @@ class ShopkeeperServer:
             status = data.get('status', '')
             if status == 'entering_sleep':
                 print(f"  {Fore.BLUE}[Sleep]{Style.RESET_ALL} She closes her eyes...")
+                self._chat_history.clear()
+                from window_state import build_status_message
+                await self._broadcast_to_window(
+                    build_status_message('sleeping', 'She closes her eyes...'))
             elif status == 'woke_up':
                 print(f"  {Fore.BLUE}[Sleep]{Style.RESET_ALL} Morning. She stirs.")
+                from window_state import build_status_message
+                await self._broadcast_to_window(
+                    build_status_message('awake', 'Morning. She stirs.'))
 
         elif stage == 'dialogue':
             dialogue = data.get('dialogue')
@@ -601,6 +617,18 @@ class ShopkeeperServer:
             if dialogue:
                 expr = data.get('expression', 'neutral')
                 print(f"  {Fore.WHITE}[{expr}] \u300c{dialogue}\u300d{Style.RESET_ALL}")
+                # Broadcast chat_response to all window viewers
+                chat_resp = {
+                    'type': 'chat_response',
+                    'content': dialogue,
+                    'expression': expr,
+                    'timestamp': clock.now_utc().isoformat(),
+                }
+                await self._broadcast_to_window(chat_resp)
+                # Append to chat history buffer
+                self._chat_history.append(chat_resp)
+                if len(self._chat_history) > self._CHAT_HISTORY_MAX:
+                    self._chat_history = self._chat_history[-self._CHAT_HISTORY_MAX:]
             elif body_desc:
                 print(f"  {Fore.CYAN}{body_desc}{Style.RESET_ALL}")
 
@@ -712,9 +740,9 @@ class ShopkeeperServer:
         ws_visitor_id = None  # Track visitor_id if this WS sent chat messages
         print(f"  {Fore.GREEN}[Window]{Style.RESET_ALL} Viewer connected from {remote}")
         try:
-            # Send current state on connect
+            # Send current state on connect (includes chat history)
             from window_state import build_initial_state
-            state = await build_initial_state()
+            state = await build_initial_state(chat_history=list(self._chat_history))
             await websocket.send(json.dumps(state))
 
             # Listen for auth, chat messages, and disconnect signals
@@ -756,6 +784,10 @@ class ShopkeeperServer:
                 print(f"  {Fore.YELLOW}[Window]{Style.RESET_ALL} WS error: {err_name}: {e}")
         finally:
             self._window_clients.discard(websocket)
+            # Clean up visitor map entry for this websocket
+            had_visitor = websocket in self._ws_visitor_map
+            if had_visitor:
+                del self._ws_visitor_map[websocket]
             # Clean up ghost engagement if this WS had an active visitor
             if ws_visitor_id:
                 try:
@@ -774,6 +806,12 @@ class ShopkeeperServer:
                         await db.update_engagement_state(
                             status='none', visitor_id=None, turn_count=0
                         )
+                except Exception:
+                    pass
+            # Broadcast updated presence if a visitor was removed
+            if had_visitor:
+                try:
+                    await self._broadcast_visitor_presence()
                 except Exception:
                     pass
             print(f"  {Fore.GREEN}[Window]{Style.RESET_ALL} Viewer disconnected")
@@ -797,13 +835,41 @@ class ShopkeeperServer:
         display_name = token_info['display_name']
         visitor_id = f'web_{display_name.lower().replace(" ", "_")}'
 
+        # Register in visitor map (first valid message = join)
+        is_new_visitor = websocket not in self._ws_visitor_map
+        if is_new_visitor:
+            self._ws_visitor_map[websocket] = {
+                'visitor_id': visitor_id,
+                'display_name': display_name,
+                'token': token,
+            }
+
         # Track visitor presence (multi-slot) — idempotent via INSERT OR REPLACE
         await db.add_visitor_present(visitor_id, 'websocket')
 
         # Update last_activity for idle timeout tracking
         await db.update_visitor_present(visitor_id, last_activity=clock.now().isoformat())
 
-        # Write visitor speech as text fragment (visible to all window viewers)
+        # Broadcast visitor_presence if this is a new join
+        if is_new_visitor:
+            await self._broadcast_visitor_presence()
+
+        # Broadcast chat_message to all window viewers (room-style)
+        from window_state import build_chat_message
+        chat_msg = build_chat_message(
+            sender=display_name,
+            sender_type='visitor',
+            content=text,
+            timestamp=clock.now_utc().isoformat(),
+        )
+        await self._broadcast_to_window(chat_msg)
+
+        # Append to chat history buffer
+        self._chat_history.append(chat_msg)
+        if len(self._chat_history) > self._CHAT_HISTORY_MAX:
+            self._chat_history = self._chat_history[-self._CHAT_HISTORY_MAX:]
+
+        # Write visitor speech as text fragment (activity stream)
         from window_state import build_text_fragment_message
         visitor_frag = build_text_fragment_message(
             content=f'"{text}"',
@@ -881,10 +947,37 @@ class ShopkeeperServer:
                 status='none', visitor_id=None, turn_count=0
             )
 
+        # Remove ALL sockets for this visitor (handles multi-tab / reconnect overlap)
+        for ws, info in list(self._ws_visitor_map.items()):
+            if info['visitor_id'] == visitor_id:
+                del self._ws_visitor_map[ws]
+        await self._broadcast_visitor_presence()
+
     async def _broadcast_to_window(self, message: dict):
-        """Broadcast a JSON message to all connected window viewers."""
+        """Broadcast a JSON message to all connected window viewers.
+
+        Includes dedup: if a chat_response was just sent, suppress the same
+        content appearing as current_thought in the next scene_update to
+        prevent the frontend from showing the dialogue twice.
+        """
+        # Dedup: suppress matching current_thought in scene_update
+        if message.get('type') == 'scene_update' and self._last_chat_response_content:
+            text_block = message.get('text', {})
+            ct = text_block.get('current_thought', '')
+            if ct and ct.startswith(self._last_chat_response_content[:50]):
+                message = {**message, 'text': {**text_block, 'current_thought': ''}}
+            # Always clear after first scene_update following a chat_response,
+            # whether or not it matched — prevents stale state from suppressing
+            # unrelated future thoughts.
+            self._last_chat_response_content = ''
+
         if not self._window_clients:
             return
+
+        # Track chat_response content for dedup — set AFTER the early return
+        # so dedup state is only armed when clients actually received the message.
+        if message.get('type') == 'chat_response':
+            self._last_chat_response_content = message.get('content', '')
         payload = json.dumps(message)
         # Send to all, ignore individual failures
         to_remove = set()
@@ -894,6 +987,17 @@ class ShopkeeperServer:
             except Exception:
                 to_remove.add(ws)
         self._window_clients -= to_remove
+
+    async def _broadcast_visitor_presence(self):
+        """Broadcast current visitor list and count to all window clients."""
+        from window_state import build_visitor_presence_message
+        visitors = [
+            {'display_name': info['display_name'], 'visitor_id': info['visitor_id']}
+            for info in self._ws_visitor_map.values()
+        ]
+        await self._broadcast_to_window(
+            build_visitor_presence_message(visitors, clock.now_utc().isoformat())
+        )
 
     # ─── HTTP handler (REST API) ───
 
@@ -1024,6 +1128,10 @@ class ShopkeeperServer:
                 await dashboard_routes.handle_actions(self, writer, authorization)
             elif path == '/api/dashboard/actions/resolve' and method == 'POST':
                 await dashboard_routes.handle_resolve_action(self, writer, authorization, body_bytes)
+            elif path == '/api/weather' and method == 'GET':
+                await self._http_weather(writer)
+            elif path == '/api/outdoor' and method == 'GET':
+                await self._http_outdoor(writer)
             else:
                 await self._http_json(writer, 404, {'error': 'not found'})
         except (asyncio.TimeoutError, ConnectionResetError, BrokenPipeError):
@@ -1042,9 +1150,9 @@ class ShopkeeperServer:
                 pass
 
     async def _http_state(self, writer: asyncio.StreamWriter):
-        """Handle GET /api/state — return full window state."""
+        """Handle GET /api/state — return full window state (mirrors WS initial payload)."""
         from window_state import build_initial_state
-        state = await build_initial_state()
+        state = await build_initial_state(chat_history=list(self._chat_history))
         await self._http_json(writer, 200, state)
 
     async def _http_og_image(self, writer: asyncio.StreamWriter):
@@ -1103,6 +1211,58 @@ class ShopkeeperServer:
             # Keep invalid-token responses as 200 so UI validation attempts
             # don't show browser-level 4xx resource errors.
             await self._http_json(writer, 200, {'valid': False})
+
+    async def _fetch_tokyo_weather(self) -> dict:
+        """Fetch Tokyo weather from wttr.in, cached for WEATHER_CACHE_TTL seconds."""
+        # Wall-clock time intentional: weather cache should expire on real time,
+        # not simulation time (clock.now), so live and simulated modes share cache.
+        import time as _time
+        now = _time.time()
+        if self._weather_cache and (now - self._weather_cache.get('fetched_at', 0)) < self._WEATHER_CACHE_TTL:
+            return self._weather_cache['data']
+
+        try:
+            import urllib.request
+            url = 'https://wttr.in/Tokyo?format=j1'
+            req = urllib.request.Request(url, headers={'User-Agent': 'ShopkeeperBot/1.0'})
+            resp_data = await asyncio.to_thread(
+                lambda: urllib.request.urlopen(req, timeout=5).read()
+            )
+            raw = json.loads(resp_data.decode())
+            current = raw.get('current_condition', [{}])[0]
+            data = {
+                'temp_c': int(current.get('temp_C', 0)),
+                'temp_f': int(current.get('temp_F', 32)),
+                'condition': current.get('weatherDesc', [{}])[0].get('value', 'Unknown'),
+                'humidity': int(current.get('humidity', 0)),
+                'wind_kmph': int(current.get('windspeedKmph', 0)),
+                'feels_like_c': int(current.get('FeelsLikeC', 0)),
+                'observation_time': current.get('observation_time', ''),
+                'location': 'Tokyo, Japan',
+            }
+            self._weather_cache = {'data': data, 'fetched_at': now}
+            return data
+        except Exception as e:
+            print(f"  {Fore.YELLOW}[Weather]{Style.RESET_ALL} Fetch error: {e}")
+            if self._weather_cache:
+                return self._weather_cache['data']
+            return {'error': 'weather unavailable', 'location': 'Tokyo, Japan'}
+
+    async def _http_weather(self, writer: asyncio.StreamWriter):
+        """Handle GET /api/weather — return current Tokyo weather."""
+        data = await self._fetch_tokyo_weather()
+        await self._http_json(writer, 200, data)
+
+    async def _http_outdoor(self, writer: asyncio.StreamWriter):
+        """Handle GET /api/outdoor — return outdoor context for scene."""
+        weather = await self._fetch_tokyo_weather()
+        room = await db.get_room_state()
+        await self._http_json(writer, 200, {
+            'weather': weather,
+            'shop_weather': room.weather,
+            'time_of_day': room.time_of_day,
+            'shop_status': room.shop_status,
+        })
 
     async def _http_asset(self, writer: asyncio.StreamWriter, path: str):
         """Handle GET /assets/* by serving generated scene layers.

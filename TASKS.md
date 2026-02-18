@@ -534,6 +534,12 @@ ORDER BY sim_day;
 **Branch:** `feat/x-social` (merged PR #55)
 **Description:** Enabled `post_x_draft` with human-review queue. She drafts → operator approves → posts to X → replies become visitor events. Dashboard shows pending drafts with approve/reject.
 
+### TASK-058B: Broadcast WebSocket Room Backend
+**Status:** DONE (2026-02-19)
+**Branch:** `feat/broadcast-room`
+**Description:** Backend broadcast room for the TASK-058 visitor UI. Multiple visitors connect via token auth, all see all chat messages and her replies as a shared stream. Connection registry tracks visitors, broadcasts presence on join/leave. Chat history buffer (50 msgs, cleared on sleep) served on connect. Dedup prevents double display of dialogue. Weather API endpoints added (wttr.in cached 10min).
+**Scope:** `heartbeat_server.py`, `window_state.py`, `tests/test_broadcast_ws.py` (new), `tests/test_visitor_names.py` (new), `tests/test_chat_history.py` (new), `tests/test_weather_api.py` (new)
+
 ---
 
 ## How to Add a Task

@@ -73,7 +73,8 @@ def extract_current_thought(cycle_log: dict) -> str:
     return get_activity_label(routing)
 
 
-async def build_initial_state(clock_now: datetime = None) -> dict:
+async def build_initial_state(clock_now: datetime = None,
+                              chat_history: list[dict] | None = None) -> dict:
     """Full state payload for new WebSocket connections and REST /api/state.
 
     Returns the complete scene + text + state JSON as defined in spec §2.9.
@@ -141,6 +142,7 @@ async def build_initial_state(clock_now: datetime = None) -> dict:
             'sprite_state': sprite_state,
             'time_of_day': time_of_day,
         },
+        'chat_history': chat_history or [],
         'timestamp': clock_now.isoformat(),
     }
 
@@ -266,3 +268,26 @@ def _weather_diegetic(weather: str) -> str:
         'storm':    'A storm outside. The shop feels smaller.',
     }
     return descriptions.get(weather, '')
+
+
+def build_chat_message(sender: str, sender_type: str, content: str,
+                       timestamp: str = None) -> dict:
+    """Build a chat_message WebSocket message for broadcast relay."""
+    return {
+        'type': 'chat_message',
+        'sender': sender,
+        'sender_type': sender_type,
+        'content': content,
+        'timestamp': timestamp or datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def build_visitor_presence_message(visitors: list[dict],
+                                   timestamp: str = None) -> dict:
+    """Build a visitor_presence WebSocket message."""
+    return {
+        'type': 'visitor_presence',
+        'visitors': visitors,
+        'visitor_count': len(visitors),
+        'timestamp': timestamp or datetime.now(timezone.utc).isoformat(),
+    }
