@@ -536,6 +536,70 @@ ORDER BY sim_day;
 
 ---
 
+### TASK-066: Shop Window Fix
+**Status:** BACKLOG
+**Priority:** Critical — the product is broken for visitors
+**Branch:** `fix/shop-window`
+**Depends on:** None (can start immediately)
+**Spec:** `tasks/TASK-066-shop-window-fix.md`
+**Description:** The shop window (public visitor-facing page) has multiple broken features: sprite not rendering, CSP blocking eval(), missing "Enter Shop" CTA, broken leave button, unreadable inner monologue text, and text overflow/truncation. The CSP eval() block is likely the root cause of several failures.
+**Bugs to fix:**
+1. Shopkeeper sprite not rendering — diagnose via sprite_gen.py output, asset paths, CSS/HTML image element, CSP
+2. CSP eval() block — find all eval(), new Function(), string-based setTimeout/setInterval in frontend JS; replace with proper alternatives
+3. "Enter Shop" CTA missing — find where it should appear (before visitor session starts), add it
+4. Leave button broken — likely fixed by CSP fix, verify after
+5. Inner monologue text — needs semi-transparent container/card for readability, or move to dedicated panel
+6. Text overflow — content clipping without scroll (the `...` truncation)
+**Scope (files you may touch):**
+- `window/` — HTML/CSS/JS frontend
+- `pipeline/sprite_gen.py` — sprite path generation
+- `pipeline/scene.py` — valid state combos
+- `heartbeat_server.py` — serves the page, WebSocket events
+- Static assets / templates
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `db.py`
+- `heartbeat.py`
+**Verification:**
+- Shopkeeper sprite visible in window
+- Enter Shop CTA appears for new visitors
+- Leave button works
+- Inner monologue readable
+- No CSP errors in browser console
+- All functionality works without eval()
+**Definition of done:** Visitors can see the shopkeeper, enter the shop, interact, and leave. No CSP violations. Inner monologue is readable. No text overflow.
+
+---
+
+### TASK-067: Dashboard Overhaul
+**Status:** BACKLOG
+**Priority:** High — operator tool is unusable
+**Branch:** `fix/dashboard-overhaul`
+**Depends on:** None (can start immediately)
+**Spec:** `tasks/TASK-067-dashboard-overhaul.md`
+**Description:** The operator dashboard has critical usability issues: page doesn't scroll, behavioral section cut off, habit tags overlapping, poor visual hierarchy, and potential data gaps between what the system emits and what the dashboard displays.
+**Fixes:**
+1. Scrollable layout — page must scroll; likely CSS `overflow: hidden` or missing viewport setup
+2. Behavioral section — cut off, needs full visibility
+3. Habit tags — overlapping colored labels need spacing/wrapping
+4. Visual hierarchy — headers, spacing, card styling (functional, not beautiful)
+5. Data completeness — audit emitted data vs displayed data, flag gaps
+**Scope (files you may touch):**
+- `window/` — dashboard HTML/CSS/JS
+- `heartbeat_server.py` — data emission for dashboard
+**Scope (files you may NOT touch):**
+- `pipeline/*`
+- `db.py`
+- `heartbeat.py`
+**Verification:**
+- Full page scrolls
+- All sections fully visible
+- Habit tags readable with proper spacing
+- All emitted data represented on dashboard
+**Definition of done:** Dashboard is scrollable, all sections visible and readable, habit tags properly spaced, all system-emitted data has a corresponding display element.
+
+---
+
 ## Completed Tasks
 
 ### TASK-054: Fix inhibition self_assessment trigger
