@@ -361,7 +361,7 @@ class TestSalienceDistribution(unittest.IsolatedAsyncioTestCase):
                     internal_monologue='word ' * (10 + i * 4),
                     actions=[{'type': 'collection_add'}],
                 ),
-                _base_ctx(mode='consume', max_drive_delta=0.04 + i * 0.015),
+                _base_ctx(channel='consume', max_drive_delta=0.04 + i * 0.015),
             )
             scores.append(s)
 
@@ -392,8 +392,12 @@ class TestSalienceDistribution(unittest.IsolatedAsyncioTestCase):
         min_above = min(above_threshold) if above_threshold else 0
         max_score = max(scores)
 
-        assert min_above < 0.50, f"Lowest above-threshold score is {min_above}, expected < 0.50"
+        # TASK-053: wider modulation raises floor — express_thought base 0.40 + mods
+        assert min_above < 0.60, f"Lowest above-threshold score is {min_above}, expected < 0.60"
         assert max_score > 0.80, f"Highest score is {max_score}, expected > 0.80"
+        # Spread should be at least 0.30 (TASK-053 target)
+        spread = max_score - min_above
+        assert spread > 0.30, f"Spread {spread:.3f}, expected > 0.30"
 
         # Should have idle cycles below threshold and active cycles above
         below = [s for s in scores if s < 0.35]
