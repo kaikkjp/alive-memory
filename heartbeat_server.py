@@ -606,10 +606,12 @@ class ShopkeeperServer:
                 await self._broadcast_to_window(
                     build_status_message('sleeping', 'She closes her eyes...'))
             elif status == 'woke_up':
-                print(f"  {Fore.BLUE}[Sleep]{Style.RESET_ALL} Morning. She stirs.")
+                print(f"  {Fore.BLUE}[Sleep]{Style.RESET_ALL} Morning. She stirs.\n")
                 from window_state import build_status_message
                 await self._broadcast_to_window(
                     build_status_message('awake', 'Morning. She stirs.'))
+            elif status == 'deferred':
+                print(f"  {Fore.BLUE}[Sleep]{Style.RESET_ALL} Sleep deferred — she's still engaged with a visitor.")
 
         elif stage == 'dialogue':
             dialogue = data.get('dialogue')
