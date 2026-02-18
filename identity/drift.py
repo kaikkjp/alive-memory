@@ -20,7 +20,7 @@ from models.event import Event
 # ─── Config ───
 
 _CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'drift_config.json')
-_BASELINE_PATH = os.path.join(os.path.dirname(__file__), 'self_model.json')
+_BASELINE_PATH = os.path.join(os.path.dirname(__file__), 'drift_baseline.json')
 
 _EPSILON = 0.01  # Avoid division by zero
 

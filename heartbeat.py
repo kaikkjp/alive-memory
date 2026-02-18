@@ -1255,7 +1255,7 @@ class Heartbeat:
                         'had_dialogue': validated.dialogue is not None,
                     }
                 self._self_model.update(cycle_data={
-                    'actions': [a.type for a in approved],
+                    'actions': [ar.action for ar in body_output.executed if ar.success],
                     'drives': drives,
                     'mood': (drives.mood_valence, drives.mood_arousal),
                     'visitor_interaction': visitor_interaction,
