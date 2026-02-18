@@ -337,6 +337,23 @@ ORDER BY sim_day;
 
 ---
 
+### TASK-058: Production Visitor UI — Full Redesign
+**Status:** BACKLOG
+**Priority:** High
+**Branch:** `feat/visitor-ui`
+**Spec:** `tasks/TASK-058-visitor-ui.md`
+**Description:** Replace the current `window/` Next.js app with the "Through the Glass" production visitor experience. A living scene — Tokyo antique shop at night, peering through the window. Activity stream, expression-driven character sprites, token-gated chat panel. Not a chatbot.
+**Scope (files you may touch):**
+- `window/` — full replacement (App Router, TypeScript, Tailwind, no component library)
+**Scope (files you may NOT touch):**
+- All Python backend files
+- `heartbeat_server.py` WebSocket endpoints (read-only — frontend consumes existing protocol)
+- `db.py`
+**Tests:** See acceptance criteria in `tasks/TASK-058-visitor-ui.md` (11 criteria).
+**Definition of done:** All 11 acceptance criteria pass. Visual tuning values in CSS custom properties. Works on iPhone Safari + Android Chrome.
+
+---
+
 ## Completed Tasks
 
 _None yet._
