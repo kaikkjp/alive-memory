@@ -465,24 +465,43 @@ ORDER BY sim_day;
 
 ---
 
-### TASK-064: Extract sleep phases to module
+### TASK-064: Sleep Phase Extraction
 **Status:** BACKLOG
 **Priority:** Medium
-**Depends on:** Queue before TASK-062 lands
+**Branch:** `refactor/sleep-phases`
+**Depends on:** TASK-059 merge (holds sleep.py — don't touch LLM call signatures)
+**Blocks:** TASK-065, TASK-060
 **Spec:** `tasks/TASK-064-sleep-phases.md`
-**Description:** `sleep.py` is accumulating phases: existing consolidation + 056 meta-sleep revert + 060 self-context review + 061 organ review + 062 loop cost review + 063 fitness review. Extract to `sleep_phases/` package with one file per phase and a runner in `sleep.py`. Prevent sleep.py from becoming a 1000-line god function.
+**Description:** Extract discrete sleep phases from `sleep.py` into separate, testable modules. Reduce `sleep.py` to an orchestrator that calls phase functions rather than containing all logic inline. TASK-059 is adding OpenRouter routing inside sleep's LLM calls, TASK-065 adds token budgeting, TASK-060+ adds self-context injection — if we don't decompose first, every future task compounds the bloat.
 **Scope (files you may touch):**
-- `sleep.py` (refactor to runner that calls phases)
-- `sleep_phases/__init__.py` (new)
-- `sleep_phases/consolidation.py` (new — existing logic)
-- `sleep_phases/meta_review.py` (new — 056 revert logic)
-- `sleep_phases/self_context_review.py` (new — 060 logic)
-- `sleep_phases/organ_review.py` (new — 061 logic)
+- `sleep.py` (refactor — orchestrator only after this)
+- `sleep/` (new directory for extracted phases)
+- `tests/` (tests for each extracted phase)
 **Scope (files you may NOT touch):**
 - `pipeline/*`
 - `heartbeat.py`
-**Tests:** All existing sleep tests pass unchanged. Sleep output identical pre/post refactor.
-**Definition of done:** `sleep.py` is a thin runner. Each phase is an isolated module. Adding future phases is a single file + one line in the runner.
+**Phases to extract (from current sleep.py):**
+1. Pre-sleep consolidation — memory gathering, moment reflection, journal writes, hot/cold context
+2. Nap consolidation — the lighter mid-cycle `nap_consolidate()` version
+3. Dream/reflection generation — `sleep_reflect()` LLM call + helpers (`gather_hot_context`, `format_traits_for_sleep`)
+4. Meta-sleep revert — `review_self_modifications()` + `review_trait_stability()` (the wellbeing heuristic)
+5. Wake transition — `reset_drives_for_morning()`, `flush_day_memory()`, `manage_thread_lifecycle()`, `cleanup_content_pool()`, daily summary, cold embedding
+**Rules:**
+- Each phase becomes a function/module in `sleep/`
+- `sleep.py` imports and calls them in sequence — no inline logic beyond orchestration
+- Preserve all existing behavior exactly — this is a refactor only, no behavior changes
+- Each phase must be independently testable
+- Don't touch the LLM call signatures — TASK-059 is changing those. Use whatever interface exists post-059 merge
+**Tests:**
+- All existing sleep tests pass unchanged
+- Each phase module has at least one unit test
+- sleep.py line count drops by >50%
+**Verification:**
+- `scope-check.sh TASK-064` clean
+- All existing sleep tests pass unchanged
+- sleep.py line count drops by >50%
+- Each phase module has at least one unit test
+**Definition of done:** `sleep.py` is a thin orchestrator. Each phase is an isolated, independently testable module in `sleep/`. Adding future phases (060 self-context review, 061 organ review, 062 loop cost review, 063 fitness review) is a single file + one line in the orchestrator.
 
 ---
 
