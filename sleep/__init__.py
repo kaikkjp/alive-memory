@@ -69,6 +69,11 @@ async def sleep_cycle() -> int:
     if processed_count == -1:
         return -1
 
+    # Quiet day (0 moments): consolidation already handled drives + flush.
+    # Skip meta review and wake transition — matches original sleep.py behavior.
+    if processed_count == 0:
+        return 0
+
     # 3-4. Reviews (trait stability, meta-sleep revert, auto-promote)
     await run_meta_review()
 

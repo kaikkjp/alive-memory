@@ -11,7 +11,7 @@
       "paths": [
         "pipeline/*.py",
         "heartbeat.py",
-        "sleep.py",
+        "sleep/*.py",
         "db/*.py",
         "db/connection.py",
         "models/*.py",
