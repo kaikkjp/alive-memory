@@ -596,3 +596,68 @@ async def handle_reject_x_draft(server, writer: asyncio.StreamWriter,
         'rejected': True,
         'draft_id': draft_id,
     })
+
+
+# ── Dynamic Actions (TASK-056) ──
+
+async def handle_actions(server, writer: asyncio.StreamWriter,
+                         authorization: str) -> None:
+    """GET /api/dashboard/actions — return dynamic action registry."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+
+    all_actions = await db.get_all_dynamic_actions()
+    stats = await db.get_action_stats()
+
+    await server._http_json(writer, 200, {
+        'actions': all_actions,
+        'stats': stats,
+    })
+
+
+async def handle_resolve_action(server, writer: asyncio.StreamWriter,
+                                authorization: str, body_bytes: bytes) -> None:
+    """POST /api/dashboard/actions/resolve — resolve a pending action."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+
+    try:
+        data = json.loads(body_bytes.decode('utf-8'))
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        await server._http_json(writer, 400, {'error': 'invalid JSON'})
+        return
+
+    action_name = data.get('action_name')
+    status = data.get('status')
+    if not action_name or not status:
+        await server._http_json(writer, 400, {'error': 'action_name and status required'})
+        return
+
+    valid_statuses = {'alias', 'body_state', 'promoted', 'rejected'}
+    if status not in valid_statuses:
+        await server._http_json(writer, 400, {'error': f'status must be one of {sorted(valid_statuses)}'})
+        return
+
+    # Per-status required-field validation
+    if status == 'alias' and not data.get('alias_for'):
+        await server._http_json(writer, 400, {'error': 'alias_for required when status is alias'})
+        return
+    if status == 'body_state' and not data.get('body_state'):
+        await server._http_json(writer, 400, {'error': 'body_state required when status is body_state'})
+        return
+
+    # Verify the action exists before attempting to resolve
+    existing = await db.get_dynamic_action(action_name)
+    if existing is None:
+        await server._http_json(writer, 404, {'error': f'action not found: {action_name}'})
+        return
+
+    result = await db.resolve_action(
+        action_name, status,
+        alias_for=data.get('alias_for'),
+        body_state=data.get('body_state'),
+        resolved_by='dashboard',
+    )
+    await server._http_json(writer, 200, result)

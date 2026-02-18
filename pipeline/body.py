@@ -178,6 +178,11 @@ async def _execute_single_action(action: ActionRequest, visitor_id: str,
                 )
                 result.content = journal_text
                 result.side_effects.append('journal_entry_created')
+                await db.append_event(Event(
+                    event_type='action_journal',
+                    source='self',
+                    payload={'content_length': len(journal_text)},
+                ))
                 try:
                     await db.insert_text_fragment(
                         content=journal_text,
@@ -324,6 +329,48 @@ async def _execute_single_action(action: ActionRequest, visitor_id: str,
             else:
                 result.success = False
                 result.error = 'no content_id in detail'
+
+        elif action_type == 'modify_self':
+            from db.parameters import set_param, get_param
+            param_key = detail.get('parameter', '')
+            new_value = detail.get('value')
+            reason = detail.get('reason', 'self-modification')
+            try:
+                old = await get_param(param_key)
+                if old is None:
+                    result.success = False
+                    result.error = f'Unknown parameter: {param_key}'
+                else:
+                    await set_param(param_key, float(new_value),
+                                   modified_by='self', reason=reason)
+                    result.success = True
+                    result.payload = {
+                        'parameter': param_key,
+                        'old_value': old['value'],
+                        'new_value': float(new_value),
+                        'reason': reason,
+                    }
+                    await db.append_event(Event(
+                        event_type='action_modify_self',
+                        source='self',
+                        payload=result.payload,
+                    ))
+            except ValueError as e:
+                result.success = False
+                result.error = str(e)  # bounds violation message from set_param
+
+        # Dynamic body state actions (from dynamic_actions table)
+        elif '_body_state_update' in detail:
+            import json
+            state_update = json.loads(detail['_body_state_update'])
+            await db.append_event(Event(
+                event_type='action_body',
+                source='self',
+                payload=state_update,
+            ))
+            result.payload = state_update
+            result.side_effects.append('body_state_updated')
+            result.success = True
 
     except Exception as e:
         result.success = False

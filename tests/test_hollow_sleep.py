@@ -252,6 +252,8 @@ class TestSleepProcessesRemaining(unittest.IsolatedAsyncioTestCase):
             patch.object(sleep.db, 'mark_day_memory_processed', new=AsyncMock()),
             patch.object(sleep, 'write_daily_summary', new=AsyncMock()),
             patch.object(sleep, 'review_trait_stability', new=AsyncMock()),
+            patch.object(sleep, 'review_self_modifications', new=AsyncMock()),
+            patch.object(sleep.db, 'promote_pending_actions', new=AsyncMock(return_value=[])),
             patch.object(sleep, 'manage_thread_lifecycle', new=AsyncMock()),
             patch.object(sleep, 'cleanup_content_pool', new=AsyncMock()),
             patch.object(sleep, 'reset_drives_for_morning', new=AsyncMock()),

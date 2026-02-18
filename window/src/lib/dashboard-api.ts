@@ -5,6 +5,7 @@
  */
 
 import { authManager } from './auth-manager';
+import type { ActionsPanelData, DynamicAction } from './types';
 
 const API_BASE =
   process.env.NEXT_PUBLIC_DASHBOARD_API_URL ?? '';
@@ -184,6 +185,30 @@ export const dashboardApi = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ draft_id: draftId, reason }),
+    });
+    return res.json();
+  },
+
+  async getActions(): Promise<ActionsPanelData> {
+    const res = await dashboardFetch('/api/dashboard/actions');
+    return res.json();
+  },
+
+  async resolveAction(
+    actionName: string,
+    status: string,
+    aliasFor?: string,
+    bodyState?: string,
+  ): Promise<DynamicAction | null> {
+    const res = await dashboardFetch('/api/dashboard/actions/resolve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action_name: actionName,
+        status,
+        alias_for: aliasFor,
+        body_state: bodyState,
+      }),
     });
     return res.json();
   },

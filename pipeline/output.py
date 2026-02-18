@@ -253,6 +253,11 @@ async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
     if motor_plan and cycle_id:
         await _log_motor_plan(motor_plan, body_output, cycle_id)
 
+    # ── Log self-modifications for operator visibility ──
+    for action_result in body_output.executed:
+        if action_result.action == 'modify_self' and action_result.success:
+            print(f"  [Output] Self-modification: {action_result.payload}")
+
     # ── Persist X drafts with limits (TASK-057) ──
     if body_output.executed and motor_plan:
         await _persist_x_draft(body_output, motor_plan=motor_plan, cycle_id=cycle_id)

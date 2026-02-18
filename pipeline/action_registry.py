@@ -189,6 +189,15 @@ ACTION_REGISTRY: dict[str, ActionCapability] = {
         requires=[],
         description='Reference a content item title/topic in conversation without full read',
     ),
+    'modify_self': ActionCapability(
+        name='modify_self',
+        enabled=True,
+        cooldown_seconds=300,  # 5 min between self-modifications
+        max_per_cycle=1,
+        requires=[],  # Custom gate in basal_ganglia, not standard prereqs
+        description='Adjust a cognitive parameter based on reflection evidence',
+        generative=False,
+    ),
 
     # ── Future actions (disabled) ──
     'browse_web': ActionCapability(

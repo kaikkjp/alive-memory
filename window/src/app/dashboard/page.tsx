@@ -18,6 +18,7 @@ import FeedPanel from '@/components/dashboard/FeedPanel';
 import ConsumptionHistoryPanel from '@/components/dashboard/ConsumptionHistoryPanel';
 import ParametersPanel from '@/components/dashboard/ParametersPanel';
 import XDraftsPanel from '@/components/dashboard/XDraftsPanel';
+import ActionsPanel from '@/components/dashboard/ActionsPanel';
 
 export default function DashboardPage() {
   const [authenticated, setAuthenticated] = useState(false);
@@ -118,6 +119,7 @@ export default function DashboardPage() {
           <FeedPanel />
           <ConsumptionHistoryPanel />
           <ParametersPanel />
+          <ActionsPanel />
           <TimelinePanel />
           <ControlsPanel />
         </div>

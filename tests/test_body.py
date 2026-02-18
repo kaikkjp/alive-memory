@@ -223,6 +223,115 @@ class TestExecuteSingleAction:
         assert 'event_emitted' in result.side_effects
 
 
+    @pytest.mark.asyncio
+    async def test_body_state_dynamic_action(self, mock_db):
+        """_body_state_update detail path emits action_body event and succeeds."""
+        action = ActionRequest(
+            type='stand',
+            detail={
+                '_body_state_update': '{"body_state":"standing"}',
+                '_original_action': 'stand',
+            },
+        )
+        result = await _execute_single_action(action, visitor_id=None)
+        assert result.success is True
+        body_calls = [
+            call for call in mock_db.append_event.call_args_list
+            if call[0][0].event_type == 'action_body'
+        ]
+        assert len(body_calls) >= 1
+
+    @pytest.mark.asyncio
+    async def test_body_state_dynamic_action_via_motor_plan(self, mock_db):
+        """execute_body() routes _body_state_update actions to the dynamic path."""
+        plan = MotorPlan(
+            actions=[
+                ActionDecision(
+                    action='stand',
+                    status='approved',
+                    source='cortex',
+                    detail={
+                        '_body_state_update': '{"body_state":"standing"}',
+                        '_original_action': 'stand',
+                    },
+                ),
+            ],
+            suppressed=[],
+            habit_fired=False,
+        )
+        validated = ValidatedOutput(
+            dialogue=None,
+            internal_monologue='Getting up.',
+            expression='neutral',
+            body_state='standing',
+            gaze='forward',
+        )
+        output = await execute_body(plan, validated)
+        assert len(output.executed) == 1
+        assert output.executed[0].success is True
+        body_calls = [
+            call for call in mock_db.append_event.call_args_list
+            if call[0][0].event_type == 'action_body'
+        ]
+        assert len(body_calls) >= 1
+
+
+class TestModifySelf:
+    """_execute_single_action() handles the modify_self action type."""
+
+    @pytest.mark.asyncio
+    async def test_modify_self_bounds_violation_fails(self, mock_db):
+        """modify_self sets result.error on ValueError from set_param."""
+        action = ActionRequest(
+            type='modify_self',
+            detail={
+                'parameter': 'hypothalamus.equilibria.social_hunger',
+                'value': 99.0,
+                'reason': 'test bounds',
+            },
+        )
+        mock_get_param = AsyncMock(return_value={'value': 0.5})
+        mock_set_param = AsyncMock(side_effect=ValueError('above maximum'))
+        with patch('db.parameters.get_param', mock_get_param), \
+             patch('db.parameters.set_param', mock_set_param):
+            result = await _execute_single_action(action, visitor_id=None)
+        assert result.success is False
+        assert 'above maximum' in result.error
+
+    @pytest.mark.asyncio
+    async def test_modify_self_success(self, mock_db):
+        """modify_self succeeds, emits action_modify_self event, returns old+new values."""
+        action = ActionRequest(
+            type='modify_self',
+            detail={
+                'parameter': 'hypothalamus.equilibria.social_hunger',
+                'value': 0.6,
+                'reason': 'want more company',
+            },
+        )
+        mock_get_param = AsyncMock(return_value={'value': 0.45})
+        mock_set_param = AsyncMock(return_value=None)
+        with patch('db.parameters.get_param', mock_get_param), \
+             patch('db.parameters.set_param', mock_set_param):
+            result = await _execute_single_action(action, visitor_id=None)
+
+        assert result.success is True
+        assert result.payload['parameter'] == 'hypothalamus.equilibria.social_hunger'
+        assert result.payload['old_value'] == 0.45
+        assert result.payload['new_value'] == 0.6
+        # set_param called with correct args
+        mock_set_param.assert_awaited_once_with(
+            'hypothalamus.equilibria.social_hunger', 0.6,
+            modified_by='self', reason='want more company',
+        )
+        # action_modify_self event emitted
+        emitted_types = [
+            call.args[0].event_type
+            for call in mock_db.append_event.call_args_list
+        ]
+        assert 'action_modify_self' in emitted_types
+
+
 class TestEndEngagementLines:
     """END_ENGAGEMENT_LINES dict is accessible and well-formed."""
 

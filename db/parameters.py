@@ -179,3 +179,16 @@ async def get_modification_log(key: str = None, limit: int = 50) -> list[dict]:
         )
     rows = await cursor.fetchall()
     return [dict(r) for r in rows]
+
+
+async def get_todays_self_modifications() -> list[dict]:
+    """Get all self-initiated parameter modifications from today (UTC)."""
+    db = await _connection.get_db()
+    today_start = clock.now_utc().replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    cursor = await db.execute(
+        "SELECT * FROM parameter_modifications "
+        "WHERE modified_by = 'self' AND ts >= ? ORDER BY ts ASC",
+        (today_start,)
+    )
+    rows = await cursor.fetchall()
+    return [dict(r) for r in rows]

@@ -1,7 +1,7 @@
 """Tests for pipeline/basal_ganglia.py — Phase 2 multi-intention selection."""
 
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from models.pipeline import (
     Intention, ValidatedOutput, ActionRequest, DroppedAction,
     ActionDecision, MotorPlan,
@@ -14,9 +14,13 @@ from pipeline.basal_ganglia import select_actions, _calculate_priority
 
 @pytest.fixture(autouse=True)
 def mock_db():
-    """Mock db module so Gate 6 (inhibition check) doesn't hit real DB."""
+    """Mock db module so Gate 6 (inhibition check) and Gate 1 dynamic resolution
+    don't hit real DB."""
     with patch('pipeline.basal_ganglia.db') as m:
         m.get_inhibitions_for_action = AsyncMock(return_value=[])
+        # Gate 1 dynamic resolution (TASK-056 Phase 2) — unknown actions record as pending
+        m.get_dynamic_action = AsyncMock(return_value=None)
+        m.record_unknown_action = AsyncMock(return_value=None)
         yield m
 
 @pytest.fixture
@@ -385,3 +389,106 @@ class TestDetailPassthrough:
 
         assert len(plan.actions) == 1
         assert plan.actions[0].detail == {'text': 'My deep thoughts.'}
+
+
+# ── Test: Gate 7 — modify_self reflection evidence ──
+
+class TestGateModifySelf:
+
+    @pytest.mark.asyncio
+    async def test_modify_self_suppressed_without_reflection(self, drives):
+        """modify_self is suppressed when no recent journal event exists."""
+        intentions = [
+            Intention(action='modify_self', content='adjust parameter', impulse=0.7),
+        ]
+        actions = [
+            ActionRequest(type='modify_self', detail={
+                'parameter': 'basal_ganglia.priority.social_hunger_factor',
+                'value': 0.4,
+                'reason': 'feels too reactive',
+            }),
+        ]
+        validated = _validated_with_intentions(intentions, actions=actions)
+
+        with patch('pipeline.basal_ganglia._has_reflection_evidence',
+                   new=AsyncMock(return_value=False)):
+            plan = await select_actions(validated, drives, context={})
+
+        assert len(plan.actions) == 0
+        assert len(plan.suppressed) == 1
+        suppressed = plan.suppressed[0]
+        assert suppressed.status == 'suppressed'
+        assert 'recent reflection' in suppressed.suppression_reason
+
+    @pytest.mark.asyncio
+    async def test_modify_self_suppressed_missing_parameter(self, drives):
+        """modify_self is suppressed when detail lacks 'parameter' key."""
+        intentions = [
+            Intention(action='modify_self', content='adjust something', impulse=0.7),
+        ]
+        actions = [
+            ActionRequest(type='modify_self', detail={
+                'value': 0.4,
+                'reason': 'no parameter key',
+            }),
+        ]
+        validated = _validated_with_intentions(intentions, actions=actions)
+
+        with patch('pipeline.basal_ganglia._has_reflection_evidence',
+                   new=AsyncMock(return_value=True)):
+            plan = await select_actions(validated, drives, context={})
+
+        assert len(plan.actions) == 0
+        assert len(plan.suppressed) == 1
+        suppressed = plan.suppressed[0]
+        assert suppressed.status == 'suppressed'
+        assert 'parameter and value' in suppressed.suppression_reason
+
+    @pytest.mark.asyncio
+    async def test_modify_self_passes_with_reflection(self, drives):
+        """modify_self is approved when reflection evidence exists and detail is complete."""
+        intentions = [
+            Intention(action='modify_self', content='adjust parameter', impulse=0.7),
+        ]
+        actions = [
+            ActionRequest(type='modify_self', detail={
+                'parameter': 'basal_ganglia.priority.social_hunger_factor',
+                'value': 0.4,
+                'reason': 'feels too reactive',
+            }),
+        ]
+        validated = _validated_with_intentions(intentions, actions=actions)
+
+        with patch('pipeline.basal_ganglia._has_reflection_evidence',
+                   new=AsyncMock(return_value=True)):
+            plan = await select_actions(validated, drives, context={})
+
+        assert len(plan.actions) == 1
+        approved = plan.actions[0]
+        assert approved.action == 'modify_self'
+        assert approved.status == 'approved'
+
+
+# ── Test: _has_reflection_evidence ──
+
+class TestHasReflectionEvidence:
+
+    @pytest.mark.asyncio
+    async def test_returns_true_when_recent_journal_event(self):
+        """Returns True when action_journal is in the last 3 events."""
+        from pipeline.basal_ganglia import _has_reflection_evidence
+        mock_event = MagicMock()
+        mock_event.event_type = 'action_journal'
+        with patch('db.get_recent_events', new=AsyncMock(return_value=[mock_event])):
+            result = await _has_reflection_evidence()
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_returns_false_when_no_journal_event(self):
+        """Returns False when last 3 events have no action_journal."""
+        from pipeline.basal_ganglia import _has_reflection_evidence
+        mock_event = MagicMock()
+        mock_event.event_type = 'perception'
+        with patch('db.get_recent_events', new=AsyncMock(return_value=[mock_event, mock_event, mock_event])):
+            result = await _has_reflection_evidence()
+        assert result is False
