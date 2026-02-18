@@ -28,6 +28,7 @@ from pipeline.enrich import fetch_url_metadata
 from pipeline.arbiter import (
     ArbiterFocus, decide_cycle_focus, update_arbiter_after_cycle,
 )
+from prompt.self_context import assemble_self_context
 from pipeline.ambient import fetch_ambient_context
 from pipeline.enrich import fetch_readable_text
 from sleep import sleep_cycle, nap_consolidate
@@ -62,7 +63,8 @@ FIDGET_BEHAVIORS = [
     ("examines_item", "She holds something up to the light, studying it."),
 ]
 
-# Diegetic mappings for self_state assembly
+# DEPRECATED: Diegetic mappings — moved to prompt/self_context.py (TASK-060)
+# Kept here to avoid breaking any external imports.
 _GAZE_MAP = {
     'at_visitor': 'at the visitor',
     'at_object': 'at something on the shelf',
@@ -94,71 +96,16 @@ def _truncate_at_word(text: str, max_chars: int = 60) -> str:
 
 
 async def build_self_state(visitor, unread: list) -> str | None:
-    """Assemble diegetic self-state from last cycle_log + current room.
+    """DEPRECATED — use prompt.self_context.assemble_self_context() instead.
 
-    Returns a text block for the Cortex prompt, or None on first boot.
-    ~50-80 tokens. No LLM cost.
+    Kept for backward compatibility. TASK-060 replaced this with the unified
+    self-context assembler. The main cycle now calls assemble_self_context()
+    directly.
     """
-    last = await db.get_last_cycle_log()
-    if not last:
-        return None  # first boot — no previous cycle
-
-    room = await db.get_room_state()
-
-    parts = ['RIGHT NOW:']
-
-    # Body position
-    parts.append(f'  You are {last["body_state"]}.')
-
-    # Expression (skip if neutral — it's the default)
-    if last['expression'] and last['expression'] != 'neutral':
-        parts.append(f'  Your expression is {last["expression"]}.')
-
-    # Gaze
-    gaze_text = _GAZE_MAP.get(last['gaze'], last['gaze'])
-    parts.append(f"  You're looking {gaze_text}.")
-
-    # Shop status + time of day
-    now_jst = clock.now()
-    time_str = now_jst.strftime('%H:%M')
-    parts.append(f'  The shop is {room.shop_status}. It is {time_str}.')
-
-    # Hands
-    if visitor and visitor.hands_state:
-        parts.append(f"  You're holding {visitor.hands_state}.")
-
-    # Last action(s)
-    if last['actions']:
-        action_key = last['actions'][0]  # most significant
-        action_text = _ACTION_MAP.get(action_key, action_key.replace('_', ' '))
-        parts.append(f'  You just {action_text}.')
-
-    # Internal monologue (truncate at word boundary)
-    if last['internal_monologue']:
-        thought = _truncate_at_word(last['internal_monologue'])
-        parts.append(f'  You were thinking: "{thought}"')
-
-    # Next cycle hints — suppress if engagement boundary crossed
-    has_engagement_change = any(
-        getattr(e, 'event_type', None) in ('visitor_connect', 'visitor_disconnect')
-        for e in unread
-    )
-    hints = last['next_cycle_hints']
-    if hints and isinstance(hints, list) and not has_engagement_change:
-        hint = hints[0]
-        if isinstance(hint, str) and hint:
-            parts.append(f'  You were about to {hint}.')
-
-    # TASK-062: Inject drift summary into self-context when significant
-    try:
-        from identity.drift import get_detector
-        drift_summary = get_detector().get_drift_summary()
-        if drift_summary:
-            parts.append(f'  {drift_summary}.')
-    except Exception:
-        pass  # Drift module not loaded or not ready — skip silently
-
-    return '\n'.join(parts)
+    # Delegate to the new assembler for any remaining callers
+    from prompt.self_context import assemble_self_context
+    result = await assemble_self_context(visitor=visitor)
+    return result if result else None
 
 
 class Heartbeat:
@@ -1064,17 +1011,13 @@ class Heartbeat:
         if _gift_urls:
             gift_meta = await fetch_url_metadata(_gift_urls[0])
 
-        # 7b. Self-state: what she was just doing (deterministic, no LLM)
-        self_state = await build_self_state(visitor, unread)
-
-        # 7c. Habit boost: generative habit nudges cortex instead of bypassing it
-        if habit_boost:
-            nudge = (f"\n  You feel drawn to {habit_boost.action.replace('_', ' ')}"
-                     f" — it's becoming a habit.")
-            if self_state:
-                self_state += nudge
-            else:
-                self_state = 'RIGHT NOW:' + nudge
+        # 7b. Self-context: unified self-awareness snapshot (TASK-060)
+        # Replaces the old build_self_state() — assembles identity, state,
+        # recent behavior, and temporal awareness into a single block.
+        self_state = await assemble_self_context(
+            visitor=visitor,
+            habit_boost=habit_boost,
+        )
 
         # 8. Cortex (THE LLM CALL)
         conversation = []

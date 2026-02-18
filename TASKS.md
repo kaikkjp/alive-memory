@@ -333,7 +333,7 @@ ORDER BY sim_day;
 ---
 
 ### TASK-060: Self-Context Injection
-**Status:** BACKLOG
+**Status:** DONE (2025-02-19)
 **Priority:** High
 **Complexity:** Medium
 **Branch:** `feat/self-context`
