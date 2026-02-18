@@ -36,7 +36,33 @@ export default function TimelinePanel() {
     if (type.startsWith('visitor_')) return 'border-blue-500';
     if (type.includes('cycle')) return 'border-purple-500';
     if (type.includes('drive')) return 'border-amber-500';
+    if (type.startsWith('action_')) return 'border-emerald-600';
+    if (type.startsWith('internal_')) return 'border-orange-700';
+    if (type.startsWith('ambient_')) return 'border-sky-700';
+    if (type === 'content_consumed') return 'border-teal-600';
     return 'border-neutral-600';
+  };
+
+  const formatEventType = (type: string) => {
+    // Strip common prefixes then humanize snake_case
+    const label = type
+      .replace(/^action_/, '')
+      .replace(/^internal_/, '')
+      .replace(/^ambient_/, '')
+      .replace(/_/g, ' ');
+    return label;
+  };
+
+  const formatSource = (source: string) => {
+    // visitor:<uuid> → visitor
+    if (source.startsWith('visitor:')) return 'visitor';
+    return source;
+  };
+
+  const formatTs = (ts: string) => {
+    const d = new Date(ts);
+    if (isNaN(d.getTime())) return ts;
+    return d.toLocaleTimeString();
   };
 
   if (loading) {
@@ -59,15 +85,17 @@ export default function TimelinePanel() {
           <div key={event.id} className={`border-l-2 ${getEventColor(event.event_type)} pl-3`}>
             <div className="flex items-center gap-2 mb-1">
               <span className="text-xs text-neutral-500 font-mono">
-                {new Date(event.ts).toLocaleTimeString()}
+                {formatTs(event.ts)}
               </span>
               <span className="text-sm text-neutral-400 font-mono">
-                {event.event_type}
+                {formatEventType(event.event_type)}
               </span>
             </div>
-            <div className="text-xs text-neutral-600 font-mono">
-              {event.source}
-            </div>
+            {event.source && (
+              <div className="text-xs text-neutral-600 font-mono truncate">
+                {formatSource(event.source)}
+              </div>
+            )}
           </div>
         ))}
       </div>
