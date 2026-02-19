@@ -25,6 +25,7 @@ export interface SocketState {
   activityLabel: string;
   connected: boolean;
   chatMessages: ChatMessage[];
+  visitorCount: number;
 }
 
 export function useShopkeeperSocket(): SocketState & {
@@ -41,6 +42,7 @@ export function useShopkeeperSocket(): SocketState & {
   const [activityLabel, setActivityLabel] = useState('');
   const [connected, setConnected] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [visitorCount, setVisitorCount] = useState(0);
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectDelay = useRef(RECONNECT_BASE_MS);
@@ -118,6 +120,19 @@ export function useShopkeeperSocket(): SocketState & {
             }));
           setFragments(frags);
         }
+        // Restore chat history from initial connect payload (reconnect support)
+        if (msg.chat_history?.length) {
+          setChatMessages((prev) => {
+            // Only load history if chat is empty (first connect / reconnect)
+            if (prev.length > 0) return prev;
+            return msg.chat_history!.map((entry, i) => ({
+              id: `hist-${i}-${entry.timestamp}`,
+              content: entry.content,
+              sender: entry.sender_type === 'visitor' ? 'visitor' as const : 'shopkeeper' as const,
+              timestamp: entry.timestamp,
+            }));
+          });
+        }
         if (msg.text?.current_thought) {
           setCurrentThought(msg.text.current_thought);
           // Mirror shopkeeper speech into ChatPanel when a visitor is present.
@@ -186,6 +201,43 @@ export function useShopkeeperSocket(): SocketState & {
       case 'chat_error':
         console.warn('[chat]', msg.message);
         break;
+
+      case 'chat_message':
+        // Broadcast room: another viewer's message (or our own echoed back).
+        // Skip if this is the local visitor's own message (already added optimistically).
+        if (msg.sender_type === 'visitor') {
+          // Visitor messages are added optimistically via addVisitorMessage,
+          // so we only add if it's from a different visitor (multi-visitor room).
+          // Use content dedup: if last visitor message has same content, skip.
+          setChatMessages((prev) => {
+            const lastVisitor = [...prev].reverse().find((m) => m.sender === 'visitor');
+            if (lastVisitor && lastVisitor.content === msg.content) return prev;
+            return [
+              ...prev,
+              {
+                id: `room-v-${Date.now()}`,
+                content: msg.content,
+                sender: 'visitor',
+                timestamp: msg.timestamp,
+              },
+            ];
+          });
+        } else {
+          setChatMessages((prev) => [
+            ...prev,
+            {
+              id: `room-sk-${Date.now()}`,
+              content: msg.content,
+              sender: 'shopkeeper',
+              timestamp: msg.timestamp,
+            },
+          ]);
+        }
+        break;
+
+      case 'visitor_presence':
+        setVisitorCount(msg.visitor_count);
+        break;
     }
   };
 
@@ -239,6 +291,7 @@ export function useShopkeeperSocket(): SocketState & {
     activityLabel,
     connected,
     chatMessages,
+    visitorCount,
     sendChat,
     sendDisconnect,
     addVisitorMessage,
