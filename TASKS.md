@@ -742,6 +742,45 @@ ORDER BY sim_day;
 
 ---
 
+### TASK-071: Liveness Metrics — Proving She's Alive
+**Status:** BACKLOG
+**Priority:** High
+**Complexity:** Large
+**Branch:** `feat/liveness-metrics`
+**Depends on:** TASK-069 (real body actions), TASK-070 (conscious memory)
+**Spec:** `tasks/TASK-071-liveness-metrics.md`
+**Description:** If we claim "first AI that's actually alive," we need numbers — not vibes, not demos. Longitudinal data that no chatbot can fake, computed automatically from existing data, visible publicly, historically continuous from her first cycle, and impossible to fake without sustained autonomous behavior over time.
+**Metrics (10 total):**
+1. **M1: Uptime** — cycles lived (from cycle_log)
+2. **M2: Autonomous Initiative Rate** — % of self-initiated actions (target 60-80%)
+3. **M3: Behavioral Entropy** — Shannon entropy of action distribution (structured rhythm, not random)
+4. **M4: Knowledge Accumulation** — unique topics browsed, deep research threads
+5. **M5: Visitor Memory Accuracy** — recall rate for returning visitors (target >75%)
+6. **M6: Taste Consistency** — stable aesthetic preferences over time (target >0.6)
+7. **M7: Emotional Range** — distinct mood states visited (out of 125 quantized bins)
+8. **M8: Sleep Quality Impact** — performance correlation with sleep cycle quality
+9. **M9: Unprompted Memory References** — past experiences referenced without prompting (target 2-3/day)
+10. **M10: Conversation Depth Gradient** — conversations deepen with returning visitors (positive slope >60%)
+**Implementation phases:**
+- Phase 1 (with 069): M1, M2, M7 + historical backfill + metrics API + basic public dashboard
+- Phase 2 (with 070): M3, M4, M5, M9 + trend charts
+- Phase 3 (2-4 weeks post-launch): M6, M8, M10 + comparison benchmark + embeddable badge
+**Scope (files to create):**
+- `metrics/` package (collector.py, models.py, 10 metric modules, public.py, backfill.py)
+- `migrations/071_metrics.sql`
+- Tests: `test_metrics_collector.py`, `test_metrics_backfill.py`
+- Optional: `public-dashboard/` (public liveness page)
+**Scope (files to modify):**
+- `api/dashboard_routes.py` — add /api/metrics endpoint
+- `heartbeat_server.py` — schedule hourly metric collection
+**Collection schedule:**
+- Hourly: M1, M2, M3, M7
+- Every 6 hours: M4, M5, M9
+- Daily (during sleep): M6, M8, M10
+**Definition of done:** All 10 metrics with working calculators. Historical backfill from existing data. Metrics API with current snapshot + 30-day trends. Public liveness dashboard (no auth). Comparison table vs ChatGPT/Character.ai/Automaton. Embeddable badge. Hourly collection without cycle performance impact.
+
+---
+
 ## Completed Tasks
 
 ### TASK-054: Fix inhibition self_assessment trigger
