@@ -46,9 +46,9 @@ async def update_drives(
 
     # Time-based decay/buildup
     new.social_hunger = clamp(new.social_hunger + p('hypothalamus.time_decay.social_hunger_per_hour') * elapsed_hours)
-    # TASK-043: Diversive curiosity has tiny background restlessness (+0.005/hr).
-    # This is NOT the old +0.03/hr timer — it's barely perceptible.
-    # Stimulus-driven spikes from gap detection are the primary driver.
+    # TASK-043: Diversive curiosity has background restlessness (+0.02/hr).
+    # Stimulus-driven spikes from gap detection are the primary driver,
+    # but this baseline ensures curiosity doesn't floor-pin when alone.
     new.diversive_curiosity = clamp(new.diversive_curiosity + p('hypothalamus.time_decay.curiosity_per_hour') * elapsed_hours)
     new.expression_need = clamp(new.expression_need + p('hypothalamus.time_decay.expression_per_hour') * elapsed_hours)
     # NOTE: energy field is now a display-only derived value from real-dollar
@@ -98,11 +98,13 @@ async def update_drives(
             new.mood_arousal = clamp(new.mood_arousal + p('hypothalamus.event.visitor_disconnect_arousal'))
             new.social_hunger = clamp(new.social_hunger + p('hypothalamus.event.visitor_disconnect_social'))
 
-    # Cortex resonance flags (from previous cycle)
+    # Cortex resonance: drive effects now handled exclusively in output.py
+    # (same cycle, not delayed). The old delayed-echo path here caused double
+    # drain: -0.15 social in output.py + -0.15 here = -0.30 per resonance,
+    # which overwhelmed homeostatic recovery (+0.006/cycle). Arousal boost
+    # from resonance is kept — it's a transient signal, not a drain.
     if cortex_flags and cortex_flags.get('resonance'):
-        new.social_hunger = clamp(new.social_hunger - p('hypothalamus.resonance.social_relief'))  # bonus
-        new.mood_valence = clamp(new.mood_valence + p('hypothalamus.resonance.valence_boost'), -1.0, 1.0)
-        new.mood_arousal = clamp(new.mood_arousal + p('hypothalamus.resonance.arousal_boost'))     # arousal spike
+        new.mood_arousal = clamp(new.mood_arousal + p('hypothalamus.resonance.arousal_boost'))
 
     # ─── Arousal sources (event-driven) ───
     # Content consumed: she read something interesting

@@ -57,16 +57,15 @@ class TestDiversiveCuriosity:
         assert p('hypothalamus.equilibria.diversive_curiosity') == 0.40
 
     @pytest.mark.asyncio
-    async def test_time_drift_minimal(self):
-        """Time drift is +0.005/hr, not old +0.03/hr."""
+    async def test_time_drift_moderate(self):
+        """Time drift is +0.02/hr — enough to prevent floor-pinning."""
         drives = _make_drives(curiosity=0.40)  # at equilibrium
         new, _ = await update_drives(drives, elapsed_hours=1.0, events=[])
 
         # At equilibrium, homeostatic pull = 0. Only time drift matters.
-        # +0.005/hr for 1 hour = 0.005
-        # Result should be very close to starting value
+        # +0.02/hr for 1 hour = 0.02
         drift = new.diversive_curiosity - drives.diversive_curiosity
-        assert drift < 0.01  # tiny drift, not the old large rate
+        assert 0.01 < drift < 0.05  # moderate drift, not the old +0.03/hr
 
     @pytest.mark.asyncio
     async def test_consumption_satisfaction(self):

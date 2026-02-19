@@ -58,7 +58,7 @@ INSERT INTO self_parameters (key, value, default_value, min_bound, max_bound, ca
 INSERT INTO self_parameters (key, value, default_value, min_bound, max_bound, category, description) VALUES
     ('hypothalamus.time_decay.social_hunger_per_hour', 0.05, 0.05, 0.0, 0.5, 'hypothalamus', 'Social hunger buildup rate per hour');
 INSERT INTO self_parameters (key, value, default_value, min_bound, max_bound, category, description) VALUES
-    ('hypothalamus.time_decay.curiosity_per_hour', 0.005, 0.005, 0.0, 0.1, 'hypothalamus', 'Diversive curiosity background restlessness per hour');
+    ('hypothalamus.time_decay.curiosity_per_hour', 0.02, 0.02, 0.0, 0.1, 'hypothalamus', 'Diversive curiosity background restlessness per hour');
 INSERT INTO self_parameters (key, value, default_value, min_bound, max_bound, category, description) VALUES
     ('hypothalamus.time_decay.expression_per_hour', 0.04, 0.04, 0.0, 0.5, 'hypothalamus', 'Expression need buildup rate per hour');
 INSERT INTO self_parameters (key, value, default_value, min_bound, max_bound, category, description) VALUES
@@ -288,7 +288,7 @@ INSERT INTO self_parameters (key, value, default_value, min_bound, max_bound, ca
 INSERT INTO self_parameters (key, value, default_value, min_bound, max_bound, category, description) VALUES
     ('output.drives.success_habituation_divisor', 10.0, 10.0, 1.0, 50.0, 'output', 'Habituation divisor for success bonus');
 INSERT INTO self_parameters (key, value, default_value, min_bound, max_bound, category, description) VALUES
-    ('output.drives.quiet_cycle_rest_relief', -0.03, -0.03, -0.2, 0.0, 'output', 'Rest need relief on quiet cycles');
+    ('output.drives.quiet_cycle_rest_relief', -0.06, -0.06, -1.0, 0.0, 'output', 'Rest need relief per hour on quiet cycles (scaled by elapsed_hours)');
 INSERT INTO self_parameters (key, value, default_value, min_bound, max_bound, category, description) VALUES
     ('output.drives.non_routine_arousal_bump', 0.04, 0.04, 0.0, 0.2, 'output', 'Arousal bump from non-routine actions');
 

@@ -907,7 +907,8 @@ class Heartbeat:
                 body_output = await execute_body(habit_plan, habit_validated,
                                                  visitor_id, cycle_id=cycle_id)
                 await process_output(body_output, habit_validated, visitor_id,
-                                     motor_plan=habit_plan, cycle_id=cycle_id)
+                                     motor_plan=habit_plan, cycle_id=cycle_id,
+                                     elapsed_hours=elapsed)
                 for event in unread:
                     await db.inbox_mark_read(event.id)
                 await db.log_cycle(habit_log)
@@ -1102,6 +1103,15 @@ class Heartbeat:
             'intentions_count': len(validated.intentions),
         }
 
+        # Gate resonance to engage-mode cycles only.
+        # The LLM often returns resonance=True during idle/autonomous cycles
+        # (thinking alone, reading content). True resonance requires a visitor.
+        # Without this gate, resonance drains social_hunger by 0.30 per event
+        # (0.15 in output.py + 0.15 in hypothalamus next cycle) and the
+        # homeostatic pull (+0.006/cycle) cannot recover.
+        if validated.resonance and mode != 'engage':
+            validated.resonance = False
+
         # Cache resonance for next cycle's hypothalamus
         self._last_resonance = validated.resonance
 
@@ -1123,7 +1133,8 @@ class Heartbeat:
             motor_plan = await select_actions(validated, drives, context=bg_context)
             body_output = await execute_body(motor_plan, validated, visitor_id, cycle_id=cycle_id)
             await process_output(body_output, validated, visitor_id,
-                                 motor_plan=motor_plan, cycle_id=cycle_id)
+                                 motor_plan=motor_plan, cycle_id=cycle_id,
+                                 elapsed_hours=elapsed)
             for event in unread:
                 await db.inbox_mark_read(event.id)
             await db.log_cycle(log)

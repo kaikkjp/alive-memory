@@ -83,7 +83,8 @@ _inhibition_guard_cleared: bool = False
 
 async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
                          visitor_id: str = None, motor_plan: MotorPlan = None,
-                         cycle_id: str = None) -> CycleOutput:
+                         cycle_id: str = None,
+                         elapsed_hours: float = 0.05) -> CycleOutput:
     """Process post-action side effects.
 
     Memory consolidation, pool updates, drive adjustments, engagement state,
@@ -200,9 +201,12 @@ async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
         # Curiosity is stimulus-driven via gap detection. Reading produces
         # growth (memories, questions, mood), not drain.
 
-        # Quiet cycles (no actions, no dialogue) provide mild rest
+        # Quiet cycles (no actions, no dialogue) provide mild rest.
+        # Scaled to elapsed_hours so rest relief doesn't overwhelm buildup
+        # at high cycle frequencies (3-min cycles were getting -0.03/cycle
+        # vs buildup of +0.0015/cycle, pinning rest_need to zero).
         if is_quiet_cycle:
-            drives.rest_need = clamp(drives.rest_need + p('output.drives.quiet_cycle_rest_relief'))
+            drives.rest_need = clamp(drives.rest_need + p('output.drives.quiet_cycle_rest_relief') * elapsed_hours)
             drives_changed = True
 
         if drives_changed:

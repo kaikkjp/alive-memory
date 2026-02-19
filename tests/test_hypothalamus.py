@@ -91,10 +91,11 @@ class TestUpdateDrives:
         assert new.social_hunger < 0.5
 
     @pytest.mark.asyncio
-    async def test_resonance_boosts_mood(self):
-        d = DrivesState(mood_valence=0.0)
+    async def test_resonance_boosts_arousal(self):
+        """Resonance in hypothalamus now only boosts arousal (social/valence moved to output.py)."""
+        d = DrivesState(mood_arousal=0.3)
         new, _ = await update_drives(d, elapsed_hours=0.0, events=[], cortex_flags={'resonance': True})
-        assert new.mood_valence > 0.0
+        assert new.mood_arousal > 0.3
 
     @pytest.mark.asyncio
     async def test_rest_recovery_during_idle(self):
