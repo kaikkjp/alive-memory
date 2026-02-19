@@ -116,6 +116,17 @@ export interface SceneUpdateMessage {
     recent_entries?: TextEntry[];
   };
   state: WindowState;
+  chat_history?: ChatHistoryEntry[];
+  timestamp: string;
+}
+
+/** Chat history entry — sent in initial scene_update payload on connect. */
+export interface ChatHistoryEntry {
+  type: 'chat_message' | 'chat_response';
+  sender?: string;
+  sender_type?: 'visitor' | 'shopkeeper';
+  content: string;
+  expression?: string;
   timestamp: string;
 }
 
@@ -163,6 +174,21 @@ export interface ChatErrorMessage {
   message: string;
 }
 
+export interface ChatMessageBroadcast {
+  type: 'chat_message';
+  sender: string;
+  sender_type: 'visitor' | 'shopkeeper';
+  content: string;
+  timestamp: string;
+}
+
+export interface VisitorPresenceMessage {
+  type: 'visitor_presence';
+  visitors: { display_name: string; visitor_id: string }[];
+  visitor_count: number;
+  timestamp: string;
+}
+
 export type ServerMessage =
   | SceneUpdateMessage
   | TextFragmentMessage
@@ -171,7 +197,9 @@ export type ServerMessage =
   | StatusMessage
   | ChatResponseMessage
   | TokenResultMessage
-  | ChatErrorMessage;
+  | ChatErrorMessage
+  | ChatMessageBroadcast
+  | VisitorPresenceMessage;
 
 // ─── WebSocket Messages: Client → Server ───
 
