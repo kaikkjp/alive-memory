@@ -56,12 +56,17 @@ cd ..
 echo "[deploy] Starting shopkeeper service..."
 sudo systemctl start shopkeeper
 
-# ─── Health check (retry up to 5 times) ───
+# ─── Health check (initial grace period + retries) ───
 echo "[deploy] Waiting for service to start..."
 HEALTH_URL="http://127.0.0.1:8080/api/health"
-MAX_RETRIES=5
+MAX_RETRIES=10
+RETRY_INTERVAL=3
+INITIAL_WAIT=10
+
+echo "[deploy] Initial grace period (${INITIAL_WAIT}s for migrations + startup)..."
+sleep ${INITIAL_WAIT}
+
 for i in $(seq 1 ${MAX_RETRIES}); do
-    sleep 3
     HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "${HEALTH_URL}" || echo "000")
     if [ "${HTTP_CODE}" = "200" ]; then
         echo "[deploy] Health check passed (HTTP ${HTTP_CODE}) on attempt ${i}"
@@ -69,8 +74,9 @@ for i in $(seq 1 ${MAX_RETRIES}); do
         exit 0
     fi
     echo "[deploy] Health check attempt ${i}/${MAX_RETRIES}: HTTP ${HTTP_CODE}"
+    sleep ${RETRY_INTERVAL}
 done
 
-echo "[deploy] ERROR: Health check failed after ${MAX_RETRIES} attempts"
+echo "[deploy] ERROR: Health check failed after ${INITIAL_WAIT}s + $((MAX_RETRIES * RETRY_INTERVAL))s"
 echo "[deploy] Check logs: journalctl -u shopkeeper -n 50"
 exit 1
