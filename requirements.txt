@@ -9,6 +9,7 @@ python-dotenv>=1.0.0,<2.0.0
 
 # Optional — features degrade gracefully if missing
 aiohttp>=3.9.0,<4.0.0     # ambient weather via wttr.in
+python-telegram-bot>=21.0,<22.0  # Telegram shopfront (TASK-069)
 tweepy>=4.14.0,<5.0.0     # X/Twitter API client (TASK-057)
 certifi>=2024.0.0          # SSL CA bundle for fal.ai CDN downloads
 fal-client>=0.5.0          # image generation (fal.ai Seedream)

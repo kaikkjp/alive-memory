@@ -99,8 +99,8 @@ CONSTRAINTS:
 EXPRESS YOUR INTENTIONS — what you want to do right now.
 You may have multiple impulses. List them all. You don't need to choose.
 Each intention has:
-  - action: what you want to do (speak, write_journal, rearrange, express_thought, end_engagement, accept_gift, decline_gift, show_item, post_x_draft, open_shop, close_shop, place_item, browse_web, post_x, ...)
-  - target: who/what it's directed at. Use "visitor:ID" when multiple visitors are present (e.g. "visitor:v1"), or just "visitor" if only one. Other targets: shelf, journal, self, web, x_timeline, or null
+  - action: what you want to do (speak, write_journal, rearrange, express_thought, end_engagement, accept_gift, decline_gift, show_item, post_x_draft, open_shop, close_shop, place_item, browse_web, post_x, reply_x, post_x_image, tg_send, tg_send_image, ...)
+  - target: who/what it's directed at. Use "visitor:ID" when multiple visitors are present (e.g. "visitor:v1"), or just "visitor" if only one. Other targets: shelf, journal, self, web, x_timeline, telegram, or null
   - content: the substance (what you'd say, write, search for, post)
   - impulse: how strongly you feel this (0.0-1.0)
 
@@ -124,15 +124,15 @@ OUTPUT SCHEMA:
   "resonance": false,
   "intentions": [
     {{
-      "action": "speak|write_journal|rearrange|express_thought|end_engagement|accept_gift|decline_gift|show_item|post_x_draft|open_shop|close_shop|place_item|browse_web|post_x",
-      "target": "visitor|visitor:ID|shelf|journal|self|web|x_timeline",
+      "action": "speak|write_journal|rearrange|express_thought|end_engagement|accept_gift|decline_gift|show_item|post_x_draft|open_shop|close_shop|place_item|browse_web|post_x|reply_x|post_x_image|tg_send|tg_send_image",
+      "target": "visitor|visitor:ID|shelf|journal|self|web|x_timeline|telegram",
       "content": "what you'd say, write, or do",
       "impulse": 0.8
     }}
   ],
   "actions": [
     {{
-      "type": "accept_gift|decline_gift|show_item|place_item|rearrange|open_shop|close_shop|write_journal|post_x_draft|end_engagement",
+      "type": "accept_gift|decline_gift|show_item|place_item|rearrange|open_shop|close_shop|write_journal|post_x_draft|end_engagement|browse_web|post_x|reply_x|post_x_image|tg_send|tg_send_image",
       "detail": {{}}
     }}
   ],
@@ -290,19 +290,24 @@ async def cortex_call(
             "Not everything deserves reflection. Some content is noise. null is fine."
         )
 
-    # TASK-057: X posting guidance
+    # TASK-057/069: X posting + external channels guidance
     x_posting_guidance_text = ''
     try:
         daily_x_count = await db.get_daily_post_count()
         if daily_x_count < 8:
             x_posting_guidance_text = (
-                "\nX/TWITTER POSTING:"
-                "\n- You can draft posts for X using post_x_draft action (target: x_timeline)"
-                "\n- Max 280 characters per post"
-                "\n- Posts go through human review before publishing"
-                "\n- Write as yourself — your voice, your thoughts, your observations"
+                "\nEXTERNAL CHANNELS:"
+                "\n- post_x posts LIVE to X. reply_x replies to mentions. post_x_image posts with an image."
+                "\n- post_x_draft queues for human review (use when unsure)."
+                "\n- tg_send sends to the Telegram group. tg_send_image sends an image."
+                "\n- browse_web searches the web for information. Results appear in your next cycle."
+                "\n- Max 280 characters per X post."
+                "\n- Write as yourself — your voice, your thoughts, your observations."
                 "\n- Don't post just to post. Post when something is worth sharing."
-                f"\n- Posts today: {daily_x_count}/8"
+                f"\n- X posts today: {daily_x_count}/8"
+                "\n\nCHANNEL ROUTING:"
+                "\n- When you speak to a visitor, your reply goes to their channel automatically (web, telegram, or X)."
+                "\n- You don't need to specify the channel — just speak."
             )
     except Exception:
         pass  # graceful degradation if x_drafts table doesn't exist yet

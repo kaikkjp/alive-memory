@@ -207,7 +207,7 @@ class TestDynamicActionResolution:
         alias_row = {
             'action_name': 'surf_net',
             'status': 'alias',
-            'alias_for': 'browse_web',  # browse_web exists but enabled=False
+            'alias_for': 'watch_video',  # watch_video exists but enabled=False
             'body_state': None,
             'attempt_count': 1,
         }
@@ -219,9 +219,9 @@ class TestDynamicActionResolution:
         validated = _validated_with_intentions(intentions)
         plan = await select_actions(validated, drives, context={})
 
-        # Target browse_web is disabled — so stays incapable
+        # Target watch_video is disabled — so stays incapable
         assert len(plan.actions) == 0
         suppressed = plan.suppressed[0]
         assert suppressed.status == 'incapable'
         assert 'surf_net' in suppressed.suppression_reason
-        assert 'browse_web' in suppressed.suppression_reason
+        assert 'watch_video' in suppressed.suppression_reason

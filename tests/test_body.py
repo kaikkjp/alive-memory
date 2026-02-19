@@ -38,7 +38,12 @@ def _patch_body_deps():
 
     with patch('pipeline.body.db', mock_db), \
          patch('pipeline.body.clock', mock_clock), \
-         patch('pipeline.body.apply_expression_relief', mock_relief):
+         patch('pipeline.body.apply_expression_relief', mock_relief), \
+         patch('body.internal.db', mock_db), \
+         patch('body.internal.clock', mock_clock), \
+         patch('body.internal.apply_expression_relief', mock_relief), \
+         patch('body.executor.db', mock_db), \
+         patch('body.executor.clock', mock_clock):
         yield mock_db, mock_clock, mock_relief
 
 

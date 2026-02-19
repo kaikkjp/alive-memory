@@ -102,9 +102,11 @@ class TestOpenShopAction:
         from pipeline.body import _execute_single_action
         from models.pipeline import ActionRequest
 
-        with patch('pipeline.body.db') as mock_db:
+        with patch('body.internal.db') as mock_db, \
+             patch('body.internal.clock') as mock_clock:
             mock_db.update_room_state = AsyncMock()
             mock_db.append_event = AsyncMock()
+            mock_clock.now_utc.return_value = datetime(2025, 1, 1, tzinfo=timezone.utc)
 
             action = ActionRequest(type='open_shop', detail={})
             result = await _execute_single_action(action, visitor_id=None)
@@ -118,9 +120,11 @@ class TestOpenShopAction:
         from pipeline.body import _execute_single_action
         from models.pipeline import ActionRequest
 
-        with patch('pipeline.body.db') as mock_db:
+        with patch('body.internal.db') as mock_db, \
+             patch('body.internal.clock') as mock_clock:
             mock_db.update_room_state = AsyncMock()
             mock_db.append_event = AsyncMock()
+            mock_clock.now_utc.return_value = datetime(2025, 1, 1, tzinfo=timezone.utc)
 
             action = ActionRequest(type='open_shop', detail={})
             await _execute_single_action(action, visitor_id=None)

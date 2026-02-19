@@ -636,7 +636,7 @@ ORDER BY sim_day;
 ---
 
 ### TASK-069: Real-World Body Actions — Web Browse + Telegram Shopfront + X Social
-**Status:** BACKLOG
+**Status:** DONE (2026-02-19)
 **Priority:** High
 **Complexity:** Large
 **Branch:** `feat/real-body-actions`
