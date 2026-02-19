@@ -183,7 +183,6 @@ class ShopkeeperServer:
         # Start Telegram adapter if configured (TASK-069)
         self._tg_adapter = None
         try:
-            import os
             tg_token = os.environ.get('TELEGRAM_BOT_TOKEN')
             tg_chat = os.environ.get('TELEGRAM_GROUP_CHAT_ID')
             if tg_token and tg_chat:
@@ -199,7 +198,6 @@ class ShopkeeperServer:
         # Start X mention poller if configured (TASK-069)
         self._x_poller = None
         try:
-            import os
             if os.environ.get('X_BEARER_TOKEN'):
                 from body.x_social import XMentionPoller
                 self._x_poller = XMentionPoller()
