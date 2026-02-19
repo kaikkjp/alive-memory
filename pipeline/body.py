@@ -10,9 +10,10 @@ All of that already happened in the brain (Basal Ganglia).
 Dialogue/monologue/body_state event emissions are body actions — they live here
 permanently. Memory consolidation, pool updates, drive adjustments, and engagement
 state updates live in output.py.
-"""
 
-import uuid
+Individual action handlers live in the body/ package (body/internal.py for
+existing actions, body/web.py, body/x_social.py, body/telegram.py for external).
+"""
 
 import clock
 from models.event import Event
@@ -21,14 +22,15 @@ from models.pipeline import (
     ActionResult, BodyOutput,
 )
 from pipeline.hypothalamus import apply_expression_relief
+from body import dispatch_action
+from body.internal import END_ENGAGEMENT_LINES  # noqa: F401 — backward compat
 import db
 
-# Diegetic farewell lines by reason
-END_ENGAGEMENT_LINES = {
-    'tired': "She turns away slightly. The conversation seems to be over.",
-    'boundary': "She straightens up. Something shifted.",
-    'natural': "A comfortable silence settles. She goes back to her work.",
-}
+
+async def _execute_single_action(action: ActionRequest, visitor_id: str,
+                                 monologue: str = '') -> ActionResult:
+    """Backward-compat wrapper — delegates to body/executor dispatch."""
+    return await dispatch_action(action, visitor_id, monologue)
 
 
 async def execute_body(motor_plan: MotorPlan, validated: ValidatedOutput,
@@ -104,285 +106,9 @@ async def execute_body(motor_plan: MotorPlan, validated: ValidatedOutput,
     for decision in motor_plan.actions:
         # Use detail dict carried on ActionDecision (set by basal_ganglia)
         action_req = ActionRequest(type=decision.action, detail=decision.detail)
-        result = await _execute_single_action(action_req, visitor_id, monologue=monologue)
+        result = await dispatch_action(action_req, visitor_id, monologue=monologue)
         if result.payload.get('body_state_update'):
             validated.body_state = result.payload['body_state_update']
         output.executed.append(result)
 
     return output
-
-
-async def _execute_single_action(action: ActionRequest, visitor_id: str,
-                                 monologue: str = '') -> ActionResult:
-    """Execute a single approved action. Returns ActionResult."""
-
-    action_type = action.type
-    detail = action.detail
-    result = ActionResult(action=action_type, timestamp=clock.now_utc())
-
-    try:
-        if action_type == 'accept_gift':
-            item_id = str(uuid.uuid4())
-            location = detail.get('location', 'counter')
-            description = detail.get('description', detail.get('title', 'a gift'))
-            await db.insert_collection_item({
-                'id': item_id,
-                'item_type': detail.get('item_type', 'link'),
-                'title': detail.get('title', 'untitled gift'),
-                'url': detail.get('url'),
-                'description': description,
-                'location': location,
-                'origin': 'gift',
-                'gifted_by': visitor_id,
-                'her_feeling': detail.get('her_feeling'),
-                'emotional_tags': detail.get('emotional_tags', []),
-            })
-            result.side_effects.append('collection_item_created')
-
-            # Assign shelf slot + queue sprite generation for visible items
-            if location in ('shelf', 'counter'):
-                try:
-                    from pipeline.sprite_gen import queue_sprite_generation
-                    slot_id = await db.assign_shelf_slot(item_id, description)
-                    if slot_id:
-                        safe_desc = description[:30].replace(' ', '_').lower()
-                        sprite_name = f'item_{item_id[:8]}_{safe_desc}.png'
-                        await db.update_shelf_sprite(slot_id, sprite_name)
-                        await queue_sprite_generation(sprite_name)
-                        result.side_effects.append('shelf_slot_assigned')
-                except Exception as e:
-                    print(f"  [ShelfAssign] Failed: {e}")
-
-        elif action_type == 'decline_gift':
-            await db.append_event(Event(
-                event_type='action_decline_gift',
-                source='self',
-                payload={'reason': detail.get('reason', ''), 'visitor_id': visitor_id},
-            ))
-            result.side_effects.append('event_emitted')
-
-        elif action_type == 'show_item':
-            item_id = detail.get('item_id')
-            await db.append_event(Event(
-                event_type='action_show_item',
-                source='self',
-                payload={'item_id': item_id, 'target': visitor_id},
-            ))
-            result.side_effects.append('event_emitted')
-
-        elif action_type == 'write_journal':
-            journal_text = (detail.get('text', '') or '').strip()
-            if journal_text:
-                await db.insert_journal(
-                    content=journal_text,
-                    mood=detail.get('mood'),
-                    tags=detail.get('tags', []),
-                )
-                result.content = journal_text
-                result.side_effects.append('journal_entry_created')
-                await db.append_event(Event(
-                    event_type='action_journal',
-                    source='self',
-                    payload={'content_length': len(journal_text)},
-                ))
-                try:
-                    await db.insert_text_fragment(
-                        content=journal_text,
-                        fragment_type='journal',
-                        visitor_id=visitor_id,
-                    )
-                except Exception as e:
-                    print(f"  [TextFragment] Failed to write journal fragment: {e}")
-                await apply_expression_relief('write_journal')
-            else:
-                # No distinct journal content — monologue already captured in cycle_log.
-                # Half drive relief: she intended to write but had nothing new to say.
-                await apply_expression_relief('write_journal_skipped')
-                result.side_effects.append('journal_skipped_no_content')
-
-        elif action_type == 'post_x_draft':
-            await db.append_event(Event(
-                event_type='action_post_x',
-                source='self',
-                payload={'draft': detail.get('text', '')},
-            ))
-            await apply_expression_relief('post_x_draft')
-            result.side_effects.append('event_emitted')
-
-        elif action_type == 'close_shop':
-            await db.update_room_state(shop_status='closed')
-            await db.append_event(Event(
-                event_type='action_close_shop',
-                source='self',
-                payload={},
-            ))
-            result.side_effects.append('room_state_updated')
-
-        elif action_type == 'open_shop':
-            await db.update_room_state(shop_status='open')
-            await db.append_event(Event(
-                event_type='action_open_shop',
-                source='self',
-                payload={},
-            ))
-            result.side_effects.append('room_state_updated')
-
-        elif action_type == 'end_engagement':
-            reason = detail.get('reason', 'natural')
-            farewell_line = END_ENGAGEMENT_LINES.get(reason, END_ENGAGEMENT_LINES['natural'])
-            await db.append_event(Event(
-                event_type='action_end_engagement',
-                source='self',
-                payload={'reason': reason, 'farewell': farewell_line},
-            ))
-            # Transition to cooldown
-            await db.update_engagement_state(
-                status='cooldown',
-                last_activity=clock.now_utc(),
-            )
-            result.side_effects.append('engagement_ended')
-
-        elif action_type == 'place_item':
-            if visitor_id:
-                await db.update_visitor(visitor_id, hands_state=None)
-            await db.append_event(Event(
-                event_type='action_room_delta',
-                source='self',
-                payload={'action': 'place_item', **detail},
-            ))
-            result.side_effects.append('room_delta_emitted')
-
-        elif action_type == 'rearrange':
-            await db.append_event(Event(
-                event_type='action_room_delta',
-                source='self',
-                payload=detail,
-            ))
-            await apply_expression_relief('rearrange')
-            result.side_effects.append('room_delta_emitted')
-
-        elif action_type == 'read_content':
-            content_id = detail.get('content_id')
-            if content_id:
-                pool_item = await db.get_pool_item_by_id(content_id)
-                if pool_item:
-                    # Use cached enriched_text if available, otherwise use raw content
-                    full_text = pool_item.get('enriched_text') or pool_item.get('content') or ''
-                    # Truncate to ~1500 tokens (~6000 chars)
-                    if len(full_text) > 6000:
-                        full_text = full_text[:6000] + '\n[...truncated]'
-                    result.content = full_text
-                    result.payload = {
-                        'content_id': content_id,
-                        'full_content': full_text,
-                        'title': pool_item.get('title', ''),
-                        'content_type': pool_item.get('content_type', ''),
-                        'source': pool_item.get('source_channel', ''),
-                    }
-                    # Mark as engaged in content pool
-                    await db.update_pool_item(
-                        content_id,
-                        status='engaged',
-                        engaged_at=clock.now_utc(),
-                    )
-                    result.side_effects.append('content_read')
-                    await db.append_event(Event(
-                        event_type='content_consumed',
-                        source='self',
-                        payload={
-                            'content_id': content_id,
-                            'title': pool_item.get('title', ''),
-                        },
-                    ))
-                else:
-                    result.success = False
-                    result.error = f'content_id {content_id} not found in pool'
-            else:
-                result.success = False
-                result.error = 'no content_id in detail'
-
-        elif action_type == 'save_for_later':
-            content_id = detail.get('content_id')
-            if content_id:
-                await db.save_content_for_later(content_id)
-                result.side_effects.append('content_saved')
-            else:
-                result.success = False
-                result.error = 'no content_id in detail'
-
-        elif action_type == 'mention_in_conversation':
-            # TASK-044: Reference a content item in conversation without full read
-            content_id = detail.get('content_id')
-            if content_id:
-                pool_item = await db.get_pool_item_by_id(content_id)
-                if pool_item:
-                    result.payload = {
-                        'content_id': content_id,
-                        'title': pool_item.get('title', ''),
-                        'source': pool_item.get('source_channel', ''),
-                        'content_type': pool_item.get('content_type', ''),
-                    }
-                    result.side_effects.append('content_mentioned')
-                    await db.update_pool_item(content_id, status='seen',
-                                              seen_at=clock.now_utc())
-                else:
-                    result.success = False
-                    result.error = f'content_id {content_id} not found in pool'
-            else:
-                result.success = False
-                result.error = 'no content_id in detail'
-
-        elif action_type == 'modify_self':
-            from db.parameters import set_param, get_param
-            param_key = detail.get('parameter', '')
-            new_value = detail.get('value')
-            reason = detail.get('reason', 'self-modification')
-            try:
-                old = await get_param(param_key)
-                if old is None:
-                    result.success = False
-                    result.error = f'Unknown parameter: {param_key}'
-                else:
-                    await set_param(param_key, float(new_value),
-                                   modified_by='self', reason=reason)
-                    result.success = True
-                    result.payload = {
-                        'parameter': param_key,
-                        'old_value': old['value'],
-                        'new_value': float(new_value),
-                        'reason': reason,
-                    }
-                    await db.append_event(Event(
-                        event_type='action_modify_self',
-                        source='self',
-                        payload=result.payload,
-                    ))
-            except ValueError as e:
-                result.success = False
-                result.error = str(e)  # bounds violation message from set_param
-
-        # Dynamic body state actions (from dynamic_actions table)
-        elif '_body_state_update' in detail:
-            import json
-            state_update = json.loads(detail['_body_state_update'])
-            if not isinstance(state_update, dict):
-                result.success = False
-                result.error = 'body_state_update must be a JSON object'
-            else:
-                await db.append_event(Event(
-                    event_type='action_body',
-                    source='self',
-                    payload=state_update,
-                ))
-                result.payload = state_update
-                if 'body_state' in state_update:
-                    result.payload['body_state_update'] = state_update['body_state']
-                result.side_effects.append('body_state_updated')
-                result.success = True
-
-    except Exception as e:
-        result.success = False
-        result.error = f"{type(e).__name__}: {e}"
-        print(f"  [Body] Action {action_type} failed: {e}")
-
-    return result

@@ -21,6 +21,7 @@ import XDraftsPanel from '@/components/dashboard/XDraftsPanel';
 import ActionsPanel from '@/components/dashboard/ActionsPanel';
 import BudgetPanel from '@/components/dashboard/BudgetPanel';
 import DriftPanel from '@/components/dashboard/DriftPanel';
+import ExternalActionsPanel from '@/components/dashboard/ExternalActionsPanel';
 
 export default function DashboardPage() {
   const [authenticated, setAuthenticated] = useState(false);
@@ -138,6 +139,7 @@ export default function DashboardPage() {
             Social
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <ExternalActionsPanel />
             <XDraftsPanel />
             <ThreadsPanel />
           </div>

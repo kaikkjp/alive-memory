@@ -199,24 +199,61 @@ ACTION_REGISTRY: dict[str, ActionCapability] = {
         generative=False,
     ),
 
-    # ── Future actions (disabled) ──
+    # ── External actions (real — with rate limiting + kill switch) ──
     'browse_web': ActionCapability(
         name='browse_web',
-        enabled=False,
-        cooldown_seconds=300,
+        enabled=True,
+        cooldown_seconds=180,
         max_per_cycle=1,
         requires=[],
-        description='Look something up online',
+        description='Search the web for information',
     ),
     'post_x': ActionCapability(
         name='post_x',
-        enabled=False,
-        cooldown_seconds=3600,
+        enabled=True,
+        cooldown_seconds=300,
         max_per_cycle=1,
         requires=[],
-        description='Post on X',
+        description='Post live on X',
         generative=True,
     ),
+    'reply_x': ActionCapability(
+        name='reply_x',
+        enabled=True,
+        cooldown_seconds=120,
+        max_per_cycle=1,
+        requires=[],
+        description='Reply to an X mention',
+        generative=True,
+    ),
+    'post_x_image': ActionCapability(
+        name='post_x_image',
+        enabled=True,
+        cooldown_seconds=600,
+        max_per_cycle=1,
+        requires=[],
+        description='Post on X with an image',
+        generative=True,
+    ),
+    'tg_send': ActionCapability(
+        name='tg_send',
+        enabled=True,
+        cooldown_seconds=5,
+        max_per_cycle=1,
+        requires=[],
+        description='Send a message to the Telegram group',
+        generative=True,
+    ),
+    'tg_send_image': ActionCapability(
+        name='tg_send_image',
+        enabled=True,
+        cooldown_seconds=30,
+        max_per_cycle=1,
+        requires=[],
+        description='Send an image to the Telegram group',
+    ),
+
+    # ── Future actions (disabled) ──
     'watch_video': ActionCapability(
         name='watch_video',
         enabled=False,

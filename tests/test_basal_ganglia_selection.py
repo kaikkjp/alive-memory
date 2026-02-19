@@ -130,7 +130,7 @@ class TestGateDisabledAction:
     @pytest.mark.asyncio
     async def test_disabled_action_incapable(self, drives):
         intentions = [
-            Intention(action='browse_web', content='search for cats', impulse=0.8),
+            Intention(action='watch_video', content='search for cats', impulse=0.8),
         ]
         validated = _validated_with_intentions(intentions)
         plan = await select_actions(validated, drives, context={})

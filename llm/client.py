@@ -32,6 +32,7 @@ async def complete(
     max_tokens: int = 4096,
     temperature: float = 0.7,
     timeout: float = 60.0,
+    tools: list[dict] | None = None,
 ) -> dict:
     """Single entry point for all LLM completions.
 
@@ -68,6 +69,8 @@ async def complete(
         "max_tokens": max_tokens,
         "temperature": temperature,
     }
+    if tools:
+        body["tools"] = tools
     headers = {
         **_HEADERS_STATIC,
         "Authorization": f"Bearer {api_key}",

@@ -394,6 +394,40 @@ export interface XDraftsData {
   pending_count: number;
 }
 
+// ─── Dashboard: External Actions (TASK-069) ───
+
+export interface ExternalRateLimitStatus {
+  action: string;
+  hourly_used: number;
+  hourly_limit: number;
+  daily_used: number;
+  daily_limit: number;
+  cooldown_remaining: number;
+  cooldown_seconds: number;
+  energy_cost: number;
+}
+
+export interface ChannelStatus {
+  channel: string;
+  enabled: boolean;
+  disabled_at: string | null;
+  disabled_by: string | null;
+}
+
+export interface ExternalActionLogEntry {
+  action: string;
+  timestamp: string;
+  success: boolean;
+  channel: string | null;
+  error: string | null;
+}
+
+export interface ExternalActionsData {
+  rate_limits: ExternalRateLimitStatus[];
+  channels: ChannelStatus[];
+  recent_log: ExternalActionLogEntry[];
+}
+
 // ─── Dashboard: Drift Detection (TASK-062) ───
 
 export interface DriftMetrics {

@@ -92,7 +92,8 @@ def openai_to_anthropic(response: dict) -> dict:
                 }
             }
     """
-    text: str = response["choices"][0]["message"]["content"]
+    message = response["choices"][0]["message"]
+    text: str = message.get("content") or ""
 
     raw_usage: dict = response.get("usage", {})
     usage: dict = {
@@ -101,7 +102,32 @@ def openai_to_anthropic(response: dict) -> dict:
         "cost_usd": raw_usage.get("cost", 0.0),
     }
 
+    content_blocks: list[dict] = []
+    if text:
+        content_blocks.append({"type": "text", "text": text})
+
+    # Pass through any tool_call blocks from the response.
+    tool_calls = message.get("tool_calls")
+    if tool_calls:
+        import json as _json
+        for tc in tool_calls:
+            raw_args = tc["function"].get("arguments", "{}")
+            try:
+                parsed = _json.loads(raw_args) if isinstance(raw_args, str) else raw_args
+            except (ValueError, TypeError):
+                parsed = {}
+            content_blocks.append({
+                "type": "tool_use",
+                "id": tc.get("id", ""),
+                "name": tc["function"]["name"],
+                "input": parsed,
+            })
+
+    # Guarantee at least one text block so callers never see an empty list.
+    if not content_blocks:
+        content_blocks.append({"type": "text", "text": ""})
+
     return {
-        "content": [{"type": "text", "text": text}],
+        "content": content_blocks,
         "usage": usage,
     }

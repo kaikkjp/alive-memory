@@ -668,6 +668,83 @@ async def handle_resolve_action(server, writer: asyncio.StreamWriter,
     await server._http_json(writer, 200, result)
 
 
+# ─── External Actions (TASK-069) ───
+
+async def handle_external_actions(server, writer: asyncio.StreamWriter,
+                                   authorization: str):
+    """Handle GET /api/dashboard/external-actions — rate limits, channels, recent log."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+
+    from body.rate_limiter import (
+        get_rate_limit_status, get_all_channel_status, RATE_LIMITS,
+    )
+
+    # Rate limit status for each external action
+    rate_limits = []
+    for action_name in RATE_LIMITS:
+        status = await get_rate_limit_status(action_name)
+        rate_limits.append(status)
+
+    # Channel status (kill switches)
+    channels = await get_all_channel_status()
+
+    # Recent external action log
+    import db.connection as _conn
+    conn = await _conn.get_db()
+    cursor = await conn.execute(
+        """SELECT action_name, timestamp, success, channel, error
+           FROM external_action_log
+           ORDER BY timestamp DESC LIMIT 20"""
+    )
+    rows = await cursor.fetchall()
+    recent_log = [
+        {
+            'action': row[0],
+            'timestamp': row[1],
+            'success': bool(row[2]),
+            'channel': row[3],
+            'error': row[4],
+        }
+        for row in rows
+    ]
+
+    await server._http_json(writer, 200, {
+        'rate_limits': rate_limits,
+        'channels': channels,
+        'recent_log': recent_log,
+    })
+
+
+async def handle_channel_toggle(server, writer: asyncio.StreamWriter,
+                                  authorization: str, body_bytes: bytes):
+    """Handle POST /api/dashboard/channel-toggle — enable/disable a channel."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+
+    try:
+        data = json.loads(body_bytes.decode('utf-8'))
+        channel_name = data.get('channel', '')
+        enabled = data.get('enabled')
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        await server._http_json(writer, 400, {'error': 'bad request'})
+        return
+
+    if not channel_name or enabled is None:
+        await server._http_json(writer, 400, {'error': 'channel and enabled required'})
+        return
+
+    from body.rate_limiter import set_channel_enabled
+    await set_channel_enabled(channel_name, bool(enabled), changed_by='dashboard')
+
+    await server._http_json(writer, 200, {
+        'channel': channel_name,
+        'enabled': bool(enabled),
+    })
+
+
 # ─── Drift Detection (TASK-062) ───
 
 async def handle_drift(server, writer, authorization):

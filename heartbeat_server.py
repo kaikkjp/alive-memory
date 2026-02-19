@@ -180,6 +180,36 @@ class ShopkeeperServer:
         # Start visitor idle timeout checker
         self._visitor_timeout_task = asyncio.create_task(self._visitor_timeout_loop())
 
+        # Start Telegram adapter if configured (TASK-069)
+        self._tg_adapter = None
+        try:
+            import os
+            tg_token = os.environ.get('TELEGRAM_BOT_TOKEN')
+            tg_chat = os.environ.get('TELEGRAM_GROUP_CHAT_ID')
+            if tg_token and tg_chat:
+                from body.telegram import TelegramAdapter
+                self._tg_adapter = TelegramAdapter(group_chat_id=tg_chat)
+                asyncio.create_task(self._tg_adapter.start_polling())
+                print(f"  {Fore.CYAN}[Telegram]{Style.RESET_ALL} Adapter polling started.")
+            else:
+                print(f"  {Fore.YELLOW}[Telegram]{Style.RESET_ALL} Skipped (no TELEGRAM_BOT_TOKEN/TELEGRAM_GROUP_CHAT_ID).")
+        except Exception as e:
+            print(f"  {Fore.YELLOW}[Telegram]{Style.RESET_ALL} Skipped ({e}).")
+
+        # Start X mention poller if configured (TASK-069)
+        self._x_poller = None
+        try:
+            import os
+            if os.environ.get('X_BEARER_TOKEN'):
+                from body.x_social import XMentionPoller
+                self._x_poller = XMentionPoller()
+                asyncio.create_task(self._x_poller.start_polling())
+                print(f"  {Fore.CYAN}[X/Twitter]{Style.RESET_ALL} Mention poller started.")
+            else:
+                print(f"  {Fore.YELLOW}[X/Twitter]{Style.RESET_ALL} Skipped (no X_BEARER_TOKEN).")
+        except Exception as e:
+            print(f"  {Fore.YELLOW}[X/Twitter]{Style.RESET_ALL} Skipped ({e}).")
+
         # Start heartbeat — she begins living
         await self.heartbeat.start()
         print(f"  {Fore.CYAN}[Heartbeat]{Style.RESET_ALL} She wakes up.")
@@ -1132,6 +1162,10 @@ class ShopkeeperServer:
                 await dashboard_routes.handle_resolve_action(self, writer, authorization, body_bytes)
             elif path == '/api/dashboard/drift' and method == 'GET':
                 await dashboard_routes.handle_drift(self, writer, authorization)
+            elif path == '/api/dashboard/external-actions' and method == 'GET':
+                await dashboard_routes.handle_external_actions(self, writer, authorization)
+            elif path == '/api/dashboard/channel-toggle' and method == 'POST':
+                await dashboard_routes.handle_channel_toggle(self, writer, authorization, body_bytes)
             elif path == '/api/weather' and method == 'GET':
                 await self._http_weather(writer)
             elif path == '/api/outdoor' and method == 'GET':

@@ -253,6 +253,21 @@ async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
             # Sync visitor presence: update last activity
             await db.update_visitor_present(visitor_id, last_activity=now)
 
+    # ── Route dialogue to external channels (TASK-069) ──
+    # Web/TCP visitors get replies via heartbeat_server broadcast.
+    # Telegram/X visitors need explicit API calls through the channel router.
+    if visitor_id and dialogue and dialogue != '...':
+        try:
+            from body.channels import route_reply
+            route_result = await route_reply(visitor_id, dialogue)
+            if route_result.get('channel') not in ('web', 'tcp', 'websocket'):
+                if route_result.get('routed'):
+                    print(f"  [Output] Reply routed via {route_result['channel']}")
+                else:
+                    print(f"  [Output] Channel routing failed: {route_result.get('reason')}")
+        except Exception as e:
+            print(f"  [Output] Channel routing error: {e}")
+
     # ── Log actions to action_log (Phase 2) ──
     if motor_plan and cycle_id:
         await _log_motor_plan(motor_plan, body_output, cycle_id)

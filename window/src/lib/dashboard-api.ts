@@ -5,7 +5,7 @@
  */
 
 import { authManager } from './auth-manager';
-import type { ActionsPanelData, DriftData, DynamicAction } from './types';
+import type { ActionsPanelData, DriftData, DynamicAction, ExternalActionsData } from './types';
 
 const API_BASE =
   process.env.NEXT_PUBLIC_DASHBOARD_API_URL ?? '';
@@ -223,6 +223,20 @@ export const dashboardApi = {
         alias_for: aliasFor,
         body_state: bodyState,
       }),
+    });
+    return res.json();
+  },
+
+  async getExternalActions(): Promise<ExternalActionsData> {
+    const res = await dashboardFetch('/api/dashboard/external-actions');
+    return res.json();
+  },
+
+  async toggleChannel(channel: string, enabled: boolean) {
+    const res = await dashboardFetch('/api/dashboard/channel-toggle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ channel, enabled }),
     });
     return res.json();
   },
