@@ -15,13 +15,23 @@ interface CharacterSpriteProps {
 export default function CharacterSprite({ expression, hidden }: CharacterSpriteProps) {
   const [prevExpression, setPrevExpression] = useState<string | null>(null);
   const [activeExpression, setActiveExpression] = useState(expression);
-  const [opacity, setOpacity] = useState(1);
+  const [opacity, setOpacity] = useState(0);
   const transitionRef = useRef<number>(undefined);
+  const mountedRef = useRef(false);
 
-  // Preload all sprites on mount
+  // Preload all sprites on mount, then fade in
   useEffect(() => {
-    Object.values(SPRITE_MAP).forEach((file) => {
+    const sprites = Object.values(SPRITE_MAP);
+    let loaded = 0;
+    sprites.forEach((file) => {
       const img = new Image();
+      img.onload = () => {
+        loaded++;
+        if (loaded >= sprites.length) {
+          mountedRef.current = true;
+          setOpacity(1);
+        }
+      };
       img.src = `/assets/sprites/${file}`;
     });
   }, []);
@@ -34,6 +44,10 @@ export default function CharacterSprite({ expression, hidden }: CharacterSpriteP
 
     setPrevExpression(activeExpression);
     setActiveExpression(expression);
+
+    // Skip the dip-to-zero on first expression change (before sprites are preloaded)
+    if (!mountedRef.current) return;
+
     setOpacity(0);
 
     const startTime = performance.now();

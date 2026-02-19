@@ -12,7 +12,7 @@ interface ChatGateProps {
  * Hidden while the shopkeeper sleeps — you can't enter when she's asleep.
  */
 export default function ChatGate({ onEnter, sleeping }: ChatGateProps) {
-  const visible = useDelayedReveal(10000); // matches --enter-button-delay
+  const visible = useDelayedReveal(3000); // short pause before button appears
 
   if (!visible || sleeping) return null;
 
