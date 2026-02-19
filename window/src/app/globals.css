@@ -87,7 +87,7 @@ body:has(.window-viewport) {
    Full-viewport immersive window
    ═══════════════════════════════════════════════ */
 
-.window-viewport { position: fixed; inset: 0; overflow: hidden; background: var(--color-bg); }
+.window-viewport { position: fixed; inset: 0; overflow: hidden; overflow: clip; background: var(--color-bg); }
 
 /* ─── Scene Background ─── */
 
