@@ -621,6 +621,127 @@ ORDER BY sim_day;
 
 ---
 
+### TASK-068: Behavioral Health Diagnostic
+**Status:** BACKLOG
+**Priority:** Medium
+**Description:** Reusable diagnostic an agent runs on demand to catch system-level behavioral bugs before they compound. Run after any soak test, before any deploy, or whenever something "feels off." Checks: memory pool health, action loop detection, drive stagnation, LLM output quality, sleep cycle health, context completeness, frontend/visitor health.
+**Spec:** `docs/DIAGNOSTIC-068.md`
+**Scope (files you may touch):**
+- `docs/DIAGNOSTIC-068.md` (the diagnostic runbook — already created)
+**Scope (files you may NOT touch):**
+- All source files (this is a read-only diagnostic, not a code change)
+**Tests:** Agent runs all 7 checks against a live or simulation DB and reports PASS/WARN/FAIL with evidence.
+**Definition of done:** `docs/DIAGNOSTIC-068.md` exists with all 7 check sections. Any agent can run it by reading the file and executing the queries/checks. Output format is standardized.
+
+---
+
+### TASK-069: Real-World Body Actions — Web Browse + Telegram Shopfront + X Social
+**Status:** BACKLOG
+**Priority:** High
+**Complexity:** Large
+**Branch:** `feat/real-body-actions`
+**Depends on:** TASK-059 (OpenRouter), TASK-064 (sleep phases)
+**Spec:** `tasks/TASK-069-real-body-actions.md`
+**Description:** The Shopkeeper's body currently fakes all external actions — `browse_web` resolves to reading from a pre-loaded content pool, `post_x_draft` queues for human review, and visitors can only reach her through a custom web UI. This task makes her actions real and opens her shop to the world via three channels: web window (existing), Telegram group (open shopfront), and X/Twitter (public voice). The body is an API gateway — the cortex never touches external services, body executors handle API calls, error handling, rate limits, and physical inhibitions. The cognitive pipeline is channel-agnostic.
+**Build order:**
+1. Body executor framework (`body/` package, registry, backward-compat)
+2. Channel router (source-based reply routing)
+3. Web browse executor (OpenRouter + web_search tool, Gemini Flash)
+4. Telegram adapter (bot polling, event injection, messaging, images)
+5. X client + executors (post, reply, media, mention fetch)
+6. Cortex prompt update (tell her what's real)
+7. Dashboard panel (toggle actions/channels, rate limits, kill switch)
+8. Integration test (50 cycles, all channels)
+**Scope (files to create):**
+- `body/__init__.py`, `body/executor.py`, `body/internal.py`, `body/web.py`
+- `body/x_social.py`, `body/x_client.py`, `body/telegram.py`, `body/tg_client.py`
+- `body/channels.py`, `body/rate_limiter.py`
+- `migrations/069_real_body_actions.sql`
+- `window/src/components/dashboard/ExternalActionsPanel.tsx`
+- Tests: `test_web_browse.py`, `test_x_social.py`, `test_telegram_adapter.py`, `test_tg_client.py`, `test_body_executor.py`, `test_channel_router.py`, `test_rate_limiter.py`
+**Scope (files to modify):**
+- `pipeline/body.py` — delegate to body/executor.py
+- `pipeline/action_registry.py` — add new actions
+- `pipeline/output.py` — handle results, activity broadcast
+- `pipeline/sensorium.py` — handle x_mention and tg_message events
+- `pipeline/cortex.py` — update action prompt section
+- `heartbeat_server.py` — TG polling, mention fetch, channel router init
+- `api/dashboard_routes.py` — external actions endpoints
+- `db/analytics.py` — extend cost logging
+- `db/memory.py` — visitor channel columns
+- `llm/client.py` — web_search tool support
+- `requirements.txt`
+**Scope (files NOT to touch):**
+- `pipeline/basal_ganglia.py`
+- `pipeline/hypothalamus.py`
+- `pipeline/thalamus.py`
+- `sleep.py`
+- `simulate.py`
+**Safety / Rate limits:**
+- browse_web: 20/hr, 100/day, energy 0.15, cooldown 3min
+- post_x: 12/hr, 50/day, energy 0.10, cooldown 5min
+- reply_x: 30/hr, 100/day, energy 0.08, cooldown 2min
+- post_x_image: 6/hr, 20/day, energy 0.20, cooldown 10min
+- tg_send: 60/hr, 500/day, energy 0.02, cooldown 5sec
+- tg_send_image: 20/hr, 100/day, energy 0.05, cooldown 30sec
+- Daily cost estimate: ~$0.75
+**Definition of done:** browse_web performs real web search. X posts/replies are live. Telegram bot polls messages as visitor events, replies in group, broadcasts activity. Channel router routes replies to originating channel. All external actions logged with cost tracking. Dashboard shows action/channel status with kill switch. Rate limits enforced. 50-cycle integration test passes.
+
+---
+
+### TASK-070: Conscious Memory — MD File Layer
+**Status:** BACKLOG
+**Priority:** High
+**Complexity:** Large
+**Branch:** `feat/conscious-memory`
+**Depends on:** TASK-060 (self-context), TASK-064 (sleep phases), TASK-069 (real body actions write to memory)
+**Spec:** `tasks/TASK-070-conscious-memory.md`
+**Description:** Her memory pool contains entries like "Emotional tension — arousal 84% but valence only 22%." No human thinks this way. Split memory into two layers: conscious memory (MD files she can read/write — experiential, natural language, no numbers) and unconscious machinery (SQLite — drives, costs, parameters, cycle logs). The pipeline translates unconscious → conscious like a brain translates cortisol into "I feel stressed." She journals "something felt off tonight," not "arousal 0.84 valence 0.22."
+**Architecture:**
+- `memory/journal/{date}.md` — daily lived experiences
+- `memory/visitors/{source_key}.md` — everything she knows about each person
+- `memory/reflections/{date}-{phase}.md` — sleep reflections
+- `memory/browse/{date}-{slug}.md` — web search learnings
+- `memory/self/identity.md` — self-narrative (updated by sleep)
+- `memory/self/traits.md`, `memory/self/drift.md` — behavioral patterns
+- `memory/threads/{slug}.md` — long-running thought threads
+- `memory/collection/catalog.md` — collection notes
+**Key design rules:**
+- Waking: read + append only (no editing past entries, no deletions)
+- Sleep: read + write + annotate (can add notes, rewrite self/ files, archive old entries)
+- NO raw numbers, percentages, or drive values in any MD file ever
+- Translation layer converts drives → feelings before any conscious write
+- Hippocampus rewritten to grep MD files instead of querying SQLite memory tables
+**Migration phases:**
+1. Create `memory/` directory + file writers (append-only during waking)
+2. Translation layer (drives → feelings in self-context and journal writes)
+3. Replace hippocampus retrieval (MD files + grep instead of SQLite)
+4. Migrate sleep system (reflections, visitor annotations, identity rewrites → MD)
+5. Remove deprecated SQLite memory tables (keep operational tables)
+**Scope (files to create):**
+- `memory/` directory tree
+- `memory_writer.py` — MemoryWriter class
+- `memory_reader.py` — MemoryReader class + grep_memory()
+- `memory_translator.py` — numbers-to-feelings translation
+- Tests: `test_memory_writer.py`, `test_memory_reader.py`, `test_memory_translator.py`, `test_grep_recall.py`
+**Scope (files to modify):**
+- `pipeline/hippocampus.py` — rewrite retrieval to MD files + grep
+- `pipeline/output.py` — route writes to MD, translate internal_conflicts
+- `prompt/self_context.py` — translate drives to felt experience
+- `sleep.py` / `sleep/` phases — consolidation writes to MD
+- `pipeline/hippocampus_write.py` — visitor updates → MD
+- `pipeline/body.py` — journal_write appends to MD
+- `seed.py` — create initial memory/ structure
+**Scope (files NOT to touch):**
+- `pipeline/cortex.py` (prompt assembly unchanged — receives context from hippocampus)
+- `pipeline/basal_ganglia.py`
+- `pipeline/hypothalamus.py`
+- `db/state.py`, `db/analytics.py`, `db/events.py` (SQLite stays for operational data)
+- `simulate.py`
+**Definition of done:** Memory files created and populated from first cycle. Journal entries are natural language. Visitor memories in per-person MD files. NO raw numbers in any MD file. Internal conflicts translated to felt experience. Hippocampus retrieves via grep + file reads. Sleep writes reflections and annotates (never edits) existing entries. SQLite retains all operational data. 50-cycle test: no machine-readable state leaks into MD files. Files are human-readable.
+
+---
+
 ## Completed Tasks
 
 ### TASK-054: Fix inhibition self_assessment trigger
