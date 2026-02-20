@@ -47,7 +47,7 @@ def test_resolve_hardcoded_default(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("LLM_EMBED_MODEL", raising=False)
     monkeypatch.delenv("LLM_DEFAULT_MODEL", raising=False)
 
-    assert resolve_model("cortex") == "anthropic/claude-sonnet-4-5-20250929"
+    assert resolve_model("cortex") == "minimax/MiniMax-M1-80k"
 
 
 def test_unknown_call_site_uses_default(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -57,7 +57,7 @@ def test_unknown_call_site_uses_default(monkeypatch: pytest.MonkeyPatch) -> None
     result = resolve_model("unknown_site")
 
     # Falls back to hardcoded default
-    assert result == "anthropic/claude-sonnet-4-5-20250929"
+    assert result == "minimax/MiniMax-M1-80k"
 
 
 def test_unknown_call_site_respects_default_env(
