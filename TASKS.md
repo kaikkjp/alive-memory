@@ -836,7 +836,7 @@ ORDER BY sim_day;
 ---
 
 ### HOTFIX-003: Thread Dedup + Rumination Breaker
-**Status:** BACKLOG
+**Status:** DONE (2026-02-20)
 **Priority:** Critical
 **Branch:** `fix/thread-rumination`
 **Spec:** `tasks/hotfix-003-rumination.md`
