@@ -3,7 +3,7 @@
 Environment variables:
     OPENROUTER_API_KEY      Required. OpenRouter API key.
     LLM_DEFAULT_MODEL       Optional. Fallback model for all call sites.
-                            Defaults to anthropic/claude-sonnet-4-5-20250929.
+                            Defaults to minimax/MiniMax-M1-80k.
     LLM_CORTEX_MODEL        Optional. Model for "cortex" and "cortex_maintenance" calls.
     LLM_REFLECT_MODEL       Optional. Model for "reflect" calls.
     LLM_SLEEP_MODEL         Optional. Model for "sleep" calls.
@@ -12,14 +12,14 @@ Environment variables:
 Resolution order per call site:
     1. Call-site-specific env var (e.g. LLM_CORTEX_MODEL)
     2. LLM_DEFAULT_MODEL env var
-    3. Hardcoded default: anthropic/claude-sonnet-4-5-20250929
+    3. Hardcoded default: minimax/MiniMax-M1-80k
 """
 
 from __future__ import annotations
 
 import os
 
-_HARDCODED_DEFAULT: str = "anthropic/claude-sonnet-4-5-20250929"
+_HARDCODED_DEFAULT: str = "minimax/MiniMax-M1-80k"
 
 # Maps call_site name → env var that overrides the model for that site.
 _CALL_SITE_ENV: dict[str, str] = {
@@ -55,7 +55,7 @@ def resolve_model(call_site: str) -> str:
     Resolution order:
         1. Call-site-specific env var (LLM_CORTEX_MODEL, LLM_REFLECT_MODEL, etc.)
         2. LLM_DEFAULT_MODEL env var
-        3. Hardcoded default: anthropic/claude-sonnet-4-5-20250929
+        3. Hardcoded default: minimax/MiniMax-M1-80k
 
     Args:
         call_site: Logical name for the call (e.g. "cortex", "reflect", "sleep").
