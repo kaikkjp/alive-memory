@@ -73,17 +73,25 @@ class TelegramAdapter:
         visitor_id = f'tg_{user.id}'
         display_name = user.first_name or user.username or 'someone'
 
-        # HOTFIX-005: Create/increment visitor record via on_visitor_connect
-        # Previously called db.insert_visitor() which does not exist — AttributeError
-        # was silently swallowed by double try/except/pass.
-        connect_event = Event(
-            event_type='visitor_connect',
-            source=f'visitor:{visitor_id}',
-            payload={'display_name': display_name, 'platform': 'telegram'},
-        )
-        await on_visitor_connect(connect_event)
-        await db.update_visitor(visitor_id, name=display_name)
-        await db.mark_session_boundary(visitor_id)
+        # Only fire visitor_connect + session boundary on FIRST message.
+        # Previously every message triggered both, which:
+        # 1. Spammed visitor_connect events (incrementing visit count per msg)
+        # 2. Inserted __session_boundary__ per message, wiping conversation
+        #    context so cortex only saw the latest message.
+        engagement = await db.get_engagement_state()
+        already_engaged = engagement.is_engaged_with(f'visitor:{visitor_id}')
+
+        if not already_engaged:
+            connect_event = Event(
+                event_type='visitor_connect',
+                source=f'visitor:{visitor_id}',
+                payload={'display_name': display_name, 'platform': 'telegram'},
+            )
+            await on_visitor_connect(connect_event)
+            await db.update_visitor(visitor_id, name=display_name)
+            await db.mark_session_boundary(visitor_id)
+        else:
+            await db.update_visitor(visitor_id, name=display_name)
 
         # Track presence
         await db.add_visitor_present(visitor_id, 'telegram')

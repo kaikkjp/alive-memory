@@ -109,8 +109,9 @@ class TestTelegramAdapter:
 
     @pytest.mark.asyncio
     async def test_handle_message_creates_event(self, _patch_deps):
-        """Message handling creates visitor_speech event."""
+        """First message from new visitor fires connect + boundary + speech event."""
         from body.telegram import TelegramAdapter
+        from models.state import EngagementState
 
         adapter = TelegramAdapter(group_chat_id='12345')
 
@@ -126,6 +127,9 @@ class TestTelegramAdapter:
         mock_message.chat.id = 12345
 
         mock_db = _patch_deps['db']
+        # Not engaged — first message should fire visitor_connect
+        mock_db.get_engagement_state = AsyncMock(
+            return_value=EngagementState(status='none'))
         mock_db.get_visitor = AsyncMock(return_value=None)
         mock_db.add_visitor_present = AsyncMock()
         mock_db.update_visitor = AsyncMock()
@@ -136,6 +140,9 @@ class TestTelegramAdapter:
             await adapter._handle_message(mock_message)
             mock_connect.assert_called_once()
 
+        # Session boundary should fire on first message
+        mock_db.mark_session_boundary.assert_called_once()
+
         # Should have called append_event
         mock_db.append_event.assert_called_once()
         event = mock_db.append_event.call_args[0][0]
@@ -143,3 +150,81 @@ class TestTelegramAdapter:
         assert 'tg_999' in event.source
         assert event.payload['text'] == 'hello shopkeeper'
         assert event.payload['platform'] == 'telegram'
+
+    @pytest.mark.asyncio
+    async def test_handle_message_skips_connect_when_engaged(self, _patch_deps):
+        """Subsequent messages during engagement skip connect + boundary."""
+        from body.telegram import TelegramAdapter
+        from models.state import EngagementState
+
+        adapter = TelegramAdapter(group_chat_id='12345')
+
+        mock_message = MagicMock()
+        mock_message.from_user = MagicMock()
+        mock_message.from_user.id = 999
+        mock_message.from_user.first_name = 'Test'
+        mock_message.from_user.username = 'testuser'
+        mock_message.text = 'tell me more'
+        mock_message.message_id = 2
+        mock_message.chat = MagicMock()
+        mock_message.chat.id = 12345
+
+        mock_db = _patch_deps['db']
+        # Already engaged with this visitor — should skip connect + boundary
+        mock_db.get_engagement_state = AsyncMock(
+            return_value=EngagementState(status='engaged', visitor_id='tg_999'))
+        mock_db.add_visitor_present = AsyncMock()
+        mock_db.update_visitor = AsyncMock()
+        mock_db.mark_session_boundary = AsyncMock()
+        mock_db.inbox_add = AsyncMock()
+
+        with patch('body.telegram.on_visitor_connect', new_callable=AsyncMock) as mock_connect:
+            await adapter._handle_message(mock_message)
+            # Should NOT fire connect on subsequent message
+            mock_connect.assert_not_called()
+
+        # Session boundary should NOT fire during engagement
+        mock_db.mark_session_boundary.assert_not_called()
+
+        # Speech event still fires
+        mock_db.append_event.assert_called_once()
+        event = mock_db.append_event.call_args[0][0]
+        assert event.event_type == 'visitor_speech'
+
+
+class TestTraitCooldownReset:
+    """Test that trait cooldown resets on session boundary."""
+
+    def test_cooldown_clears_on_session_start(self):
+        """clear_trait_cooldown removes entries for the visitor."""
+        from pipeline.hippocampus_write import (
+            _recent_traits, _trait_is_duplicate, clear_trait_cooldown,
+        )
+        _recent_traits.clear()
+
+        # First write succeeds
+        assert not _trait_is_duplicate('v1', 'interests', 'topic', 'cats')
+        # Duplicate blocked
+        assert _trait_is_duplicate('v1', 'interests', 'topic', 'cats')
+
+        # Simulate session restart
+        clear_trait_cooldown('v1')
+
+        # Same trait now allowed again
+        assert not _trait_is_duplicate('v1', 'interests', 'topic', 'cats')
+
+    def test_cooldown_clear_is_visitor_scoped(self):
+        """Clearing one visitor's cooldown doesn't affect another."""
+        from pipeline.hippocampus_write import (
+            _recent_traits, _trait_is_duplicate, clear_trait_cooldown,
+        )
+        _recent_traits.clear()
+
+        _trait_is_duplicate('v1', 'interests', 'topic', 'cats')
+        _trait_is_duplicate('v2', 'interests', 'topic', 'dogs')
+
+        clear_trait_cooldown('v1')
+
+        # v1 cleared, v2 still blocked
+        assert not _trait_is_duplicate('v1', 'interests', 'topic', 'cats')
+        assert _trait_is_duplicate('v2', 'interests', 'topic', 'dogs')

@@ -3,6 +3,7 @@
 import random
 from models.event import Event
 from models.state import EngagementState
+from pipeline.hippocampus_write import clear_trait_cooldown
 import db
 
 
@@ -56,6 +57,8 @@ async def on_visitor_connect(event: Event):
     await db.inbox_add(event.id, priority=0.7)
 
     vid = event.source.split(':')[1] if ':' in event.source else event.source
+    # Reset trait cooldown so returning visitors get fresh observations
+    clear_trait_cooldown(vid)
     visitor = await db.get_visitor(vid)
     if visitor:
         await db.increment_visit(vid)

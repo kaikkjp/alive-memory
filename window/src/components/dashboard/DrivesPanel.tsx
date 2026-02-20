@@ -35,18 +35,25 @@ export default function DrivesPanel() {
     return () => clearInterval(interval);
   }, []);
 
-  const DriveBar = ({ label, value, color }: { label: string; value: number; color: string }) => {
-    const percentage = Math.round(value * 100);
+  const DriveBar = ({ label, value, color, bipolar = false }: { label: string; value: number; color: string; bipolar?: boolean }) => {
+    // For bipolar values (-1 to +1): show signed percentage, bar fills from center
+    // For unipolar values (0 to 1): show 0-100%, bar fills from left
+    const displayPct = bipolar ? Math.round(value * 100) : Math.round(value * 100);
+    const barWidth = bipolar ? Math.round(Math.abs(value) * 50) : Math.round(value * 100);
+    const barOffset = bipolar ? (value >= 0 ? 50 : 50 - barWidth) : 0;
     return (
       <div>
         <div className="flex justify-between text-xs text-neutral-400 font-mono mb-1">
           <span>{label}</span>
-          <span>{percentage}%</span>
+          <span>{displayPct}%</span>
         </div>
-        <div className="h-2 bg-neutral-800 rounded overflow-hidden">
+        <div className="h-2 bg-neutral-800 rounded overflow-hidden relative">
+          {bipolar && (
+            <div className="absolute left-1/2 top-0 w-px h-full bg-neutral-600" />
+          )}
           <div
-            className={`h-full ${color} transition-all duration-500`}
-            style={{ width: `${percentage}%` }}
+            className={`h-full ${color} transition-all duration-500 absolute`}
+            style={{ width: `${barWidth}%`, left: `${barOffset}%` }}
           />
         </div>
       </div>
@@ -90,13 +97,14 @@ export default function DrivesPanel() {
         <div className="pt-3 border-t border-neutral-700">
           <DriveBar
             label="Mood Valence"
-            value={(drives.mood_valence + 1) / 2}
+            value={drives.mood_valence}
             color="bg-amber-500"
+            bipolar={true}
           />
           <div className="mt-2">
             <DriveBar
               label="Mood Arousal"
-              value={(drives.mood_arousal + 1) / 2}
+              value={drives.mood_arousal}
               color="bg-rose-500"
             />
           </div>
