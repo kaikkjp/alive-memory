@@ -22,10 +22,20 @@ from heartbeat import Heartbeat
 
 
 def _make_server():
-    """Create a mock server with _http_json and a real Heartbeat."""
+    """Create a mock server with _http_json and a real Heartbeat.
+
+    persist=False prevents _persist_cycle_interval() from firing background
+    DB writes on the test's temporary event loop.  When _run() closes that
+    loop, any in-flight DB write leaves db.connection._write_lock permanently
+    held, deadlocking every later test that touches the DB.
+    """
     server = MagicMock()
     server._http_json = AsyncMock()
-    server.heartbeat = Heartbeat()
+    hb = Heartbeat()
+    # Disable DB persistence so set_cycle_interval() never spawns a task
+    _original_set = hb.set_cycle_interval
+    hb.set_cycle_interval = lambda secs, **kw: _original_set(secs, persist=False)
+    server.heartbeat = hb
     return server
 
 

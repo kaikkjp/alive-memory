@@ -207,23 +207,19 @@ The operator pre-loads chains by setting multiple tasks to `READY` before a sess
 
 ## Testing
 
-~926 tests, ~14s actual execution. Process HANGS after completion due to aiosqlite thread cleanup.
+~1445 tests, ~4s execution. Clean exit (no hang).
 
 **Always run tests with:**
 ```bash
-gtimeout 120 python3 -m pytest tests/ --tb=short -q 2>&1 || true
+python3 -m pytest tests/ --tb=short -q 2>&1 || true
 ```
 
 **During development — run only relevant module tests:**
 ```bash
-gtimeout 60 python3 -m pytest tests/test_<module>.py -v --tb=short 2>&1 || true
+python3 -m pytest tests/test_<module>.py -v --tb=short 2>&1 || true
 ```
 
 **Known failure:** `test_action_read_content.py::test_read_content_cooldown` — pre-existing, ignore.
-
-**Known hang:** aiosqlite background thread blocks process exit 30-60s after tests pass. The `gtimeout` wrapper handles this. Do NOT retry if you see all tests passed followed by a hang.
-
-**Prerequisite:** `brew install coreutils` (provides `gtimeout` on macOS).
 
 ## Running
 

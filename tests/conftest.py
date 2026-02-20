@@ -1,7 +1,6 @@
 """Shared fixtures for the shopkeeper test suite."""
 
 import asyncio
-import atexit
 import os
 import sys
 import threading
@@ -15,35 +14,54 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 # ── Fix aiosqlite hang on exit ──
-# aiosqlite spawns a daemon thread per connection.  If any connection leaks
-# (or close() doesn't fully join the thread), the process hangs for 30-60s
-# after all tests pass.  Two-layer fix:
+# aiosqlite spawns a NON-daemon thread per connection.  Python's shutdown
+# joins all non-daemon threads (threading._shutdown) BEFORE atexit handlers
+# run.  If any aiosqlite thread is stuck (e.g. its event loop was closed),
+# the process hangs forever.
 #
-#   1. pytest_sessionfinish: close the global db._db if it's still open.
-#   2. atexit: if non-main threads are still alive, os._exit(0) to force quit.
+# Fix: pytest_unconfigure (last hook before process exit) closes leaked
+# connections and force-exits if aiosqlite threads survive.
+
+_pytest_exit_status = 0
 
 def pytest_sessionfinish(session, exitstatus):
-    """Close any leaked DB connection after the test session ends."""
+    global _pytest_exit_status
+    _pytest_exit_status = exitstatus
+
+
+def pytest_unconfigure(config):
+    """Last pytest hook — kill lingering aiosqlite threads."""
     import db.connection as _conn
     if _conn._db is not None:
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_closed():
-                loop = asyncio.new_event_loop()
+            loop = asyncio.new_event_loop()
             loop.run_until_complete(_conn.close_db())
+            loop.close()
         except Exception:
-            pass
-
-
-def _force_exit():
-    """Last-resort exit if aiosqlite threads are still blocking shutdown."""
+            _conn._db = None
+    # If non-main threads survive (aiosqlite worker threads), force exit.
+    # Python's threading._shutdown() would block forever waiting for them.
     alive = [t for t in threading.enumerate()
-             if t.is_alive() and t is not threading.main_thread()]
+             if t is not threading.main_thread() and t.is_alive()]
     if alive:
-        os._exit(0)
+        os._exit(_pytest_exit_status)
 
 
-atexit.register(_force_exit)
+# ── Reset db._write_lock if poisoned by a closed event loop ──
+# Tests using asyncio.new_event_loop() + loop.close() can leave
+# db.connection._write_lock permanently held (e.g. a background DB write
+# started on the temp loop is destroyed mid-acquire).  This fixture
+# detects and resets the lock before each test.
+
+import db.connection as _db_conn
+
+
+@pytest.fixture(autouse=True)
+def _reset_write_lock_if_stuck():
+    """Replace db._write_lock if it's stuck from a dead event loop."""
+    if _db_conn._write_lock.locked():
+        _db_conn._write_lock = asyncio.Lock()
+    yield
 
 
 # ── Parameter cache seeding (TASK-055) ──
