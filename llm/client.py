@@ -98,6 +98,12 @@ async def complete(
 
     latency_ms = int(time.monotonic() * 1000) - start_ms
 
+    # OpenRouter returns the model that actually served the request,
+    # which may differ from what we asked for (fallback routing).
+    served_model = response_json.get("model", model)
+    if served_model != model:
+        print(f"[LLM] WARNING: requested {model} but served {served_model}")
+
     result = openai_to_anthropic(response_json)
 
     # Log cost in the background without blocking the caller.
@@ -107,7 +113,7 @@ async def complete(
     asyncio.create_task(
         log_cost(
             call_site=call_site,
-            model=model,
+            model=served_model,
             input_tokens=usage.get("input_tokens", 0),
             output_tokens=usage.get("output_tokens", 0),
             latency_ms=latency_ms,

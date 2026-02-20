@@ -5,10 +5,47 @@ SQLite writes are primary (never removed); MD writes are additive.
 """
 
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import clock
 from models.event import Event
 import db
+
+# ── Trait dedup cooldown ──
+# Prevents writing the same trait_key:value pair multiple times within one
+# engagement session. Without this, the LLM reads back its own trait on the
+# next cycle and reinforces it (feedback loop → "they keep asking the same
+# thing" spiral). Keyed by (visitor_id, category, key) → (value, timestamp).
+TRAIT_COOLDOWN_SECONDS = 300  # 5 minutes
+_recent_traits: dict[tuple[str, str, str], tuple[str, datetime]] = {}
+
+
+def clear_trait_cooldown(visitor_id: str) -> None:
+    """Clear cooldown entries for a visitor. Call on session start so returning
+    visitors get fresh trait observations."""
+    stale = [k for k in _recent_traits if k[0] == visitor_id]
+    for k in stale:
+        del _recent_traits[k]
+
+
+def _trait_is_duplicate(visitor_id: str, category: str, key: str, value: str) -> bool:
+    """Check if this exact trait was already written recently. Prunes stale entries."""
+    now = clock.now_utc()
+    cache_key = (visitor_id, category, key)
+
+    # Prune stale entries (lazy, only on check)
+    stale = [k for k, (_, ts) in _recent_traits.items()
+             if (now - ts).total_seconds() > TRAIT_COOLDOWN_SECONDS]
+    for k in stale:
+        del _recent_traits[k]
+
+    if cache_key in _recent_traits:
+        cached_value, cached_ts = _recent_traits[cache_key]
+        if cached_value == value:
+            return True
+
+    # Record this write
+    _recent_traits[cache_key] = (value, now)
+    return False
 
 
 async def hippocampus_consolidate(update: dict, visitor_id: str = None):
@@ -43,6 +80,17 @@ async def hippocampus_consolidate(update: dict, visitor_id: str = None):
 
     elif update_type == 'trait_observation':
         if visitor_id and content.get('trait_category') and content.get('trait_key'):
+            trait_val = content.get('trait_value', '')
+
+            # Dedup: skip if same key:value written within cooldown window.
+            # Prevents feedback loops where she reads her own trait back and
+            # reinforces it on the next cycle (the "repetition spiral" bug).
+            if _trait_is_duplicate(visitor_id, content['trait_category'],
+                                   content['trait_key'], trait_val):
+                print(f"  [Memory] Trait dedup: skipped {content['trait_key']}={trait_val} "
+                      f"(cooldown {TRAIT_COOLDOWN_SECONDS}s)")
+                return
+
             # Check for contradiction before writing
             existing = await db.get_latest_trait(
                 visitor_id=visitor_id,
@@ -54,13 +102,12 @@ async def hippocampus_consolidate(update: dict, visitor_id: str = None):
                 visitor_id=visitor_id,
                 trait_category=content['trait_category'],
                 trait_key=content['trait_key'],
-                trait_value=content.get('trait_value', ''),
+                trait_value=trait_val,
                 confidence=content.get('confidence', 0.5),
                 source_event_id=content.get('source_event_id', ''),
             )
 
             # MD write — trait as prose in visitor file
-            trait_val = content.get('trait_value', '')
             if trait_val:
                 await _md_append_visitor(
                     visitor_id,
