@@ -127,11 +127,14 @@ class TestTelegramAdapter:
 
         mock_db = _patch_deps['db']
         mock_db.get_visitor = AsyncMock(return_value=None)
-        mock_db.insert_visitor = AsyncMock()
         mock_db.add_visitor_present = AsyncMock()
+        mock_db.update_visitor = AsyncMock()
+        mock_db.mark_session_boundary = AsyncMock()
         mock_db.inbox_add = AsyncMock()
 
-        await adapter._handle_message(mock_message)
+        with patch('body.telegram.on_visitor_connect', new_callable=AsyncMock) as mock_connect:
+            await adapter._handle_message(mock_message)
+            mock_connect.assert_called_once()
 
         # Should have called append_event
         mock_db.append_event.assert_called_once()

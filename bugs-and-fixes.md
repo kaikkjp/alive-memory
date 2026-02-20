@@ -259,3 +259,169 @@ Ambient/idle cycles call Cortex every 2-10 min autonomously. No daily cost cap. 
 - Idle path now has 50% chance to skip Cortex entirely (body-only fidget, zero LLM cost)
 - Silence cycles already had 70% fidget skip — unchanged
 - Exponential backoff on errors prevents rapid retry loops
+
+---
+---
+
+# HOTFIX-004 — Telegram/X adapters don't wake the heartbeat loop
+
+Date: 2026-02-20
+Files changed: `body/telegram.py`, `body/x_social.py`, `heartbeat_server.py`
+
+---
+
+## Symptoms
+
+Production VPS: heartbeat loop silently stops cycling for minutes to hours while the process stays alive. `/api/health` returns `{"status": "alive"}` but no Cortex calls fire. Telegram and X messages sit in the inbox unprocessed.
+
+Observed timeline (2026-02-20 JST):
+
+| Time | Event |
+|------|-------|
+| 10:01 | Normal cycling, val=-0.96, reading Thich Nhat Hanh |
+| 10:03 | X rate limit 429 → shutdown/restart |
+| 10:04 | Restart PID 112556. Engage cycle: `「I'm closed.」` to spam visitor |
+| 10:07 | Shutdown → Restart PID 112922 |
+| 10:24 | Restart PID 113469. X poller pulls 13 spam mentions simultaneously |
+| 10:25 | She replies: `「I said I'm closed. Twice. These links are not welcome here.」` |
+| 10:29 | 13 spam visitors timeout. **No further cycles for 65 minutes.** |
+| 11:35 | Process killed by systemd. Restart PID 114701 |
+| 11:42 | 2 cycles run (rest), then **loop hangs again for 6+ minutes** |
+| 11:43 | Telegram message from T: "How's your day?" — **never responded** |
+| 11:49 | T's visitor timed out (335s) without ever being engaged |
+| 11:50 | Manual restart PID 115640. Engage cycles run but loop hangs again |
+| 11:56 | 13 spam visitors timeout (same mentions re-fetched on restart) |
+| 11:56 | Telegram message from Xno — **sits unprocessed** |
+
+## Bug 4 — Telegram adapter doesn't call schedule_microcycle()
+
+### Where
+`body/telegram.py:65-103` — `TelegramAdapter._handle_message()`
+
+### Problem
+The Telegram adapter creates a `visitor_speech` event and adds it to the inbox, but **never calls `heartbeat.schedule_microcycle()`**. The heartbeat loop only learns about the message when the next natural cycle fires — up to 450s later in rest mode (180s base * 2.5 rest multiplier * 1.25 jitter).
+
+Compare with the WebSocket chat handler (`heartbeat_server.py:921`) which correctly calls `schedule_microcycle()` after every visitor message.
+
+### Sequence
+1. Telegram user sends message to group
+2. `TelegramAdapter._handle_message()` creates event, adds to inbox
+3. Heartbeat loop is in `_interruptible_sleep(sleep_seconds)` — waiting on `pending_microcycle` Event or timeout
+4. Nobody sets `pending_microcycle` — the loop sleeps for the full timeout
+5. Visitor times out after 300s idle (unengaged) before the loop wakes up
+
+### Fix
+Pass heartbeat reference to `TelegramAdapter`. After injecting the event, call `schedule_microcycle()` to wake the loop immediately.
+
+---
+
+## Bug 5 — X mention poller doesn't call schedule_microcycle()
+
+### Where
+`body/x_social.py:219-275` — `XMentionPoller._poll_once()`
+
+### Problem
+Same as Bug 4. The X mention poller creates `visitor_speech` events and adds them to the inbox but never wakes the heartbeat loop.
+
+When 13 mentions arrive simultaneously (as in the spam flood), 13 `visitors_present` entries are created but the loop may be mid-sleep. The next cycle sees visitors but engagement is `none`, enters the visitors-present wait path (15-45s timeout), runs one autonomous cycle, then sleeps for the full rest interval again (337-562s). The loop technically cycles but at autonomous pace, not microcycle pace — visitors timeout before being engaged.
+
+### Fix
+Pass heartbeat reference to `XMentionPoller`. After processing each batch of mentions, call `schedule_microcycle()` once.
+
+---
+
+## Bug 6 — Long silent hangs (65+ minutes) with no log output
+
+### Where
+`heartbeat.py:267-285` — `_interruptible_sleep()`, `heartbeat.py:329-453` — `_main_loop`
+
+### Problem
+The 65-minute gap (10:29–11:35 JST) cannot be explained by normal cycle timing (max rest sleep is ~9 min). The process was alive (37s CPU consumed) but produced zero log output. Possible causes:
+
+1. **Event race in `_interruptible_sleep`**: The method wraps `pending_microcycle.wait()` in `asyncio.create_task()` (line 273), then cancels pending tasks on exit (lines 280-285). If `schedule_microcycle()` fires during the cancellation window, the Event's set state and the Task's completion state can become inconsistent. The signal is lost and the loop sleeps for the full timeout.
+
+2. **Exception in `run_one_cycle` or `run_cycle` caught by generic handler**: Lines 465-468 catch all exceptions and apply exponential backoff (5s→10s→20s→40s→60s). If the exception keeps recurring, the backoff caps at 60s — not 65 minutes. So this alone doesn't explain it.
+
+3. **Combination**: After the spam flood, 13 visitor disconnect events fire simultaneously at 10:29:48. The next cycle processes them, and the autonomous path returns a rest-mode sleep (~450s). If the `_interruptible_sleep` Event race fires at exactly this point, the loop could miss its wake signal and sleep indefinitely until the next `schedule_microcycle()` call — which never comes because neither Telegram nor X call it (Bugs 4-5).
+
+**Most likely scenario**: The loop entered rest sleep, the Event signal was lost to the race condition, and no external adapter called `schedule_microcycle()` to wake it. Only a systemd restart or a WebSocket visitor (which does call `schedule_microcycle()`) could break the deadlock.
+
+### Mitigation
+Fixing Bugs 4-5 removes the primary trigger (external messages will now wake the loop). Additionally, `_interruptible_sleep` could be hardened with a maximum sleep cap or a watchdog that detects long gaps between cycles.
+
+---
+
+## Root Cause Pattern
+
+This is the same architectural tension documented in the original Bug 1-3: **concurrent producers inject events into the inbox without coordinating with the heartbeat loop's sleep/wake mechanism.** The WebSocket handler got the fix (it calls `schedule_microcycle()`), but the Telegram and X adapters — added later in TASK-069 — were built by mimicking the event injection pattern without the wake call.
+
+---
+
+## HOTFIX-005 — Visitors never registered (total memory loss)
+
+Date: 2026-02-20
+Files changed: `heartbeat_server.py`, `body/telegram.py`, `body/x_social.py`
+
+### Symptom
+The shopkeeper has no memory of any visitor across conversations. She treats every return visit as a first meeting. `visitors` table is empty, `visitor_traits` is empty, visitor-linked `totems` are empty, `data/memory/visitors/` has no MD files. But `conversation_log` has 37+ messages — she can talk, she just can't remember.
+
+### Root Cause (3 bugs, same effect)
+
+**Bug A — WebSocket visitors never registered** (`heartbeat_server.py:849`)
+
+`_handle_ws_chat()` processes WebSocket messages but never calls `on_visitor_connect()`. Compare to the TCP flow (line 373-378) which does. Without the `on_visitor_connect()` call, `db.create_visitor()` never fires, so no row is ever inserted into the `visitors` table.
+
+Also missing: `db.mark_session_boundary()` — so stale conversation history from previous sessions bleeds into the cortex's 6-turn window.
+
+**Bug B — Telegram and X call a function that doesn't exist** (`body/telegram.py:79`, `body/x_social.py:253`)
+
+Both adapters call `db.insert_visitor()` which is not defined anywhere in the codebase. The actual function is `db.create_visitor()`. The `AttributeError` is silently swallowed by a double `try/except/pass` pattern:
+
+```python
+try:
+    visitor = await db.get_visitor(visitor_id)
+    if not visitor:
+        await db.insert_visitor(visitor_id, name=display_name)  # ← doesn't exist
+except Exception:
+    try:
+        await db.insert_visitor(visitor_id, name=display_name)  # ← still doesn't exist
+    except Exception:
+        pass  # silently swallowed
+```
+
+Neither adapter calls `on_visitor_connect()` or `mark_session_boundary()`.
+
+**Bug C — Downstream memory writes fail silently** (`pipeline/hippocampus_write.py`)
+
+Even when the cortex outputs visitor impressions, trait observations, and totems, they can't be persisted:
+
+| Cortex output | DB call | Result without visitor row |
+|---|---|---|
+| `visitor_impression` | `db.update_visitor()` | UPDATE 0 rows — silent no-op |
+| `trait_observation` | `db.insert_trait()` | FK violation → `IntegrityError` |
+| `totem_create` | `db.insert_totem()` | FK violation → `IntegrityError` |
+
+The FK errors are caught in `pipeline/output.py:105` and logged as `[Memory Error]`, but execution continues. The only working flow was terminal standalone (`terminal.py:951`) which properly calls `on_visitor_connect()`.
+
+### Cascade
+```
+Visitor connects via WS/Telegram/X
+  → visitor row never created
+  → engagement FSM works (no FK constraint)
+  → conversation_log works (no FK constraint)
+  → cortex sees last 6 turns ✓
+  → cortex outputs trait/impression/totem observations
+  → hippocampus_write fails on FK or no-ops on UPDATE
+  → all visitor memory silently lost
+  → next cycle: hippocampus recalls nothing
+  → she has no idea who she's talking to
+```
+
+### Fix
+All three entry points now route through `on_visitor_connect()` from `pipeline/ack.py`, matching the working TCP/terminal pattern:
+
+1. `on_visitor_connect()` calls `db.create_visitor()` (INSERT OR IGNORE) or `db.increment_visit()`
+2. `db.update_visitor()` sets the display name
+3. `db.mark_session_boundary()` scopes the conversation window
+
+The broken `db.insert_visitor()` calls and double-`try/except/pass` patterns are removed.

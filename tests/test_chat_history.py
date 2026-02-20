@@ -36,12 +36,15 @@ class TestChatHistoryBuffer:
     async def test_messages_accumulate(self, server):
         """Chat messages accumulate in _chat_history."""
         with patch('heartbeat_server.db') as mock_db, \
+             patch('heartbeat_server.on_visitor_connect', new_callable=AsyncMock), \
              patch('heartbeat_server.clock') as mock_clock:
             mock_db.validate_and_consume_chat_token = AsyncMock(return_value={
                 'display_name': 'Alice', 'uses_remaining': 5,
             })
             mock_db.add_visitor_present = AsyncMock()
             mock_db.update_visitor_present = AsyncMock()
+            mock_db.update_visitor = AsyncMock()
+            mock_db.mark_session_boundary = AsyncMock()
             mock_db.append_conversation = AsyncMock()
             mock_db.append_event = AsyncMock()
             mock_db.inbox_add = AsyncMock()
@@ -65,12 +68,15 @@ class TestChatHistoryBuffer:
         server._CHAT_HISTORY_MAX = 5
 
         with patch('heartbeat_server.db') as mock_db, \
+             patch('heartbeat_server.on_visitor_connect', new_callable=AsyncMock), \
              patch('heartbeat_server.clock') as mock_clock:
             mock_db.validate_and_consume_chat_token = AsyncMock(return_value={
                 'display_name': 'Alice', 'uses_remaining': 99,
             })
             mock_db.add_visitor_present = AsyncMock()
             mock_db.update_visitor_present = AsyncMock()
+            mock_db.update_visitor = AsyncMock()
+            mock_db.mark_session_boundary = AsyncMock()
             mock_db.append_conversation = AsyncMock()
             mock_db.append_event = AsyncMock()
             mock_db.inbox_add = AsyncMock()

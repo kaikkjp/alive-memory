@@ -170,11 +170,13 @@ class TestXMentionPollerCheckpoint:
             {'id': '200', 'author_id': 'u3', 'text': 'middle'},
         ]
         with patch('body.x_client.fetch_mentions', new_callable=AsyncMock) as mock_fetch, \
-             patch('body.x_social.db') as mock_db:
+             patch('body.x_social.db') as mock_db, \
+             patch('body.x_social.on_visitor_connect', new_callable=AsyncMock):
             mock_fetch.return_value = mentions
             mock_db.get_visitor = AsyncMock(return_value=None)
-            mock_db.insert_visitor = AsyncMock()
             mock_db.add_visitor_present = AsyncMock()
+            mock_db.update_visitor = AsyncMock()
+            mock_db.mark_session_boundary = AsyncMock()
             mock_db.append_event = AsyncMock()
             mock_db.inbox_add = AsyncMock()
             await poller._poll_once()
@@ -193,11 +195,13 @@ class TestXMentionPollerCheckpoint:
             {'id': '200', 'author_id': 'u1', 'text': 'older than checkpoint'},
         ]
         with patch('body.x_client.fetch_mentions', new_callable=AsyncMock) as mock_fetch, \
-             patch('body.x_social.db') as mock_db:
+             patch('body.x_social.db') as mock_db, \
+             patch('body.x_social.on_visitor_connect', new_callable=AsyncMock):
             mock_fetch.return_value = mentions
             mock_db.get_visitor = AsyncMock(return_value=None)
-            mock_db.insert_visitor = AsyncMock()
             mock_db.add_visitor_present = AsyncMock()
+            mock_db.update_visitor = AsyncMock()
+            mock_db.mark_session_boundary = AsyncMock()
             mock_db.append_event = AsyncMock()
             mock_db.inbox_add = AsyncMock()
             await poller._poll_once()

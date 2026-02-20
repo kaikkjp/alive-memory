@@ -42,6 +42,8 @@ class TestVisitorRegistry:
         })
         mock_db.add_visitor_present = AsyncMock()
         mock_db.update_visitor_present = AsyncMock()
+        mock_db.update_visitor = AsyncMock()
+        mock_db.mark_session_boundary = AsyncMock()
         mock_db.append_conversation = AsyncMock()
         mock_db.append_event = AsyncMock()
         mock_db.inbox_add = AsyncMock()
@@ -54,6 +56,7 @@ class TestVisitorRegistry:
         mock_db = self._mock_deps()
 
         with patch('heartbeat_server.db', mock_db), \
+             patch('heartbeat_server.on_visitor_connect', new_callable=AsyncMock) as mock_connect, \
              patch('heartbeat_server.clock') as mock_clock:
             mock_clock.now.return_value = datetime(2026, 1, 1, tzinfo=timezone.utc)
             mock_clock.now_utc.return_value = datetime(2026, 1, 1, tzinfo=timezone.utc)
@@ -68,6 +71,7 @@ class TestVisitorRegistry:
             assert info['display_name'] == 'TestUser'
             assert info['visitor_id'] == 'web_testuser'
             assert info['token'] == 'tok_test'
+            mock_connect.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_display_name_from_token(self, server):
@@ -80,6 +84,7 @@ class TestVisitorRegistry:
         })
 
         with patch('heartbeat_server.db', mock_db), \
+             patch('heartbeat_server.on_visitor_connect', new_callable=AsyncMock), \
              patch('heartbeat_server.clock') as mock_clock:
             mock_clock.now.return_value = datetime(2026, 1, 1, tzinfo=timezone.utc)
             mock_clock.now_utc.return_value = datetime(2026, 1, 1, tzinfo=timezone.utc)
@@ -99,6 +104,7 @@ class TestVisitorRegistry:
         mock_db = self._mock_deps()
 
         with patch('heartbeat_server.db', mock_db), \
+             patch('heartbeat_server.on_visitor_connect', new_callable=AsyncMock) as mock_connect, \
              patch('heartbeat_server.clock') as mock_clock:
             mock_clock.now.return_value = datetime(2026, 1, 1, tzinfo=timezone.utc)
             mock_clock.now_utc.return_value = datetime(2026, 1, 1, tzinfo=timezone.utc)
@@ -116,6 +122,8 @@ class TestVisitorRegistry:
             # Should have exactly one entry
             count = sum(1 for ws in server._ws_visitor_map if ws is visitor_ws)
             assert count == 1
+            # on_visitor_connect only called once (first message)
+            mock_connect.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_new_visitor_triggers_presence_broadcast(self, server):
@@ -126,6 +134,7 @@ class TestVisitorRegistry:
         mock_db = self._mock_deps()
 
         with patch('heartbeat_server.db', mock_db), \
+             patch('heartbeat_server.on_visitor_connect', new_callable=AsyncMock), \
              patch('heartbeat_server.clock') as mock_clock:
             mock_clock.now.return_value = datetime(2026, 1, 1, tzinfo=timezone.utc)
             mock_clock.now_utc.return_value = datetime(2026, 1, 1, tzinfo=timezone.utc)
@@ -151,6 +160,7 @@ class TestVisitorRegistry:
         mock_db = self._mock_deps()
 
         with patch('heartbeat_server.db', mock_db), \
+             patch('heartbeat_server.on_visitor_connect', new_callable=AsyncMock), \
              patch('heartbeat_server.clock') as mock_clock:
             mock_clock.now.return_value = datetime(2026, 1, 1, tzinfo=timezone.utc)
             mock_clock.now_utc.return_value = datetime(2026, 1, 1, tzinfo=timezone.utc)
@@ -213,6 +223,7 @@ class TestVisitorRegistry:
         mock_db = self._mock_deps()
 
         with patch('heartbeat_server.db', mock_db), \
+             patch('heartbeat_server.on_visitor_connect', new_callable=AsyncMock), \
              patch('heartbeat_server.clock') as mock_clock:
             mock_clock.now.return_value = datetime(2026, 1, 1, tzinfo=timezone.utc)
             mock_clock.now_utc.return_value = datetime(2026, 1, 1, tzinfo=timezone.utc)

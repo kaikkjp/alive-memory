@@ -808,7 +808,7 @@ ORDER BY sim_day;
 ---
 
 ### HOTFIX-002: Valence Death Spiral — Floor Bounce + Cortex Clamp
-**Status:** BACKLOG
+**Status:** DONE (2026-02-20)
 **Priority:** Critical
 **Branch:** `fix/valence-spiral`
 **Spec:** `tasks/hotfix-002-valence-spiral.md`
@@ -872,6 +872,43 @@ ORDER BY sim_day;
 
 ---
 
+### TASK-072: Research Simulation Framework
+**Status:** BACKLOG
+**Priority:** High
+**Complexity:** Large
+**Branch:** `feat/research-sim`
+**Depends on:** TASK-069 (real body actions), TASK-070 (conscious memory), TASK-071 (liveness metrics)
+**Spec:** `tasks/TASK-072-research-simulation.md`
+**Description:** The ALIVE paper needs empirical evidence. Run controlled experiments: ALIVE vs baselines, ablation studies, and longitudinal development. Requires a simulation framework that runs the full pipeline at 100x speed with reproducible results, scenario injection, and metric collection. Reusable for validating every future architectural change before prod.
+**Experiments to support:**
+1. **ALIVE vs Baselines** (1000 cycles × 3 systems) — full ALIVE vs stateless chatbot vs ReAct agent, identical scenarios
+2. **Ablation Study** (1000 cycles × 6 variants) — full, no_drives, no_sleep, no_conscious_memory, no_affect, no_basal_ganglia
+3. **Longitudinal** (10,000 cycles) — ~2 simulated weeks, track developmental curves
+4. **Stress Tests** (500 cycles × 5 scenarios) — death spiral reproduction, visitor flood, total isolation, spam attack, sleep deprivation
+**Architecture:**
+- `sim/runner.py` — SimulationRunner orchestrator
+- `sim/clock.py` — SimulatedClock (deterministic accelerated time)
+- `sim/scenario.py` — ScenarioManager (timed event injection)
+- `sim/variants.py` — Architecture variants (full, ablated)
+- `sim/baselines/` — Stateless chatbot + ReAct agent
+- `sim/llm/` — MockCortex (free, deterministic) + CachedCortex (real LLM with response cache, ~$38 total)
+- `sim/metrics/` — SimMetricsCollector, MetricsComparator (CSV/LaTeX export), FigureExporter (PDF plots)
+**Subtasks (delegation order):**
+- 072-A: Clock injection + InMemoryDB (prerequisite — route all `datetime.now()` through `clock.now()`)
+- 072-B: Simulation runner + scenarios
+- 072-C: Baselines (stateless + ReAct)
+- 072-D: Ablation + pipeline hooks (add override flags to real pipeline)
+- 072-E: Mock + cached LLM
+- 072-F: Metrics + export (CSV, LaTeX, PDF figures)
+- 072-G: CLI + integration
+**LLM cost estimate:** ~$38 total (cached Haiku for all experiments, ~12,500 calls across 21,500 cycles)
+**Scope (files to create):** `sim/` package (15+ files), scenarios, baselines, metrics
+**Scope (files to modify):** Pipeline files for clock injection (`datetime.now()` → `clock.now()`)
+**Scope (files NOT to touch):** `pipeline/cortex.py` internals, `db.py` schema
+**Definition of done:** Clock injection complete, all existing tests pass. SimulationRunner completes 1000-cycle scenario. Both baselines + all 6 ablation variants complete 1000 cycles. MockCortex deterministic with seed. CachedCortex caches correctly. Metrics computed, tables exported as CSV + LaTeX, figures as PDF. CLI runs any experiment with single command. End-to-end: `--experiment baselines --llm mock --cycles 100` completes in <60s.
+
+---
+
 ## Completed Tasks
 
 ### TASK-054: Fix inhibition self_assessment trigger
@@ -895,6 +932,32 @@ ORDER BY sim_day;
 ## How to Add a Task
 
 Copy this template and add it above the "Completed Tasks" section:
+
+### TASK-073: HOTFIX-004 — Telegram/X adapters don't wake heartbeat loop
+**Status:** DONE
+**Priority:** High
+**Description:** Telegram and X mention adapters inject visitor events into the inbox but never call `schedule_microcycle()`, leaving the heartbeat loop asleep for minutes to hours. Production VPS showed 65-minute hang on 2026-02-20. See `bugs-and-fixes.md` HOTFIX-004 for full diagnosis.
+
+Three changes:
+1. `TelegramAdapter` needs a heartbeat reference; call `schedule_microcycle()` after injecting a message event.
+2. `XMentionPoller` needs a heartbeat reference; call `schedule_microcycle()` once after processing a batch of mentions.
+3. `heartbeat_server.py` must pass the heartbeat instance when constructing both adapters.
+
+**Scope (files you may touch):**
+- `body/telegram.py`
+- `body/x_social.py`
+- `heartbeat_server.py` (adapter construction only, lines ~185-210)
+
+**Scope (files you may NOT touch):**
+- `heartbeat.py` (no changes needed — `schedule_microcycle` already exists)
+- `db.py`
+- `pipeline/*`
+
+**Tests:** Add or update tests verifying that `schedule_microcycle` is called when a Telegram message or X mention is processed.
+**Definition of done:** After a Telegram or X message arrives, `pending_microcycle` is set and the heartbeat loop wakes immediately. No more multi-minute delays for external channel messages.
+**Completed:** 2026-02-20
+
+---
 
 ```markdown
 ### TASK-XXX: Title

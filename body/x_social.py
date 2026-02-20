@@ -14,6 +14,7 @@ from models.event import Event
 from models.pipeline import ActionRequest, ActionResult
 from body.executor import register
 from body.rate_limiter import check_rate_limit, record_action, is_channel_enabled
+from pipeline.ack import on_visitor_connect
 import db
 
 
@@ -188,8 +189,9 @@ async def reply_to_visitor(visitor_id: str, text: str) -> dict:
 class XMentionPoller:
     """Background task that polls X for mentions and injects them as events."""
 
-    def __init__(self, poll_interval: int = 900):
+    def __init__(self, poll_interval: int = 900, heartbeat=None):
         self.poll_interval = poll_interval
+        self._heartbeat = heartbeat
         self._current_interval = self.poll_interval
         self._running = False
         self._since_id = None
@@ -245,16 +247,17 @@ class XMentionPoller:
 
             visitor_id = f'x_{mention["author_id"]}'
 
-            # Ensure visitor exists
-            try:
-                visitor = await db.get_visitor(visitor_id)
-                if not visitor:
-                    await db.insert_visitor(visitor_id, name=f'@{mention["author_id"]}')
-            except Exception:
-                try:
-                    await db.insert_visitor(visitor_id, name=f'@{mention["author_id"]}')
-                except Exception:
-                    pass
+            # HOTFIX-005: Create/increment visitor record via on_visitor_connect
+            # Previously called db.insert_visitor() which does not exist — AttributeError
+            # was silently swallowed by double try/except/pass.
+            connect_event = Event(
+                event_type='visitor_connect',
+                source=f'visitor:{visitor_id}',
+                payload={'display_name': f'@{mention["author_id"]}', 'platform': 'x'},
+            )
+            await on_visitor_connect(connect_event)
+            await db.update_visitor(visitor_id, name=f'@{mention["author_id"]}')
+            await db.mark_session_boundary(visitor_id)
 
             await db.add_visitor_present(visitor_id, 'x')
 
@@ -273,3 +276,7 @@ class XMentionPoller:
             await db.append_event(event)
             await db.inbox_add(event.id, priority=0.7)
             print(f"  [XMentions] Mention from x_{mention['author_id']}: {mention['text'][:50]}...")
+
+        # HOTFIX-004: Wake the heartbeat loop once for the batch
+        if self._heartbeat:
+            await self._heartbeat.schedule_microcycle()

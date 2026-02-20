@@ -188,7 +188,7 @@ class ShopkeeperServer:
             tg_chat = os.environ.get('TELEGRAM_GROUP_CHAT_ID')
             if tg_token and tg_chat:
                 from body.telegram import TelegramAdapter
-                self._tg_adapter = TelegramAdapter(group_chat_id=tg_chat)
+                self._tg_adapter = TelegramAdapter(group_chat_id=tg_chat, heartbeat=self.heartbeat)
                 asyncio.create_task(self._tg_adapter.start_polling())
                 print(f"  {Fore.CYAN}[Telegram]{Style.RESET_ALL} Adapter polling started.")
             else:
@@ -201,7 +201,7 @@ class ShopkeeperServer:
         try:
             if os.environ.get('X_BEARER_TOKEN'):
                 from body.x_social import XMentionPoller
-                self._x_poller = XMentionPoller()
+                self._x_poller = XMentionPoller(heartbeat=self.heartbeat)
                 asyncio.create_task(self._x_poller.start_polling())
                 print(f"  {Fore.CYAN}[X/Twitter]{Style.RESET_ALL} Mention poller started.")
             else:
@@ -901,6 +901,18 @@ class ShopkeeperServer:
                 'token': token,
             }
 
+            # HOTFIX-005: Create/increment visitor record via on_visitor_connect
+            # Previously missing — visitors were never registered for WebSocket,
+            # so all downstream memory writes (traits, totems, impressions) silently failed.
+            connect_event = Event(
+                event_type='visitor_connect',
+                source=f'visitor:{visitor_id}',
+                payload={'display_name': display_name},
+            )
+            await on_visitor_connect(connect_event)
+            await db.update_visitor(visitor_id, name=display_name)
+            await db.mark_session_boundary(visitor_id)
+
         # Track visitor presence (multi-slot) — idempotent via INSERT OR REPLACE
         await db.add_visitor_present(visitor_id, 'websocket')
 
@@ -972,7 +984,7 @@ class ShopkeeperServer:
             expires = datetime.fromisoformat(row['expires_at'])
             if expires.tzinfo is None:
                 expires = expires.replace(tzinfo=timezone.utc)
-            if expires < datetime.now(timezone.utc):
+            if expires < clock.now_utc():
                 return
 
         display_name = row['display_name']

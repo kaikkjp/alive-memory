@@ -15,14 +15,16 @@ from models.event import Event
 from models.pipeline import ActionRequest, ActionResult
 from body.executor import register
 from body.rate_limiter import check_rate_limit, record_action, is_channel_enabled
+from pipeline.ack import on_visitor_connect
 import db
 
 
 class TelegramAdapter:
     """Polls a Telegram group for messages and injects them as visitor events."""
 
-    def __init__(self, group_chat_id: str):
+    def __init__(self, group_chat_id: str, heartbeat=None):
         self.group_chat_id = int(group_chat_id)
+        self._heartbeat = heartbeat
         self._running = False
         self._offset = 0
 
@@ -71,16 +73,17 @@ class TelegramAdapter:
         visitor_id = f'tg_{user.id}'
         display_name = user.first_name or user.username or 'someone'
 
-        # Ensure visitor record exists
-        try:
-            visitor = await db.get_visitor(visitor_id)
-            if not visitor:
-                await db.insert_visitor(visitor_id, name=display_name)
-        except Exception:
-            try:
-                await db.insert_visitor(visitor_id, name=display_name)
-            except Exception:
-                pass  # visitor already exists
+        # HOTFIX-005: Create/increment visitor record via on_visitor_connect
+        # Previously called db.insert_visitor() which does not exist — AttributeError
+        # was silently swallowed by double try/except/pass.
+        connect_event = Event(
+            event_type='visitor_connect',
+            source=f'visitor:{visitor_id}',
+            payload={'display_name': display_name, 'platform': 'telegram'},
+        )
+        await on_visitor_connect(connect_event)
+        await db.update_visitor(visitor_id, name=display_name)
+        await db.mark_session_boundary(visitor_id)
 
         # Track presence
         await db.add_visitor_present(visitor_id, 'telegram')
@@ -101,6 +104,10 @@ class TelegramAdapter:
         await db.append_event(event)
         await db.inbox_add(event.id, priority=0.8)
         print(f"  [Telegram] Message from {display_name} ({visitor_id}): {message.text[:50]}...")
+
+        # HOTFIX-004: Wake the heartbeat loop immediately
+        if self._heartbeat:
+            await self._heartbeat.schedule_microcycle()
 
 
 async def send_reply(visitor_id: str, text: str,
