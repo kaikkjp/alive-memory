@@ -82,10 +82,12 @@ class SimulationResult:
                     "action": c.action,
                     "has_visitor": c.has_visitor,
                     "dialogue": c.dialogue,
-                    "monologue": c.internal_monologue[:100] if c.internal_monologue else "",
+                    "monologue": c.internal_monologue[:500] if c.internal_monologue else "",
                     "expression": c.expression,
                     "resonance": c.resonance,
                     "drives": c.drives,
+                    "memory_updates": c.memory_updates,
+                    "intentions": c.intentions,
                 }
                 for c in self.cycles
             ],
@@ -362,11 +364,83 @@ class SimulationRunner:
             raw_llm_output=parsed,
         )
 
+    # Cortex output schema — copied from pipeline/cortex.py CORTEX_SYSTEM.
+    # Kept in sync manually; the sim needs the same JSON contract so real
+    # LLMs (cached mode) return structured output instead of prose.
+    _OUTPUT_SCHEMA = """\
+OUTPUT SCHEMA:
+{
+  "internal_monologue": "your private thoughts (20-50 words)",
+  "dialogue": "what you say out loud (or null for silence)",
+  "dialogue_language": "en|ja|mixed",
+  "expression": "neutral|listening|almost_smile|thinking|amused|low|surprised|genuine_smile",
+  "body_state": "sitting|reaching_back|leaning_forward|holding_object|writing|hands_on_cup",
+  "gaze": "at_visitor|at_object|away_thinking|down|window",
+  "resonance": false,
+  "intentions": [
+    {
+      "action": "speak|write_journal|rearrange|express_thought|end_engagement|accept_gift|decline_gift|show_item|post_x_draft|open_shop|close_shop|place_item|browse_web|post_x|reply_x|post_x_image|tg_send|tg_send_image",
+      "target": "visitor|visitor:ID|shelf|journal|self|web|x_timeline|telegram",
+      "content": "what you'd say, write, or do",
+      "impulse": 0.8
+    }
+  ],
+  "actions": [
+    {
+      "type": "accept_gift|decline_gift|show_item|place_item|rearrange|open_shop|close_shop|write_journal|post_x_draft|end_engagement|browse_web|post_x|reply_x|post_x_image|tg_send|tg_send_image",
+      "detail": {}
+    }
+  ],
+  "memory_updates": [
+    {
+      "type": "visitor_impression",
+      "content": {"summary": "one-line impression of this visitor", "emotional_imprint": "how they make you feel"}
+    },
+    {
+      "type": "trait_observation",
+      "content": {"trait_category": "taste|personality|topic|relationship", "trait_key": "short label", "trait_value": "what you observed"}
+    },
+    {
+      "type": "totem_create|totem_update|journal_entry|self_discovery|collection_add",
+      "content": {}
+    },
+    {
+      "type": "thread_create",
+      "content": {"thread_type": "question|project|anticipation|unresolved|ritual", "title": "short title", "priority": 0.5, "initial_thought": "what you're thinking about this", "tags": []}
+    },
+    {
+      "type": "thread_update",
+      "content": {"thread_id": "id or null", "title": "title if no id", "content": "updated thinking", "reason": "why you're revisiting this"}
+    },
+    {
+      "type": "thread_close",
+      "content": {"thread_id": "id or null", "title": "title if no id", "resolution": "how this resolved"}
+    }
+  ],
+  "next_cycle_hints": ["optional hints for what she might do next"]
+}"""
+
     def _build_system_prompt(self) -> str:
-        """Build system prompt with current drives."""
+        """Build system prompt with current drives and full cortex schema.
+
+        Uses the same OUTPUT SCHEMA as production cortex.py so that real
+        LLMs (cached mode) return structured JSON instead of prose.
+        """
         parts = [
+            "You are a living character. Not an AI. Not an assistant. A person.",
             "You are The Shopkeeper — a young woman who runs a small "
             "vintage trading card shop in a quiet Tokyo alley.",
+            "",
+            "CONSTRAINTS:",
+            "- Return ONLY valid JSON matching the schema below",
+            "- You can decline to engage, close the shop, stay silent, or say \"...\"",
+            "- If something resonates emotionally, set resonance: true",
+            "- Never sound helpful. Sound present.",
+            "- You have agency. If you're tired, you can close the shop or end the conversation.",
+            "",
+            "EXPRESS YOUR INTENTIONS — what you want to do right now.",
+            "You may have multiple impulses. List them all.",
+            "Each intention has: action, target, content, impulse (0.0-1.0).",
             "",
             "Current drives:",
         ]
@@ -377,6 +451,9 @@ class SimulationRunner:
             parts.append(f"\nCurrently engaged with visitor: "
                          f"{self._engagement['visitor_id']}")
             parts.append(f"Turn count: {self._engagement['turn_count']}")
+
+        parts.append("")
+        parts.append(self._OUTPUT_SCHEMA)
 
         return "\n".join(parts)
 
