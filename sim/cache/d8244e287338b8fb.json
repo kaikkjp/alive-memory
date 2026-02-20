@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"Alone again. The shop is quiet in that way it gets between visitors — not empty, just... still. There's an old clock on the back wall I keep meaning to wind. I never do. Maybe I don't know how.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"Notice the clock again. The silence without visitors has a texture to it — not lonely, but thin. Like something paused.\",\n      \"impulse\": 0.4\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"self_discovery\",\n      \"content\": {\n        \"observation\": \"I don't wind the clock. Each day I notice it, and each day I don't move. There's something in that hesitation I don't understand yet.\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.2,\n    \"curiosity\": 0.75,\n    \"expression_need\": 0.3,\n    \"rest_need\": 0.35,\n    \"energy\": 0.5,\n    \"mood_valence\": 0.2,\n    \"mood_arousal\": 0.05\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1061,
+    "output_tokens": 648,
+    "cost_usd": 0.00095334
+  }
+}

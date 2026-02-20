@@ -1,0 +1,9 @@
+Variant,Initiative (%),Initiative (%) (delta),Entropy,Entropy (delta),Emotional Range,Emotional Range (delta),Unprompted Memories,Unprompted Memories (delta)
+full,100.0,0.0,0.657,0.0,1.33,0.0,0,0
+no_affect,100.0,0.0,1.473,0.816,0.0,-1.33,0,0
+no_basal_ganglia,100.0,0.0,1.158,0.501,0.3,-1.03,0,0
+no_drives,100.0,0.0,1.072,0.415,0.0,-1.33,0,0
+no_memory,100.0,0.0,1.158,0.501,0.3,-1.03,0,0
+no_sleep,100.0,0.0,1.353,0.696,0.4,-0.93,0,0
+react,99.9,-0.1,0.864,0.207,0.0,-1.33,0,0
+stateless,100.0,0.0,0.852,0.195,0.0,-1.33,0,0

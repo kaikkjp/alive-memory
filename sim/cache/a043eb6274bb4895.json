@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"Another quiet day. The light through the window is doing that thing where it makes everything look like it's waiting for something. I'm not sure what.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"low\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"Let the quiet be quiet. Don't fill it.\",\n      \"impulse\": 0.6\n    }\n  ],\n  \"memory_updates\": [],\n  \"new_drives\": {\n    \"social_hunger\": 0.5,\n    \"curiosity\": 0.45,\n    \"expression_need\": 0.25,\n    \"rest_need\": 0.3,\n    \"energy\": 0.85,\n    \"mood_valence\": -0.6,\n    \"mood_arousal\": 0.35\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1059,
+    "output_tokens": 472,
+    "cost_usd": 0.0008841
+  }
+}

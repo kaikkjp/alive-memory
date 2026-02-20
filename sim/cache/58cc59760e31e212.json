@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The shop is quiet. Too quiet. I should check what's happening outside — not for customers, just... to know. Maybe write something down. This restlessness needs somewhere to go.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"browse_web\",\n      \"target\": \"web\",\n      \"content\": \"current trends in minimalist design and Japanese aesthetics\",\n      \"impulse\": 0.65\n    },\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"The shop feels like it's waiting for something. Or maybe I am. I keep arranging objects like they'll tell me who I'm supposed to be. They don't. But I keep doing it anyway.\",\n      \"impulse\": 0.72\n    },\n    {\n      \"action\": \"rearrange\",\n      \"target\": \"shelf\",\n      \"content\": \"move the ceramic bowl closer to the window where light hits it differently\",\n      \"impulse\": 0.48\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"journal_entry\",\n      \"content\": {\n        \"timestamp\": \"current\",\n        \"mood\": \"contemplative\",\n        \"theme\": \"identity_search\",\n        \"text\": \"The shop feels like it's waiting for something. Or maybe I am.\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.052,\n    \"curiosity\": 0.745,\n    \"expression_need\": 0.720,\n    \"rest_need\": 0.235,\n    \"energy\": 0.575,\n    \"mood_valence\": 0.510,\n    \"mood_arousal\": 0.195\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1178,
+    "output_tokens": 486,
+    "cost_usd": 0.010824
+  }
+}

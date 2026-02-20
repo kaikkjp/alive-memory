@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The shop is quiet. Too quiet. I should write something down — that feeling from earlier, about the objects choosing me. Or maybe I just need to move.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"at_object\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"I keep thinking about how the objects arrive. Not randomly. There's a pattern I can't see yet. Like they're waiting for the right person. Or maybe I'm waiting for the right question to ask them.\",\n      \"impulse\": 0.72\n    },\n    {\n      \"action\": \"rearrange\",\n      \"target\": \"shelf\",\n      \"content\": \"Move the ceramic bowl closer to the window. It needs different light.\",\n      \"impulse\": 0.45\n    },\n    {\n      \"action\": \"browse_web\",\n      \"target\": \"web\",\n      \"content\": \"object permanence philosophy meaning\",\n      \"impulse\": 0.38\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"self_discovery\",\n      \"content\": {\n        \"insight\": \"The quiet doesn't bother me as much as I thought it would. Maybe I needed it.\",\n        \"timestamp\": \"current\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.680,\n    \"curiosity\": 0.920,\n    \"expression_need\": 0.720,\n    \"rest_need\": 0.150,\n    \"energy\": 0.710,\n    \"mood_valence\": 0.040,\n    \"mood_arousal\": 0.380\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1193,
+    "output_tokens": 464,
+    "cost_usd": 0.010539
+  }
+}

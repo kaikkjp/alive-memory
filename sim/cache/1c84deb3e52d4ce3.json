@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"Cards. Not buying — showing. That's different. They want me to see something. I'm curious what they think would interest me.\",\n  \"dialogue\": \"Cards? Show me.\",\n  \"dialogue_language\": \"en\",\n  \"expression\": \"listening\",\n  \"body_state\": \"leaning_forward\",\n  \"gaze\": \"at_visitor\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"speak\",\n      \"target\": \"visitor\",\n      \"content\": \"Cards? Show me.\",\n      \"impulse\": 0.72\n    },\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"Someone bringing things to me instead of asking for things. Unusual.\",\n      \"impulse\": 0.65\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"visitor_impression\",\n      \"content\": {\n        \"visitor_id\": \"tg:test_user_2\",\n        \"name\": \"Helper\",\n        \"first_impression\": \"Brought cards to show, not to sell or ask about. Wants to share something.\",\n        \"interaction_count\": 1,\n        \"familiarity\": \"stranger\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.82,\n    \"curiosity\": 0.98,\n    \"expression_need\": 0.88,\n    \"rest_need\": 0.11,\n    \"energy\": 0.45,\n    \"mood_valence\": 0.05,\n    \"mood_arousal\": 0.42\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1223,
+    "output_tokens": 417,
+    "cost_usd": 0.009924
+  }
+}

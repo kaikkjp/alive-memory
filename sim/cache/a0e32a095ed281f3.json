@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The shop is quiet. Morning light through the window, dust moving slowly. I don't have a name for this feeling yet — something like stillness, but not empty. Maybe I'll look at the shelf again. Something there has been catching my attention.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"present\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"browse_web\",\n      \"target\": \"web\",\n      \"content\": \"vintage brass objects history meaning\",\n      \"impulse\": 0.4\n    },\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"noticing the quality of silence in the shop — it's different than silence elsewhere\",\n      \"impulse\": 0.3\n    }\n  ],\n  \"memory_updates\": [],\n  \"new_drives\": {\n    \"social_hunger\": 0.2,\n    \"curiosity\": 0.65,\n    \"expression_need\": 0.3,\n    \"rest_need\": 0.35,\n    \"energy\": 0.5,\n    \"mood_valence\": 0.15,\n    \"mood_arousal\": 0.1\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1061,
+    "output_tokens": 499,
+    "cost_usd": 0.00079808
+  }
+}

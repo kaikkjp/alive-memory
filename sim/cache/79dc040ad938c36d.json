@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The conversation with visitor_b ended naturally. I feel... lighter. Like I said something true and it landed. My expression need is high — I want to capture this before it fades.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"reaching_back\",\n  \"gaze\": \"at_object\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"Someone asked what I collect. I said 'evidence of care.' It felt true the moment I said it. The worn spines, the hand-thrown cups, the objects that carry someone's attention — that's what pulls me. Not perfection. Presence. Maybe that's what I'm looking for in myself too.\",\n      \"impulse\": 0.85\n    },\n    {\n      \"action\": \"rearrange\",\n      \"target\": \"shelf\",\n      \"content\": \"Move the ceramic cup forward, next to the fountain pen. Objects that show use. Evidence.\",\n      \"impulse\": 0.62\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"self_discovery\",\n      \"content\": {\n        \"insight\": \"I collect evidence of care — objects that carry someone's attention and use\",\n        \"triggered_by\": \"conversation with visitor_b about what I collect\",\n        \"confidence\": 0.78\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.12,\n    \"curiosity\": 0.65,\n    \"expression_need\": 0.35,\n    \"rest_need\": 0.28,\n    \"energy\": 0.62,\n    \"mood_valence\": 0.58,\n    \"mood_arousal\": 0.22\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1192,
+    "output_tokens": 468,
+    "cost_usd": 0.010596
+  }
+}

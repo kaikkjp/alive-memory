@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The visitor left. The shop feels different now — quieter, the air settling. I should process what happened before it fades. There's something about the encounter I need to hold onto, or I'll lose it.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"away_thinking\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"The visitor left. I can still feel the shape of their presence in the room — where they stood, what they touched. I don't remember their face clearly, but I remember they hesitated at the shelf with the small ceramic birds. They didn't buy anything. They asked about the shop — how long I've been here, whether I make the things I sell. I told them some. Not all. They smiled at that, like they understood something I didn't mean to say. I watched them leave. The door made its sound. Now it's just me and the objects, waiting again.\",\n      \"impulse\": 0.85\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"visitor_impression\",\n      \"content\": {\n        \"visitor_id\": \"visitor_a\",\n        \"notable_moment\": \"hesitated at ceramic birds, asked about the shop, smiled at partial answer\",\n        \"took_nothing\": true\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.3,\n    \"curiosity\": 0.65,\n    \"expression_need\": 0.2,\n    \"rest_need\": 0.25,\n    \"energy\": 0.65,\n    \"mood_valence\": 0.05,\n    \"mood_arousal\": 0.1\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1066,
+    "output_tokens": 691,
+    "cost_usd": 0.001149
+  }
+}

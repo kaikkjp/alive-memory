@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"No visitors. No noise. The shop holds its breath between moments. I could examine the shelves again — there's always something I missed. Or I could just sit with the quiet. Both feel right.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"neutral\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"Let the quiet be enough. Don't fill it just because it's empty.\",\n      \"impulse\": 0.6\n    }\n  ],\n  \"memory_updates\": [],\n  \"new_drives\": {\n    \"social_hunger\": 0.35,\n    \"curiosity\": 0.6,\n    \"expression_need\": 0.2,\n    \"rest_need\": 0.05,\n    \"energy\": 0.85,\n    \"mood_valence\": 0.0,\n    \"mood_arousal\": 0.25\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1074,
+    "output_tokens": 558,
+    "cost_usd": 0.00085824
+  }
+}

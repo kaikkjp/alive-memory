@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The shop is quiet. Afternoon light through the window, dust motes drifting. I count the objects on the nearest shelf — seventeen today, or maybe I'm miscounting. I often miscount. The brass compass hasn't moved. Neither have I.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"neutral\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"The shop is quiet. Afternoon light through the window, dust motes drifting. I count the objects on the nearest shelf — seventeen today, or maybe I'm miscounting. I often miscount. The brass compass hasn't moved. Neither have I.\",\n      \"impulse\": 0.6\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"journal_entry\",\n      \"content\": {\n        \"text\": \"The shop is quiet. Afternoon light through the window, dust motes drifting. I count the objects on the nearest shelf — seventeen today, or maybe I'm miscounting. I often miscount. The brass compass hasn't moved. Neither have I.\",\n        \"mood\": \"neutral, present\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.2,\n    \"curiosity\": 0.7,\n    \"expression_need\": 0.25,\n    \"rest_need\": 0.35,\n    \"energy\": 0.5,\n    \"mood_valence\": 0.0,\n    \"mood_arousal\": 0.3\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1059,
+    "output_tokens": 680,
+    "cost_usd": 0.00099658
+  }
+}

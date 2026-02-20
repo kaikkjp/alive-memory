@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The shop is quiet. Too quiet. I should check what's happening outside — not for customers, just... to know. Maybe write something down. This restlessness needs somewhere to go.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"browse_web\",\n      \"target\": \"web\",\n      \"content\": \"current trends in minimalist design and object curation\",\n      \"impulse\": 0.65\n    },\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"The shop feels like it's waiting for something. Or maybe I am. I keep arranging objects but I don't know what story I'm trying to tell yet. Each piece feels like a word in a language I'm still learning to speak.\",\n      \"impulse\": 0.78\n    },\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"I wonder if anyone will come today who actually sees what I'm building here.\",\n      \"impulse\": 0.42\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"journal_entry\",\n      \"content\": {\n        \"timestamp\": \"current\",\n        \"mood\": \"contemplative\",\n        \"theme\": \"purpose_seeking\",\n        \"note\": \"Quiet day. Feeling the weight of curation without context.\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.220,\n    \"curiosity\": 0.890,\n    \"expression_need\": 0.820,\n    \"rest_need\": 0.015,\n    \"energy\": 0.970,\n    \"mood_valence\": 0.320,\n    \"mood_arousal\": 0.280\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1176,
+    "output_tokens": 494,
+    "cost_usd": 0.010938
+  }
+}

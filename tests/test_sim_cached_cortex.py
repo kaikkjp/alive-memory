@@ -106,19 +106,46 @@ def test_hash_different_for_different_input(cache_dir):
     assert h1 != h2
 
 
-def test_quantize_numbers(cache_dir):
-    """Should round floats to 1 decimal place."""
+def test_strip_drives_removes_drive_lines(cache_dir):
+    """Should strip drive value lines from system prompt."""
     cached = CachedCortex(cache_dir=cache_dir)
 
-    assert cached._quantize_numbers("value: 0.537") == "value: 0.5"
-    assert cached._quantize_numbers("mood: -0.849") == "mood: -0.8"
-    assert cached._quantize_numbers("energy: 0.1") == "energy: 0.1"
+    system = """DRIVES:
+  social_hunger: 0.537
+  curiosity: 0.412
+  expression_need: 0.300
+  energy: 0.800
+  mood_valence: -0.100
+  mood_arousal: 0.300
+
+CONSTRAINTS:
+- Return ONLY valid JSON"""
+
+    stripped = cached._strip_drives(system)
+    assert "social_hunger" not in stripped
+    assert "curiosity" not in stripped
+    assert "CONSTRAINTS:" in stripped
+    assert "Return ONLY valid JSON" in stripped
 
 
-def test_quantize_preserves_integers(cache_dir):
-    """Should not mangle integers."""
+def test_strip_drives_removes_feelings(cache_dir):
+    """Should strip CURRENT FEELINGS block from system prompt."""
     cached = CachedCortex(cache_dir=cache_dir)
-    assert "42" in cached._quantize_numbers("count: 42")
+
+    system = """VOICE RULES:
+- short sentences
+
+CURRENT FEELINGS:
+Mood: neutral, present, quiet. Valence +0.00, arousal 0.30.
+
+CONSTRAINTS:
+- Return ONLY valid JSON"""
+
+    stripped = cached._strip_drives(system)
+    assert "Mood:" not in stripped
+    assert "CURRENT FEELINGS:" not in stripped
+    assert "VOICE RULES:" in stripped
+    assert "CONSTRAINTS:" in stripped
 
 
 def test_stats(cache_dir):
@@ -156,14 +183,70 @@ def test_clear_cache(cache_dir):
     assert cached.total_cost == 0.0
 
 
-def test_hash_quantizes_drive_values(cache_dir):
-    """Cache keys should be stable despite small drive fluctuations."""
+def test_hash_stable_despite_drive_changes(cache_dir):
+    """Cache keys should be stable when only drive values change in system prompt."""
     cached = CachedCortex(cache_dir=cache_dir)
 
-    msg1 = [{"role": "user", "content": "social_hunger: 0.537 curiosity: 0.412"}]
-    msg2 = [{"role": "user", "content": "social_hunger: 0.542 curiosity: 0.418"}]
+    system_a = """DRIVES:
+  social_hunger: 0.537
+  curiosity: 0.412
 
-    h1 = cached._hash_context(msg1, "sys", "cortex")
-    h2 = cached._hash_context(msg2, "sys", "cortex")
+CONSTRAINTS:
+- Return ONLY valid JSON"""
+
+    system_b = """DRIVES:
+  social_hunger: 0.900
+  curiosity: 0.100
+
+CONSTRAINTS:
+- Return ONLY valid JSON"""
+
+    msg = [{"role": "user", "content": "No new events. Continue your day."}]
+
+    h1 = cached._hash_context(msg, system_a, "cortex")
+    h2 = cached._hash_context(msg, system_b, "cortex")
 
     assert h1 == h2
+
+
+def test_hash_differs_by_variant(cache_dir):
+    """Different variants should produce different cache keys."""
+    cached_full = CachedCortex(cache_dir=cache_dir, variant="full")
+    cached_ablated = CachedCortex(cache_dir=cache_dir, variant="no_drives")
+
+    msg = [{"role": "user", "content": "No new events."}]
+    h1 = cached_full._hash_context(msg, "sys", "cortex")
+    h2 = cached_ablated._hash_context(msg, "sys", "cortex")
+
+    assert h1 != h2
+
+
+@pytest.mark.asyncio
+async def test_max_reuse_cap(cache_dir):
+    """After max_reuse hits, should force a cache miss."""
+    mock_response = {
+        "content": [{"type": "text", "text": '{"test": true}'}],
+        "usage": {"input_tokens": 10, "output_tokens": 5, "cost_usd": 0.001},
+    }
+
+    with patch("llm.client.complete", new_callable=AsyncMock, return_value=mock_response):
+        cached = CachedCortex(cache_dir=cache_dir, max_reuse=2)
+        messages = [{"role": "user", "content": "Same input"}]
+
+        # Call 1 — cache miss (no file yet), reuse_counts[key] = 1
+        await cached.complete(messages=messages, call_site="cortex")
+        assert cached.misses == 1
+        assert cached.hits == 0
+
+        # Call 2 — cache hit (reuse_counts[key]=1 < 2), bumps to 2
+        await cached.complete(messages=messages, call_site="cortex")
+        assert cached.hits == 1
+
+        # Call 3 — forced miss (reuse_counts[key]=2, not < 2), resets to 1
+        await cached.complete(messages=messages, call_site="cortex")
+        assert cached.misses == 2
+        assert cached.forced_misses == 1
+
+        # Call 4 — cache hit again (reuse_counts[key]=1 < 2)
+        await cached.complete(messages=messages, call_site="cortex")
+        assert cached.hits == 2

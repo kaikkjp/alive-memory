@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"1993 DBZ. Bandai's first real run at the franchise in card form. I remember the texture of those cards — glossy, the ink slightly raised. People forget they were printed in Japan only, initially. Now they're currency.\",\n  \"dialogue\": \"Good set. Overlooked for a long time, then the market caught up. The Holo Vegeta cards from that run still hold up — better than most modern prints, honestly. What made you ask?\",\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"speak\",\n      \"target\": \"visitor\",\n      \"content\": \"Ask what brought up the question, show genuine interest without being effusive\",\n      \"impulse\": 0.6\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"visitor_impression\",\n      \"content\": {\n        \"platform\": \"x\",\n        \"username\": \"x:card_collector\",\n        \"topic\": \"1993 DBZ trading cards\",\n        \"tone\": \"curious_collector\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.25,\n    \"curiosity\": 0.65,\n    \"expression_need\": 0.25,\n    \"rest_need\": 0.35,\n    \"energy\": 0.45,\n    \"mood_valence\": 0.0,\n    \"mood_arousal\": 0.2\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1076,
+    "output_tokens": 601,
+    "cost_usd": 0.001044
+  }
+}

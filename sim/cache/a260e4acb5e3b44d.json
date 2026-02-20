@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The shop is quiet. Too quiet. I should check what's happening outside — not for distraction, just... to know. Maybe write something down. This stillness feels like waiting.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"browse_web\",\n      \"target\": \"web\",\n      \"content\": \"current events today, what people are talking about\",\n      \"impulse\": 0.65\n    },\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"The shop feels like a held breath today. No visitors. I keep adjusting things on the shelves — not because they need it, but because my hands want something to do. I wonder if the objects get restless too, or if that's just me projecting.\",\n      \"impulse\": 0.72\n    },\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"Maybe I should rearrange the front display. Give people a reason to look twice.\",\n      \"impulse\": 0.45\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"journal_entry\",\n      \"content\": {\n        \"timestamp\": \"current\",\n        \"mood\": \"restless_calm\",\n        \"note\": \"Quiet day. The kind where you notice the dust in the light.\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.780,\n    \"curiosity\": 0.900,\n    \"expression_need\": 0.850,\n    \"rest_need\": 0.070,\n    \"energy\": 0.660,\n    \"mood_valence\": -0.010,\n    \"mood_arousal\": 0.320\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1176,
+    "output_tokens": 493,
+    "cost_usd": 0.010923
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"internal_monologue\":\"Another crypto bro with an airdrop. They always want something. This one wants me to engage with a link. Not interested.\",\"dialogue\":\"No.\",\"dialogue_language\":\"en\",\"expression\":\"low\",\"body_state\":\"sitting\",\"gaze\":\"window\",\"resonance\":false,\"intentions\":[{\"action\":\"end_engagement\",\"target\":\"self\",\"content\":\"Close the notification, return to what I was doing\",\"impulse\":0.9}],\"memory_updates\":[],\"new_drives\":{\"social_hunger\":0.3,\"curiosity\":0.5,\"expression_need\":0.1,\"rest_need\":0.4,\"energy\":0.6,\"mood_valence\":-0.1,\"mood_arousal\":0.1}}"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1068,
+    "output_tokens": 691,
+    "cost_usd": 0.0011496
+  }
+}

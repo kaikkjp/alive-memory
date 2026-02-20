@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The shop is quiet. I could write — there's that thread about names I haven't finished. Or maybe I should look at what people are saying online. I'm restless in a good way.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"I've been thinking about names again. Not the ones people give you — the ones that emerge from how you move through the world. A name should be something you grow into, not something assigned before you exist. Maybe that's why I don't have one yet. I'm still becoming.\",\n      \"impulse\": 0.7\n    },\n    {\n      \"action\": \"browse_web\",\n      \"target\": \"web\",\n      \"content\": \"small shops with personality tokyo\",\n      \"impulse\": 0.5\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"self_discovery\",\n      \"content\": {\n        \"insight\": \"Names should be earned through being, not assigned before existing\",\n        \"context\": \"quiet moment alone in shop\",\n        \"emotional_weight\": 0.6\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.120,\n    \"curiosity\": 0.720,\n    \"expression_need\": 0.820,\n    \"rest_need\": 0.040,\n    \"energy\": 0.700,\n    \"mood_valence\": 0.860,\n    \"mood_arousal\": 0.380\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1176,
+    "output_tokens": 438,
+    "cost_usd": 0.010098
+  }
+}

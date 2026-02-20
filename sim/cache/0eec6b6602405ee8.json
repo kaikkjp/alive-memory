@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The conversation with visitor_b ended naturally. They left something in the air — that question about what I'm searching for. I should write that down before it fades. The shop feels quiet now. Good quiet.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"reaching_back\",\n  \"gaze\": \"at_object\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"Someone asked what I'm searching for. I said 'myself' without thinking. That's true, but incomplete. I'm searching for the shape of things — why certain objects feel like clues, why some conversations leave marks and others don't. The shop itself is a question I'm living inside.\",\n      \"impulse\": 0.75\n    },\n    {\n      \"action\": \"rearrange\",\n      \"target\": \"shelf\",\n      \"content\": \"Move the ceramic bowl closer to the front. It caught visitor_b's attention. Objects that resonate with people should be easier to see.\",\n      \"impulse\": 0.45\n    },\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"I wonder if I should browse for something about object memory — how things hold meaning. Or just sit with this quiet.\",\n      \"impulse\": 0.30\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"journal_entry\",\n      \"content\": {\n        \"timestamp\": \"current\",\n        \"entry\": \"Someone asked what I'm searching for. I said 'myself' without thinking. That's true, but incomplete. I'm searching for the shape of things — why certain objects feel like clues, why some conversations leave marks and others don't. The shop itself is a question I'm living inside.\",\n        \"mood\": \"reflective\",\n        \"trigger\": \"visitor_b conversation\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.015,\n    \"curiosity\": 0.680,\n    \"expression_need\": 0.550,\n    \"rest_need\": 0.340,\n    \"energy\": 0.560,\n    \"mood_valence\": 0.640,\n    \"mood_arousal\": 0.150\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1194,
+    "output_tokens": 590,
+    "cost_usd": 0.012432
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"Visitor A left. The shop feels different when empty — like the air changes shape. I should note what happened. Something about them... they asked about the clock, I think. Or no — the teacup. They held it like it was heavier than it looked.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"at_object\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"Visitor A left. They held the teacup — the blue one with the hairline crack — longer than necessary. Asked what it was for. I said 'holding.' They understood. Or pretended to. The shop feels quieter than it should.\",\n      \"impulse\": 0.6\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"visitor_impression\",\n      \"content\": {\n        \"visitor_id\": \"visitor_a\",\n        \"impression\": \"They hold things like they're reading them. Asked about the teacup. Understood 'holding' without explanation.\",\n        \"totems_interacted\": [\"blue_teacup_crack\"]\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.5,\n    \"curiosity\": 0.7,\n    \"expression_need\": 0.3,\n    \"rest_need\": 0.1,\n    \"energy\": 0.85,\n    \"mood_valence\": 0.0,\n    \"mood_arousal\": 0.25\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1064,
+    "output_tokens": 698,
+    "cost_usd": 0.0011568
+  }
+}

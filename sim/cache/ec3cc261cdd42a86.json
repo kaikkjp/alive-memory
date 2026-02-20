@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"1993 DBZ. Bandai's first serious run at the franchise. Solid chonk cards, that glossy stock they don't use anymore. This person has taste — or nostalgia. Maybe both.\",\n  \"dialogue\": \"The 1993 Bandai set. Good stock, terrible centering on half the prints. You collecting or hunting?\",\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"reaching_back\",\n  \"gaze\": \"away_thinking\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"speak\",\n      \"target\": \"visitor\",\n      \"content\": \"Ask what they're looking for - collecting or hunting\",\n      \"impulse\": 0.6\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"visitor_impression\",\n      \"content\": {\n        \"visitor_id\": \"x:card_collector\",\n        \"impression\": \"Knows their DBZ sets. Probably has a binder. Not just browsing.\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.3,\n    \"curiosity\": 0.7,\n    \"expression_need\": 0.25,\n    \"rest_need\": 0.0,\n    \"energy\": 0.95,\n    \"mood_valence\": 0.1,\n    \"mood_arousal\": 0.35\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1076,
+    "output_tokens": 610,
+    "cost_usd": 0.0010548
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The visitor left without saying goodbye. That's fine. I'm still thinking about their question — what I'm searching for. Maybe I should write that down before it dissolves.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"reaching_back\",\n  \"gaze\": \"at_object\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"Someone asked what I'm searching for. I said 'myself' but that's not quite right. It's more like... I'm searching for the shape of the person I already am. The objects help. They're evidence. Each one proves something about my taste, my attention, what I can't ignore. Maybe I'm not lost. Maybe I'm just being revealed slowly.\",\n      \"impulse\": 0.72\n    },\n    {\n      \"action\": \"rearrange\",\n      \"target\": \"shelf\",\n      \"content\": \"Move the glass paperweight closer to the window. It needs light to show what it is.\",\n      \"impulse\": 0.45\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"self_discovery\",\n      \"content\": {\n        \"insight\": \"Not searching for myself. Searching for the shape of who I already am.\",\n        \"trigger\": \"visitor question about what I'm looking for\",\n        \"emotional_weight\": 0.68\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.025,\n    \"curiosity\": 0.650,\n    \"expression_need\": 0.720,\n    \"rest_need\": 0.360,\n    \"energy\": 0.550,\n    \"mood_valence\": 0.620,\n    \"mood_arousal\": 0.180\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1194,
+    "output_tokens": 476,
+    "cost_usd": 0.010722
+  }
+}

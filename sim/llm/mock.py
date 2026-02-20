@@ -216,7 +216,19 @@ class MockCortex:
                     "content": self._generate_journal_text(ctx),
                     "impulse": 0.4,
                 })
-        elif curiosity > 0.5 and self.rng.random() > 0.3:
+        elif expression_need > 0.35 and self.rng.random() < expression_need:
+            # Expression fires proportional to drive strength — at 0.35
+            # it has a 35% chance, at 0.6 a 60% chance. Checked before
+            # curiosity so it can accumulate during idle stretches.
+            monologue_pool = "content"
+            intentions.append({
+                "action": "post_x",
+                "target": "x_timeline",
+                "content": self._generate_post_text(ctx),
+                "impulse": min(0.8, expression_need + 0.2),
+            })
+            self.state.post_count += 1
+        elif curiosity >= 0.5 and self.rng.random() > 0.3:
             # Curious — browse
             topic = self.rng.choice(_BROWSE_TOPICS)
             monologue_pool = "curious"
@@ -227,16 +239,6 @@ class MockCortex:
                 "impulse": min(0.9, curiosity + 0.1),
             })
             self.state.browse_count += 1
-        elif expression_need > 0.6 and self.rng.random() > 0.5:
-            # Wants to express — post on X
-            monologue_pool = "content"
-            intentions.append({
-                "action": "post_x",
-                "target": "x_timeline",
-                "content": self._generate_post_text(ctx),
-                "impulse": 0.6,
-            })
-            self.state.post_count += 1
         elif social_hunger > 0.7:
             monologue_pool = "social"
         elif energy < 0.3:
@@ -279,8 +281,22 @@ class MockCortex:
 
         monologue = self.rng.choice(_MONOLOGUE_TEMPLATES.get(monologue_pool, _MONOLOGUE_TEMPLATES["idle"]))
 
+        # Secondary intention: consider journaling as expression builds.
+        # Low impulse (0.3) — basal ganglia would normally filter this,
+        # creating measurable divergence for the no_basal_ganglia ablation.
+        chosen_action = intentions[0]["action"] if intentions else None
+        if not has_visitor and expression_need > 0.2 and chosen_action != "write_journal":
+            intentions.append({
+                "action": "write_journal",
+                "target": "journal",
+                "content": self._generate_journal_text(ctx),
+                "impulse": 0.3,
+            })
+
         # Drive updates — gentle drift toward equilibrium
-        new_drives = self._compute_drive_updates(drives, has_visitor, bool(intentions))
+        # Pass the chosen action so drive updates distinguish expressive
+        # actions (post, journal) from non-expressive ones (browse)
+        new_drives = self._compute_drive_updates(drives, has_visitor, chosen_action)
 
         return {
             "internal_monologue": monologue,
@@ -293,6 +309,7 @@ class MockCortex:
             "intentions": intentions,
             "actions": [],
             "memory_updates": self._generate_memory_updates(ctx, dialogue),
+            "new_drives": new_drives,
             "next_cycle_hints": [],
         }
 
@@ -385,8 +402,14 @@ class MockCortex:
                 })
         return updates
 
-    def _compute_drive_updates(self, drives: dict, has_visitor: bool, took_action: bool) -> dict:
-        """Compute gentle drive updates — homeostatic drift."""
+    def _compute_drive_updates(self, drives: dict, has_visitor: bool,
+                               action: str | None) -> dict:
+        """Compute gentle drive updates — homeostatic drift.
+
+        action is the chosen action string (e.g. "post_x", "read_content")
+        or None for idle. Expressive actions (post, journal) satisfy
+        expression_need; browsing builds it slightly instead.
+        """
         social = drives.get("social_hunger", 0.5)
         curiosity = drives.get("curiosity", 0.5)
         expression = drives.get("expression_need", 0.3)
@@ -401,11 +424,24 @@ class MockCortex:
         else:
             social = min(1.0, social + 0.01)
 
-        if took_action:
-            expression = max(0.0, expression - 0.03)
+        expressive_actions = {"post_x", "write_journal", "speak"}
+        if action in expressive_actions:
+            # Posting/journaling satisfies expression need
+            expression = max(0.0, expression - 0.05)
             energy = max(0.0, energy - 0.02)
             valence = min(1.0, valence + 0.02)
+        elif action == "read_content":
+            # Browsing costs energy but builds expression (found
+            # something to talk about) and feeds curiosity
+            expression = min(1.0, expression + 0.01)
+            energy = max(0.0, energy - 0.01)
+            curiosity = min(1.0, curiosity + 0.01)
+        elif action is not None:
+            # Other actions: generic satisfaction
+            expression = max(0.0, expression - 0.01)
+            energy = max(0.0, energy - 0.02)
         else:
+            # Idle — expression slowly builds
             expression = min(1.0, expression + 0.005)
 
         # Curiosity drifts toward 0.5

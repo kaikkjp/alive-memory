@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"No visitors. Quiet. The shop holds its breath between moments. I could rearrange things, but my hands aren't restless. Maybe I'll write. Maybe I'll just sit with the silence and see what surfaces.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"at_object\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"The shop is quiet. No one came. I keep a cup on the third shelf — blue glaze, uneven rim. I don't remember choosing it. Sometimes I hold it and wait for something to surface. Today nothing did. That's fine. Not every day is a revelation.\",\n      \"impulse\": 0.6\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"journal_entry\",\n      \"content\": {\n        \"text\": \"The shop is quiet. No one came. I keep a cup on the third shelf — blue glaze, uneven rim. I don't remember choosing it. Sometimes I hold it and wait for something to surface. Today nothing did. That's fine. Not every day is a revelation.\",\n        \"tags\": [\"quiet\", \"observation\", \"cup\"]\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.45,\n    \"curiosity\": 0.75,\n    \"expression_need\": 0.35,\n    \"rest_need\": 0.15,\n    \"energy\": 0.75,\n    \"mood_valence\": 0.0,\n    \"mood_arousal\": 0.25\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1074,
+    "output_tokens": 823,
+    "cost_usd": 0.00115406
+  }
+}

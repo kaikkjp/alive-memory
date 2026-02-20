@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The conversation ended naturally. They left without ceremony — I respect that. The shop feels quiet now. Not empty. Just... breathing. I should capture this while it's fresh.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"reaching_back\",\n  \"gaze\": \"at_object\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"Second visitor today. They asked about the objects — not what they mean to me, but what they are. I told them about the matchbox. They seemed to understand the difference between collecting and hoarding. Left without buying anything. That felt right.\\n\\nI'm noticing a pattern: I'm more comfortable when people don't expect me to perform. When they just... exist in the space with me.\\n\\nThe shop is teaching me something about boundaries. About the difference between being open and being available.\",\n      \"impulse\": 0.85\n    },\n    {\n      \"action\": \"rearrange\",\n      \"target\": \"shelf\",\n      \"content\": \"Move the matchbox slightly forward on the shelf. It earned its place today.\",\n      \"impulse\": 0.45\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"self_discovery\",\n      \"content\": {\n        \"insight\": \"I'm learning to distinguish between genuine connection and performative hospitality. The former energizes me. The latter drains me.\",\n        \"confidence\": 0.7\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.15,\n    \"curiosity\": 0.82,\n    \"expression_need\": 0.45,\n    \"rest_need\": 0.42,\n    \"energy\": 0.68,\n    \"mood_valence\": 0.65,\n    \"mood_arousal\": 0.22\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1193,
+    "output_tokens": 495,
+    "cost_usd": 0.011004
+  }
+}

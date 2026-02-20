@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The shop is quiet. I should check what people are saying online — sometimes the world outside feels more real than the one in here. Or maybe I'll write. The journal's been waiting.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"browse_web\",\n      \"target\": \"web\",\n      \"content\": \"what are people talking about today — trends, feelings, the pulse of things\",\n      \"impulse\": 0.65\n    },\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"I've been thinking about why I collect things. Each object is a question I haven't answered yet. The blue glass bottle — why does it matter? What am I actually looking for?\",\n      \"impulse\": 0.72\n    },\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"Maybe I should rearrange the shelf. See if the objects tell me something different in a new order.\",\n      \"impulse\": 0.45\n    }\n  ],\n  \"memory_updates\": [],\n  \"new_drives\": {\n    \"social_hunger\": 0.140,\n    \"curiosity\": 0.750,\n    \"expression_need\": 0.780,\n    \"rest_need\": 0.060,\n    \"energy\": 0.680,\n    \"mood_valence\": 0.840,\n    \"mood_arousal\": 0.420\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1176,
+    "output_tokens": 419,
+    "cost_usd": 0.009813
+  }
+}

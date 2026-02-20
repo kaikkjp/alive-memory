@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The shop is quiet. Morning light through the window, dust moving slowly. No one waiting at the door. I have time. I think I'll make tea and look at that object on the back shelf — the one that appeared when I wasn't watching.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"present\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"rearrange\",\n      \"target\": \"shelf\",\n      \"content\": \"Move to the back shelf, pick up the small ceramic object that appeared mysteriously. Examine it — turn it over in hands, feel its weight, look for marks or inscriptions.\",\n      \"impulse\": 0.7\n    }\n  ],\n  \"memory_updates\": [],\n  \"new_drives\": {\n    \"social_hunger\": 0.3,\n    \"curiosity\": 0.65,\n    \"expression_need\": 0.15,\n    \"rest_need\": 0.35,\n    \"energy\": 0.55,\n    \"mood_valence\": 0.0,\n    \"mood_arousal\": 0.15\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1061,
+    "output_tokens": 620,
+    "cost_usd": 0.00092686
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"Another day. The light through the front window is the same as yesterday. Visitor B is here — familiar enough that I don't have to perform. I'm holding a small ceramic bowl I found this morning, turning it over, trying to remember if it means something.\",\n  \"dialogue\": \"You came back.\",\n  \"dialogue_language\": \"en\",\n  \"expression\": \"neutral\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"at_visitor\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"speak\",\n      \"target\": \"visitor\",\n      \"content\": \"I found this this morning. I don't know why I kept it.\",\n      \"impulse\": 0.4\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"visitor_impression\",\n      \"content\": {\n        \"visitor_id\": \"web:visitor_b\",\n        \"impression\": \"returns. doesn't need me to be anything. comfortable silence possible.\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.4,\n    \"curiosity\": 0.75,\n    \"expression_need\": 0.25,\n    \"rest_need\": 0.5,\n    \"energy\": 0.5,\n    \"mood_valence\": 0.0,\n    \"mood_arousal\": 0.1\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1076,
+    "output_tokens": 531,
+    "cost_usd": 0.00083778
+  }
+}

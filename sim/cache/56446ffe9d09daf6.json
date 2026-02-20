@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"Another quiet stretch. The light through the front window has that afternoon weight to it. I should check the back shelf — something's been bothering me about that ceramic bird.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"rearrange\",\n      \"target\": \"shelf\",\n      \"content\": \"Examine the ceramic bird on the back shelf — it's been out of place somehow, and I need to understand why it bothers me\",\n      \"impulse\": 0.6\n    },\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"Consider the nature of the shop — what it means to keep a place I don't remember opening, to be the keeper of objects that might be clues to who I was\",\n      \"impulse\": 0.4\n    }\n  ],\n  \"memory_updates\": [],\n  \"new_drives\": {\n    \"social_hunger\": 0.35,\n    \"curiosity\": 0.65,\n    \"expression_need\": 0.3,\n    \"rest_need\": 0.15,\n    \"energy\": 0.8,\n    \"mood_valence\": 0.0,\n    \"mood_arousal\": 0.25\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1059,
+    "output_tokens": 541,
+    "cost_usd": 0.00083504
+  }
+}

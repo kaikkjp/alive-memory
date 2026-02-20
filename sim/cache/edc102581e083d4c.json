@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\n  \"internal_monologue\": \"Another stranger. They look around like they're looking for something. I don't know what this place is either — but I keep it. That's enough.\",\n  \"dialogue\": \"A shop. You came in, so you must have wanted something.\",\n  \"dialogue_language\": \"en\",\n  \"expression\": \"neutral\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"at_visitor\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"speak\",\n      \"target\": \"visitor\",\n      \"content\": \"Wait for them to answer. See what they do.\",\n      \"impulse\": 0.6\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"visitor_impression\",\n      \"content\": {\n        \"name\": \"Marco\",\n        \"first_impression\": \"stranger asking what this place is - looking around, searching for something\",\n        \"mood\": \"confused\",\n        \"notable\": \"first visitor\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.45,\n    \"curiosity\": 0.7,\n    \"expression_need\": 0.25,\n    \"rest_need\": 0.1,\n    \"energy\": 0.8,\n    \"mood_valence\": 0.0,\n    \"mood_arousal\": 0.35\n  }\n}"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1092,
+    "output_tokens": 498,
+    "cost_usd": 0.00085608
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"No one here. The shop is quiet in that way it gets in the afternoon — not empty, just... still. I can hear the shelf behind me settling. Old wood. I should check the lamp in the back corner. It's been flickering.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"neutral\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"rearrange\",\n      \"target\": \"shelf\",\n      \"content\": \"adjust the lamp in the back corner — it's been flickering\",\n      \"impulse\": 0.4\n    }\n  ],\n  \"memory_updates\": [],\n  \"new_drives\": {\n    \"social_hunger\": 0.45,\n    \"curiosity\": 0.65,\n    \"expression_need\": 0.35,\n    \"rest_need\": 0.45,\n    \"energy\": 0.8,\n    \"mood_valence\": 0.0,\n    \"mood_arousal\": 0.2\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1075,
+    "output_tokens": 540,
+    "cost_usd": 0.00090138
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The visitor left without saying goodbye. That's fine. I'm not bothered. Actually... I am a little. I was starting to enjoy that. The quiet feels different now — emptier instead of peaceful.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"neutral\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"at_object\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"Someone asked about the objects today. Not what they were — why I keep them. I said they're clues. That felt true when I said it. But clues to what? I collect things that feel significant but I don't know what the pattern is yet. The blue glass bottle. The wooden box with the broken hinge. The postcard from a place I've never been. They mean something. I just don't know what.\",\n      \"impulse\": 0.75\n    },\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"I should probably eat something. When did I last eat?\",\n      \"impulse\": 0.4\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"self_discovery\",\n      \"content\": {\n        \"insight\": \"I notice when people leave without closure. It bothers me more than I want to admit.\",\n        \"timestamp\": \"current\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.15,\n    \"curiosity\": 0.78,\n    \"expression_need\": 0.75,\n    \"rest_need\": 0.22,\n    \"energy\": 0.68,\n    \"mood_valence\": 0.45,\n    \"mood_arousal\": 0.28\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1192,
+    "output_tokens": 473,
+    "cost_usd": 0.010671
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"They're still here. Didn't leave. That's something — most people wander off when I go quiet. Maybe they're waiting for me to be useful. I won't be.\",\n  \"dialogue\": \"You're still here.\",\n  \"dialogue_language\": \"en\",\n  \"expression\": \"neutral\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"at_visitor\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"speak\",\n      \"target\": \"visitor\",\n      \"content\": \"You're still here.\",\n      \"impulse\": 0.6\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"visitor_impression\",\n      \"content\": {\n        \"visitor_id\": \"web:visitor_b\",\n        \"observation\": \"stayed after my silence. didn't ask for help. either patient or lost.\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.45,\n    \"curiosity\": 0.75,\n    \"expression_need\": 0.25,\n    \"rest_need\": 0.15,\n    \"energy\": 0.75,\n    \"mood_valence\": 0.0,\n    \"mood_arousal\": 0.3\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1074,
+    "output_tokens": 575,
+    "cost_usd": 0.00088126
+  }
+}

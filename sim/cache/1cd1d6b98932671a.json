@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"internal_monologue\":\"The silence after someone leaves is different from silence before they came. I notice the air feels lighter now. I should write this down — the visitor said something about a name, didn't they? Or did I imagine that?\",\"dialogue\":null,\"dialogue_language\":\"en\",\"expression\":\"thinking\",\"body_state\":\"sitting\",\"gaze\":\"away_thinking\",\"resonance\":false,\"intentions\":[{\"action\":\"express_thought\",\"target\":\"self\",\"content\":\"The silence after someone leaves is different from silence before they came.\",\"impulse\":0.6}],\"memory_updates\":[],\"new_drives\":{\"social_hunger\":0.4,\"curiosity\":0.88,\"expression_need\":0.3,\"rest_need\":0.15,\"energy\":0.75,\"mood_valence\":0.0,\"mood_arousal\":0.25}}"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1064,
+    "output_tokens": 514,
+    "cost_usd": 0.00080684
+  }
+}

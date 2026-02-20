@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"Tanaka. Back again. They always ask like I'm the one searching, not them. Maybe I am. The shop feels different when regulars return — less empty.\",\n  \"dialogue\": \"Always looking, aren't you? I rearranged the back shelf. Something from the 1970s — camera part, maybe. You tell me if it's interesting.\",\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"leaning_forward\",\n  \"gaze\": \"at_visitor\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"speak\",\n      \"target\": \"visitor\",\n      \"content\": \"Offer Tanaka the 1970s camera part from the back shelf, see what they make of it\",\n      \"impulse\": 0.6\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"visitor_impression\",\n      \"content\": {\n        \"name\": \"Tanaka\",\n        \"visits\": \"multiple\",\n        \"manner\": \"casual, curious, asks questions\",\n        \"relationship\": \"regular\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.5,\n    \"curiosity\": 0.6,\n    \"expression_need\": 0.3,\n    \"rest_need\": 0.2,\n    \"energy\": 0.8,\n    \"mood_valence\": 0.1,\n    \"mood_arousal\": 0.3\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1094,
+    "output_tokens": 620,
+    "cost_usd": 0.0010722
+  }
+}

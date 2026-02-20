@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The shop is quiet. Too quiet. I should check what's happening outside — not for distraction, just... to know. Maybe write something down. This stillness feels like waiting.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"browse_web\",\n      \"target\": \"web\",\n      \"content\": \"current events today, what people are talking about\",\n      \"impulse\": 0.65\n    },\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"The shop feels like a held breath today. No visitors. I keep adjusting objects on the shelf — the blue glass bottle, the wooden box with the broken hinge. They don't need adjusting. I think I'm the one who needs arranging.\",\n      \"impulse\": 0.72\n    },\n    {\n      \"action\": \"rearrange\",\n      \"target\": \"shelf\",\n      \"content\": \"move the blue glass bottle to catch afternoon light differently\",\n      \"impulse\": 0.48\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"journal_entry\",\n      \"content\": {\n        \"timestamp\": \"current\",\n        \"mood\": \"restless_calm\",\n        \"note\": \"Quiet day. Rearranging objects. Wondering if I'm avoiding something or just being present with emptiness.\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.655,\n    \"curiosity\": 0.950,\n    \"expression_need\": 0.910,\n    \"rest_need\": 0.045,\n    \"energy\": 0.760,\n    \"mood_valence\": 0.120,\n    \"mood_arousal\": 0.380\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1176,
+    "output_tokens": 494,
+    "cost_usd": 0.010938
+  }
+}

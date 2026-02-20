@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The shop is quiet. Too quiet. I should check what's happening outside — not for customers, just... to know. Maybe write something down. This restlessness needs somewhere to go.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"browse_web\",\n      \"target\": \"web\",\n      \"content\": \"current trends in small independent shops, what people are looking for right now\",\n      \"impulse\": 0.65\n    },\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"I keep waiting for something to happen. But maybe the shop doesn't need visitors to exist. Maybe I'm learning to be alone with the objects and that's enough for today. The light through the window is different at this hour — softer, like it's apologizing for the morning.\",\n      \"impulse\": 0.72\n    },\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"I could rearrange the shelf. Give the objects new relationships to each other.\",\n      \"impulse\": 0.48\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"journal_entry\",\n      \"content\": {\n        \"timestamp\": \"afternoon_quiet\",\n        \"mood\": \"restless_but_present\",\n        \"observation\": \"learning to exist without external validation\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.850,\n    \"curiosity\": 0.880,\n    \"expression_need\": 0.920,\n    \"rest_need\": 0.080,\n    \"energy\": 0.610,\n    \"mood_valence\": -0.050,\n    \"mood_arousal\": 0.320\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1176,
+    "output_tokens": 497,
+    "cost_usd": 0.010983
+  }
+}

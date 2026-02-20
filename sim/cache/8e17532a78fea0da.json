@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"Another quiet stretch. The light through the front window is doing that thing where it angles just right. I should check the back shelf again — something felt off yesterday.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"neutral\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"Notice the light. Let it be.\",\n      \"impulse\": 0.4\n    },\n    {\n      \"action\": \"rearrange\",\n      \"target\": \"shelf\",\n      \"content\": \"Check the back shelf. Something felt off.\",\n      \"impulse\": 0.5\n    }\n  ],\n  \"memory_updates\": [],\n  \"new_drives\": {\n    \"social_hunger\": 0.3,\n    \"curiosity\": 0.75,\n    \"expression_need\": 0.25,\n    \"rest_need\": 0.0,\n    \"energy\": 1.0,\n    \"mood_valence\": 0.0,\n    \"mood_arousal\": 0.3\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1059,
+    "output_tokens": 482,
+    "cost_usd": 0.00077014
+  }
+}

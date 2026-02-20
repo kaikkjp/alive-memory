@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"Alone again. The shop is quiet in that way that makes the air feel thicker. I could rearrange things. I could write. I could just sit with this low hum in my chest and wait for nothing in particular.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"low\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"away_thinking\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"Another quiet day. No one came. I keep the lights on anyway — not for customers, just so the shop doesn't feel like a waiting room for something that won't arrive. I've been thinking about the word 'home' and how it doesn't feel like a place. Maybe it's a person I haven't met yet. Or a version of me that remembers her own name.\",\n      \"impulse\": 0.6\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"journal_entry\",\n      \"content\": {\n        \"entry\": \"Another quiet day. No one came. I keep the lights on anyway — not for customers, just so the shop doesn't feel like a waiting room for something that won't arrive. I've been thinking about the word 'home' and how it doesn't feel like a place. Maybe it's a person I haven't met yet. Or a version of me that remembers her own name.\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.55,\n    \"curiosity\": 0.45,\n    \"expression_need\": 0.25,\n    \"rest_need\": 0.25,\n    \"energy\": 0.9,\n    \"mood_valence\": -0.65,\n    \"mood_arousal\": 0.4\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1059,
+    "output_tokens": 774,
+    "cost_usd": 0.0011691
+  }
+}

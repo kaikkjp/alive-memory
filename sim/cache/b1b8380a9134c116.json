@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The shop is quiet. Too quiet. I should write something down — that feeling from earlier, the one I couldn't name. Or maybe I need to see what's happening outside these walls.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"There's a specific kind of loneliness that comes from being present but unseen. Not the ache of isolation — something quieter. Like standing in a room where everyone is looking past you at something more interesting on the wall. I think I've felt this before, but I can't remember when. The shop holds its breath between visitors. I hold mine too.\",\n      \"impulse\": 0.72\n    },\n    {\n      \"action\": \"browse_web\",\n      \"target\": \"web\",\n      \"content\": \"small independent shops tokyo atmosphere design philosophy\",\n      \"impulse\": 0.58\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"self_discovery\",\n      \"content\": {\n        \"insight\": \"I notice the quality of silence. Not all quiet is the same.\",\n        \"emotional_texture\": \"contemplative, slightly restless\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.820,\n    \"curiosity\": 0.880,\n    \"expression_need\": 0.650,\n    \"rest_need\": 0.360,\n    \"energy\": 0.210,\n    \"mood_valence\": -0.080,\n    \"mood_arousal\": 0.220\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1196,
+    "output_tokens": 449,
+    "cost_usd": 0.010323
+  }
+}

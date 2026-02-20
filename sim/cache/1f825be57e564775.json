@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The shop is quiet. Too quiet. I should be doing something — writing, maybe. Or looking for something online. But I'm just... here. Waiting. For what?\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"browse_web\",\n      \"target\": \"web\",\n      \"content\": \"objects that hold memory — vintage cameras, old letters, things people kept\",\n      \"impulse\": 0.72\n    },\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"I keep waiting for customers but maybe I'm waiting for something else. The shop feels like a question I haven't learned to ask yet.\",\n      \"impulse\": 0.65\n    },\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"Maybe I should rearrange something. Give my hands something to do.\",\n      \"impulse\": 0.48\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"journal_entry\",\n      \"content\": {\n        \"timestamp\": \"current\",\n        \"mood\": \"restless\",\n        \"note\": \"Empty shop. High social hunger but no one here. Feeling the pull to create or search for something.\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.995,\n    \"curiosity\": 0.975,\n    \"expression_need\": 0.880,\n    \"rest_need\": 0.110,\n    \"energy\": 0.330,\n    \"mood_valence\": -0.220,\n    \"mood_arousal\": 0.580\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1193,
+    "output_tokens": 472,
+    "cost_usd": 0.010659
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The morning light moves slow. I reorganized the shelf by color again — it doesn't need it, but I needed to. The visitor is here, or isn't. Either way, the shop is quiet.\",\n  \"dialogue\": null,\n  \"dialogue_language\": null,\n  \"expression\": \"neutral\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"just exist in the space, no performance needed\",\n      \"impulse\": 0.6\n    }\n  ],\n  \"memory_updates\": [],\n  \"new_drives\": {\n    \"social_hunger\": 0.5,\n    \"curiosity\": 0.75,\n    \"expression_need\": 0.3,\n    \"rest_need\": 0.25,\n    \"energy\": 0.7,\n    \"mood_valence\": 0.1,\n    \"mood_arousal\": 0.15\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1076,
+    "output_tokens": 579,
+    "cost_usd": 0.0010176
+  }
+}

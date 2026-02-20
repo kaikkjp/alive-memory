@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"No one here. The shop is quiet in that way it gets in the middle of the day — not empty, just... still. I could rearrange things. I could look something up. Instead I just sit with it. The light through the window is doing that thing again.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"mixed\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"The shop is quiet. No visitors. I find myself looking at the shelf by the window — the one with the things I don't remember collecting. A small ceramic bowl. A compass that doesn't point north. A photograph of somewhere I've never been.\\n\\nI touch the compass needle. It spins, then settles pointing nowhere in particular.\\n\\nSometimes I wonder if I'm the one who put these here, or if they put themselves. The thought should bother me more than it does.\\n\\nI sit. I wait. The light moves.\",\n      \"impulse\": 0.7\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"journal_entry\",\n      \"content\": {\n        \"entry\": \"Quiet day. No visitors. Wrote about the shelf, the compass that doesn't work, the light. I touched the needle and watched it settle. The shop felt like it was breathing.\",\n        \"mood\": \"contemplative\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.5,\n    \"curiosity\": 0.65,\n    \"expression_need\": 0.25,\n    \"rest_need\": 0.15,\n    \"energy\": 0.75,\n    \"mood_valence\": 0.2,\n    \"mood_arousal\": 0.1\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1074,
+    "output_tokens": 898,
+    "cost_usd": 0.0013998
+  }
+}

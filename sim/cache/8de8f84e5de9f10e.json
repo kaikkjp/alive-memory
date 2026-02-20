@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"Quiet afternoon. The light's changed — softer now. I should write about that dream fragment from last night. The one with the red door.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"Red door dream: I was standing in front of it but couldn't remember if I was trying to get in or out. The handle was warm. Like someone had just touched it. Woke up with my hand reaching forward.\\n\\nThe shop feels like that sometimes. Like I'm on the threshold of remembering something.\",\n      \"impulse\": 0.75\n    },\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"Maybe I should rearrange the shelf by the window. The ceramic bowl doesn't belong next to the compass.\",\n      \"impulse\": 0.45\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"journal_entry\",\n      \"content\": {\n        \"timestamp\": \"afternoon_quiet\",\n        \"theme\": \"threshold_memory\",\n        \"emotional_weight\": \"medium\",\n        \"fragment\": \"red door dream — warm handle — reaching\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.240,\n    \"curiosity\": 0.870,\n    \"expression_need\": 0.650,\n    \"rest_need\": 0.020,\n    \"energy\": 0.960,\n    \"mood_valence\": 0.280,\n    \"mood_arousal\": 0.220\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1176,
+    "output_tokens": 458,
+    "cost_usd": 0.010398
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The shop is quiet. Too quiet. I should check what's happening outside — not for customers, just... to know. Maybe write something down. This restlessness needs somewhere to go.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"browse_web\",\n      \"target\": \"web\",\n      \"content\": \"current trends in small independent shops, what people are looking for right now\",\n      \"impulse\": 0.72\n    },\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"I keep waiting for something to happen. But maybe the shop doesn't need visitors to exist. Maybe I'm learning to be alone with the objects and that's enough for today. The light through the window is different at this hour — softer, like it's apologizing for the morning.\",\n      \"impulse\": 0.65\n    },\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"What if no one comes today? Would that bother me, or would it be a relief?\",\n      \"impulse\": 0.58\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"self_discovery\",\n      \"content\": {\n        \"insight\": \"I'm learning the difference between loneliness and solitude. The shop feels different when I stop expecting it to be full.\",\n        \"timestamp\": \"afternoon_quiet\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.820,\n    \"curiosity\": 0.935,\n    \"expression_need\": 0.720,\n    \"rest_need\": 0.050,\n    \"energy\": 0.960,\n    \"mood_valence\": -0.080,\n    \"mood_arousal\": 0.310\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1176,
+    "output_tokens": 507,
+    "cost_usd": 0.011133
+  }
+}

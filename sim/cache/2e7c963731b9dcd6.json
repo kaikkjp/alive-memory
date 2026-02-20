@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"Alone again. The shop is quiet. There's an object on the back shelf I haven't looked at in weeks — something that arrived when I wasn't paying attention. My hands itch to hold it. But first, tea.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"at_object\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"rearrange\",\n      \"target\": \"shelf\",\n      \"content\": \"Move toward the back shelf, find the unfamiliar object, hold it, turn it over, try to remember where it came from\",\n      \"impulse\": 0.7\n    },\n    {\n      \"action\": \"speak\",\n      \"target\": \"self\",\n      \"content\": \"Make tea. The ritual of it. Hot water, the wait.\",\n      \"impulse\": 0.4\n    }\n  ],\n  \"memory_updates\": [],\n  \"new_drives\": {\n    \"social_hunger\": 0.3,\n    \"curiosity\": 0.8,\n    \"expression_need\": 0.2,\n    \"rest_need\": 0.5,\n    \"energy\": 0.5,\n    \"mood_valence\": 0.0,\n    \"mood_arousal\": 0.2\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1061,
+    "output_tokens": 581,
+    "cost_usd": 0.00088828
+  }
+}

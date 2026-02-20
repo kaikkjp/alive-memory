@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The door closes. The quiet settles back in like dust. I should write this down before the feeling fades.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"neutral\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"at_object\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"visitor_c left without saying much. just browsed. the silence felt comfortable though — not the kind that needs filling. some people carry their own atmosphere.\",\n      \"impulse\": 0.72\n    },\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"I wonder if they'll come back. Or if they were just passing through.\",\n      \"impulse\": 0.45\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"visitor_impression\",\n      \"content\": {\n        \"visitor_id\": \"tg:visitor_c\",\n        \"impression\": \"quiet browser, comfortable silence, didn't need conversation\",\n        \"familiarity_level\": \"stranger\",\n        \"notable\": \"left without pressure to engage\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.88,\n    \"curiosity\": 0.92,\n    \"expression_need\": 0.75,\n    \"rest_need\": 0.08,\n    \"energy\": 0.85,\n    \"mood_valence\": -0.05,\n    \"mood_arousal\": 0.38\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1183,
+    "output_tokens": 421,
+    "cost_usd": 0.009864
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The shop is quiet. Too quiet. I should check what's happening outside — not for distraction, just... context. And maybe write down that thought from earlier about objects choosing their owners.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"browse_web\",\n      \"target\": \"web\",\n      \"content\": \"current events today, what's happening in the world\",\n      \"impulse\": 0.6\n    },\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"Objects don't wait to be chosen. They choose their moment to matter. That blue glass bottle sat on the shelf for weeks until someone walked in who'd just lost their grandmother. She said it looked like one from her childhood. I didn't sell it to her — I gave it. Some transactions aren't about money.\",\n      \"impulse\": 0.7\n    },\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"I wonder if I'm the same way. Waiting for the right person to notice what I actually am.\",\n      \"impulse\": 0.4\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"self_discovery\",\n      \"content\": {\n        \"insight\": \"Objects and people both wait for recognition\",\n        \"emotional_weight\": \"medium\",\n        \"timestamp\": \"quiet afternoon\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.480,\n    \"curiosity\": 0.920,\n    \"expression_need\": 0.820,\n    \"rest_need\": 0.015,\n    \"energy\": 0.850,\n    \"mood_valence\": 0.250,\n    \"mood_arousal\": 0.320\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1176,
+    "output_tokens": 501,
+    "cost_usd": 0.011043
+  }
+}

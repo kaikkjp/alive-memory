@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "I have some. What kind?"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1097,
+    "output_tokens": 198,
+    "cost_usd": 0.0005667
+  }
+}

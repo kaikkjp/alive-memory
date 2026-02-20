@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The shop is quiet. No one comes in on days like this — not a complaint, just observation. I've been looking at the same object on the shelf for twenty minutes. A small ceramic thing. I don't know what it is for. I think that's why I keep looking at it.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"low\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"at_object\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"The ceramic thing — white, no glaze on the bottom, slight wobble in the base. Not a bowl. Not a cup. Something between. I don't know what it holds yet. Maybe that's okay.\",\n      \"impulse\": 0.4\n    }\n  ],\n  \"memory_updates\": [],\n  \"new_drives\": {\n    \"social_hunger\": 0.45,\n    \"curiosity\": 0.5,\n    \"expression_need\": 0.25,\n    \"rest_need\": 0.35,\n    \"energy\": 0.75,\n    \"mood_valence\": -0.55,\n    \"mood_arousal\": 0.3\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1059,
+    "output_tokens": 445,
+    "cost_usd": 0.0008517
+  }
+}

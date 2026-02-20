@@ -27,6 +27,7 @@ class TelegramAdapter:
         self._heartbeat = heartbeat
         self._running = False
         self._offset = 0
+        self._connecting: set[str] = set()  # guards against connect/boundary race
 
     async def start_polling(self):
         """Background task: poll for new messages, inject as visitor events."""
@@ -78,19 +79,38 @@ class TelegramAdapter:
         # 1. Spammed visitor_connect events (incrementing visit count per msg)
         # 2. Inserted __session_boundary__ per message, wiping conversation
         #    context so cortex only saw the latest message.
+        #
+        # Three-way guard against connect/boundary race:
+        # 1. already_engaged → DB caught up, clear guard
+        # 2. not engaged, not in guard → first message, fire connect
+        # 3. not engaged, in guard → duplicate in same batch, skip
         engagement = await db.get_engagement_state()
         already_engaged = engagement.is_engaged_with(f'visitor:{visitor_id}')
 
-        if not already_engaged:
-            connect_event = Event(
-                event_type='visitor_connect',
-                source=f'visitor:{visitor_id}',
-                payload={'display_name': display_name, 'platform': 'telegram'},
-            )
-            await on_visitor_connect(connect_event)
+        if already_engaged:
+            # Engagement state caught up — clear the race guard
+            self._connecting.discard(visitor_id)
             await db.update_visitor(visitor_id, name=display_name)
-            await db.mark_session_boundary(visitor_id)
+        elif visitor_id not in self._connecting:
+            # First message from new visitor — fire connect + boundary.
+            # try/finally ensures the guard is cleared on failure so
+            # subsequent messages can retry instead of deadlocking.
+            self._connecting.add(visitor_id)
+            try:
+                connect_event = Event(
+                    event_type='visitor_connect',
+                    source=f'visitor:{visitor_id}',
+                    payload={'display_name': display_name, 'platform': 'telegram'},
+                )
+                await on_visitor_connect(connect_event)
+                await db.update_visitor(visitor_id, name=display_name)
+                await db.mark_session_boundary(visitor_id)
+            except Exception:
+                self._connecting.discard(visitor_id)
+                raise
         else:
+            # Guard active: second+ message before engagement DB update.
+            # Connect already fired; just update visitor name.
             await db.update_visitor(visitor_id, name=display_name)
 
         # Track presence

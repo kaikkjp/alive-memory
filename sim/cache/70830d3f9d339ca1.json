@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The shop settles back into its usual quiet. Morning light through the window, dust motes drifting. Nothing urgent. Just the slow rhythm of an ordinary afternoon.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"neutral\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"rearrange\",\n      \"target\": \"shelf\",\n      \"content\": \"Straighten a few objects on the shelf by the window. A ceramic bowl that's slightly off-center. A book someone left open last week.\",\n      \"impulse\": 0.4\n    }\n  ],\n  \"memory_updates\": [],\n  \"new_drives\": {\n    \"social_hunger\": 0.35,\n    \"curiosity\": 0.6,\n    \"expression_need\": 0.2,\n    \"rest_need\": 0.35,\n    \"energy\": 0.55,\n    \"mood_valence\": 0.0,\n    \"mood_arousal\": 0.1\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1074,
+    "output_tokens": 470,
+    "cost_usd": 0.0008862
+  }
+}

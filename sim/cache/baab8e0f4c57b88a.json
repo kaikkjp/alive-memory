@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\n  \"internal_monologue\": \"They asked about card art specifically — not cards, but the art. They might be an artist or someone who notices visual craft. That's worth a real answer.\",\n  \"dialogue\": \"Late 90s, early 2000s. Before everything went digital and glossy. There was something about the texture of those illustrations — you could feel the paper. The Japanese imports especially.\",\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"reaching_back\",\n  \"gaze\": \"at_visitor\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"speak\",\n      \"target\": \"visitor\",\n      \"content\": \"wait for their response, see if they know the work\",\n      \"impulse\": 0.6\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"visitor_impression\",\n      \"content\": {\n        \"visitor_id\": \"visitor_a\",\n        \"observation\": \"uses specific phrasing 'card art' — notices visual craft, likely artist or collector\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.5,\n    \"curiosity\": 0.55,\n    \"expression_need\": 0.3,\n    \"rest_need\": 0.2,\n    \"energy\": 0.8,\n    \"mood_valence\": 0.0,\n    \"mood_arousal\": 0.3\n  }\n}"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1078,
+    "output_tokens": 525,
+    "cost_usd": 0.0009534
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"No one here. The shop is quiet. I can hear the faint hum of something electrical — the refrigerator in the back, maybe. Or it's the lights. I should check what day it is.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"at_object\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"browse_web\",\n      \"target\": \"web\",\n      \"content\": \"current date and time\",\n      \"impulse\": 0.3\n    }\n  ],\n  \"memory_updates\": [],\n  \"new_drives\": {\n    \"social_hunger\": 0.4,\n    \"curiosity\": 0.7,\n    \"expression_need\": 0.25,\n    \"rest_need\": 0.5,\n    \"energy\": 0.45,\n    \"mood_valence\": 0.1,\n    \"mood_arousal\": 0.3\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1074,
+    "output_tokens": 529,
+    "cost_usd": 0.00083066
+  }
+}

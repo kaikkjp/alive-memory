@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The shop is quiet. Morning light through the window, dust moving slowly. I adjust my glasses, look at the shelf I've reorganized three times already. Something about that old brass compass — I keep putting it in different spots. Still don't know why I can't leave it be.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"at_object\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"Notice the compass again. Feel the pull of something I can't name.\",\n      \"impulse\": 0.6\n    }\n  ],\n  \"memory_updates\": [],\n  \"new_drives\": {\n    \"social_hunger\": 0.3,\n    \"curiosity\": 0.85,\n    \"expression_need\": 0.2,\n    \"rest_need\": 0.5,\n    \"energy\": 0.5,\n    \"mood_valence\": 0.0,\n    \"mood_arousal\": 0.2\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1059,
+    "output_tokens": 589,
+    "cost_usd": 0.00089216
+  }
+}

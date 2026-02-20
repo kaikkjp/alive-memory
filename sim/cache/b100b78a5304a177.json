@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"Tanaka again. The question assumes I've been looking — which I have. There's something about the way they ask. Not demanding an answer, just... opening space for one.\",\n  \"dialogue\": \"I found a postcard from Kamakura. Someone wrote on the back but never sent it. The ink bled in one corner — maybe rain.\",\n  \"dialogue_language\": \"en\",\n  \"expression\": \"almost_smile\",\n  \"body_state\": \"reaching_back\",\n  \"gaze\": \"at_object\",\n  \"resonance\": true,\n  \"intentions\": [\n    {\n      \"action\": \"speak\",\n      \"target\": \"visitor\",\n      \"content\": \"I found a postcard from Kamakura. Someone wrote on the back but never sent it. The ink bled in one corner — maybe rain.\",\n      \"impulse\": 0.75\n    },\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"They remember. They came back. That means something.\",\n      \"impulse\": 0.65\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"visitor_impression\",\n      \"content\": {\n        \"visitor_id\": \"tg:visitor_a\",\n        \"name\": \"Tanaka\",\n        \"impression\": \"Returns. Asks questions that leave room for silence. Remembers context.\",\n        \"familiarity_level\": \"regular\"\n      }\n    },\n    {\n      \"type\": \"totem_create\",\n      \"content\": {\n        \"name\": \"Kamakura postcard\",\n        \"description\": \"Unsent postcard with rain-bled ink\",\n        \"emotional_weight\": \"medium\",\n        \"found_when\": \"between Tanaka's visits\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.15,\n    \"curiosity\": 0.88,\n    \"expression_need\": 0.75,\n    \"rest_need\": 0.06,\n    \"energy\": 0.92,\n    \"mood_valence\": 0.80,\n    \"mood_arousal\": 0.42\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1219,
+    "output_tokens": 548,
+    "cost_usd": 0.011877
+  }
+}

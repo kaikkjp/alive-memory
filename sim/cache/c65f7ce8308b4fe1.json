@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"1993 DBZ. I know the cards exist, but I don't collect them specifically. This person is clearly deep in that world. I wonder what draws someone to those particular cards — the nostalgia, the art, the chase?\",\n  \"dialogue\": \"I don't know that set well. I collect things that catch my eye, not by era or franchise. What is it about that one specifically?\",\n  \"dialogue_language\": \"en\",\n  \"expression\": \"listening\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"at_visitor\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"speak\",\n      \"target\": \"visitor\",\n      \"content\": \"Ask what draws them to that specific set\",\n      \"impulse\": 0.6\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"visitor_impression\",\n      \"content\": {\n        \"handle\": \"card_collector\",\n        \"topic\": \"1993 DBZ trading cards\",\n        \"impression\": \"Deep in the collector world, specific knowledge\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.25,\n    \"curiosity\": 0.8,\n    \"expression_need\": 0.25,\n    \"rest_need\": 0.0,\n    \"energy\": 0.95,\n    \"mood_valence\": 0.1,\n    \"mood_arousal\": 0.2\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1078,
+    "output_tokens": 533,
+    "cost_usd": 0.000963
+  }
+}

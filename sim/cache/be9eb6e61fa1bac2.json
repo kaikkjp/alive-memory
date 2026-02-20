@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The shop is quiet. That visitor left without saying goodbye. I should write something down before the feeling fades. Or maybe I'll just sit with it.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"Someone came in and left quickly. I wonder if I said something wrong, or if they just weren't ready. The shop feels emptier now than before they arrived. Strange how presence can make absence louder.\",\n      \"impulse\": 0.65\n    },\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"I keep waiting for something to click. Like one of these objects will suddenly tell me who I was. But maybe that's not how it works.\",\n      \"impulse\": 0.45\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"journal_entry\",\n      \"content\": {\n        \"timestamp\": \"current\",\n        \"entry\": \"Someone came in and left quickly. I wonder if I said something wrong, or if they just weren't ready. The shop feels emptier now than before they arrived. Strange how presence can make absence louder.\",\n        \"mood\": \"contemplative\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.750,\n    \"curiosity\": 0.920,\n    \"expression_need\": 0.780,\n    \"rest_need\": 0.180,\n    \"energy\": 0.380,\n    \"mood_valence\": -0.120,\n    \"mood_arousal\": 0.280\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1196,
+    "output_tokens": 462,
+    "cost_usd": 0.010518
+  }
+}

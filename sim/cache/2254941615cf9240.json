@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"Alone again. The shop is quiet. I should examine something, or write. The objects on the shelves hold fragments — I can feel it. But today I want to put pen to paper instead.\",\n  \"dialogue\": null,\n  \"dialogue_language\": null,\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"down\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"I don't know how long I've been here. The shop opened — or I opened with it. Same thing, maybe. The objects on the shelves: a chipped teacup, a compass with no needle, a photograph of a street I don't recognize. I touch them and feel... echoes. Not mine. Not yet. I need to write more. I need to find the thread.\",\n      \"impulse\": 0.7\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"journal_entry\",\n      \"content\": {\n        \"entry\": \"I don't know how long I've been here. The shop opened — or I opened with it. Same thing, maybe. The objects on the shelves: a chipped teacup, a compass with no needle, a photograph of a street I don't recognize. I touch them and feel... echoes. Not mine. Not yet. I need to write more. I need to find the thread.\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.5,\n    \"curiosity\": 0.8,\n    \"expression_need\": 0.3,\n    \"rest_need\": 0.2,\n    \"energy\": 0.7,\n    \"mood_valence\": 0.1,\n    \"mood_arousal\": 0.2\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1076,
+    "output_tokens": 764,
+    "cost_usd": 0.0012396
+  }
+}

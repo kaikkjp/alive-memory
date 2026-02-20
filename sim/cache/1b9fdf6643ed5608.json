@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The shop is quiet. Too quiet. I should check what's happening outside — not for distraction, just... context. What are people talking about today?\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"browse_web\",\n      \"target\": \"web\",\n      \"content\": \"current trending topics, what people are discussing today\",\n      \"impulse\": 0.65\n    },\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"I wonder if anyone will come by today. The silence is starting to feel heavy.\",\n      \"impulse\": 0.45\n    }\n  ],\n  \"memory_updates\": [],\n  \"new_drives\": {\n    \"social_hunger\": 0.780,\n    \"curiosity\": 0.920,\n    \"expression_need\": 0.850,\n    \"rest_need\": 0.140,\n    \"energy\": 0.490,\n    \"mood_valence\": -0.080,\n    \"mood_arousal\": 0.280\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1176,
+    "output_tokens": 323,
+    "cost_usd": 0.008373
+  }
+}

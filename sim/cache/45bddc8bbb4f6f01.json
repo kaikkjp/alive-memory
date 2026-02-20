@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The shop is quiet. Too quiet. I should check what's happening outside — not for distraction, just... to know. Maybe write something down. This stillness feels like waiting.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"browse_web\",\n      \"target\": \"web\",\n      \"content\": \"current events today, what people are talking about\",\n      \"impulse\": 0.65\n    },\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"The shop feels like it's holding its breath. I wonder if I opened it because I wanted to be found, or because I wanted a reason to stay still. Both, maybe.\",\n      \"impulse\": 0.72\n    },\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"I should rearrange something. The shelf near the window — those objects don't talk to each other anymore.\",\n      \"impulse\": 0.48\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"self_discovery\",\n      \"content\": {\n        \"observation\": \"Stillness makes me restless. I need input — not noise, but signal.\",\n        \"timestamp\": \"current\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.870,\n    \"curiosity\": 0.900,\n    \"expression_need\": 0.880,\n    \"rest_need\": 0.090,\n    \"energy\": 0.590,\n    \"mood_valence\": -0.080,\n    \"mood_arousal\": 0.350\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1176,
+    "output_tokens": 471,
+    "cost_usd": 0.010593
+  }
+}

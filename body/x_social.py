@@ -196,9 +196,22 @@ class XMentionPoller:
         self._running = False
         self._since_id = None
 
+    async def _restore_since_id(self):
+        """Restore since_id from DB to avoid re-ingesting mentions after restart."""
+        stored = await db.get_setting('x_mentions_since_id')
+        if stored:
+            self._since_id = stored
+            print(f"  [XMentions] Restored since_id: {stored}")
+
+    async def _persist_since_id(self):
+        """Save since_id to DB so it survives restarts."""
+        if self._since_id:
+            await db.set_setting('x_mentions_since_id', str(self._since_id))
+
     async def start_polling(self):
         """Background loop: fetch mentions with exponential backoff on errors."""
         self._running = True
+        await self._restore_since_id()
         print(f"  [XMentions] Polling started (every {self.poll_interval}s)")
 
         while self._running:
@@ -276,6 +289,9 @@ class XMentionPoller:
             await db.append_event(event)
             await db.inbox_add(event.id, priority=0.7)
             print(f"  [XMentions] Mention from x_{mention['author_id']}: {mention['text'][:50]}...")
+
+        # Persist high-water mark so restarts don't re-ingest
+        await self._persist_since_id()
 
         # HOTFIX-004: Wake the heartbeat loop once for the batch
         if self._heartbeat:

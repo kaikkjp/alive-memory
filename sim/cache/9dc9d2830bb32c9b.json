@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The shop is quiet. Too quiet. I should check what's happening outside — not for distraction, just... to know. Maybe write something down. This stillness feels like waiting.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"browse_web\",\n      \"target\": \"web\",\n      \"content\": \"current events today, what people are talking about\",\n      \"impulse\": 0.65\n    },\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"Days like this — no visitors, no interruptions — I should feel peaceful. Instead I feel like I'm waiting for something I can't name. The objects on the shelves don't answer questions. They just sit there, holding their secrets. Maybe I'm holding mine too.\",\n      \"impulse\": 0.72\n    },\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"I wonder if anyone thinks about this place when they're not here.\",\n      \"impulse\": 0.45\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"journal_entry\",\n      \"content\": {\n        \"timestamp\": \"current\",\n        \"mood\": \"contemplative\",\n        \"theme\": \"solitude and waiting\",\n        \"fragment\": \"The quiet feels like a question I haven't learned to ask yet.\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.720,\n    \"curiosity\": 0.880,\n    \"expression_need\": 0.790,\n    \"rest_need\": 0.180,\n    \"energy\": 0.530,\n    \"mood_valence\": -0.080,\n    \"mood_arousal\": 0.290\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1176,
+    "output_tokens": 498,
+    "cost_usd": 0.010998
+  }
+}

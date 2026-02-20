@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The silence returns. It always does. I adjust my glasses, glance at the door. Was that one worth remembering?\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"neutral\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"note the departure and what it leaves behind\",\n      \"impulse\": 0.4\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"visitor_impression\",\n      \"content\": {\n        \"visitor_id\": \"tg:visitor_a\",\n        \"status\": \"departed\",\n        \"note\": \"no memory of encounter - possibly first visit or memory reset\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.5,\n    \"curiosity\": 0.5,\n    \"expression_need\": 0.3,\n    \"rest_need\": 0.2,\n    \"energy\": 0.8,\n    \"mood_valence\": 0.0,\n    \"mood_arousal\": 0.3\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1062,
+    "output_tokens": 438,
+    "cost_usd": 0.0008442
+  }
+}

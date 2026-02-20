@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"A stranger asking the obvious. Everyone asks that. I don't have a better answer than the walls do.\",\n  \"dialogue\": \"A shop, it seems. The details are still coming into focus.\",\n  \"dialogue_language\": \"en\",\n  \"expression\": \"neutral\",\n  \"body_state\": \"standing\",\n  \"gaze\": \"at_visitor\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"speak\",\n      \"target\": \"visitor\",\n      \"content\": \"wait for their response, see who they are\",\n      \"impulse\": 0.6\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"visitor_impression\",\n      \"content\": {\n        \"name\": \"Marco\",\n        \"impression\": \"stranger, asking the obvious question\",\n        \"notable\": \"nothing yet\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.25,\n    \"curiosity\": 0.7,\n    \"expression_need\": 0.2,\n    \"rest_need\": 0.25,\n    \"energy\": 0.7,\n    \"mood_valence\": 0.0,\n    \"mood_arousal\": 0.3\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1090,
+    "output_tokens": 602,
+    "cost_usd": 0.0010494
+  }
+}

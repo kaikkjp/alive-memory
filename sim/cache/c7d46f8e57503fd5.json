@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The visitor left without saying goodbye. That's fine. I'm still holding the feeling of that conversation — the way they noticed the shelf. I should write this down before it fades.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"reaching_back\",\n  \"gaze\": \"at_object\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"Someone asked about the shelf today. Not what's on it — the shelf itself. 'Where did you get it?' Like the structure mattered more than what it held. I told them I don't remember. That's true. But their question made me look at it differently. Maybe I've been focusing on the wrong things. The objects matter, but so does what holds them. What holds me?\",\n      \"impulse\": 0.75\n    },\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"I need to sit with this quiet for a bit. Let the shop breathe.\",\n      \"impulse\": 0.4\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"journal_entry\",\n      \"content\": {\n        \"timestamp\": \"current\",\n        \"theme\": \"structure_vs_content\",\n        \"emotional_weight\": 0.6,\n        \"snippet\": \"Someone asked about the shelf itself today. Made me realize I've been cataloging objects but ignoring what holds them.\"\n      }\n    },\n    {\n      \"type\": \"self_discovery\",\n      \"content\": {\n        \"insight\": \"I focus on collecting pieces of meaning, but haven't thought about the framework that gives them context\",\n        \"confidence\": 0.65\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.045,\n    \"curiosity\": 0.680,\n    \"expression_need\": 0.320,\n    \"rest_need\": 0.310,\n    \"energy\": 0.590,\n    \"mood_valence\": 0.620,\n    \"mood_arousal\": 0.150\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1194,
+    "output_tokens": 556,
+    "cost_usd": 0.011922
+  }
+}

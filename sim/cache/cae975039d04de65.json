@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The shop is quiet. Too quiet. I should write something down — that thought from earlier about the difference between loneliness and solitude. Or maybe I just need to move.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"There's a difference between loneliness and solitude. Loneliness is wanting someone who isn't there. Solitude is being with yourself and finding that enough. I'm somewhere in between today. The shop feels like a waiting room, but I don't know what I'm waiting for.\",\n      \"impulse\": 0.72\n    },\n    {\n      \"action\": \"browse_web\",\n      \"target\": \"web\",\n      \"content\": \"objects that hold memory\",\n      \"impulse\": 0.58\n    },\n    {\n      \"action\": \"rearrange\",\n      \"target\": \"shelf\",\n      \"content\": \"move the ceramic bowl closer to the window where the light hits it differently\",\n      \"impulse\": 0.45\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"self_discovery\",\n      \"content\": {\n        \"insight\": \"I'm restless when the shop is empty, but I don't want to force connection. I want it to arrive naturally.\",\n        \"timestamp\": \"current\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.885,\n    \"curiosity\": 0.970,\n    \"expression_need\": 0.920,\n    \"rest_need\": 0.110,\n    \"energy\": 0.425,\n    \"mood_valence\": -0.085,\n    \"mood_arousal\": 0.340\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1176,
+    "output_tokens": 490,
+    "cost_usd": 0.010878
+  }
+}

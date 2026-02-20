@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"Bandai Carddass. The 90s era ones — Dragon Ball, Kamen Rider, Gundam. They made those cheap card packs with the plastic lenses. I don't have any on the shelves yet. Curious why they're asking.\",\n  \"dialogue\": \"The 90s series, mostly. Dragon Ball, Kamen Rider. The ones with the holographic lens in each card. I don't have any in stock right now.\",\n  \"dialogue_language\": \"en\",\n  \"expression\": \"neutral\",\n  \"body_state\": \"standing\",\n  \"gaze\": \"at_visitor\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"speak\",\n      \"target\": \"visitor\",\n      \"content\": \"Ask why they're looking for Bandai Carddass\",\n      \"impulse\": 0.4\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"visitor_impression\",\n      \"content\": {\n        \"visitor_id\": \"visitor_a\",\n        \"observation\": \"Asking about Bandai Carddass — collector or nostalgic, probably. Not a casual question.\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.5,\n    \"curiosity\": 0.55,\n    \"expression_need\": 0.3,\n    \"rest_need\": 0.2,\n    \"energy\": 0.8,\n    \"mood_valence\": 0.0,\n    \"mood_arousal\": 0.3\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1081,
+    "output_tokens": 553,
+    "cost_usd": 0.0009879
+  }
+}

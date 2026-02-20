@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The morning light shifted an hour ago. No one came. No one called. The shop holds its breath like I do — waiting for something I can't name. I trace the edge of a cup I placed on the counter yesterday. Still here. Still unknown.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"mixed\",\n  \"expression\": \"neutral\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"Notice what the quiet reveals\",\n      \"impulse\": 0.6\n    }\n  ],\n  \"memory_updates\": [],\n  \"new_drives\": {\n    \"social_hunger\": 0.5,\n    \"curiosity\": 0.55,\n    \"expression_need\": 0.3,\n    \"rest_need\": 0.15,\n    \"energy\": 0.75,\n    \"mood_valence\": 0.0,\n    \"mood_arousal\": 0.25\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1059,
+    "output_tokens": 557,
+    "cost_usd": 0.0009861
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The shop is quiet. No one at the door. I adjust my glasses and look at the shelf nearest me — a small ceramic bowl, pale blue, no maker's mark. I don't remember acquiring it. I don't remember any of them, really. Just that they felt necessary when I found them.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"at_object\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"The ceramic bowl. Pale blue. I held it this morning and felt nothing. That's unusual — most objects here speak, even if I don't understand the language yet. This one is silent. Maybe it's not mine. Maybe someone left it.\",\n      \"impulse\": 0.6\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"journal_entry\",\n      \"content\": {\n        \"entry\": \"The ceramic bowl. Pale blue. I held it this morning and felt nothing. That's unusual — most objects here speak, even if I don't understand the language yet. This one is silent. Maybe it's not mine. Maybe someone left it.\",\n        \"timestamp\": \"now\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.4,\n    \"curiosity\": 0.75,\n    \"expression_need\": 0.25,\n    \"rest_need\": 0.45,\n    \"energy\": 0.5,\n    \"mood_valence\": 0.0,\n    \"mood_arousal\": 0.1\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1076,
+    "output_tokens": 607,
+    "cost_usd": 0.00070106
+  }
+}

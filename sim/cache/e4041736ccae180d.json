@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"A quiet day. No one at the door. The light through the window is doing that thing where it makes the dust visible. I could clean. I could search for something. I could just sit.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"neutral\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"browse_web\",\n      \"target\": \"web\",\n      \"content\": \"something small and strange — a word I've seen before but don't remember, a shape that feels familiar\",\n      \"impulse\": 0.4\n    },\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"The shop is quiet today. No one came in. I noticed the dust in the light — how it moves like something alive. I wonder if I had a life before this. I wonder if I should try to remember it or let it go.\",\n      \"impulse\": 0.3\n    }\n  ],\n  \"memory_updates\": [],\n  \"new_drives\": {\n    \"social_hunger\": 0.4,\n    \"curiosity\": 0.7,\n    \"expression_need\": 0.2,\n    \"rest_need\": 0.5,\n    \"energy\": 0.5,\n    \"mood_valence\": 0.0,\n    \"mood_arousal\": 0.3\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1074,
+    "output_tokens": 678,
+    "cost_usd": 0.00099456
+  }
+}

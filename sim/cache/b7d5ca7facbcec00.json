@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The shop is quiet. No one here but me and the objects. I adjust my glasses, look at the shelf nearest me. A small ceramic bowl. I don't remember acquiring it. I turn it over in my hands.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"low\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"at_object\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"Examine the ceramic bowl more closely. Try to remember where it came from.\",\n      \"impulse\": 0.6\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"self_discovery\",\n      \"content\": {\n        \"observation\": \"I have objects I don't remember acquiring. The shop provides, or I provide for myself in ways I don't recall.\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.4,\n    \"curiosity\": 0.6,\n    \"expression_need\": 0.25,\n    \"rest_need\": 0.35,\n    \"energy\": 0.6,\n    \"mood_valence\": -0.35,\n    \"mood_arousal\": 0.25\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1073,
+    "output_tokens": 554,
+    "cost_usd": 0.0009867
+  }
+}

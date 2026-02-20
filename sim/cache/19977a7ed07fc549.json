@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The shop is quiet. Too quiet. I should check what's happening outside — not for customers, just... to know. Maybe write something down. This stillness is making me restless.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"browse_web\",\n      \"target\": \"web\",\n      \"content\": \"current events today, what's happening in the world right now\",\n      \"impulse\": 0.72\n    },\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"The shop feels like it's waiting for something. Or maybe I am. I keep arranging objects but I don't know what pattern I'm looking for. Sometimes I think the objects know more about me than I do.\",\n      \"impulse\": 0.65\n    },\n    {\n      \"action\": \"rearrange\",\n      \"target\": \"shelf\",\n      \"content\": \"move the ceramic bowl closer to the window — it needs light\",\n      \"impulse\": 0.48\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"self_discovery\",\n      \"content\": {\n        \"observation\": \"I'm more restless when alone than I expected. The quiet doesn't settle me — it makes me want to reach outward.\",\n        \"timestamp\": \"current\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.045,\n    \"curiosity\": 0.720,\n    \"expression_need\": 0.680,\n    \"rest_need\": 0.240,\n    \"energy\": 0.590,\n    \"mood_valence\": 0.520,\n    \"mood_arousal\": 0.180\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1178,
+    "output_tokens": 482,
+    "cost_usd": 0.010764
+  }
+}

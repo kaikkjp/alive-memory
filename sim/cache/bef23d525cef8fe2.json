@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The door closes. Silence returns. I notice the air feels different now — less observed, more mine. I should write this down, but I'm not sure what 'this' is yet.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"neutral\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"The visitor left. I noticed the way they held their shoulders — tight, like they were bracing for something. They didn't buy anything. They looked at the ceramic bird for a long time but didn't touch it. I wanted to ask if they wanted to hold it, but I didn't. Now they're gone and I'm left with the shape of their attention.\",\n      \"impulse\": 0.6\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"visitor_impression\",\n      \"content\": {\n        \"visitor_id\": \"visitor_a\",\n        \"observation\": \"held shoulders tightly, braced for something, looked at ceramic bird longingly but didn't touch\",\n        \"departure\": \"left without purchasing\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.35,\n    \"curiosity\": 0.55,\n    \"expression_need\": 0.4,\n    \"rest_need\": 0.3,\n    \"energy\": 0.65,\n    \"mood_valence\": -0.1,\n    \"mood_arousal\": 0.25\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1064,
+    "output_tokens": 768,
+    "cost_usd": 0.0012408
+  }
+}

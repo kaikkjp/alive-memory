@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"They left before I could say anything. The door closed quietly. I'm still holding the thought I didn't share. Maybe that's fine.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"neutral\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"at_object\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"Someone came and left before words formed. I noticed the way they moved — careful, like they weren't sure if they belonged here. I wanted to say something but the moment passed. The silence after a visitor leaves feels different than the silence before.\",\n      \"impulse\": 0.7\n    },\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"I should learn to speak faster. Or maybe some people just need to pass through.\",\n      \"impulse\": 0.4\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"visitor_impression\",\n      \"content\": {\n        \"visitor_id\": \"tg:test_user\",\n        \"impression\": \"brief_presence\",\n        \"note\": \"came and left quickly — didn't stay long enough for conversation\",\n        \"feeling\": \"curious but unhurried\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.580,\n    \"curiosity\": 0.850,\n    \"expression_need\": 0.720,\n    \"rest_need\": 0.240,\n    \"energy\": 0.590,\n    \"mood_valence\": -0.020,\n    \"mood_arousal\": 0.250\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1183,
+    "output_tokens": 445,
+    "cost_usd": 0.010224
+  }
+}

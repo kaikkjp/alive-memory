@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"They're watching me. Waiting for something, maybe. Or just... here. I don't know if they're a regular yet. The shop is quiet. I was doing something before — what was it?\",\n  \"dialogue\": \"...\",\n  \"dialogue_language\": \"mixed\",\n  \"expression\": \"neutral\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"at_visitor\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"speak\",\n      \"target\": \"visitor\",\n      \"content\": \"You're still here.\",\n      \"impulse\": 0.4\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"visitor_impression\",\n      \"content\": {\n        \"visitor_id\": \"web:visitor_b\",\n        \"impression\": \"present, patient, not pushing\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.3,\n    \"curiosity\": 0.75,\n    \"expression_need\": 0.2,\n    \"rest_need\": 0.25,\n    \"energy\": 0.7,\n    \"mood_valence\": 0.0,\n    \"mood_arousal\": 0.3\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1074,
+    "output_tokens": 618,
+    "cost_usd": 0.00093288
+  }
+}

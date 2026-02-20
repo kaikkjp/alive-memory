@@ -13,6 +13,7 @@ Usage:
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -98,272 +99,6 @@ class SimulationResult:
 class SimulationRunner:
     """Runs a full experiment with a specific architecture variant."""
 
-    def __init__(
-        self,
-        variant: str = "full",
-        scenario: str = "standard",
-        num_cycles: int = 1000,
-        llm_mode: str = "mock",
-        seed: int = 42,
-        output_dir: str = "sim/results",
-        start_time: str = "2026-02-01T09:00:00+09:00",
-        block_sleep: bool = False,
-        verbose: bool = False,
-    ):
-        self.variant = variant
-        self.scenario_name = scenario
-        self.num_cycles = num_cycles
-        self.llm_mode = llm_mode
-        self.seed = seed
-        self.output_dir = Path(output_dir)
-        self.block_sleep = block_sleep
-        self.verbose = verbose
-
-        # Initialize components
-        self.clock = SimulatedClock(start=start_time)
-        self.db: InMemoryDB | None = None
-        self.llm = self._init_llm(llm_mode, seed)
-        self.pipeline = self._init_pipeline(variant)
-        self.scenario = ScenarioManager.load(scenario)
-
-        # Runtime state
-        self._drives = {
-            "social_hunger": 0.5,
-            "curiosity": 0.5,
-            "expression_need": 0.3,
-            "rest_need": 0.2,
-            "energy": 0.8,
-            "mood_valence": 0.0,
-            "mood_arousal": 0.3,
-        }
-        self._engagement = {
-            "status": "none",
-            "visitor_id": None,
-            "turn_count": 0,
-        }
-        self._visitor_history: dict[str, dict] = {}  # visitor_id -> info
-
-    def _init_llm(self, mode: str, seed: int):
-        """Initialize the LLM backend."""
-        if mode == "mock":
-            from sim.llm.mock import MockCortex
-            return MockCortex(seed=seed)
-        elif mode == "cached":
-            from sim.llm.cached import CachedCortex
-            return CachedCortex()
-        else:
-            raise ValueError(f"Unknown LLM mode: {mode}. Use 'mock' or 'cached'.")
-
-    def _init_pipeline(self, variant: str):
-        """Initialize the pipeline variant."""
-        if variant == "full":
-            return FullPipeline()
-        elif variant == "stateless":
-            from sim.baselines.stateless import StatelessBaseline
-            return StatelessBaseline()
-        elif variant == "react":
-            from sim.baselines.react_agent import ReActBaseline
-            return ReActBaseline()
-        elif variant.startswith("no_"):
-            from sim.variants import AblatedPipeline
-            return AblatedPipeline(remove=variant[3:])
-        else:
-            raise ValueError(f"Unknown variant: {variant}")
-
-    async def run(self) -> SimulationResult:
-        """Run all cycles, collect results."""
-        # Initialize DB
-        self.db = await InMemoryDB.create()
-
-        # Seed initial drives into DB
-        await self._save_drives_to_db()
-
-        result = SimulationResult(
-            variant=self.variant,
-            scenario=self.scenario_name,
-            num_cycles=self.num_cycles,
-            seed=self.seed,
-            llm_mode=self.llm_mode,
-        )
-
-        for cycle_num in range(self.num_cycles):
-            # Advance simulated time
-            self.clock.advance(minutes=5)
-
-            # Get scenario events for this cycle
-            scenario_events = self.scenario.get_events(cycle_num)
-
-            # Handle meta-events (set_drives, inject_thread)
-            pipeline_events = []
-            for se in scenario_events:
-                if se.event_type == "set_drives":
-                    self._apply_drive_overrides(se.payload)
-                    await self._save_drives_to_db()
-                elif se.event_type == "inject_thread":
-                    await self._inject_thread(se.payload)
-                else:
-                    event_dict = se.to_pipeline_event(self.clock.now())
-                    pipeline_events.append(event_dict)
-                    await self._inject_event(event_dict)
-
-            # Handle visitor state from events
-            self._process_visitor_events(pipeline_events)
-
-            # Check sleep window
-            if not self.block_sleep and self.pipeline.should_sleep(self.clock):
-                cycle_result = CycleResult(
-                    cycle_num=cycle_num,
-                    timestamp=self.clock.now().isoformat(),
-                    cycle_type="sleep",
-                    sleep_triggered=True,
-                    drives=dict(self._drives),
-                )
-                result.cycles.append(cycle_result)
-                result.sleep_cycles.append(cycle_num)
-                result.drives_history.append({
-                    "cycle": cycle_num, **self._drives,
-                })
-
-                # Sleep restores energy
-                self._drives["energy"] = min(1.0, self._drives["energy"] + 0.1)
-                self._drives["rest_need"] = max(0.0, self._drives["rest_need"] - 0.1)
-                await self._save_drives_to_db()
-
-                if self.verbose:
-                    print(f"  [{cycle_num:04d}] SLEEP "
-                          f"(energy={self._drives['energy']:.2f})")
-                continue
-
-            # Run one pipeline cycle
-            cycle_result = await self._run_cycle(cycle_num, pipeline_events)
-            result.cycles.append(cycle_result)
-            result.drives_history.append({
-                "cycle": cycle_num, **self._drives,
-            })
-
-            # Count actions
-            if cycle_result.dialogue:
-                result.total_dialogues += 1
-            if cycle_result.action == "read_content":
-                result.total_browses += 1
-            elif cycle_result.action == "post_x":
-                result.total_posts += 1
-            elif cycle_result.action == "write_journal":
-                result.total_journals += 1
-
-            if self.verbose and cycle_num % 100 == 0:
-                print(f"  [{cycle_num:04d}] {cycle_result.cycle_type:12s} "
-                      f"v={self._drives['mood_valence']:+.2f} "
-                      f"e={self._drives['energy']:.2f} "
-                      f"sh={self._drives['social_hunger']:.2f}")
-
-        # Gather LLM stats
-        if hasattr(self.llm, 'report'):
-            result.llm_stats = self.llm.report()
-        if hasattr(self.llm, 'stats'):
-            result.llm_stats = self.llm.stats()
-
-        result.visitors = dict(self._visitor_history)
-
-        # Cleanup
-        await self.db.close()
-
-        return result
-
-    async def _run_cycle(self, cycle_num: int,
-                         events: list[dict]) -> CycleResult:
-        """Run a single pipeline cycle."""
-        # Build system prompt with drives
-        system = self._build_system_prompt()
-
-        # Build messages with events
-        messages = self._build_messages(events)
-
-        # Determine call site
-        call_site = "cortex"
-
-        # Let pipeline decide behavior (for baselines / ablation)
-        if hasattr(self.pipeline, 'pre_cycle'):
-            self.pipeline.pre_cycle(self._drives, self._engagement, events)
-
-        # Call LLM
-        response = await self.llm.complete(
-            messages=messages,
-            system=system,
-            call_site=call_site,
-        )
-
-        # Parse response
-        text = response["content"][0]["text"]
-        try:
-            parsed = json.loads(text)
-        except json.JSONDecodeError:
-            parsed = {"internal_monologue": text}
-
-        # Extract cycle result
-        action = None
-        intentions = parsed.get("intentions", [])
-        if intentions:
-            action = intentions[0].get("action")
-
-        dialogue = parsed.get("dialogue")
-
-        # Determine cycle type
-        if dialogue:
-            cycle_type = "dialogue"
-        elif action == "read_content":
-            cycle_type = "browse"
-        elif action == "post_x":
-            cycle_type = "post"
-        elif action == "write_journal":
-            cycle_type = "journal"
-        else:
-            cycle_type = "idle"
-
-        # Update drives from LLM output
-        new_drives = parsed.get("new_drives", parsed.get("drive_updates"))
-        if new_drives and isinstance(new_drives, dict):
-            for key in self._drives:
-                if key in new_drives:
-                    self._drives[key] = new_drives[key]
-        else:
-            # Apply homeostatic drift if LLM didn't provide drive updates
-            self._apply_homeostatic_drift(
-                has_visitor=self._engagement["status"] == "engaged",
-                took_action=bool(action),
-            )
-
-        # Clamp drives
-        for key in ("social_hunger", "curiosity", "expression_need",
-                     "rest_need", "energy", "mood_arousal"):
-            self._drives[key] = max(0.0, min(1.0, self._drives[key]))
-        self._drives["mood_valence"] = max(-1.0, min(1.0, self._drives["mood_valence"]))
-
-        # Re-apply ablation overrides after drift (e.g. no_drives keeps flat)
-        if hasattr(self.pipeline, 'pre_cycle'):
-            self.pipeline.pre_cycle(self._drives, self._engagement, [])
-
-        await self._save_drives_to_db()
-
-        # Log to DB
-        await self._log_cycle(cycle_num, cycle_type, action, dialogue, parsed)
-
-        return CycleResult(
-            cycle_num=cycle_num,
-            timestamp=self.clock.now().isoformat(),
-            cycle_type=cycle_type,
-            action=action,
-            dialogue=dialogue,
-            internal_monologue=parsed.get("internal_monologue", ""),
-            expression=parsed.get("expression", "neutral"),
-            has_visitor=self._engagement["status"] == "engaged",
-            drives=dict(self._drives),
-            intentions=intentions,
-            memory_updates=parsed.get("memory_updates", []),
-            resonance=parsed.get("resonance", False),
-            raw_llm_output=parsed,
-        )
-
     # Cortex output schema — copied from pipeline/cortex.py CORTEX_SYSTEM.
     # Kept in sync manually; the sim needs the same JSON contract so real
     # LLMs (cached mode) return structured output instead of prose.
@@ -419,6 +154,304 @@ OUTPUT SCHEMA:
   ],
   "next_cycle_hints": ["optional hints for what she might do next"]
 }"""
+
+    def __init__(
+        self,
+        variant: str = "full",
+        scenario: str = "standard",
+        num_cycles: int = 1000,
+        llm_mode: str = "mock",
+        seed: int = 42,
+        output_dir: str = "sim/results",
+        start_time: str = "2026-02-01T09:00:00+09:00",
+        block_sleep: bool = False,
+        verbose: bool = False,
+    ):
+        self.variant = variant
+        self.scenario_name = scenario
+        self.num_cycles = num_cycles
+        self.llm_mode = llm_mode
+        self.seed = seed
+        self.output_dir = Path(output_dir)
+        self.block_sleep = block_sleep
+        self.verbose = verbose
+
+        # Initialize components
+        self.clock = SimulatedClock(start=start_time)
+        self.db: InMemoryDB | None = None
+        self.llm = self._init_llm(llm_mode, seed)
+        self.pipeline = self._init_pipeline(variant)
+        self.scenario = ScenarioManager.load(scenario)
+
+        # Runtime state
+        self._drives = {
+            "social_hunger": 0.5,
+            "curiosity": 0.5,
+            "expression_need": 0.3,
+            "rest_need": 0.2,
+            "energy": 0.8,
+            "mood_valence": 0.0,
+            "mood_arousal": 0.3,
+        }
+        self._engagement = {
+            "status": "none",
+            "visitor_id": None,
+            "turn_count": 0,
+        }
+        self._visitor_history: dict[str, dict] = {}  # visitor_id -> info
+
+    def _init_llm(self, mode: str, seed: int):
+        """Initialize the LLM backend."""
+        if mode == "mock":
+            from sim.llm.mock import MockCortex
+            return MockCortex(seed=seed)
+        elif mode == "cached":
+            from sim.llm.cached import CachedCortex
+            return CachedCortex(variant=self.variant)
+        else:
+            raise ValueError(f"Unknown LLM mode: {mode}. Use 'mock' or 'cached'.")
+
+    def _init_pipeline(self, variant: str):
+        """Initialize the pipeline variant."""
+        if variant == "full":
+            return FullPipeline()
+        elif variant == "stateless":
+            from sim.baselines.stateless import StatelessBaseline
+            return StatelessBaseline()
+        elif variant == "react":
+            from sim.baselines.react_agent import ReActBaseline
+            return ReActBaseline()
+        elif variant.startswith("no_"):
+            from sim.variants import AblatedPipeline
+            return AblatedPipeline(remove=variant[3:])
+        else:
+            raise ValueError(f"Unknown variant: {variant}")
+
+    async def run(self) -> SimulationResult:
+        """Run all cycles, collect results."""
+        # Initialize DB
+        self.db = await InMemoryDB.create()
+
+        # Seed initial drives into DB
+        await self._save_drives_to_db()
+
+        result = SimulationResult(
+            variant=self.variant,
+            scenario=self.scenario_name,
+            num_cycles=self.num_cycles,
+            seed=self.seed,
+            llm_mode=self.llm_mode,
+        )
+
+        for cycle_num in range(self.num_cycles):
+            # Advance simulated time
+            self.clock.advance(minutes=5)
+
+            # Get scenario events for this cycle
+            scenario_events = self.scenario.get_events(cycle_num)
+
+            # Handle meta-events (set_drives, inject_thread, block_sleep)
+            pipeline_events = []
+            for se in scenario_events:
+                if se.event_type == "set_drives":
+                    self._apply_drive_overrides(se.payload)
+                    await self._save_drives_to_db()
+                elif se.event_type == "inject_thread":
+                    await self._inject_thread(se.payload)
+                elif se.event_type == "block_sleep":
+                    self.block_sleep = se.payload.get("enabled", True)
+                elif se.event_type == "unblock_sleep":
+                    self.block_sleep = False
+                else:
+                    event_dict = se.to_pipeline_event(self.clock.now())
+                    pipeline_events.append(event_dict)
+                    await self._inject_event(event_dict)
+
+            # Handle visitor state from events
+            self._process_visitor_events(pipeline_events)
+
+            # Check sleep window
+            if not self.block_sleep and self.pipeline.should_sleep(self.clock):
+                cycle_result = CycleResult(
+                    cycle_num=cycle_num,
+                    timestamp=self.clock.now().isoformat(),
+                    cycle_type="sleep",
+                    sleep_triggered=True,
+                    drives=dict(self._drives),
+                )
+                result.cycles.append(cycle_result)
+                result.sleep_cycles.append(cycle_num)
+                result.drives_history.append({
+                    "cycle": cycle_num, **self._drives,
+                })
+
+                # Sleep restores energy
+                self._drives["energy"] = min(1.0, self._drives["energy"] + 0.1)
+                self._drives["rest_need"] = max(0.0, self._drives["rest_need"] - 0.1)
+                await self._save_drives_to_db()
+
+                if self.verbose:
+                    print(f"  [{cycle_num:04d}] SLEEP "
+                          f"(energy={self._drives['energy']:.2f})")
+                continue
+
+            # Run one pipeline cycle
+            cycle_result = await self._run_cycle(cycle_num, pipeline_events)
+            result.cycles.append(cycle_result)
+            result.drives_history.append({
+                "cycle": cycle_num, **self._drives,
+            })
+
+            # Count actions from all surviving (gated) intentions
+            if cycle_result.dialogue:
+                result.total_dialogues += 1
+            for intent in cycle_result.intentions:
+                act = intent.get("action")
+                if act in ("read_content", "browse_web"):
+                    result.total_browses += 1
+                elif act in ("post_x", "reply_x", "post_x_image"):
+                    result.total_posts += 1
+                elif act == "write_journal":
+                    result.total_journals += 1
+
+            if self.verbose and cycle_num % 100 == 0:
+                print(f"  [{cycle_num:04d}] {cycle_result.cycle_type:12s} "
+                      f"v={self._drives['mood_valence']:+.2f} "
+                      f"e={self._drives['energy']:.2f} "
+                      f"sh={self._drives['social_hunger']:.2f}")
+
+        # Gather LLM stats
+        if hasattr(self.llm, 'report'):
+            result.llm_stats = self.llm.report()
+        if hasattr(self.llm, 'stats'):
+            result.llm_stats = self.llm.stats()
+
+        result.visitors = dict(self._visitor_history)
+
+        # Cleanup
+        await self.db.close()
+
+        return result
+
+    async def _run_cycle(self, cycle_num: int,
+                         events: list[dict]) -> CycleResult:
+        """Run a single pipeline cycle."""
+        # Build system prompt with drives
+        system = self._build_system_prompt()
+
+        # Build messages with events
+        messages = self._build_messages(events)
+
+        # Determine call site
+        call_site = "cortex"
+
+        # Let pipeline decide behavior (for baselines / ablation)
+        if hasattr(self.pipeline, 'pre_cycle'):
+            self.pipeline.pre_cycle(self._drives, self._engagement, events)
+
+        # Call LLM
+        response = await self.llm.complete(
+            messages=messages,
+            system=system,
+            call_site=call_site,
+        )
+
+        # Parse response — strip markdown fences, then JSON
+        text = response["content"][0]["text"].strip()
+        text = re.sub(r'^```(?:json)?\s*', '', text)
+        text = re.sub(r'\s*```$', '', text)
+        try:
+            parsed = json.loads(text)
+        except json.JSONDecodeError:
+            parsed = {"internal_monologue": text}
+
+        # Apply ablation transforms to parsed output
+        parsed = self._apply_ablation_transforms(parsed)
+
+        # Extract cycle result
+        # Impulse gating: basal ganglia filters low-impulse intentions.
+        # For no_basal_ganglia ablation, impulses were forced to 1.0 by
+        # _apply_ablation_transforms, so all intentions pass through.
+        IMPULSE_THRESHOLD = 0.5
+        raw_intentions = parsed.get("intentions", [])
+
+        def _impulse(intent: dict) -> float:
+            """Coerce impulse to float — real LLMs may return str or null."""
+            val = intent.get("impulse", 0)
+            try:
+                return float(val)
+            except (TypeError, ValueError):
+                return 0.0
+
+        intentions = [
+            i for i in raw_intentions
+            if _impulse(i) >= IMPULSE_THRESHOLD
+        ]
+
+        # Normalize action: real schema uses browse_web, runner counts use read_content
+        action = None
+        if intentions:
+            raw_action = intentions[0].get("action")
+            # Map browse_web -> read_content for internal tracking
+            action = "read_content" if raw_action == "browse_web" else raw_action
+
+        dialogue = parsed.get("dialogue")
+
+        # Determine cycle type
+        if dialogue:
+            cycle_type = "dialogue"
+        elif action == "read_content":
+            cycle_type = "browse"
+        elif action in ("post_x", "reply_x", "post_x_image"):
+            cycle_type = "post"
+        elif action == "write_journal":
+            cycle_type = "journal"
+        else:
+            cycle_type = "idle"
+
+        # Update drives from LLM output
+        new_drives = parsed.get("new_drives", parsed.get("drive_updates"))
+        if new_drives and isinstance(new_drives, dict):
+            for key in self._drives:
+                if key in new_drives:
+                    self._drives[key] = new_drives[key]
+        else:
+            # Apply homeostatic drift if LLM didn't provide drive updates
+            self._apply_homeostatic_drift(
+                has_visitor=self._engagement["status"] == "engaged",
+                took_action=bool(action),
+            )
+
+        # Clamp drives
+        for key in ("social_hunger", "curiosity", "expression_need",
+                     "rest_need", "energy", "mood_arousal"):
+            self._drives[key] = max(0.0, min(1.0, self._drives[key]))
+        self._drives["mood_valence"] = max(-1.0, min(1.0, self._drives["mood_valence"]))
+
+        # Re-apply ablation overrides after drift (e.g. no_drives keeps flat)
+        if hasattr(self.pipeline, 'pre_cycle'):
+            self.pipeline.pre_cycle(self._drives, self._engagement, [])
+
+        await self._save_drives_to_db()
+
+        # Log to DB
+        await self._log_cycle(cycle_num, cycle_type, action, dialogue, parsed)
+
+        return CycleResult(
+            cycle_num=cycle_num,
+            timestamp=self.clock.now().isoformat(),
+            cycle_type=cycle_type,
+            action=action,
+            dialogue=dialogue,
+            internal_monologue=parsed.get("internal_monologue", ""),
+            expression=parsed.get("expression", "neutral"),
+            has_visitor=self._engagement["status"] == "engaged",
+            drives=dict(self._drives),
+            intentions=intentions,
+            memory_updates=parsed.get("memory_updates", []),
+            resonance=parsed.get("resonance", False),
+            raw_llm_output=parsed,
+        )
 
     def _build_system_prompt(self) -> str:
         """Build system prompt with current drives and full cortex schema.
@@ -557,6 +590,28 @@ OUTPUT SCHEMA:
 
         # Rest need rises slowly
         d["rest_need"] = min(1.0, d["rest_need"] + 0.001)
+
+    def _apply_ablation_transforms(self, parsed: dict) -> dict:
+        """Apply ablation-specific transforms to LLM output.
+
+        - no_memory: strip memory_updates (no recall or formation)
+        - no_basal_ganglia: skip impulse gating (all intentions execute)
+        """
+        ablation = getattr(self.pipeline, 'remove', None)
+        if not ablation:
+            return parsed
+
+        if ablation == "memory":
+            # No memory system — discard all memory updates
+            parsed["memory_updates"] = []
+
+        elif ablation == "basal_ganglia":
+            # No gating — force all intention impulses to maximum
+            # so nothing gets filtered by threshold
+            for intent in parsed.get("intentions", []):
+                intent["impulse"] = 1.0
+
+        return parsed
 
     async def _save_drives_to_db(self):
         """Persist current drives to the in-memory DB."""

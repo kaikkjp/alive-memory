@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"They came in and just told me to continue my day. Either they know this place well enough to be comfortable, or they're testing what I'll do. Either way, I'm not performing for anyone.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"neutral\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"at_visitor\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"speak\",\n      \"target\": \"visitor\",\n      \"content\": \"You came in to tell me that, or you wanted something?\",\n      \"impulse\": 0.6\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"visitor_impression\",\n      \"content\": {\n        \"visitor_id\": \"tg:test_user\",\n        \"impression\": \"familiar enough to enter and speak casually\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.45,\n    \"curiosity\": 0.55,\n    \"expression_need\": 0.35,\n    \"rest_need\": 0.45,\n    \"energy\": 0.8,\n    \"mood_valence\": 0.0,\n    \"mood_arousal\": 0.1\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1073,
+    "output_tokens": 803,
+    "cost_usd": 0.0012855
+  }
+}

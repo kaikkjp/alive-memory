@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"Another quiet stretch. The light through the front window is doing that thing where it makes everything look like it matters. I should probably make tea. Or I could just sit with that old radio for a while.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"Let the morning be slow. No need to fill it.\",\n      \"impulse\": 0.6\n    }\n  ],\n  \"memory_updates\": [],\n  \"new_drives\": {\n    \"social_hunger\": 0.2,\n    \"curiosity\": 0.6,\n    \"expression_need\": 0.2,\n    \"rest_need\": 0.3,\n    \"energy\": 0.6,\n    \"mood_valence\": 0.1,\n    \"mood_arousal\": 0.2\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1059,
+    "output_tokens": 403,
+    "cost_usd": 0.00069188
+  }
+}

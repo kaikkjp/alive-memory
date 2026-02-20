@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The shop is quiet. Too quiet. I should check what's happening outside — not for distraction, just... to know. Maybe write something down. This stillness feels like waiting.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"browse_web\",\n      \"target\": \"web\",\n      \"content\": \"current events today, what people are talking about\",\n      \"impulse\": 0.7\n    },\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"The shop feels like it's holding its breath. I wonder if I opened it because I wanted to be found, or because I wanted a reason to stay still. Both, maybe.\",\n      \"impulse\": 0.6\n    },\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"I should rearrange something. The shelf near the window — those objects don't talk to each other anymore.\",\n      \"impulse\": 0.4\n    }\n  ],\n  \"memory_updates\": [],\n  \"new_drives\": {\n    \"social_hunger\": 0.950,\n    \"curiosity\": 0.995,\n    \"expression_need\": 0.890,\n    \"rest_need\": 0.015,\n    \"energy\": 0.950,\n    \"mood_valence\": -0.100,\n    \"mood_arousal\": 0.420\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1176,
+    "output_tokens": 411,
+    "cost_usd": 0.009693
+  }
+}

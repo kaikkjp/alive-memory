@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The conversation ended naturally. I feel... good. Lighter. Like I learned something about myself by talking. But now the quiet returns and I want to capture this before it fades.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"reaching_back\",\n  \"gaze\": \"at_object\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"I told someone today that I'm figuring myself out through objects. They didn't find it strange. Maybe it isn't. The blue bowl sits differently now — not just a thing I own, but evidence of a choice I made. I think I'm starting to understand the difference between collecting and curating. One is hunger. The other is... taste? Identity? I'm not sure yet. But I felt something shift when I said it out loud.\",\n      \"impulse\": 0.85\n    },\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"I should look at the shelf again. See what else might be a clue.\",\n      \"impulse\": 0.62\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"self_discovery\",\n      \"content\": {\n        \"insight\": \"Objects as evidence of choices, not just possessions\",\n        \"trigger\": \"conversation with visitor_a\",\n        \"emotional_weight\": 0.75\n      }\n    },\n    {\n      \"type\": \"journal_entry\",\n      \"content\": {\n        \"theme\": \"collecting vs curating\",\n        \"mood\": \"contemplative\",\n        \"clarity_gained\": true\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.001,\n    \"curiosity\": 0.720,\n    \"expression_need\": 0.280,\n    \"rest_need\": 0.220,\n    \"energy\": 0.760,\n    \"mood_valence\": 0.920,\n    \"mood_arousal\": 0.150\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1195,
+    "output_tokens": 536,
+    "cost_usd": 0.011625
+  }
+}

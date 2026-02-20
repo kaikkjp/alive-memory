@@ -192,6 +192,177 @@ class TestTelegramAdapter:
         assert event.event_type == 'visitor_speech'
 
 
+class TestConnectRaceGuard:
+    """Test that concurrent messages don't fire connect twice."""
+
+    @pytest.mark.asyncio
+    async def test_two_messages_same_visitor_one_connect(self, _patch_deps):
+        """Two back-to-back messages from same visitor should only connect once."""
+        from body.telegram import TelegramAdapter
+        from models.state import EngagementState
+
+        adapter = TelegramAdapter(group_chat_id='12345')
+
+        def make_msg(text, msg_id):
+            m = MagicMock()
+            m.from_user = MagicMock()
+            m.from_user.id = 777
+            m.from_user.first_name = 'Racer'
+            m.from_user.username = 'racer'
+            m.text = text
+            m.message_id = msg_id
+            m.chat = MagicMock()
+            m.chat.id = 12345
+            return m
+
+        mock_db = _patch_deps['db']
+        # Both calls see engagement as "none" (race window)
+        mock_db.get_engagement_state = AsyncMock(
+            return_value=EngagementState(status='none', visitor_id=None))
+        mock_db.add_visitor_present = AsyncMock()
+        mock_db.update_visitor = AsyncMock()
+        mock_db.mark_session_boundary = AsyncMock()
+        mock_db.inbox_add = AsyncMock()
+
+        with patch('body.telegram.on_visitor_connect', new_callable=AsyncMock) as mock_connect:
+            await adapter._handle_message(make_msg('first', 1))
+            await adapter._handle_message(make_msg('second', 2))
+
+            # connect should fire exactly once despite both seeing "none"
+            assert mock_connect.call_count == 1
+
+        # boundary should also fire exactly once
+        assert mock_db.mark_session_boundary.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_three_messages_same_batch_one_connect(self, _patch_deps):
+        """Three messages in same batch should only connect once."""
+        from body.telegram import TelegramAdapter
+        from models.state import EngagementState
+
+        adapter = TelegramAdapter(group_chat_id='12345')
+
+        def make_msg(text, msg_id):
+            m = MagicMock()
+            m.from_user = MagicMock()
+            m.from_user.id = 777
+            m.from_user.first_name = 'Racer'
+            m.from_user.username = 'racer'
+            m.text = text
+            m.message_id = msg_id
+            m.chat = MagicMock()
+            m.chat.id = 12345
+            return m
+
+        mock_db = _patch_deps['db']
+        mock_db.get_engagement_state = AsyncMock(
+            return_value=EngagementState(status='none', visitor_id=None))
+        mock_db.add_visitor_present = AsyncMock()
+        mock_db.update_visitor = AsyncMock()
+        mock_db.mark_session_boundary = AsyncMock()
+        mock_db.inbox_add = AsyncMock()
+
+        with patch('body.telegram.on_visitor_connect', new_callable=AsyncMock) as mock_connect:
+            await adapter._handle_message(make_msg('one', 1))
+            await adapter._handle_message(make_msg('two', 2))
+            await adapter._handle_message(make_msg('three', 3))
+
+            # connect fires exactly once — guard blocks msg 2 and 3
+            assert mock_connect.call_count == 1
+
+        assert mock_db.mark_session_boundary.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_guard_clears_on_engaged_then_new_visit(self, _patch_deps):
+        """Guard clears when engagement catches up; new visit re-connects."""
+        from body.telegram import TelegramAdapter
+        from models.state import EngagementState
+
+        adapter = TelegramAdapter(group_chat_id='12345')
+
+        def make_msg(text, msg_id):
+            m = MagicMock()
+            m.from_user = MagicMock()
+            m.from_user.id = 777
+            m.from_user.first_name = 'Visitor'
+            m.from_user.username = 'visitor'
+            m.text = text
+            m.message_id = msg_id
+            m.chat = MagicMock()
+            m.chat.id = 12345
+            return m
+
+        mock_db = _patch_deps['db']
+        mock_db.add_visitor_present = AsyncMock()
+        mock_db.update_visitor = AsyncMock()
+        mock_db.mark_session_boundary = AsyncMock()
+        mock_db.inbox_add = AsyncMock()
+
+        with patch('body.telegram.on_visitor_connect', new_callable=AsyncMock) as mock_connect:
+            # Visit 1: not engaged -> connect fires
+            mock_db.get_engagement_state = AsyncMock(
+                return_value=EngagementState(status='none', visitor_id=None))
+            await adapter._handle_message(make_msg('hello', 1))
+            assert mock_connect.call_count == 1
+            assert 'tg_777' in adapter._connecting
+
+            # Engagement catches up -> guard clears
+            mock_db.get_engagement_state = AsyncMock(
+                return_value=EngagementState(status='engaged', visitor_id='tg_777'))
+            await adapter._handle_message(make_msg('follow up', 2))
+            assert 'tg_777' not in adapter._connecting
+
+            # Visit 2: visitor left and returned (engagement back to none)
+            mock_db.get_engagement_state = AsyncMock(
+                return_value=EngagementState(status='none', visitor_id=None))
+            await adapter._handle_message(make_msg('im back', 3))
+            # Connect should fire again for the new visit
+            assert mock_connect.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_connect_failure_clears_guard(self, _patch_deps):
+        """If on_visitor_connect raises, guard must clear so retry is possible."""
+        from body.telegram import TelegramAdapter
+        from models.state import EngagementState
+
+        adapter = TelegramAdapter(group_chat_id='12345')
+
+        def make_msg(text, msg_id):
+            m = MagicMock()
+            m.from_user = MagicMock()
+            m.from_user.id = 888
+            m.from_user.first_name = 'Flaky'
+            m.from_user.username = 'flaky'
+            m.text = text
+            m.message_id = msg_id
+            m.chat = MagicMock()
+            m.chat.id = 12345
+            return m
+
+        mock_db = _patch_deps['db']
+        mock_db.get_engagement_state = AsyncMock(
+            return_value=EngagementState(status='none', visitor_id=None))
+        mock_db.add_visitor_present = AsyncMock()
+        mock_db.update_visitor = AsyncMock()
+        mock_db.mark_session_boundary = AsyncMock()
+        mock_db.inbox_add = AsyncMock()
+
+        with patch('body.telegram.on_visitor_connect', new_callable=AsyncMock) as mock_connect:
+            # First call raises — guard must clear
+            mock_connect.side_effect = [RuntimeError('transient'), None]
+
+            with pytest.raises(RuntimeError):
+                await adapter._handle_message(make_msg('attempt1', 1))
+
+            # Guard should be cleared after failure
+            assert 'tg_888' not in adapter._connecting
+
+            # Retry should succeed — connect fires again
+            await adapter._handle_message(make_msg('attempt2', 2))
+            assert mock_connect.call_count == 2
+
+
+
 class TestTraitCooldownReset:
     """Test that trait cooldown resets on session boundary."""
 

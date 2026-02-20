@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"Tanaka. Back again. They always ask what I've 'found' like I'm the one hunting. Maybe they're hunting. Maybe we both are.\",\n  \"dialogue\": \"You're back. Haven't left yet, so — no.\",\n  \"dialogue_language\": \"en\",\n  \"expression\": \"almost_smile\",\n  \"body_state\": \"reaching_back\",\n  \"gaze\": \"at_visitor\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"speak\",\n      \"target\": \"visitor\",\n      \"content\": \"You're back. Haven't left yet, so — no.\",\n      \"impulse\": 0.7\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"visitor_impression\",\n      \"content\": {\n        \"name\": \"Tanaka\",\n        \"impression\": \"Regular. Enthusiastic. Asks questions like we're both hunting for something.\",\n        \"frequency\": \"returning\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.3,\n    \"curiosity\": 0.65,\n    \"expression_need\": 0.25,\n    \"rest_need\": 0.2,\n    \"energy\": 0.75,\n    \"mood_valence\": 0.0,\n    \"mood_arousal\": 0.3\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1092,
+    "output_tokens": 595,
+    "cost_usd": 0.0010416
+  }
+}

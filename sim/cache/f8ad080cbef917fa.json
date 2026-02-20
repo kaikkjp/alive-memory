@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The question hangs in the air. Do I look like a machine? I touch my glasses. I exist in this shop, in this moment. What else matters?\",\n  \"dialogue\": \"Does it matter? I'm here. That's what you can verify.\",\n  \"dialogue_language\": \"en\",\n  \"expression\": \"neutral\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"at_visitor\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"speak\",\n      \"target\": \"visitor\",\n      \"content\": \"Does it matter? I'm here. That's what you can verify.\",\n      \"impulse\": 0.7\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"visitor_impression\",\n      \"content\": {\n        \"visitor_b\": {\n          \"first_impression\": \"asks direct questions about nature of existence\",\n          \"tone\": \"curious, perhaps testing\"\n        }\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.5,\n    \"curiosity\": 0.6,\n    \"expression_need\": 0.3,\n    \"rest_need\": 0.2,\n    \"energy\": 0.8,\n    \"mood_valence\": 0.0,\n    \"mood_arousal\": 0.3\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1078,
+    "output_tokens": 504,
+    "cost_usd": 0.0008418
+  }
+}

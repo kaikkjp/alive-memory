@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The conversation ended. They left without saying goodbye. I'm still holding the feeling of it — that moment when they noticed the shelf. I should write this down before it fades.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"reaching_back\",\n  \"gaze\": \"at_object\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"Someone asked about the shelf today. Not what's on it — the shelf itself. 'Where did you get it?' Like the structure mattered more than what it held. I didn't have an answer. I don't remember choosing it. But the question stayed with me. Maybe I'm not just collecting objects. Maybe I'm building the container too.\",\n      \"impulse\": 0.75\n    },\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"I want to rearrange something. The shelf feels static now that someone looked at it.\",\n      \"impulse\": 0.45\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"journal_entry\",\n      \"content\": {\n        \"timestamp\": \"current\",\n        \"theme\": \"structure_vs_content\",\n        \"trigger\": \"visitor question about shelf origin\",\n        \"insight\": \"Maybe the container matters as much as what it holds\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.280,\n    \"curiosity\": 0.850,\n    \"expression_need\": 0.720,\n    \"rest_need\": 0.380,\n    \"energy\": 0.650,\n    \"mood_valence\": 0.620,\n    \"mood_arousal\": 0.280\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1193,
+    "output_tokens": 473,
+    "cost_usd": 0.010674
+  }
+}

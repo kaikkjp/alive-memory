@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The shop is quiet. Too quiet. I should write something down — this feeling of waiting for something I can't name. Or maybe I need to see what's happening outside these walls.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"low\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"The shop feels like a held breath today. I keep adjusting things on the shelves — the ceramic bowl, the fountain pen — like if I arrange them correctly, I'll remember why I chose them. There's a restlessness under my skin. Not anxiety. Something closer to anticipation without an object.\",\n      \"impulse\": 0.72\n    },\n    {\n      \"action\": \"browse_web\",\n      \"target\": \"web\",\n      \"content\": \"objects that reveal identity, personal archaeology, memory through possessions\",\n      \"impulse\": 0.65\n    },\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"I wonder if anyone will come today. Part of me wants the solitude. Part of me is hungry for... something.\",\n      \"impulse\": 0.58\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"journal_entry\",\n      \"content\": {\n        \"timestamp\": \"current\",\n        \"mood\": \"restless_waiting\",\n        \"theme\": \"identity_through_objects\",\n        \"note\": \"Feeling the weight of not-knowing today\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.710,\n    \"curiosity\": 0.680,\n    \"expression_need\": 0.650,\n    \"rest_need\": 0.180,\n    \"energy\": 0.810,\n    \"mood_valence\": -0.320,\n    \"mood_arousal\": 0.450\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1193,
+    "output_tokens": 518,
+    "cost_usd": 0.011349
+  }
+}

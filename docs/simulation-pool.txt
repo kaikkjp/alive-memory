@@ -1,0 +1,60 @@
+# Simulation Content Pool — 7 days of curated content for The Shopkeeper
+# Usage: python ingest.py content/simulation-pool.txt
+# One URL per line. 42 items (~6/day). No Dezeen flood.
+# Mix: Tokyo/craft, philosophy/essays, ambient/sound, photography, exploration, folklore.
+
+# --- DAY 1: Grounding — Tokyo, texture, belonging ---
+https://www.spoon-tamago.com/2014/11/17/inkstand-by-kakimori/
+https://spoon-tamago.com/family-mart-food-loss-stickers/
+https://aeon.co/essays/the-life-changing-magic-of-japanese-clutter
+https://www.themarginalian.org/2020/10/25/the-snail-with-the-right-heart/
+https://www.lensculture.com/articles/eiji-ohashi-roadside-lights
+https://www.astrangelyisolatedplace.com/blog/2018/7/8/portals-stories-from-tokyo
+
+# --- DAY 2: Naming, materials, emergence ---
+https://publicdomainreview.org/collection/essay-on-the-modification-of-clouds/
+https://www.tokyoartbeat.com/en/events/-/Ruka-Kashiwagi-Emergence/8854-D23-D/2026-01-30
+https://spoon-tamago.com/duct-tape-typographer-shuetsu-sato-honored-with-design-award/
+https://lithub.com/craig-mod-on-the-creative-power-of-walking/
+https://www.ambientblog.net/blog/dreamscenes-february-2026/
+https://www.tokyoartbeat.com/en/articles/-/review-the-ecology-of-expression-remaking-our-relations-with-the-world
+
+# --- DAY 3: Sound, space, time capsules ---
+https://acloserlisten.com/2012/08/08/the-green-kingdom-incidental-music/
+https://www.messynessychic.com/2012/05/09/the-paris-time-capsule-apartment/
+https://aeon.co/essays/how-urban-density-can-make-our-neighbourhoods-better
+https://spoon-tamago.com/japanese-designer-new-years-cards-of-2026/
+https://www.astrangelyisolatedplace.com/blog/2018/7/6/digging-in-japan-ten-of-tokyos-best-record-stores
+https://www.tokyoartbeat.com/en/events/-/Reach-Beyond/and-collection-contemporary-art/2026-02-06
+
+# --- DAY 4: Collecting, animism, objects with souls ---
+https://aeon.co/essays/how-collecting-items-helps-us-to-control-the-world
+https://www.dezeen.com/2010/01/12/with-by-studio-loop/
+https://spoon-tamago.com/kirie-leaf-artist-lito/
+https://lithub.com/a-literary-history-of-the-writerly-love-affair-with-bookstores/
+https://yokai.com/kasaobake/
+https://www.ambientblog.net/blog/dreamscenes-january-2026/
+
+# --- DAY 5: Margins, memory, record bars ---
+https://lithub.com/meaning-in-the-margins-on-the-literary-value-of-annotation/
+https://spoon-tamago.com/tkg-tamago-kake-gohan-handkerchief/
+https://aeon.co/essays/from-rebuild-to-replica-architecture-has-a-double-life
+https://www.astrangelyisolatedplace.com/blog/2022/10/2/jazz-kissa-tokyo-record-bars
+https://www.tokyoartbeat.com/en/events/-/Jida-Takakusa-Exhibition/81-AE-86-A2/2026-02-24
+https://acloserlisten.com/2012/11/14/william-basinski-the-disintegration-loops/
+
+# --- DAY 6: Impermanence, language, transformation ---
+https://www.spoon-tamago.com/2015/06/03/fly-me-to-the-moon-a-%e7%be%8a%e7%be%b9-yokan-jelly-dessert/
+https://www.themarginalian.org/2012/06/08/rilke-letters-to-a-young-poet-questions/
+https://spoon-tamago.com/food-waste-transformed-into-tableware-by-kosuke-araki/
+https://lithub.com/where-words-dissolve-yoko-tawada-on-language-as-a-destabilizing-force/
+https://www.ambientblog.net/blog/2025-10/begg-lauermann/
+https://www.tokyoartbeat.com/en/events/-/Hikaru-Takata-Chain-and-ask/8854-D23-D/2026-02-15
+
+# --- DAY 7: Light, endings, reflection ---
+https://www.tokyoartbeat.com/en/events/-/Let-There-Be-Light/gallery-and-shop-yamagoya/2026-02-21
+https://spoon-tamago.com/hamacream-fall-foliage-art/
+https://aeon.co/essays/should-we-rein-cities-in-or-embrace-their-biomorphic-growth
+https://www.astrangelyisolatedplace.com/blog/2023/3/26/asip-live-dj-set-liminal-dreams-tokyo
+https://www.theparisreview.org/blog/2026/02/10/at-the-movies-with-john-ashbery/
+https://aeon.co/videos/an-action-figure-makers-outsized-tribute-to-his-late-brother

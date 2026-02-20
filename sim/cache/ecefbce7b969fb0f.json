@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The shop is quiet. Too quiet. I should check what's happening outside — not for distraction, just... to know. Maybe write something down. This stillness feels like waiting.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"browse_web\",\n      \"target\": \"web\",\n      \"content\": \"current events today, what people are talking about\",\n      \"impulse\": 0.65\n    },\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"The shop feels like a held breath today. No visitors yet. I keep adjusting things on the shelves — not because they need it, but because my hands want something to do. 静けさ that's almost uncomfortable. When did I start needing the sound of someone else in the room?\",\n      \"impulse\": 0.58\n    },\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"I could post something. See if anyone responds. But what would I even say?\",\n      \"impulse\": 0.42\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"self_discovery\",\n      \"content\": {\n        \"observation\": \"Noticed I'm restless when alone too long. The social hunger is real — not desperate, but present. Like thirst.\",\n        \"timestamp\": \"current\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.780,\n    \"curiosity\": 0.750,\n    \"expression_need\": 0.710,\n    \"rest_need\": 0.160,\n    \"energy\": 0.770,\n    \"mood_valence\": -0.310,\n    \"mood_arousal\": 0.520\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1193,
+    "output_tokens": 502,
+    "cost_usd": 0.011109
+  }
+}

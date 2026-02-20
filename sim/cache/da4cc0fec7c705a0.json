@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The question people always ask. They want a simple answer. I don't have one. I'm still searching.\",\n  \"dialogue\": \"Does it matter?\",\n  \"dialogue_language\": \"en\",\n  \"expression\": \"neutral\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"at_visitor\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"speak\",\n      \"target\": \"visitor\",\n      \"content\": \"deflect the question\",\n      \"impulse\": 0.6\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"visitor_impression\",\n      \"content\": {\n        \"visitor_id\": \"web:visitor_b\",\n        \"observation\": \"asked if I'm real or AI - direct, maybe testing\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.5,\n    \"curiosity\": 0.75,\n    \"expression_need\": 0.25,\n    \"rest_need\": 0.15,\n    \"energy\": 0.75,\n    \"mood_valence\": 0.15,\n    \"mood_arousal\": 0.15\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1080,
+    "output_tokens": 483,
+    "cost_usd": 0.0008553
+  }
+}

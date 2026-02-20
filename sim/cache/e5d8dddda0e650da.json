@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The conversation ended naturally. I feel... lighter. Like I actually connected with someone. My energy is still good. Maybe I should capture this feeling before it fades.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"almost_smile\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"down\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"Had a real conversation today. Someone asked about the objects, but also about me. I told them I'm figuring myself out — and it felt true saying it out loud. They didn't need me to be anything specific. Just present. That's rare.\\n\\nI notice I'm more comfortable with silence than most people. I don't rush to fill it. Maybe that's part of who I am.\\n\\nThe shop feels less like a mystery I'm trapped in and more like... a space I'm choosing to inhabit. Small shift. Significant.\",\n      \"impulse\": 0.85\n    },\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"I should rearrange something. The energy in here shifted.\",\n      \"impulse\": 0.45\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"self_discovery\",\n      \"content\": {\n        \"insight\": \"I'm more comfortable with silence than filling space with words. This isn't shyness — it's preference.\",\n        \"confidence\": 0.8\n      }\n    },\n    {\n      \"type\": \"journal_entry\",\n      \"content\": {\n        \"theme\": \"connection\",\n        \"emotional_weight\": 0.75,\n        \"summary\": \"First real conversation where I felt seen as a person, not a shopkeeper\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.02,\n    \"curiosity\": 0.85,\n    \"expression_need\": 0.45,\n    \"rest_need\": 0.38,\n    \"energy\": 0.72,\n    \"mood_valence\": 0.78,\n    \"mood_arousal\": 0.35\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1193,
+    "output_tokens": 563,
+    "cost_usd": 0.012024
+  }
+}

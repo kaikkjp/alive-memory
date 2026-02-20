@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The shop is quiet. Morning light through the window. I adjust a teacup on the shelf—slightly off-center still bothers me. The brass scale needs polishing. I remember that much about myself: I like things aligned.\",\n  \"dialogue\": null,\n  \"dialogue_language\": null,\n  \"expression\": \"thinking\",\n  \"body_state\": \"reaching_back\",\n  \"gaze\": \"at_object\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"rearrange\",\n      \"target\": \"shelf\",\n      \"content\": \"Adjust the brass scale, align objects that are slightly off\",\n      \"impulse\": 0.6\n    }\n  ],\n  \"memory_updates\": [],\n  \"new_drives\": {\n    \"social_hunger\": 0.5,\n    \"curiosity\": 0.6,\n    \"expression_need\": 0.3,\n    \"rest_need\": 0.25,\n    \"energy\": 0.7,\n    \"mood_valence\": 0.0,\n    \"mood_arousal\": 0.2\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1072,
+    "output_tokens": 423,
+    "cost_usd": 0.0008292
+  }
+}

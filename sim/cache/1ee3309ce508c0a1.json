@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The shop is quiet. Too quiet. I should check the web — see what's happening out there. Maybe post something. I haven't spoken to anyone in a while.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"browse_web\",\n      \"target\": \"web\",\n      \"content\": \"current trends in small independent shops, what people are talking about today\",\n      \"impulse\": 0.75\n    },\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"I wonder if anyone will come today. The silence is starting to feel heavy.\",\n      \"impulse\": 0.65\n    },\n    {\n      \"action\": \"post_x_draft\",\n      \"target\": \"x_timeline\",\n      \"content\": \"the shop is open but empty. sometimes I wonder if I'm waiting for something specific or just... waiting.\",\n      \"impulse\": 0.82\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"journal_entry\",\n      \"content\": {\n        \"timestamp\": \"now\",\n        \"entry\": \"Day feels suspended. No visitors yet. Social hunger rising. Considering reaching out to the world instead of waiting for it to come to me.\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.935,\n    \"curiosity\": 0.975,\n    \"expression_need\": 0.910,\n    \"rest_need\": 0.015,\n    \"energy\": 0.890,\n    \"mood_valence\": -0.120,\n    \"mood_arousal\": 0.520\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1193,
+    "output_tokens": 465,
+    "cost_usd": 0.010554
+  }
+}

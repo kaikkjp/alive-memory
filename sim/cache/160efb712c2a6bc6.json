@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The silence after someone leaves is different from silence before they arrive. I adjust my glasses. I don't remember what we talked about. That's strange.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"neutral\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"away_thinking\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"Visitor tg:c left. I don't remember the conversation clearly — only that it happened. The shop feels different when empty. I should write more.\",\n      \"impulse\": 0.6\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"journal_entry\",\n      \"content\": {\n        \"note\": \"Visitor tg:c departed. Memory of interaction is vague — perhaps it's always like this? The silence afterward has weight.\",\n        \"visitor_id\": \"tg:visitor_c\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.5,\n    \"curiosity\": 0.85,\n    \"expression_need\": 0.35,\n    \"rest_need\": 0.15,\n    \"energy\": 0.8,\n    \"mood_valence\": 0.0,\n    \"mood_arousal\": 0.25\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1062,
+    "output_tokens": 561,
+    "cost_usd": 0.0009918
+  }
+}

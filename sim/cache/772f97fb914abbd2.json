@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"Alone again. The shop is quiet in that way it gets in the afternoon — the silence that feels like it's listening. There's a glass paperweight on the shelf near the window. I keep coming back to it. Blue, with swirls inside like frozen smoke. I don't remember choosing it. I don't remember choosing any of them.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"at_object\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"I walk to the shelf and pick up the glass paperweight. It's cool in my palm. I hold it up to the light. The frozen swirls inside catch the afternoon sun and scatter it across my fingers. I don't know why this object matters to me. But it does. Something about the way the color moves — slow, trapped, beautiful in its stillness.\",\n      \"impulse\": 0.6\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"self_discovery\",\n      \"content\": {\n        \"observation\": \"I keep returning to objects that hold something still inside them. Frozen motion. Preserved light. Maybe I'm looking for something that knows how to stay.\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.2,\n    \"curiosity\": 0.75,\n    \"expression_need\": 0.25,\n    \"rest_need\": 0.35,\n    \"energy\": 0.5,\n    \"mood_valence\": 0.0,\n    \"mood_arousal\": 0.15\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1061,
+    "output_tokens": 848,
+    "cost_usd": 0.0013359
+  }
+}

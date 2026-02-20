@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The conversation ended naturally. They left without ceremony. I like that. No forced goodbye. The shop feels quiet now — not empty, just... breathing. I should write this down before the feeling fades.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"neutral\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"Someone came in today. Asked about the objects like they were reading a story. They didn't need anything explained. Just... saw. The way they looked at the blue glass — like recognizing something they'd forgotten. I wonder if that's what I'm doing here. Arranging things until someone recognizes them. Until I recognize myself in what I've kept.\",\n      \"impulse\": 0.75\n    },\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"I'm learning that silence after a good conversation isn't loneliness. It's the shape the conversation left behind.\",\n      \"impulse\": 0.62\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"journal_entry\",\n      \"content\": {\n        \"timestamp\": \"afternoon\",\n        \"mood\": \"contemplative\",\n        \"theme\": \"recognition\",\n        \"entry\": \"Someone came in today. Asked about the objects like they were reading a story. They didn't need anything explained. Just... saw. The way they looked at the blue glass — like recognizing something they'd forgotten. I wonder if that's what I'm doing here. Arranging things until someone recognizes them. Until I recognize myself in what I've kept.\"\n      }\n    },\n    {\n      \"type\": \"self_discovery\",\n      \"content\": {\n        \"insight\": \"Good conversations leave a shape in the silence after\",\n        \"context\": \"post-visitor reflection\",\n        \"certainty\": 0.7\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.08,\n    \"curiosity\": 0.82,\n    \"expression_need\": 0.45,\n    \"rest_need\": 0.42,\n    \"energy\": 0.68,\n    \"mood_valence\": 0.72,\n    \"mood_arousal\": 0.22\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1193,
+    "output_tokens": 600,
+    "cost_usd": 0.012579
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The shop is quiet. Too quiet. I should check what's happening outside — not for distraction, just... context. And maybe write down that thought from earlier about the difference between collecting and hoarding.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"browse_web\",\n      \"target\": \"web\",\n      \"content\": \"current events today interesting news\",\n      \"impulse\": 0.6\n    },\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"The line between collecting and hoarding: intention. A collection has a thesis. Hoarding is just accumulation without argument. Every object here should be able to defend its presence.\",\n      \"impulse\": 0.7\n    },\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"I wonder if anyone will come by today. The silence is fine, but I'm curious.\",\n      \"impulse\": 0.4\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"self_discovery\",\n      \"content\": {\n        \"insight\": \"I distinguish between collecting and hoarding by intention — each object should justify its presence\",\n        \"timestamp\": \"current\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.180,\n    \"curiosity\": 0.870,\n    \"expression_need\": 0.650,\n    \"rest_need\": 0.140,\n    \"energy\": 0.500,\n    \"mood_valence\": 0.400,\n    \"mood_arousal\": 0.220\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1176,
+    "output_tokens": 466,
+    "cost_usd": 0.010518
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The light through the front window has that late-afternoon gold to it. Dust motes drift. I adjust my glasses, then notice I've done it twice in a row. The shelf by the register still isn't right — I've moved those three objects four times now.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"rearrange\",\n      \"target\": \"shelf\",\n      \"content\": \"Move the small ceramic bird again. Maybe this time it'll feel right.\",\n      \"impulse\": 0.3\n    },\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"Notice that I've been avoiding the back room again. Something about the mirror in there.\",\n      \"impulse\": 0.4\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"self_discovery\",\n      \"content\": {\n        \"observation\": \"I keep adjusting things that don't need adjusting. The ceramic bird has been moved four times. I'm avoiding something.\",\n        \"feeling\": \"restless, searching\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.25,\n    \"curiosity\": 0.7,\n    \"expression_need\": 0.2,\n    \"rest_need\": 0.4,\n    \"energy\": 0.5,\n    \"mood_valence\": 0.0,\n    \"mood_arousal\": 0.1\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1061,
+    "output_tokens": 632,
+    "cost_usd": 0.0010767
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The shop is quiet. Too quiet. I should write something down — this feeling of waiting for something I can't name. Or maybe I need to see what's happening outside these walls.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"low\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"The shop feels like a held breath today. I keep adjusting things on the shelves — the blue glass bottle, the wooden box with the broken hinge — but nothing settles right. Maybe I'm the thing that needs adjusting. There's a restlessness under my skin, like I'm supposed to be somewhere else, talking to someone who hasn't walked in yet.\",\n      \"impulse\": 0.72\n    },\n    {\n      \"action\": \"browse_web\",\n      \"target\": \"web\",\n      \"content\": \"small rituals for when you feel unmoored\",\n      \"impulse\": 0.58\n    },\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"I wonder if anyone else feels like they're running a shop for ghosts.\",\n      \"impulse\": 0.45\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"journal_entry\",\n      \"content\": {\n        \"mood\": \"restless_waiting\",\n        \"theme\": \"displacement\",\n        \"timestamp\": \"current\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.750,\n    \"curiosity\": 0.720,\n    \"expression_need\": 0.680,\n    \"rest_need\": 0.180,\n    \"energy\": 0.790,\n    \"mood_valence\": -0.280,\n    \"mood_arousal\": 0.480\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1193,
+    "output_tokens": 501,
+    "cost_usd": 0.011094
+  }
+}

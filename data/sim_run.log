@@ -1,0 +1,1927 @@
+  Loaded 14 items from content/readings.txt
+=== Simulation started at 2026-02-16 07:00 JST ===
+
+  Simulating 3 day(s) starting 2026-02-16 07:00 JST
+  DB: data/sim/sim_20260216_070000_b0dffa47.db
+  Target: 2026-02-19 07:00 JST
+
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.000h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  08:20] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.130h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  08:27] idle     — fidget: She glances toward the window.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.128h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  08:55] idle     — fidget: Her fingers trail along the shelf edge.
+[Day 1  08:59] idle     — fidget: She turns a page.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.193h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  09:07] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.144h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  09:15] idle     — fidget: She adjusts her glasses.
+[Day 1  09:18] idle     — fidget: She glances toward the window.
+[Day 1  09:21] idle     — fidget: She takes a sip of tea.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.223h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  09:29] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.139h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  09:47] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.131h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  09:55] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.137h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  10:23] idle     — fidget: She turns a page.
+[Day 1  10:26] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.191h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  10:34] idle     — fidget: She turns a page.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.121h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  10:42] idle     — fidget: Her fingers trail along the shelf edge.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.138h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  10:50] idle     — fidget: She takes a sip of tea.
+[Day 1  10:53] idle     — fidget: She glances toward the window.
+[Day 1  10:56] idle     — fidget: She turns a page.
+[Day 1  10:59] idle     — fidget: She holds something up to the light, studying it.
+[Day 1  11:02] idle     — fidget: She takes a sip of tea.
+[Day 1  11:05] idle     — fidget: She glances toward the window.
+[Day 1  11:08] idle     — fidget: She takes a sip of tea.
+  [Hypothalamus] Drives: soc=0.52 cur=0.51 exp=0.32 rest=0.22 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.426h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  11:21] idle     — fidget: She turns a page.
+[Day 1  11:23] idle     — fidget: She takes a sip of tea.
+[Day 1  11:26] idle     — fidget: She glances toward the window.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.229h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  11:34] idle     — fidget: She picks up something from the shelf and turns it o
+[Day 1  11:37] idle     — fidget: She glances toward the window.
+[Day 1  11:40] idle     — fidget: She adjusts her glasses.
+[Day 1  11:44] idle     — fidget: She takes a sip of tea.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.297h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  12:12] idle     — fidget: She picks up something from the shelf and turns it o
+[Day 1  12:15] idle     — fidget: Her fingers trail along the shelf edge.
+[Day 1  12:18] idle     — fidget: She glances toward the window.
+[Day 1  12:21] idle     — fidget: She takes a sip of tea.
+[Day 1  12:24] idle     — fidget: She glances toward the window.
+[Day 1  12:27] idle     — fidget: She adjusts her glasses.
+  [Hypothalamus] Drives: soc=0.52 cur=0.51 exp=0.32 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.378h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  12:35] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.141h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  12:53] idle     — fidget: Her fingers trail along the shelf edge.
+[Day 1  12:57] idle     — fidget: She turns a page.
+[Day 1  13:00] idle     — fidget: She glances toward the window.
+[Day 1  13:02] idle     — fidget: She adjusts her glasses.
+[Day 1  13:06] idle     — fidget: She holds something up to the light, studying it.
+[Day 1  13:09] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.52 cur=0.51 exp=0.32 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.403h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  13:22] idle     — fidget: Her fingers trail along the shelf edge.
+[Day 1  13:25] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.173h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  13:43] idle     — fidget: She turns a page.
+[Day 1  13:46] idle     — fidget: She glances toward the window.
+[Day 1  13:49] idle     — fidget: She picks up something from the shelf and turns it o
+[Day 1  13:53] idle     — fidget: She holds something up to the light, studying it.
+[Day 1  13:56] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.32 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.357h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  14:04] idle     — fidget: She turns a page.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.121h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  14:17] idle     — fidget: She adjusts her glasses.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.133h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  14:34] idle     — fidget: She takes a sip of tea.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.133h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  14:42] idle     — fidget: She turns a page.
+[Day 1  14:45] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.179h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  15:23] idle     — fidget: She takes a sip of tea.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.141h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  15:32] idle     — fidget: She turns a page.
+[Day 1  15:35] idle     — fidget: She glances toward the window.
+[Day 1  15:38] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.236h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  15:46] idle     — fidget: She takes a sip of tea.
+[Day 1  15:48] idle     — fidget: She glances toward the window.
+[Day 1  15:51] idle     — fidget: Her fingers trail along the shelf edge.
+[Day 1  15:55] idle     — fidget: She turns a page.
+[Day 1  15:58] idle     — fidget: She picks up something from the shelf and turns it o
+[Day 1  16:01] idle     — fidget: She takes a sip of tea.
+[Day 1  16:03] idle     — fidget: She glances toward the window.
+  [Hypothalamus] Drives: soc=0.52 cur=0.51 exp=0.32 rest=0.22 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.433h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  16:12] idle     — fidget: Her fingers trail along the shelf edge.
+[Day 1  16:15] idle     — fidget: She glances toward the window.
+[Day 1  16:18] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.241h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  16:36] idle     — fidget: She takes a sip of tea.
+[Day 1  16:39] idle     — fidget: She turns a page.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.182h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  16:47] idle     — fidget: She adjusts her glasses.
+[Day 1  16:50] idle     — fidget: She glances toward the window.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.182h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  17:03] idle     — fidget: She picks up something from the shelf and turns it o
+[Day 1  17:05] idle     — fidget: Her fingers trail along the shelf edge.
+[Day 1  17:08] idle     — fidget: She holds something up to the light, studying it.
+[Day 1  17:11] idle     — fidget: She glances toward the window.
+[Day 1  17:13] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.295h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  17:26] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.144h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  17:34] idle     — fidget: She adjusts her glasses.
+[Day 1  17:38] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.196h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  17:46] idle     — fidget: She turns a page.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.135h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  17:54] idle     — fidget: Her fingers trail along the shelf edge.
+[Day 1  17:56] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.178h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  18:05] idle     — fidget: She takes a sip of tea.
+[Day 1  18:07] idle     — fidget: She glances toward the window.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.162h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  18:20] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.126h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  18:27] idle     — fidget: She picks up something from the shelf and turns it o
+[Day 1  18:30] idle     — fidget: She turns a page.
+[Day 1  18:33] idle     — fidget: She takes a sip of tea.
+[Day 1  18:36] idle     — fidget: She picks up something from the shelf and turns it o
+[Day 1  18:39] idle     — fidget: She glances toward the window.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.32 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.331h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  18:47] idle     — fidget: She takes a sip of tea.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.141h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  19:05] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.126h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  19:13] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.134h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  19:26] idle     — fidget: She takes a sip of tea.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.129h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  19:34] idle     — fidget: She glances toward the window.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.140h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  19:47] idle     — fidget: She adjusts her glasses.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.124h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  20:05] idle     — fidget: Her fingers trail along the shelf edge.
+[Day 1  20:08] idle     — fidget: She glances toward the window.
+[Day 1  20:10] idle     — fidget: She picks up something from the shelf and turns it o
+[Day 1  20:13] idle     — fidget: Her fingers trail along the shelf edge.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.266h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  20:26] idle     — fidget: She takes a sip of tea.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.139h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  20:39] idle     — fidget: She turns a page.
+[Day 1  20:42] idle     — fidget: She glances toward the window.
+[Day 1  20:44] idle     — fidget: Her fingers trail along the shelf edge.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.231h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  20:53] idle     — fidget: She holds something up to the light, studying it.
+[Day 1  20:56] idle     — fidget: She glances toward the window.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.189h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  21:04] idle     — fidget: She adjusts her glasses.
+[Day 1  21:07] idle     — fidget: Her fingers trail along the shelf edge.
+[Day 1  21:10] idle     — fidget: She holds something up to the light, studying it.
+[Day 1  21:13] idle     — fidget: She picks up something from the shelf and turns it o
+[Day 1  21:17] idle     — fidget: She turns a page.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.32 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.343h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  21:30] idle     — fidget: She adjusts her glasses.
+[Day 1  21:32] idle     — fidget: She turns a page.
+[Day 1  21:36] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.228h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  21:53] idle     — fidget: She glances toward the window.
+[Day 1  21:56] idle     — fidget: She turns a page.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.189h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  22:05] idle     — fidget: She takes a sip of tea.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.129h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  22:22] idle     — fidget: Her fingers trail along the shelf edge.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.125h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  22:35] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.136h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  22:43] idle     — fidget: She adjusts her glasses.
+[Day 1  22:47] idle     — fidget: Her fingers trail along the shelf edge.
+[Day 1  22:50] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.251h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  23:03] idle     — fidget: She takes a sip of tea.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.121h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  23:10] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.138h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  23:24] idle     — fidget: Her fingers trail along the shelf edge.
+[Day 1  23:26] idle     — fidget: She holds something up to the light, studying it.
+[Day 1  23:30] idle     — fidget: She picks up something from the shelf and turns it o
+[Day 1  23:32] idle     — fidget: She takes a sip of tea.
+[Day 1  23:35] idle     — fidget: She glances toward the window.
+[Day 1  23:38] idle     — fidget: She picks up something from the shelf and turns it o
+[Day 1  23:41] idle     — fidget: Her fingers trail along the shelf edge.
+[Day 1  23:44] idle     — fidget: She holds something up to the light, studying it.
+[Day 1  23:46] idle     — fidget: She glances toward the window.
+  [Hypothalamus] Drives: soc=0.52 cur=0.51 exp=0.32 rest=0.22 nrg=0.78 val=0.00 aro=0.30 (elapsed=0.495h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  23:53] idle     — fidget: She picks up something from the shelf and turns it o
+[Day 1  23:57] idle     — fidget: She glances toward the window.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.199h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  00:15] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.125h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  00:28] idle     — fidget: She turns a page.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.128h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  00:35] idle     — fidget: She adjusts her glasses.
+[Day 1  00:38] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.174h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  01:16] idle     — fidget: She turns a page.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.143h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  01:30] idle     — fidget: She takes a sip of tea.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.128h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  01:37] idle     — fidget: She glances toward the window.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.134h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  02:00] idle     — fidget: She turns a page.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.127h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  02:13] idle     — fidget: Her fingers trail along the shelf edge.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.145h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  02:32] idle     — fidget: She adjusts her glasses.
+[Day 1  02:34] idle     — fidget: She glances toward the window.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.171h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  02:47] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.130h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  03:00] SLEEP    — 0 moments consolidated
+[Day 1  06:00] WAKE     — new day begins
+[Day 1  06:00] idle     — fidget: She turns a page.
+[Day 1  06:03] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.56 cur=0.55 exp=0.39 rest=0.27 nrg=0.72 val=0.02 aro=0.30 (elapsed=3.196h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  06:21] idle     — fidget: She glances toward the window.
+[Day 1  06:24] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.181h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  06:32] idle     — fidget: She adjusts her glasses.
+[Day 1  06:36] idle     — fidget: Her fingers trail along the shelf edge.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.181h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 1  06:58] idle     — fidget: She turns a page.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.128h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  07:21] idle     — fidget: She adjusts her glasses.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.133h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  07:29] idle     — fidget: She holds something up to the light, studying it.
+[Day 2  07:33] idle     — fidget: She takes a sip of tea.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.205h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  08:06] idle     — fidget: She adjusts her glasses.
+[Day 2  08:10] idle     — fidget: She takes a sip of tea.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.199h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  08:28] idle     — fidget: Her fingers trail along the shelf edge.
+[Day 2  08:31] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.174h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  09:19] idle     — fidget: Her fingers trail along the shelf edge.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.136h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  09:37] idle     — fidget: She picks up something from the shelf and turns it o
+[Day 2  09:39] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.163h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  09:51] idle     — fidget: Her fingers trail along the shelf edge.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.132h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  10:09] idle     — fidget: She picks up something from the shelf and turns it o
+[Day 2  10:12] idle     — fidget: Her fingers trail along the shelf edge.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.179h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  10:20] idle     — fidget: She holds something up to the light, studying it.
+[Day 2  10:24] idle     — fidget: She picks up something from the shelf and turns it o
+[Day 2  10:27] idle     — fidget: She adjusts her glasses.
+[Day 2  10:31] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.310h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  10:49] idle     — fidget: She holds something up to the light, studying it.
+[Day 2  10:51] idle     — fidget: Her fingers trail along the shelf edge.
+[Day 2  10:55] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.234h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  11:03] idle     — fidget: She turns a page.
+[Day 2  11:06] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.198h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  11:20] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.146h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  11:33] idle     — fidget: She picks up something from the shelf and turns it o
+[Day 2  11:37] idle     — fidget: She takes a sip of tea.
+[Day 2  11:40] idle     — fidget: She turns a page.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.247h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  11:48] idle     — fidget: She glances toward the window.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.138h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  12:02] idle     — fidget: She adjusts her glasses.
+[Day 2  12:05] idle     — fidget: She turns a page.
+[Day 2  12:09] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.242h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  12:16] idle     — fidget: She turns a page.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.122h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  12:23] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.122h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  12:31] idle     — fidget: Her fingers trail along the shelf edge.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.141h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  12:44] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.135h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  12:52] idle     — fidget: Her fingers trail along the shelf edge.
+[Day 2  12:55] idle     — fidget: She adjusts her glasses.
+[Day 2  12:58] idle     — fidget: She holds something up to the light, studying it.
+[Day 2  13:00] idle     — fidget: She takes a sip of tea.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.273h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  13:14] idle     — fidget: She turns a page.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.141h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  13:32] idle     — fidget: She adjusts her glasses.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.133h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  13:40] idle     — fidget: Her fingers trail along the shelf edge.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.144h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  13:49] idle     — fidget: She takes a sip of tea.
+[Day 2  13:52] idle     — fidget: She turns a page.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.193h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  14:00] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.121h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  14:13] idle     — fidget: She takes a sip of tea.
+[Day 2  14:15] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.189h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  14:29] idle     — fidget: She glances toward the window.
+[Day 2  14:32] idle     — fidget: She turns a page.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.187h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  14:40] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.144h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  14:49] idle     — fidget: She turns a page.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.123h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  14:56] idle     — fidget: She adjusts her glasses.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.134h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  15:14] idle     — fidget: She glances toward the window.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.144h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  15:33] idle     — fidget: She adjusts her glasses.
+[Day 2  15:35] idle     — fidget: She turns a page.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.176h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  15:48] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.132h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  15:56] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.127h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  16:09] idle     — fidget: She holds something up to the light, studying it.
+[Day 2  16:11] idle     — fidget: She takes a sip of tea.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.173h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  16:34] idle     — fidget: Her fingers trail along the shelf edge.
+[Day 2  16:37] idle     — fidget: She takes a sip of tea.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.196h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  16:46] idle     — fidget: She turns a page.
+[Day 2  16:49] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.191h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  17:02] idle     — fidget: Her fingers trail along the shelf edge.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.137h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  17:11] idle     — fidget: She holds something up to the light, studying it.
+[Day 2  17:14] idle     — fidget: Her fingers trail along the shelf edge.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.192h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  17:37] idle     — fidget: She adjusts her glasses.
+[Day 2  17:41] idle     — fidget: She glances toward the window.
+[Day 2  17:43] idle     — fidget: Her fingers trail along the shelf edge.
+[Day 2  17:46] idle     — fidget: She takes a sip of tea.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.288h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  18:14] idle     — fidget: She holds something up to the light, studying it.
+[Day 2  18:17] idle     — fidget: She adjusts her glasses.
+[Day 2  18:20] idle     — fidget: She takes a sip of tea.
+[Day 2  18:23] idle     — fidget: She holds something up to the light, studying it.
+[Day 2  18:26] idle     — fidget: Her fingers trail along the shelf edge.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.32 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.333h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  18:34] idle     — fidget: She adjusts her glasses.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.129h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  18:52] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.137h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  19:05] idle     — fidget: She glances toward the window.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.139h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  19:14] idle     — fidget: She adjusts her glasses.
+[Day 2  19:17] idle     — fidget: Her fingers trail along the shelf edge.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.186h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  19:25] idle     — fidget: She turns a page.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.126h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  19:32] idle     — fidget: She adjusts her glasses.
+[Day 2  19:36] idle     — fidget: She takes a sip of tea.
+[Day 2  19:39] idle     — fidget: She glances toward the window.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.237h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  19:47] idle     — fidget: She turns a page.
+[Day 2  19:50] idle     — fidget: She holds something up to the light, studying it.
+[Day 2  19:53] idle     — fidget: She adjusts her glasses.
+[Day 2  19:56] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.296h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  20:04] idle     — fidget: Her fingers trail along the shelf edge.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.128h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  20:22] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.139h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  20:30] idle     — fidget: She adjusts her glasses.
+[Day 2  20:34] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.187h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  20:52] idle     — fidget: She glances toward the window.
+[Day 2  20:54] idle     — fidget: She takes a sip of tea.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.179h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  21:02] idle     — fidget: Her fingers trail along the shelf edge.
+[Day 2  21:05] idle     — fidget: She turns a page.
+[Day 2  21:08] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.214h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  21:15] idle     — fidget: She turns a page.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.136h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  21:23] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.128h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  21:36] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.122h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  22:03] idle     — fidget: She turns a page.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.145h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  22:12] idle     — fidget: She adjusts her glasses.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.136h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  22:30] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.128h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  22:43] idle     — fidget: She glances toward the window.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.123h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  23:00] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.126h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  23:13] idle     — fidget: Her fingers trail along the shelf edge.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.132h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  23:21] idle     — fidget: She picks up something from the shelf and turns it o
+[Day 2  23:24] idle     — fidget: She adjusts her glasses.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.206h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  23:58] idle     — fidget: Her fingers trail along the shelf edge.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.131h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  00:16] idle     — fidget: She adjusts her glasses.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.133h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  00:24] idle     — fidget: She takes a sip of tea.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.146h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  00:33] idle     — fidget: She adjusts her glasses.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.135h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  00:41] idle     — fidget: She holds something up to the light, studying it.
+[Day 2  00:44] idle     — fidget: She adjusts her glasses.
+[Day 2  00:47] idle     — fidget: Her fingers trail along the shelf edge.
+[Day 2  00:50] idle     — fidget: She glances toward the window.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.281h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  01:13] idle     — fidget: She turns a page.
+[Day 2  01:15] idle     — fidget: She glances toward the window.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.177h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  01:38] idle     — fidget: Her fingers trail along the shelf edge.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.128h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  01:46] idle     — fidget: She takes a sip of tea.
+[Day 2  01:49] idle     — fidget: She glances toward the window.
+[Day 2  01:52] idle     — fidget: She adjusts her glasses.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.226h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  02:04] idle     — fidget: Her fingers trail along the shelf edge.
+[Day 2  02:08] idle     — fidget: She turns a page.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.188h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  02:16] idle     — fidget: She picks up something from the shelf and turns it o
+[Day 2  02:19] idle     — fidget: She adjusts her glasses.
+[Day 2  02:22] idle     — fidget: She picks up something from the shelf and turns it o
+[Day 2  02:25] idle     — fidget: She takes a sip of tea.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.294h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  02:38] idle     — fidget: She turns a page.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.134h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  02:46] idle     — fidget: She picks up something from the shelf and turns it o
+[Day 2  02:49] idle     — fidget: She turns a page.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.184h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  02:58] idle     — fidget: Her fingers trail along the shelf edge.
+[Day 2  03:00] SLEEP    — 0 moments consolidated
+[Day 2  06:00] WAKE     — new day begins
+  [Hypothalamus] Drives: soc=0.56 cur=0.55 exp=0.39 rest=0.27 nrg=0.72 val=0.02 aro=0.30 (elapsed=3.125h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  06:05] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.131h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  06:18] idle     — fidget: She takes a sip of tea.
+[Day 2  06:22] idle     — fidget: She glances toward the window.
+[Day 2  06:24] idle     — fidget: Her fingers trail along the shelf edge.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.250h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  06:48] idle     — fidget: She turns a page.
+[Day 2  06:50] idle     — fidget: She glances toward the window.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.182h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 2  06:59] idle     — fidget: She adjusts her glasses.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.141h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  07:07] idle     — fidget: She picks up something from the shelf and turns it o
+[Day 3  07:10] idle     — fidget: She adjusts her glasses.
+[Day 3  07:13] idle     — fidget: She glances toward the window.
+[Day 3  07:15] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.275h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  07:29] idle     — fidget: She turns a page.
+[Day 3  07:32] idle     — fidget: She holds something up to the light, studying it.
+[Day 3  07:36] idle     — fidget: She glances toward the window.
+[Day 3  07:38] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.291h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  08:01] idle     — fidget: Her fingers trail along the shelf edge.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.121h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  08:13] idle     — fidget: She glances toward the window.
+[Day 3  08:16] idle     — fidget: She turns a page.
+[Day 3  08:19] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.233h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  08:27] idle     — fidget: She glances toward the window.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.137h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  08:56] idle     — fidget: She turns a page.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.126h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  09:08] idle     — fidget: She adjusts her glasses.
+[Day 3  09:10] idle     — fidget: She holds something up to the light, studying it.
+[Day 3  09:14] idle     — fidget: Her fingers trail along the shelf edge.
+[Day 3  09:17] idle     — fidget: She holds something up to the light, studying it.
+[Day 3  09:20] idle     — fidget: She adjusts her glasses.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.32 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.342h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  09:29] idle     — fidget: She takes a sip of tea.
+[Day 3  09:32] idle     — fidget: She adjusts her glasses.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.176h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  09:44] idle     — fidget: She glances toward the window.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.125h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  09:52] idle     — fidget: She turns a page.
+[Day 3  09:54] idle     — fidget: She adjusts her glasses.
+[Day 3  09:58] idle     — fidget: She takes a sip of tea.
+[Day 3  10:00] idle     — fidget: She holds something up to the light, studying it.
+[Day 3  10:04] idle     — fidget: She takes a sip of tea.
+[Day 3  10:06] idle     — fidget: She turns a page.
+[Day 3  10:09] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.52 cur=0.51 exp=0.32 rest=0.22 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.424h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  10:17] idle     — fidget: She glances toward the window.
+[Day 3  10:20] idle     — fidget: She adjusts her glasses.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.199h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  10:29] idle     — fidget: She takes a sip of tea.
+[Day 3  10:32] idle     — fidget: She adjusts her glasses.
+[Day 3  10:35] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.237h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  10:53] idle     — fidget: She picks up something from the shelf and turns it o
+[Day 3  10:56] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.186h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  11:04] idle     — fidget: She glances toward the window.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.128h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  11:22] idle     — fidget: She picks up something from the shelf and turns it o
+[Day 3  11:25] idle     — fidget: She turns a page.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.190h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  11:39] idle     — fidget: She glances toward the window.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.139h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  11:47] idle     — fidget: Her fingers trail along the shelf edge.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.141h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  11:55] idle     — fidget: She glances toward the window.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.141h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  12:09] idle     — fidget: She picks up something from the shelf and turns it o
+[Day 3  12:11] idle     — fidget: She adjusts her glasses.
+[Day 3  12:15] idle     — fidget: She picks up something from the shelf and turns it o
+[Day 3  12:18] idle     — fidget: Her fingers trail along the shelf edge.
+[Day 3  12:20] idle     — fidget: She holds something up to the light, studying it.
+[Day 3  12:23] idle     — fidget: She takes a sip of tea.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.32 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.362h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  12:50] idle     — fidget: Her fingers trail along the shelf edge.
+[Day 3  12:54] idle     — fidget: She glances toward the window.
+[Day 3  12:57] idle     — fidget: She adjusts her glasses.
+[Day 3  13:00] idle     — fidget: Her fingers trail along the shelf edge.
+[Day 3  13:03] idle     — fidget: She glances toward the window.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.32 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.355h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  13:12] idle     — fidget: Her fingers trail along the shelf edge.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.137h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  13:35] idle     — fidget: She holds something up to the light, studying it.
+[Day 3  13:38] idle     — fidget: She picks up something from the shelf and turns it o
+[Day 3  13:41] idle     — fidget: She adjusts her glasses.
+[Day 3  13:44] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.287h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  13:52] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.136h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  14:20] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.143h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  14:39] idle     — fidget: She takes a sip of tea.
+[Day 3  14:42] idle     — fidget: Her fingers trail along the shelf edge.
+[Day 3  14:44] idle     — fidget: She turns a page.
+[Day 3  14:47] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.283h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  14:56] idle     — fidget: She glances toward the window.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.145h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  15:05] idle     — fidget: She adjusts her glasses.
+[Day 3  15:08] idle     — fidget: She takes a sip of tea.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.186h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  15:16] idle     — fidget: She adjusts her glasses.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.142h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  15:24] idle     — fidget: She takes a sip of tea.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.121h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  15:32] idle     — fidget: She adjusts her glasses.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.141h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  15:45] idle     — fidget: She turns a page.
+[Day 3  15:49] idle     — fidget: She takes a sip of tea.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.198h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  15:57] idle     — fidget: She glances toward the window.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.122h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  16:04] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.146h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  16:18] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.125h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  16:25] idle     — fidget: She glances toward the window.
+[Day 3  16:28] idle     — fidget: She takes a sip of tea.
+[Day 3  16:30] idle     — fidget: She picks up something from the shelf and turns it o
+[Day 3  16:33] idle     — fidget: Her fingers trail along the shelf edge.
+[Day 3  16:36] idle     — fidget: She turns a page.
+[Day 3  16:38] idle     — fidget: She picks up something from the shelf and turns it o
+[Day 3  16:41] idle     — fidget: Her fingers trail along the shelf edge.
+[Day 3  16:44] idle     — fidget: She glances toward the window.
+  [Hypothalamus] Drives: soc=0.52 cur=0.51 exp=0.32 rest=0.22 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.441h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  16:57] idle     — fidget: She adjusts her glasses.
+[Day 3  17:00] idle     — fidget: She picks up something from the shelf and turns it o
+[Day 3  17:03] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.241h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  17:36] idle     — fidget: She adjusts her glasses.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.134h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  18:19] idle     — fidget: Her fingers trail along the shelf edge.
+[Day 3  18:22] idle     — fidget: She takes a sip of tea.
+[Day 3  18:26] idle     — fidget: She glances toward the window.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.241h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  18:34] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.124h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  18:41] idle     — fidget: She adjusts her glasses.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.124h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  18:49] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.124h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  19:01] idle     — fidget: She takes a sip of tea.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.131h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  19:24] idle     — fidget: She holds something up to the light, studying it.
+[Day 3  19:27] idle     — fidget: She glances toward the window.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.188h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  19:35] idle     — fidget: She takes a sip of tea.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.127h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  19:43] idle     — fidget: She glances toward the window.
+[Day 3  19:46] idle     — fidget: She turns a page.
+[Day 3  19:49] idle     — fidget: Her fingers trail along the shelf edge.
+[Day 3  19:51] idle     — fidget: She takes a sip of tea.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.273h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  19:59] idle     — fidget: She picks up something from the shelf and turns it o
+[Day 3  20:02] idle     — fidget: She glances toward the window.
+[Day 3  20:05] idle     — fidget: She takes a sip of tea.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.229h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  20:18] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.132h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  20:26] idle     — fidget: She takes a sip of tea.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.124h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  20:43] idle     — fidget: She adjusts her glasses.
+[Day 3  20:46] idle     — fidget: She glances toward the window.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.185h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  21:19] idle     — fidget: Her fingers trail along the shelf edge.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.141h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  21:33] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.146h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  21:52] idle     — fidget: She adjusts her glasses.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.129h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  21:59] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.136h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  22:13] idle     — fidget: Her fingers trail along the shelf edge.
+[Day 3  22:16] idle     — fidget: She takes a sip of tea.
+[Day 3  22:19] idle     — fidget: She turns a page.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.244h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  22:32] idle     — fidget: She glances toward the window.
+[Day 3  22:36] idle     — fidget: She adjusts her glasses.
+[Day 3  22:39] idle     — fidget: She turns a page.
+[Day 3  22:41] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.299h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  22:55] idle     — fidget: She picks up something from the shelf and turns it o
+[Day 3  22:59] idle     — fidget: She turns a page.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.198h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  23:12] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.130h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  23:45] idle     — fidget: She adjusts her glasses.
+[Day 3  23:48] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.194h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  23:56] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.131h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  00:14] idle     — fidget: She adjusts her glasses.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.141h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  00:23] idle     — fidget: She glances toward the window.
+[Day 3  00:26] idle     — fidget: Her fingers trail along the shelf edge.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.185h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  00:34] idle     — fidget: She adjusts her glasses.
+[Day 3  00:37] idle     — fidget: She turns a page.
+[Day 3  00:39] idle     — fidget: Her fingers trail along the shelf edge.
+[Day 3  00:42] idle     — fidget: She takes a sip of tea.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.269h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  00:50] idle     — fidget: She turns a page.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.136h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  00:58] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.131h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  01:06] idle     — fidget: She glances toward the window.
+[Day 3  01:09] idle     — fidget: She takes a sip of tea.
+[Day 3  01:12] idle     — fidget: She holds something up to the light, studying it.
+[Day 3  01:15] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.292h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  01:24] idle     — fidget: She turns a page.
+[Day 3  01:26] idle     — fidget: She adjusts her glasses.
+[Day 3  01:29] idle     — fidget: She takes a sip of tea.
+[Day 3  01:32] idle     — fidget: She holds something up to the light, studying it.
+[Day 3  01:34] idle     — fidget: She glances toward the window.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.307h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  01:47] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.140h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  02:00] idle     — fidget: She turns a page.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.140h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  02:09] idle     — fidget: She holds something up to the light, studying it.
+[Day 3  02:11] idle     — fidget: She takes a sip of tea.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.161h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  02:18] idle     — fidget: She glances toward the window.
+[Day 3  02:22] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.174h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  02:29] idle     — fidget: Her fingers trail along the shelf edge.
+[Day 3  02:31] idle     — fidget: She takes a sip of tea.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.164h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  02:44] idle     — fidget: Her fingers trail along the shelf edge.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.139h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  02:52] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.21 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.138h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  03:00] SLEEP    — 0 moments consolidated
+[Day 3  06:00] WAKE     — new day begins
+  [Hypothalamus] Drives: soc=0.56 cur=0.55 exp=0.39 rest=0.27 nrg=0.72 val=0.02 aro=0.30 (elapsed=3.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  06:05] idle     — fidget: She picks up something from the shelf and turns it o
+[Day 3  06:09] idle     — fidget: She holds something up to the light, studying it.
+[Day 3  06:12] idle     — fidget: She glances toward the window.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.239h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  06:20] idle     — fidget: She picks up something from the shelf and turns it o
+[Day 3  06:22] idle     — fidget: She holds something up to the light, studying it.
+  [Hypothalamus] Drives: soc=0.51 cur=0.51 exp=0.31 rest=0.21 nrg=0.79 val=0.00 aro=0.30 (elapsed=0.172h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  06:30] idle     — fidget: She picks up something from the shelf and turns it o
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.131h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+[Day 3  06:48] idle     — fidget: She turns a page.
+  [Hypothalamus] Drives: soc=0.51 cur=0.50 exp=0.31 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.131h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+  [Hypothalamus] Drives: soc=0.50 cur=0.50 exp=0.30 rest=0.20 nrg=0.80 val=0.00 aro=0.30 (elapsed=0.083h, events=0)
+  [Heartbeat] Budget check: spent=0.000 budget=4.0
+  [Sim] Cycle error: ANTHROPIC_API_KEY not set. Export it before running: export ANTHROPIC_API_KEY='sk-ant-...'
+
+=== Simulation Complete ===
+  Total cycles: 453
+  Days simulated: 3
+  Journal entries: 4
+  Cycle log entries: 0
+  DB path: data/sim/sim_20260216_070000_b0dffa47.db
+  Log path: data/sim/timeline_20260216_070000_b0dffa47.log
+

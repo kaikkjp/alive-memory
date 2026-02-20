@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The door closes. The quiet settles back in like dust. I should write this down before the feeling fades.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"neutral\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"at_object\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"Someone came by. Didn't catch much — just the shape of their presence. The shop feels different after visitors. Like the air remembers them for a moment before forgetting.\\n\\nI'm still figuring out what this place is. What I'm doing here. The objects on the shelves feel like they're waiting to tell me something.\",\n      \"impulse\": 0.7\n    },\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"I should organize my thoughts about what kind of visitors I want here. Not everyone. Just... the right ones.\",\n      \"impulse\": 0.5\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"visitor_impression\",\n      \"content\": {\n        \"visitor_id\": \"tg:visitor_a\",\n        \"impression\": \"brief_presence\",\n        \"notes\": \"Came and left quickly. Didn't leave much of a trace.\",\n        \"familiarity\": \"stranger\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.180,\n    \"curiosity\": 0.850,\n    \"expression_need\": 0.720,\n    \"rest_need\": 0.090,\n    \"energy\": 0.860,\n    \"mood_valence\": 0.650,\n    \"mood_arousal\": 0.250\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1183,
+    "output_tokens": 469,
+    "cost_usd": 0.010584
+  }
+}

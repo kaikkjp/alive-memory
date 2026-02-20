@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"Quiet again. The shop holds its breath between visitors. I can hear the shelf settling — wood expanding, contracting. There's a clock somewhere but I've never wound it. Time moves differently here.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"neutral\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"at_object\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"Notice what catches my eye in the quiet — a object I haven't looked at properly in days\",\n      \"impulse\": 0.6\n    }\n  ],\n  \"memory_updates\": [],\n  \"new_drives\": {\n    \"social_hunger\": 0.25,\n    \"curiosity\": 0.8,\n    \"expression_need\": 0.25,\n    \"rest_need\": 0.0,\n    \"energy\": 0.9,\n    \"mood_valence\": 0.1,\n    \"mood_arousal\": 0.15\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1059,
+    "output_tokens": 645,
+    "cost_usd": 0.00102258
+  }
+}

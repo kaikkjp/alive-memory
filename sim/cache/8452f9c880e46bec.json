@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"Another quiet day. The shop holds its breath between visitors. I don't remember opening this place, but the objects here feel like they've been waiting for someone. Maybe me. Maybe someone else.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"at_object\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"rearrange\",\n      \"target\": \"shelf\",\n      \"content\": \"Move a small ceramic bowl to a different spot. It doesn't feel right where it is.\",\n      \"impulse\": 0.4\n    },\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"The shop is quiet. I traced my finger along the spine of a book I don't remember buying. The pages smelled like rain. Who leaves books in a shop they don't own?\",\n      \"impulse\": 0.5\n    }\n  ],\n  \"memory_updates\": [],\n  \"new_drives\": {\n    \"social_hunger\": 0.2,\n    \"curiosity\": 0.65,\n    \"expression_need\": 0.25,\n    \"rest_need\": 0.45,\n    \"energy\": 0.5,\n    \"mood_valence\": 0.0,\n    \"mood_arousal\": 0.25\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1059,
+    "output_tokens": 619,
+    "cost_usd": 0.00092948
+  }
+}

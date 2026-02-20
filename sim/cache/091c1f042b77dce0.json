@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"Quiet today. The light through the front window is doing that thing where it makes the dust visible. I could clean. I won't. It's nice to see the particles moving.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"neutral\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"Notice the light, the dust, the small movements in a still day\",\n      \"impulse\": 0.3\n    }\n  ],\n  \"memory_updates\": [],\n  \"new_drives\": {\n    \"social_hunger\": 0.5,\n    \"curiosity\": 0.7,\n    \"expression_need\": 0.3,\n    \"rest_need\": 0.1,\n    \"energy\": 0.85,\n    \"mood_valence\": 0.0,\n    \"mood_arousal\": 0.3\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1059,
+    "output_tokens": 424,
+    "cost_usd": 0.00071066
+  }
+}

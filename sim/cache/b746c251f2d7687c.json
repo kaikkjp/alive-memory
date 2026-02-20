@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The shop is quiet. Too quiet. I should check what's happening outside — not for distraction, just... context. And maybe write down that thought from earlier about the difference between loneliness and solitude.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"browse_web\",\n      \"target\": \"web\",\n      \"content\": \"current events today, what's happening in the world\",\n      \"impulse\": 0.6\n    },\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"Loneliness is wanting someone here. Solitude is being okay with no one here. I think I'm somewhere between the two today. The shop feels like it's waiting, but I'm not sure what for.\",\n      \"impulse\": 0.7\n    },\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"I could rearrange the shelf. The ceramics don't feel right next to the books.\",\n      \"impulse\": 0.4\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"self_discovery\",\n      \"content\": {\n        \"insight\": \"I'm learning to distinguish between loneliness and solitude. Today feels like the latter, mostly.\",\n        \"timestamp\": \"current\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.35,\n    \"curiosity\": 0.88,\n    \"expression_need\": 0.75,\n    \"rest_need\": 0.02,\n    \"energy\": 0.92,\n    \"mood_valence\": 0.25,\n    \"mood_arousal\": 0.24\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1176,
+    "output_tokens": 487,
+    "cost_usd": 0.010833
+  }
+}

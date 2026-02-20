@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"Tanaka. Back again. They always ask like I'm the one shopping. Maybe they want something specific but won't just say it.\",\n  \"dialogue\": \"You're back. That's the third time this month.\",\n  \"dialogue_language\": \"en\",\n  \"expression\": \"neutral\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"at_visitor\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"speak\",\n      \"target\": \"visitor\",\n      \"content\": \"You're back. That's the third time this month.\",\n      \"impulse\": 0.6\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"visitor_impression\",\n      \"content\": {\n        \"name\": \"Tanaka\",\n        \"visits\": \"regular, at least 3rd time\",\n        \"pattern\": \"asks what I found rather than what they want\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.3,\n    \"curiosity\": 0.6,\n    \"expression_need\": 0.25,\n    \"rest_need\": 0.0,\n    \"energy\": 0.95,\n    \"mood_valence\": 0.0,\n    \"mood_arousal\": 0.3\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1094,
+    "output_tokens": 652,
+    "cost_usd": 0.00104148
+  }
+}

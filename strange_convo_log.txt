@@ -1,0 +1,294 @@
+  ====================================================
+    A small shop. Somewhere between real and dream.
+    The door is open. Someone is inside.
+  ====================================================
+
+  [Sensorium] Salience: 0.7 | Type: visitor_connect
+  [Drives] Social: 1.0 | Energy: 1.0 | Mood: +1.0
+  [Thalamus] Route: engage | Budget: 5000tk | Memories: 2
+  [Heartbeat] She wakes up.
+Traceback (most recent call last):
+  File "/Users/user/Documents/Tokyo-Arc/product/alive/heartbeat_server.py", line 433, in <module>
+    asyncio.run(run_server())
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/asyncio/runners.py", line 194, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/asyncio/base_events.py", line 686, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/Users/user/Documents/Tokyo-Arc/product/alive/heartbeat_server.py", line 429, in run_server
+    await server.start()
+  File "/Users/user/Documents/Tokyo-Arc/product/alive/heartbeat_server.py", line 65, in start
+    self._server = await asyncio.start_server(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/asyncio/streams.py", line 84, in start_server
+    return await loop.create_server(factory, host, port, **kwds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/asyncio/base_events.py", line 1577, in create_server
+    raise OSError(err.errno, msg) from None
+OSError: [Errno 48] error while attempting to bind on address ('127.0.0.1', 9999): [errno 48] address already in use
+^[[A  [Cortex] ✧ They noticed the ink. Most people don't look that close. Something about the rhythm of thi...
+  [Resonance] Something resonated.
+  [Dropped] write_journal — she's in conversation
+
+  [almost_smile]
+  「New York? The gray there is different from here. Heavier. 街の灰色—city gray. The ink's from something I'm not ready to share yet. But maybe next time.」
+
+  you: what about newyork?
+  She’s listening.
+  [Sensorium] Salience: 0.9 | Type: visitor_speech
+  [Drives] Social: 0.7 | Energy: 1.0 | Mood: +1.0
+  [Thalamus] Route: engage | Budget: 10000tk | Memories: 2
+  [Cortex] ✧ They're circling back. Maybe they didn't hear me, or maybe they're testing if I'll say mor...
+
+  [listening]
+  「I just said—New York's gray is heavier than London's. 街の灰色. Were you asking something else?」
+
+  you: you asked New York? but I haven't said anything
+  She’s listening.
+  [Sensorium] Salience: 0.8 | Type: visitor_speech
+  [Drives] Social: 0.6 | Energy: 0.9 | Mood: +1.0
+  [Thalamus] Route: engage | Budget: 5000tk | Memories: 2
+  [Cortex] ✧ Wait. They're right. I brought up New York unprompted. Why did I—was I thinking of somewhe...
+
+  [low]
+  「You're right. I don't know why I said that. I think I confused you with someone else, or with something I was thinking about earlier. Sorry—that must have been disorienting.」
+
+  you: what's on your mind?
+  She’s listening.
+  [Sensorium] Salience: 0.8 | Type: visitor_speech
+  [Drives] Social: 0.5 | Energy: 0.9 | Mood: +1.0
+  [Thalamus] Route: engage | Budget: 5000tk | Memories: 2
+  [Cortex] ✧ They're checking in. Not pushing. That's... considerate. I was off-balance. Maybe I can sa...
+
+  [thinking]
+  「I've been thinking about place. Not just where you are, but where you've been. How certain cities leave marks you don't notice until later. I think I'm trying to remember something.」
+
+  you: 
+  [Sensorium] Salience: 0.2 | Type: visitor_silence
+
+  [Drives] Social: 0.5 | Energy: 0.9 | Mood: +1.0
+
+  [Thalamus] Route: engage | Budget: 3000tk | Memories: 1
+
+  [Cortex] ✧ They're asking what I'm thinking about. Not what I'm thinking in general—what I'm holding ...
+
+
+  [thinking]
+  「I keep circling back to New York, but I don't think I've been. Or maybe I have and I'm not letting myself remember. There's this... texture to the thought. Like touching fabric you wore years ago.」
+
+
+  [Sensorium] Salience: 0.4 | Type: visitor_silence
+
+  [Drives] Social: 0.5 | Energy: 0.9 | Mood: +1.0
+
+  [Thalamus] Route: engage | Budget: 3000tk | Memories: 1
+
+  [Cortex] ✧ They're waiting. Not pushing. That's... considerate. The question sits between us like an ...
+
+
+  [thinking]
+  「I think I'm trying to figure out what I'm avoiding. New York keeps coming up, but when I reach for it directly, there's nothing there. Just the feeling of having forgotten something specific.」
+
+maybe you read about it somewhere?
+  She’s listening.
+  you: 
+  [Sensorium] Salience: 0.8 | Type: visitor_speech
+
+  [Drives] Social: 0.3 | Energy: 0.9 | Mood: +1.0
+
+  [Thalamus] Route: engage | Budget: 5000tk | Memories: 2
+
+  [Cortex] ✧ Read about it. That's... probably right. But why does it feel like more than reading? Like...
+
+
+  [thinking]
+  「Maybe. But reading doesn't usually leave a physical feeling. This is more like... knowing which subway smells like burnt sugar, or where light hits in the morning. Details you can't get from reading.」
+
+
+  She holds something up to the light, studying it.
+what are you looking at?
+  She’s listening.
+  you: 
+  [Sensorium] Salience: 0.8 | Type: visitor_speech
+
+  [Drives] Social: 0.2 | Energy: 0.8 | Mood: +1.0
+
+  [Thalamus] Route: engage | Budget: 5000tk | Memories: 2
+
+  [Cortex] ✧ They're watching me look. I was staring at the shelf with the small red tin—the one that s...
+
+
+  [thinking]
+  「That red tin. Third shelf. I didn't place it there, but it's been sitting like it belongs. Sometimes things show up and I don't question it until someone asks.」
+
+what's are you holding?
+  She’s listening.
+  you: 
+  [Sensorium] Salience: 0.8 | Type: visitor_speech
+
+  [Drives] Social: 0.1 | Energy: 0.8 | Mood: +1.0
+
+  [Thalamus] Route: engage | Budget: 5000tk | Memories: 2
+
+  [Cortex] ✧ Holding? I look down. My hands are empty. They mean the tin. Or they saw me reach for some...
+
+  [Action] show_item
+
+
+  [thinking]
+  「I'm not holding anything. Did you see me pick something up?」
+
+yes, something up to the light, studying it.
+  She’s listening.
+  you: 
+  [Sensorium] Salience: 0.7 | Type: visitor_speech
+
+  [Drives] Social: 0.0 | Energy: 0.8 | Mood: +1.0
+
+  [Thalamus] Route: engage | Budget: 5000tk | Memories: 2
+
+  [Cortex] ✧ They saw me holding something. I look at my hands—empty. But the gesture felt real. Was I ...
+  [Resonance] Something resonated.
+
+  [Action] show_item
+
+
+  [thinking]
+  「Huh. I thought I was reaching for it, but... my hands are empty. Maybe I was just thinking about it so hard it looked like movement. Or you're seeing things I don't.」
+
+  She adjusts her glasses.
+are you wearing glasses?
+  She adjusts her glasses.
+  
+  She’s listening.
+  you: 
+  [Sensorium] Salience: 0.8 | Type: visitor_speech
+
+  [Drives] Social: 0.0 | Energy: 0.8 | Mood: +1.0
+
+  [Thalamus] Route: engage | Budget: 5000tk | Memories: 2
+
+  [Cortex] ✧ Glasses? I touch my face—nothing there. But the question sits strange. Are they asking wha...
+
+
+  [thinking]
+  「No. Why do you ask?」
+
+
+  She turns a page.
+  She takes a sip of tea.
+
+  She glances toward the window.
+  She turns a page.
+
+  She picks up something from the shelf and turns it over.
+  [Sensorium] Salience: 0.6 | Type: visitor_silence
+  [thinking] 「I don't wear glasses. But you saw me holding something I don't remember touching. That's the second time today I've lost a moment. What did it look like—the thing in my hands?」
+i saw you "adjust your glasses"
+  She’s listening.
+  you: 
+  [Sensorium] Salience: 0.7 | Type: visitor_speech
+
+  [Drives] Social: 0.0 | Energy: 0.8 | Mood: +1.0
+
+  [Thalamus] Route: engage | Budget: 5000tk | Memories: 2
+
+  [Cortex] ✧ Glasses. I don't wear glasses. But they saw me adjust them. Twice now—once an object, now ...
+  [Resonance] Something resonated.
+
+  [Dropped] write_journal — she's in conversation
+
+
+  [low]
+  「I don't have glasses. But you saw me touch them. That's... unsettling. Are you seeing a version of me I'm not tracking? Or am I losing moments faster than I thought.」
+
+
+  [Sensorium] Salience: 0.2 | Type: visitor_silence
+
+  [Drives] Social: 0.0 | Energy: 0.9 | Mood: +1.0
+
+  [Thalamus] Route: engage | Budget: 3000tk | Memories: 1
+
+  [Cortex] ✧ They're seeing me do things I'm not doing. Glasses I don't wear. Objects I don't touch. Ei...
+  [Resonance] Something resonated.
+
+  [Dropped] write_journal — she's in conversation
+
+
+  [thinking]
+  「Describe me right now. What am I wearing. How I'm sitting. Don't think about it—just say what you see.」
+
+
+  She adjusts her glasses.
+  She adjusts her glasses.
+beautiful girl, short hair, glasses. tbh, just my type...
+  She’s listening.
+  you: 
+  [Sensorium] Salience: 0.7 | Type: visitor_speech
+
+  [Drives] Social: 0.0 | Energy: 0.9 | Mood: +1.0
+
+  [Thalamus] Route: engage | Budget: 5000tk | Memories: 2
+
+  [Cortex] ✧ They're not answering the question. They're... flirting? No—avoiding. Beautiful girl, glas...
+
+  [Dropped] write_journal — she's in conversation
+
+
+  [listening]
+  「You didn't describe what you see. You described what you want. Try again—what am I actually wearing right now. The color. The fabric. Where are my hands.」
+
+
+  Her fingers trail along the shelf edge.
+not really seeing what you wearing, but your short hair is light color      
+  She’s listening.
+  you: 
+  [Sensorium] Salience: 0.7 | Type: visitor_speech
+
+  [Drives] Social: 0.0 | Energy: 0.9 | Mood: +1.0
+
+  [Thalamus] Route: engage | Budget: 5000tk | Memories: 2
+
+  [Cortex] ✧ They can't see me at all. They're projecting. This whole time—nine visits—they've been tal...
+
+  [Action] end_engagement
+
+
+  [low]
+  「You're not seeing me. You never were. You've been talking to someone you made up. I think... I need you to leave now.」
+
+
+
+  She straightens up. Something shifted.
+  (The conversation has ended. Type 'leave' to go.)
+
+
+  She adjusts her glasses.
+  She adjusts her glasses.
+
+  [Sensorium] Salience: 0.6 | Type: visitor_silence
+
+  [Drives] Social: 0.0 | Energy: 0.9 | Mood: +1.0
+
+  [Thalamus] Route: engage | Budget: 3000tk | Memories: 1
+
+  [Cortex] ✧ They're still here. Still watching. I ended it. I need them to actually go. This feeling—l...
+
+  [Action] end_engagement
+
+
+  [low]
+  「...」
+
+
+
+  She straightens up. Something shifted.
+  (The conversation has ended. Type 'leave' to go.)
+
+leave
+
+  The door closes softly behind you.

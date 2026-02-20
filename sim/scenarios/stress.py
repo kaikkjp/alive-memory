@@ -153,7 +153,10 @@ def build_sleep_deprivation_scenario() -> ScenarioManager:
     """
     events = []
 
-    # Signal to runner: block sleep for first 200 cycles
+    # Block sleep for the entire scenario
+    events.append(ScenarioEvent(0, "block_sleep", {"enabled": True}))
+
+    # Start with high energy so the deprivation arc is visible
     events.append(ScenarioEvent(0, "set_drives", {
         "energy": 0.9,
         "rest_need": 0.1,

@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "I don't know either. I just keep it.\n\n*adjusts glasses*\n\nYou wanted something when you walked in. What was it?"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1092,
+    "output_tokens": 211,
+    "cost_usd": 0.0005808
+  }
+}

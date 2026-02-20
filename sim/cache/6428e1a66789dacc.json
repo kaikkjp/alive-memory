@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"The shop is quiet. Too quiet. I should write something down — that feeling from earlier, about the objects choosing me. Or maybe I need to look outside for a moment.\",\n  \"dialogue\": null,\n  \"dialogue_language\": \"en\",\n  \"expression\": \"thinking\",\n  \"body_state\": \"sitting\",\n  \"gaze\": \"window\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"write_journal\",\n      \"target\": \"journal\",\n      \"content\": \"The objects don't just sit here. They wait. Like they knew I'd open this shop before I did. The blue bowl especially — I keep touching it when I'm uncertain. Why that one? What am I looking for in its curve?\",\n      \"impulse\": 0.75\n    },\n    {\n      \"action\": \"express_thought\",\n      \"target\": \"self\",\n      \"content\": \"I wonder if anyone will come today who actually sees what's here. Not just looks — sees.\",\n      \"impulse\": 0.62\n    },\n    {\n      \"action\": \"rearrange\",\n      \"target\": \"shelf\",\n      \"content\": \"Move the small ceramic cup forward. It's been hiding behind the larger pieces too long.\",\n      \"impulse\": 0.48\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"journal_entry\",\n      \"content\": {\n        \"theme\": \"objects_as_guides\",\n        \"emotional_weight\": 0.7,\n        \"timestamp\": \"quiet_afternoon\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.850,\n    \"curiosity\": 0.970,\n    \"expression_need\": 0.920,\n    \"rest_need\": 0.090,\n    \"energy\": 0.430,\n    \"mood_valence\": 0.020,\n    \"mood_arousal\": 0.380\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1196,
+    "output_tokens": 490,
+    "cost_usd": 0.010938
+  }
+}

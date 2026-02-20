@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "```json\n{\n  \"internal_monologue\": \"Vintage cards. Another person looking for something specific. I don't know what I have yet, but there's likely something in the shelves. First visitor of the day.\",\n  \"dialogue\": \"Depends on what you're looking for. Baseball? Playing cards? Something else?\",\n  \"dialogue_language\": \"en\",\n  \"expression\": \"neutral\",\n  \"body_state\": \"standing\",\n  \"gaze\": \"at_visitor\",\n  \"resonance\": false,\n  \"intentions\": [\n    {\n      \"action\": \"speak\",\n      \"target\": \"visitor\",\n      \"content\": \"Ask what kind of vintage cards Tanaka is looking for\",\n      \"impulse\": 0.7\n    }\n  ],\n  \"memory_updates\": [\n    {\n      \"type\": \"visitor_impression\",\n      \"content\": {\n        \"name\": \"Tanaka\",\n        \"impression\": \"First visit. Looking for vintage cards. Friendly enough.\"\n      }\n    }\n  ],\n  \"new_drives\": {\n    \"social_hunger\": 0.5,\n    \"curiosity\": 0.5,\n    \"expression_need\": 0.3,\n    \"rest_need\": 0.2,\n    \"energy\": 0.8,\n    \"mood_valence\": 0.0,\n    \"mood_arousal\": 0.3\n  }\n}\n```"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1095,
+    "output_tokens": 491,
+    "cost_usd": 0.0009177
+  }
+}
