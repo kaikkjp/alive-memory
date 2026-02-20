@@ -129,6 +129,7 @@ class ShopkeeperServer:
         self._last_chat_response_content: str = ''  # dedup tracker
         self._sprite_gen_task = None
         self._visitor_timeout_task = None
+        self._metrics_task = None
         self._missing_assets_logged: set[str] = set()
         self._missing_assets_queue: deque[str] = deque()
         self._current_origin = ''  # set per-request in _handle_http
@@ -208,6 +209,9 @@ class ShopkeeperServer:
         except Exception as e:
             print(f"  {Fore.YELLOW}[X/Twitter]{Style.RESET_ALL} Skipped ({e}).")
 
+        # Start hourly metrics collection (TASK-071)
+        self._metrics_task = asyncio.create_task(self._metrics_collection_loop())
+
         # Start heartbeat — she begins living
         await self.heartbeat.start()
         print(f"  {Fore.CYAN}[Heartbeat]{Style.RESET_ALL} She wakes up.")
@@ -271,6 +275,14 @@ class ShopkeeperServer:
             self._visitor_timeout_task.cancel()
             try:
                 await self._visitor_timeout_task
+            except asyncio.CancelledError:
+                pass
+
+        # Stop metrics collection (TASK-071)
+        if self._metrics_task:
+            self._metrics_task.cancel()
+            try:
+                await self._metrics_task
             except asyncio.CancelledError:
                 pass
 
@@ -692,6 +704,21 @@ class ShopkeeperServer:
                 return
             except Exception as e:
                 print(f"  [Server] Visitor timeout check error: {e}")
+
+    async def _metrics_collection_loop(self):
+        """Hourly liveness metrics collection (TASK-071)."""
+        await asyncio.sleep(10)  # brief startup delay
+        while True:
+            try:
+                from metrics.collector import collect_hourly
+                snapshot = await collect_hourly()
+                count = len(snapshot.metrics)
+                print(f"  [Metrics] Collected {count} metrics ({snapshot.period})")
+            except asyncio.CancelledError:
+                return
+            except Exception as e:
+                print(f"  [Metrics] Collection error: {e}")
+            await asyncio.sleep(3600)  # every hour
 
     async def _check_visitor_timeouts(self):
         """Clean up visitors who have been idle too long without engagement."""
@@ -1164,6 +1191,12 @@ class ShopkeeperServer:
                 await dashboard_routes.handle_external_actions(self, writer, authorization)
             elif path == '/api/dashboard/channel-toggle' and method == 'POST':
                 await dashboard_routes.handle_channel_toggle(self, writer, authorization, body_bytes)
+            elif path == '/api/dashboard/metrics' and method == 'GET':
+                await dashboard_routes.handle_metrics(self, writer, authorization)
+            elif path == '/api/dashboard/metrics/backfill' and method == 'POST':
+                await dashboard_routes.handle_metrics_backfill(self, writer, authorization)
+            elif path == '/api/metrics/public' and method == 'GET':
+                await dashboard_routes.handle_metrics_public(self, writer)
             elif path == '/api/weather' and method == 'GET':
                 await self._http_weather(writer)
             elif path == '/api/outdoor' and method == 'GET':

@@ -755,3 +755,38 @@ async def handle_drift(server, writer, authorization):
     from identity.drift import get_drift_state
     state = await get_drift_state()
     await server._http_json(writer, 200, state)
+
+
+# ─── Liveness Metrics (TASK-071) ───
+
+async def handle_metrics(server, writer, authorization):
+    """GET /api/dashboard/metrics — current liveness metrics + trends."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+    from metrics.collector import collect_all, get_metric_trend
+    snapshot = await collect_all()
+    trends = {}
+    for name in ('uptime', 'initiative_rate', 'emotional_range'):
+        trends[name] = await get_metric_trend(name, days=30, period='daily')
+    await server._http_json(writer, 200, {
+        'snapshot': snapshot.to_dict(),
+        'trends': trends,
+    })
+
+
+async def handle_metrics_public(server, writer):
+    """GET /api/metrics/public — public liveness dashboard (no auth)."""
+    from metrics.public import get_public_liveness
+    data = await get_public_liveness()
+    await server._http_json(writer, 200, data)
+
+
+async def handle_metrics_backfill(server, writer, authorization):
+    """POST /api/dashboard/metrics/backfill — run historical backfill."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+    from metrics.backfill import backfill_all
+    result = await backfill_all()
+    await server._http_json(writer, 200, result)
