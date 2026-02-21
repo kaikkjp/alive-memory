@@ -1080,18 +1080,26 @@ class Heartbeat:
             clear_cycle_context()
             return habit_log
 
-        # 7a. Real-dollar budget check (TASK-050)
-        # If daily dollar budget is spent, skip cortex entirely and rest.
-        # No naps, no partial restore — budget is budget. She's done for the day.
+        # 7a. Governor enforcement (TASK-050 + observability wiring)
+        # If governor disallows LLM calls, skip cortex entirely and rest.
+        # In emergency budget mode this is equivalent to "budget spent",
+        # but enforcing through governor_decision keeps logs and behavior aligned.
         print(f"  [Heartbeat] Budget: ${budget_info['spent']:.3f} / "
               f"${budget_info['budget']:.2f} "
               f"(${budget_info['remaining']:.3f} remaining)")
-        if budget_info['remaining'] <= 0:
-            print(f"  [Heartbeat] Resting — budget spent "
-                  f"(${budget_info['spent']:.2f}/${budget_info['budget']:.2f})")
+        if governor_decision['allowed_llm_calls'] <= 0:
+            budget_exhausted = budget_info['remaining'] <= 0
+            if budget_exhausted:
+                rest_reason = (f"budget spent ${budget_info['spent']:.2f}/"
+                               f"${budget_info['budget']:.2f}")
+                drives.energy = 0.0
+            else:
+                rest_reason = f"governor blocked llm calls ({budget_mode})"
+                drives.energy = clamp(budget_info['remaining'] / max(budget_info['budget'], 1e-6))
 
-            # Update energy display value (derived from budget)
-            drives.energy = 0.0
+            print(f"  [Heartbeat] Resting — {rest_reason}")
+
+            # Update energy display value (derived from budget/governor state)
 
             rest_log = {
                 'id': cycle_id,
@@ -1110,7 +1118,7 @@ class Heartbeat:
                 'routing_focus': 'rest',
                 'token_budget': 0,
                 'memory_count': len(memory_chunks),
-                'internal_monologue': f'(resting — budget spent ${budget_info["spent"]:.2f}/${budget_info["budget"]:.2f})',
+                'internal_monologue': f'(resting — {rest_reason})',
                 'dialogue': None,
                 'expression': 'neutral',
                 'body_state': 'resting',
@@ -1121,7 +1129,8 @@ class Heartbeat:
                 'resonance': False,
                 '_entropy_warning': None,
                 'intentions_count': 0,
-                'budget_exhausted': True,
+                'budget_exhausted': budget_exhausted,
+                'llm_calls_blocked': True,
                 'run_id': self._run_meta.run_id,
                 'trace_id': trace_id,
                 'budget_usd_daily_cap': budget_info['budget'],
@@ -1159,7 +1168,7 @@ class Heartbeat:
             return rest_log
 
         # Update energy display value: remaining / budget ratio
-        drives.energy = clamp(budget_info['remaining'] / budget_info['budget'])
+        drives.energy = clamp(budget_info['remaining'] / max(budget_info['budget'], 1e-6))
 
         # 7. URL enrichment (if gift detected — URLs captured before gate)
         gift_meta = None
