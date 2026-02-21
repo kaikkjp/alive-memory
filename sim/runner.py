@@ -13,6 +13,7 @@ Usage:
 from __future__ import annotations
 
 import json
+import random
 import re
 import uuid
 from dataclasses import dataclass, field
@@ -23,7 +24,12 @@ from typing import Any
 from sim.clock import SimulatedClock
 from sim.db import InMemoryDB
 from sim.scenario import ScenarioEvent, ScenarioManager
+from sim.visitors.archetypes import ARCHETYPES
+from sim.visitors.llm_visitor import LLMVisitorEngine
+from sim.visitors.models import VisitorTier
+from sim.visitors.returning import ReturningVisitorManager
 from sim.visitors.scheduler import VisitorScheduler, SCENARIO_CONFIGS
+from sim.visitors.state_machine import VisitorStateMachine
 
 
 @dataclass
@@ -199,12 +205,6 @@ OUTPUT SCHEMA:
         self.llm = self._init_llm(llm_mode, seed)
         self.pipeline = self._init_pipeline(variant)
 
-        # V2 scenarios use Poisson scheduler; v1 uses hardcoded ScenarioManager
-        if scenario in SCENARIO_CONFIGS:
-            self.scenario = self._build_v2_scenario(scenario, seed, num_cycles)
-        else:
-            self.scenario = ScenarioManager.load(scenario)
-
         # Runtime state
         self._drives = {
             "social_hunger": 0.5,
@@ -223,6 +223,27 @@ OUTPUT SCHEMA:
         }
         self._visitor_history: dict[str, dict] = {}  # visitor_id -> info
         self._sync_display_energy_from_budget()
+
+        # Tier 2 LLM visitor engine + dynamic event queue
+        # Must be initialized before _build_v2_scenario which populates them
+        self._llm_visitor_engine: LLMVisitorEngine | None = None
+        self._pending_visitor_events: list[ScenarioEvent] = []
+        self._tier2_visitor_ids: set[str] = set()
+        self._tier2_visitors: dict[str, Any] = {}  # visitor_id -> VisitorInstance
+        self._returning_memory: dict[str, str] = {}  # visitor_id -> memory_stub
+        if scenario in SCENARIO_CONFIGS:
+            cfg = SCENARIO_CONFIGS[scenario]
+            if cfg.tier2_enabled:
+                self._llm_visitor_engine = LLMVisitorEngine(
+                    llm_mode=llm_mode,
+                    seed=seed,
+                )
+
+        # V2 scenarios use Poisson scheduler; v1 uses hardcoded ScenarioManager
+        if scenario in SCENARIO_CONFIGS:
+            self.scenario = self._build_v2_scenario(scenario, seed, num_cycles)
+        else:
+            self.scenario = ScenarioManager.load(scenario)
 
     def _init_llm(self, mode: str, seed: int):
         """Initialize the LLM backend."""
@@ -256,8 +277,8 @@ OUTPUT SCHEMA:
     ) -> ScenarioManager:
         """Build a ScenarioManager from Poisson-scheduled visitor arrivals.
 
-        Converts ScheduledArrival objects into ScenarioEvent sequences
-        (arrive → message → leave) compatible with the existing runner loop.
+        Uses the state machine to generate multi-turn dialogue sequences
+        for each visitor, spread across their visit duration.
         """
         scheduler = VisitorScheduler(scenario=scenario, seed=seed)
         arrivals = scheduler.generate(num_cycles=num_cycles)
@@ -268,19 +289,54 @@ OUTPUT SCHEMA:
             source = v.visitor_id
             name = v.name
 
-            # Visitor arrives
+            # Visitor arrives — include tier in payload for the run loop
             events.append(ScenarioEvent(arrival.cycle, "visitor_arrive", {
                 "source": source,
                 "name": name,
                 "channel": "sim",
+                "tier": v.tier.value,
             }))
 
-            # Visitor says a greeting based on their goal
-            greeting = self._visitor_greeting(v.goal, name)
-            events.append(ScenarioEvent(arrival.cycle, "visitor_message", {
-                "source": source,
-                "content": greeting,
-            }))
+            # Tier 2 visitors get dynamic dialogue from LLMVisitorEngine
+            # during the run loop — only pre-generate for Tier 1.
+            if v.tier == VisitorTier.TIER_2:
+                # Track Tier 2 visitors for the run loop
+                self._tier2_visitor_ids.add(source)
+                # Store visitor instance for the engine
+                self._tier2_visitors[source] = v
+            else:
+                # Tier 1: generate state-machine-driven dialogue turns
+                archetype = ARCHETYPES.get(v.archetype_id) if v.archetype_id else None
+                if archetype:
+                    visit_rng = random.Random(seed + arrival.cycle)
+                    sm = VisitorStateMachine(v, archetype, visit_rng)
+                    visit_turns = sm.generate_visit()
+
+                    # Spread turns across the visit duration
+                    duration = arrival.visit_duration_cycles
+                    if visit_turns:
+                        # Space turns evenly, first turn at arrival cycle
+                        step = max(1, duration // max(1, len(visit_turns)))
+                        for i, turn in enumerate(visit_turns):
+                            turn_cycle = min(
+                                arrival.cycle + i * step,
+                                arrival.cycle + duration - 1,
+                                num_cycles - 1,
+                            )
+                            events.append(ScenarioEvent(
+                                turn_cycle, "visitor_message", {
+                                    "source": source,
+                                    "content": turn.text,
+                                },
+                            ))
+                else:
+                    # Fallback for visitors without archetype
+                    events.append(ScenarioEvent(
+                        arrival.cycle, "visitor_message", {
+                            "source": source,
+                            "content": "Hello! What an interesting shop.",
+                        },
+                    ))
 
             # Visitor leaves after their visit duration
             leave_cycle = min(
@@ -291,6 +347,88 @@ OUTPUT SCHEMA:
                 "source": source,
             }))
 
+        # Tier 3: schedule returning visitors when enabled
+        cfg = SCENARIO_CONFIGS[scenario]
+        if cfg.tier3_enabled and cfg.tier3_return_rate > 0:
+            returning_mgr = ReturningVisitorManager(
+                return_rate=cfg.tier3_return_rate, seed=seed,
+            )
+            return_arrivals = returning_mgr.schedule_returns(
+                arrivals, num_cycles,
+            )
+
+            for arrival in return_arrivals:
+                v = arrival.visitor
+                source = v.visitor_id
+                name = v.name
+
+                # Store memory stub for prompt injection
+                if v.memory_stub:
+                    self._returning_memory[source] = v.memory_stub
+
+                # Returning visitor arrives with memory context
+                events.append(ScenarioEvent(arrival.cycle, "visitor_arrive", {
+                    "source": source,
+                    "name": name,
+                    "channel": "sim",
+                    "tier": v.tier.value,
+                    "is_return": True,
+                    "memory_stub": v.memory_stub,
+                    "visit_count": len(v.visit_history),
+                }))
+
+                # Generate state-machine dialogue (same as Tier 1)
+                archetype = (
+                    ARCHETYPES.get(v.archetype_id)
+                    if v.archetype_id else None
+                )
+                if archetype:
+                    visit_rng = random.Random(seed + arrival.cycle)
+                    sm = VisitorStateMachine(v, archetype, visit_rng)
+                    visit_turns = sm.generate_visit()
+
+                    if visit_turns:
+                        # Replace entering text with return-specific dialogue
+                        enter_text = returning_mgr.get_return_entering_text(
+                            v, visit_rng,
+                        )
+                        duration = arrival.visit_duration_cycles
+                        step = max(1, duration // max(1, len(visit_turns)))
+
+                        for i, turn in enumerate(visit_turns):
+                            text = enter_text if i == 0 else turn.text
+                            turn_cycle = min(
+                                arrival.cycle + i * step,
+                                arrival.cycle + duration - 1,
+                                num_cycles - 1,
+                            )
+                            events.append(ScenarioEvent(
+                                turn_cycle, "visitor_message", {
+                                    "source": source,
+                                    "content": text,
+                                },
+                            ))
+                else:
+                    events.append(ScenarioEvent(
+                        arrival.cycle, "visitor_message", {
+                            "source": source,
+                            "content": "Hello again. I was here before.",
+                        },
+                    ))
+
+                # Returning visitor leaves
+                leave_cycle = min(
+                    arrival.cycle + arrival.visit_duration_cycles,
+                    num_cycles - 1,
+                )
+                events.append(ScenarioEvent(leave_cycle, "visitor_leave", {
+                    "source": source,
+                }))
+
+            if self.verbose and return_arrivals:
+                print(f"[Sim] Tier 3: {len(return_arrivals)} return visits "
+                      f"from {returning_mgr.flagged_count} flagged visitors")
+
         if self.verbose:
             stats = scheduler.stats(arrivals, num_cycles)
             print(f"[Sim] V2 scenario '{scenario}': "
@@ -299,23 +437,6 @@ OUTPUT SCHEMA:
                   f"by_part={stats['by_day_part']}")
 
         return ScenarioManager(events, name=scenario)
-
-    @staticmethod
-    def _visitor_greeting(goal: str, name: str) -> str:
-        """Generate a simple greeting based on visitor goal.
-
-        Full dialogue templates are added in PR #2 (archetypes).
-        """
-        greetings = {
-            "buy": "Hi, I'm looking to buy some cards. What do you have?",
-            "sell": "Hello, I have some cards I'd like to sell. Are you buying?",
-            "browse": "Just looking around. Nice place you have here.",
-            "learn": "I'm trying to learn more about vintage cards. Can you help?",
-            "chat": "Hey! I just wanted to chat. How's business?",
-            "appraise": "I have a card I'd like appraised. Would you take a look?",
-            "trade": "I'm interested in trading. Do you do trades here?",
-        }
-        return greetings.get(goal, "Hello! What an interesting shop.")
 
     def _budget_remaining(self) -> float:
         """Remaining dollars since last sleep reset."""
@@ -349,8 +470,19 @@ OUTPUT SCHEMA:
             # Advance simulated time
             self.clock.advance(minutes=5)
 
-            # Get scenario events for this cycle
+            # Get scenario events for this cycle + any pending LLM visitor events
             scenario_events = self.scenario.get_events(cycle_num)
+            if self._pending_visitor_events:
+                # Filter out pending speech from visitors who leave this
+                # cycle — prevents "ghost replies" after disconnect.
+                leaving_sources = {
+                    se.payload.get("source") for se in scenario_events
+                    if se.event_type == "visitor_leave"
+                }
+                for pe in self._pending_visitor_events:
+                    if pe.payload.get("source") not in leaving_sources:
+                        scenario_events.append(pe)
+                self._pending_visitor_events.clear()
 
             # Handle meta-events (set_drives, inject_thread, block_sleep)
             pipeline_events = []
@@ -368,6 +500,9 @@ OUTPUT SCHEMA:
                     event_dict = se.to_pipeline_event(self.clock.now())
                     pipeline_events.append(event_dict)
                     await self._inject_event(event_dict)
+
+            # Generate greetings for Tier 2 visitors arriving this cycle
+            await self._handle_tier2_arrivals(pipeline_events, cycle_num)
 
             # Handle visitor state from events
             self._process_visitor_events(pipeline_events)
@@ -428,6 +563,10 @@ OUTPUT SCHEMA:
                 elif act == "write_journal":
                     result.total_journals += 1
 
+            # If shopkeeper spoke and there's an active Tier 2 visitor,
+            # generate the visitor's next response for the next cycle.
+            await self._handle_tier2_response(cycle_result, cycle_num)
+
             if self.verbose and cycle_num % 100 == 0:
                 print(f"  [{cycle_num:04d}] {cycle_result.cycle_type:12s} "
                       f"v={self._drives['mood_valence']:+.2f} "
@@ -440,6 +579,8 @@ OUTPUT SCHEMA:
             result.llm_stats = self.llm.report()
         if hasattr(self.llm, 'stats'):
             result.llm_stats = self.llm.stats()
+        if self._llm_visitor_engine:
+            result.llm_stats["visitor_engine"] = self._llm_visitor_engine.stats()
 
         result.visitors = dict(self._visitor_history)
 
@@ -630,6 +771,73 @@ OUTPUT SCHEMA:
             raw_llm_output=parsed,
         )
 
+    async def _handle_tier2_arrivals(
+        self, pipeline_events: list[dict], cycle_num: int
+    ):
+        """Generate greetings for Tier 2 visitors arriving this cycle.
+
+        When a Tier 2 visitor's connect event is processed, the engine
+        generates their persona + greeting, which is injected as a
+        visitor_speech event in the same cycle.
+        """
+        if not self._llm_visitor_engine:
+            return
+
+        for event in list(pipeline_events):
+            if event.get("event_type") != "visitor_connect":
+                continue
+            source = event.get("source", "")
+            if source not in self._tier2_visitor_ids:
+                continue
+
+            visitor = self._tier2_visitors.get(source)
+            if not visitor:
+                continue
+
+            # Generate persona + greeting
+            greeting = await self._llm_visitor_engine.on_arrive(visitor)
+
+            # Inject as a visitor_speech event in the current pipeline_events
+            greeting_event = ScenarioEvent(
+                cycle_num, "visitor_message", {
+                    "source": source,
+                    "content": greeting,
+                },
+            ).to_pipeline_event(self.clock.now())
+            pipeline_events.append(greeting_event)
+            await self._inject_event(greeting_event)
+
+    async def _handle_tier2_response(
+        self, cycle_result: CycleResult, cycle_num: int
+    ):
+        """After shopkeeper speaks, generate Tier 2 visitor's next turn.
+
+        The response is queued as a pending event for the next cycle.
+        """
+        if not self._llm_visitor_engine:
+            return
+        if not cycle_result.dialogue:
+            return
+        if self._engagement["status"] != "engaged":
+            return
+
+        visitor_id = self._engagement.get("visitor_id")
+        if not visitor_id or visitor_id not in self._tier2_visitor_ids:
+            return
+        if not self._llm_visitor_engine.is_active(visitor_id):
+            return
+
+        response = await self._llm_visitor_engine.on_shopkeeper_spoke(
+            visitor_id, cycle_result.dialogue
+        )
+        if response:
+            self._pending_visitor_events.append(ScenarioEvent(
+                cycle_num + 1, "visitor_message", {
+                    "source": visitor_id,
+                    "content": response,
+                },
+            ))
+
     def _build_system_prompt(self) -> str:
         """Build system prompt with current drives and full cortex schema.
 
@@ -689,8 +897,18 @@ OUTPUT SCHEMA:
             if etype == "visitor_speech":
                 parts.append(f"A visitor says: {content}")
             elif etype == "visitor_connect":
-                parts.append(f"A visitor named {content} has entered the shop. "
-                             f"(source: {source})")
+                memory_stub = self._returning_memory.get(source)
+                if memory_stub:
+                    parts.append(
+                        f"A familiar face — {content} has returned to "
+                        f"the shop. You remember: {memory_stub} "
+                        f"(source: {source})"
+                    )
+                else:
+                    parts.append(
+                        f"A visitor named {content} has entered the shop. "
+                        f"(source: {source})"
+                    )
             elif etype == "visitor_disconnect":
                 parts.append(f"The visitor has left. (source: {source})")
             elif etype == "x_mention":
@@ -727,15 +945,21 @@ OUTPUT SCHEMA:
                         "visitor_id": None,
                         "turn_count": 0,
                     }
+                    # Clean up LLM visitor engine state
+                    if self._llm_visitor_engine:
+                        self._llm_visitor_engine.on_leave(source)
 
             elif etype == "visitor_speech":
-                if self._engagement["status"] == "engaged":
+                # Attribute speech to event source, not current engagement
+                # (prevents misattribution when visits overlap)
+                if source in self._visitor_history:
+                    self._visitor_history[source]["messages"].append(
+                        event.get("content", "")
+                    )
+                # Only bump turn count for the currently engaged visitor
+                if (self._engagement["status"] == "engaged"
+                        and self._engagement["visitor_id"] == source):
                     self._engagement["turn_count"] += 1
-                    vid = self._engagement["visitor_id"]
-                    if vid and vid in self._visitor_history:
-                        self._visitor_history[vid]["messages"].append(
-                            event.get("content", "")
-                        )
 
     def _apply_drive_overrides(self, overrides: dict):
         """Apply drive overrides from scenario events."""
