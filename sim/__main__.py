@@ -31,12 +31,17 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--scenario", type=str, default="standard",
-        help="Scenario: standard, longitudinal, death_spiral, "
-             "visitor_flood, isolation, spam_attack, sleep_deprivation",
+        help="Scenario: standard, social, stress, returning, isolation "
+             "(v2 Poisson-scheduled) or longitudinal, death_spiral, "
+             "visitor_flood, spam_attack, sleep_deprivation (v1 scripted)",
     )
     parser.add_argument(
         "--cycles", type=int, default=1000,
         help="Number of cycles to run (default: 1000)",
+    )
+    parser.add_argument(
+        "--daily-budget", type=float, default=1.0,
+        help="Daily dollar budget cap used for LLM gating (default: 1.0)",
     )
     parser.add_argument(
         "--llm", type=str, default="mock",
@@ -74,7 +79,8 @@ async def run_single(args) -> dict:
     from sim.metrics.collector import SimMetricsCollector
 
     print(f"[Sim] Running: variant={args.variant} scenario={args.scenario} "
-          f"cycles={args.cycles} llm={args.llm} seed={args.seed}")
+          f"cycles={args.cycles} llm={args.llm} seed={args.seed} "
+          f"daily_budget=${args.daily_budget:.2f}")
 
     runner = SimulationRunner(
         variant=args.variant,
@@ -82,6 +88,7 @@ async def run_single(args) -> dict:
         num_cycles=args.cycles,
         llm_mode=args.llm,
         seed=args.seed,
+        daily_budget=args.daily_budget,
         output_dir=args.output_dir,
         verbose=args.verbose,
     )
@@ -142,7 +149,8 @@ async def run_experiment(args):
             runner = SimulationRunner(
                 variant="full", scenario=sc,
                 num_cycles=cycles, llm_mode=args.llm,
-                seed=args.seed, output_dir=args.output_dir,
+                seed=args.seed, daily_budget=args.daily_budget,
+                output_dir=args.output_dir,
                 verbose=args.verbose,
             )
             t0 = time.time()
@@ -176,7 +184,8 @@ async def run_experiment(args):
         runner = SimulationRunner(
             variant="full", scenario="longitudinal",
             num_cycles=10000, llm_mode=args.llm,
-            seed=args.seed, output_dir=args.output_dir,
+            seed=args.seed, daily_budget=args.daily_budget,
+            output_dir=args.output_dir,
             verbose=True,
         )
         t0 = time.time()
@@ -209,7 +218,8 @@ async def run_experiment(args):
         runner = SimulationRunner(
             variant=variant, scenario=scenario,
             num_cycles=args.cycles, llm_mode=args.llm,
-            seed=args.seed, output_dir=args.output_dir,
+            seed=args.seed, daily_budget=args.daily_budget,
+            output_dir=args.output_dir,
             verbose=args.verbose,
         )
         t0 = time.time()

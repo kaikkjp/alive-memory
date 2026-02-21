@@ -1054,6 +1054,67 @@ ORDER BY sim_day;
 
 ---
 
+### TASK-077: Sim v2 — Visitor Model & Environment Redesign
+**Status:** IN_PROGRESS
+**Priority:** High
+**Spec:** `tasks/TASK-077-sim-v2-redesign.md`
+**Depends on:** TASK-074 (circuit breaker), TASK-075 (prompt optimization), budget-native energy fix
+**Blocks:** 10k longitudinal run (TASK-073), paper ablation tables
+
+**Problem:** Current sim is a sensory deprivation chamber. 1000-cycle ablation shows 709/1000 idle cycles, only 3 unique visitors, action entropy 1.965 dominated by rearrange→rearrange→rearrange (153 trigrams), monologue repetition 98.6%, social hunger saturated for 203 cycles, 0 posts/journals. Metrics don't reflect ALIVE capability.
+
+**Goal:** Redesign visitor model and scheduling for realistic, reproducible, attribution-clean benchmarks that exercise memory, social dynamics, taste, emotional range, and behavioral diversity.
+
+**Architecture (see spec for full detail):**
+- Poisson arrival process with day-part + weekday + scenario modulation
+- 3-tier visitor system: Tier 1 scripted archetypes, Tier 2 LLM personas, Tier 3 returning visitors
+- Visitor state machine: ENTERING → BROWSING → ENGAGING → NEGOTIATING → DECIDING → EXITING
+- 5 scenario presets: `isolation`, `standard`, `social`, `stress`, `returning`
+- 10 Tier 1 archetypes (Tanaka, student, whale collector, haggler, tourist, nostalgic, rival, seller, kid, online crossover)
+
+**New metrics:**
+- N1: Stimulus-Response Coupling (dialogue% rises when visitor rate increases)
+- N2: Boredom Loop Resistance (streak < 10, repetition < 0.5, self-loop < 0.5)
+- N3: Memory & Relationship Score (identity recall, transaction recall, preference continuity)
+- N4: Budget Utilization Efficiency (meaningful actions per budget spend)
+
+**Implementation (5 PRs):**
+- PR #1: Poisson scheduler + day structure (`sim/visitors/scheduler.py`, `sim/visitors/models.py`, `sim/runner.py`, `sim/__main__.py`)
+- PR #2: Tier 1 archetypes + state machine (`sim/visitors/archetypes.py`, `sim/visitors/state_machine.py`, `sim/visitors/templates/`)
+- PR #3: Tier 3 returning visitors (`sim/visitors/returning.py`, `sim/metrics/memory_score.py`)
+- PR #4: Tier 2 LLM visitors + `social` scenario (`sim/visitors/llm_visitor.py`, `sim/visitors/visitor_cache.py`)
+- PR #5: Full metric suite + scenario comparisons (`sim/metrics/stimulus_response.py`, `sim/metrics/loop_resistance.py`, `sim/metrics/budget_efficiency.py`, `sim/reports/comparison.py`)
+
+**Scope (files you may touch):**
+- `sim/visitors/` (new package)
+- `sim/metrics/` (extend)
+- `sim/reports/` (new)
+- `sim/runner.py`
+- `sim/__main__.py`
+- `tests/test_visitor_*.py` (new)
+
+**Scope (files you may NOT touch):**
+- `pipeline/*`
+- `db.py`
+- `heartbeat.py`
+- `config/identity.py`
+- `simulate.py`
+
+**Regression gates (before any PR merge):**
+- `isolation` scenario: drive dynamics unchanged from baseline (same seed → same trajectory)
+- CI invariants: bigram self-loop < 0.7, max streak < 20, repetition ratio < 0.7, social saturation streak < 50, unique actions ≥ 8, total posts + journals > 0
+
+**Cost budget:** No scenario exceeds $3/run. Full 5-scenario ablation suite ≈ $4.35/seed, $13 for 3 seeds.
+
+**Definition of done:**
+1. `standard` scenario N2 targets met (streak < 10, repetition < 0.5)
+2. `returning` scenario produces measurable N3 scores
+3. Cross-scenario comparison shows monotonic improvement: isolation < standard < social on M3 entropy and M7 emotional range
+4. Ablation results are publishable — metrics reflect ALIVE capability, not sim artifact
+5. Total ablation suite cost stays under $15 for 3-seed full comparison
+
+---
+
 ## Completed Tasks
 
 ### TASK-054: Fix inhibition self_assessment trigger

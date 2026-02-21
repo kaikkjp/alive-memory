@@ -8,7 +8,7 @@ Metrics:
     M5: Recall accuracy — memory references in returning visitor conversations
     M6: Taste consistency — preference stability across interactions
     M7: Emotional range — valence/arousal range across run
-    M8: Sleep quality — energy recovery per sleep cycle
+    M8: Sleep quality — budget reset fidelity per sleep cycle
     M9: Unprompted memories — spontaneous memory references
     M10: Depth gradient — increasing depth with returning visitors
 """
@@ -80,6 +80,9 @@ class SimMetricsCollector:
             self.sleep_events.append({
                 "cycle": cycle_num,
                 "energy_before": result.drives.get("energy", 0),
+                "budget_cap": getattr(result, "budget_usd_daily_cap", None),
+                "budget_before": getattr(result, "budget_remaining_usd", None),
+                "budget_after": getattr(result, "budget_after_sleep_usd", None),
             })
 
     def compute_all(self) -> dict:
@@ -185,12 +188,28 @@ class SimMetricsCollector:
         return round(max(valences) - min(valences), 3)
 
     def _m8_sleep_quality(self) -> float:
-        """M8: Average energy recovery per sleep event."""
+        """M8: Budget reset fidelity per sleep event.
+
+        New semantics (TASK-050-aligned):
+            Average post-sleep budget ratio (budget_after / budget_cap).
+            A healthy reset should be ~1.0.
+
+        Legacy fallback:
+            If budget fields are unavailable, use old energy-based proxy.
+        """
         if not self.sleep_events:
             return 0.0
-        # Measure energy at sleep start — higher = less tired = less needed
-        avg_energy = sum(s["energy_before"] for s in self.sleep_events) / len(self.sleep_events)
-        # Invert: low energy at sleep = needed sleep = good quality signal
+        budget_ratios = []
+        for s in self.sleep_events:
+            cap = s.get("budget_cap")
+            after = s.get("budget_after")
+            if cap and cap > 0 and after is not None:
+                budget_ratios.append(max(0.0, min(1.0, float(after) / float(cap))))
+        if budget_ratios:
+            return round(sum(budget_ratios) / len(budget_ratios), 3)
+
+        # Legacy compatibility for historical sim results.
+        avg_energy = sum(s.get("energy_before", 0.0) for s in self.sleep_events) / len(self.sleep_events)
         return round(1.0 - avg_energy, 3)
 
     def _m9_unprompted_memories(self) -> int:

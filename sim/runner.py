@@ -22,7 +22,8 @@ from typing import Any
 
 from sim.clock import SimulatedClock
 from sim.db import InMemoryDB
-from sim.scenario import ScenarioManager
+from sim.scenario import ScenarioEvent, ScenarioManager
+from sim.visitors.scheduler import VisitorScheduler, SCENARIO_CONFIGS
 
 
 @dataclass
@@ -41,6 +42,11 @@ class CycleResult:
     memory_updates: list[dict] = field(default_factory=list)
     resonance: bool = False
     sleep_triggered: bool = False
+    budget_usd_daily_cap: float = 1.0
+    budget_spent_usd: float = 0.0
+    budget_remaining_usd: float = 1.0
+    budget_mode: str = "normal"  # normal | emergency
+    budget_after_sleep_usd: float | None = None
     raw_llm_output: dict | None = None
 
 
@@ -60,6 +66,8 @@ class SimulationResult:
     total_browses: int = 0
     total_posts: int = 0
     total_journals: int = 0
+    daily_budget_usd: float = 1.0
+    budget_rest_cycles: int = 0
     llm_stats: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
@@ -74,6 +82,8 @@ class SimulationResult:
             "total_posts": self.total_posts,
             "total_journals": self.total_journals,
             "sleep_cycles": len(self.sleep_cycles),
+            "daily_budget_usd": self.daily_budget_usd,
+            "budget_rest_cycles": self.budget_rest_cycles,
             "visitors_seen": len(self.visitors),
             "llm_stats": self.llm_stats,
             "cycles": [
@@ -86,6 +96,11 @@ class SimulationResult:
                     "monologue": c.internal_monologue[:500] if c.internal_monologue else "",
                     "expression": c.expression,
                     "resonance": c.resonance,
+                    "budget_usd_daily_cap": c.budget_usd_daily_cap,
+                    "budget_spent_usd": c.budget_spent_usd,
+                    "budget_remaining_usd": c.budget_remaining_usd,
+                    "budget_mode": c.budget_mode,
+                    "budget_after_sleep_usd": c.budget_after_sleep_usd,
                     "drives": c.drives,
                     "memory_updates": c.memory_updates,
                     "intentions": c.intentions,
@@ -164,6 +179,7 @@ OUTPUT SCHEMA:
         seed: int = 42,
         output_dir: str = "sim/results",
         start_time: str = "2026-02-01T09:00:00+09:00",
+        daily_budget: float = 1.0,
         block_sleep: bool = False,
         verbose: bool = False,
     ):
@@ -175,13 +191,19 @@ OUTPUT SCHEMA:
         self.output_dir = Path(output_dir)
         self.block_sleep = block_sleep
         self.verbose = verbose
+        self.daily_budget = max(0.01, float(daily_budget))
 
         # Initialize components
         self.clock = SimulatedClock(start=start_time)
         self.db: InMemoryDB | None = None
         self.llm = self._init_llm(llm_mode, seed)
         self.pipeline = self._init_pipeline(variant)
-        self.scenario = ScenarioManager.load(scenario)
+
+        # V2 scenarios use Poisson scheduler; v1 uses hardcoded ScenarioManager
+        if scenario in SCENARIO_CONFIGS:
+            self.scenario = self._build_v2_scenario(scenario, seed, num_cycles)
+        else:
+            self.scenario = ScenarioManager.load(scenario)
 
         # Runtime state
         self._drives = {
@@ -189,16 +211,18 @@ OUTPUT SCHEMA:
             "curiosity": 0.5,
             "expression_need": 0.3,
             "rest_need": 0.2,
-            "energy": 0.8,
+            "energy": 1.0,  # display-only, derived from budget
             "mood_valence": 0.0,
             "mood_arousal": 0.3,
         }
+        self._budget_spent_since_sleep = 0.0
         self._engagement = {
             "status": "none",
             "visitor_id": None,
             "turn_count": 0,
         }
         self._visitor_history: dict[str, dict] = {}  # visitor_id -> info
+        self._sync_display_energy_from_budget()
 
     def _init_llm(self, mode: str, seed: int):
         """Initialize the LLM backend."""
@@ -227,6 +251,83 @@ OUTPUT SCHEMA:
         else:
             raise ValueError(f"Unknown variant: {variant}")
 
+    def _build_v2_scenario(
+        self, scenario: str, seed: int, num_cycles: int
+    ) -> ScenarioManager:
+        """Build a ScenarioManager from Poisson-scheduled visitor arrivals.
+
+        Converts ScheduledArrival objects into ScenarioEvent sequences
+        (arrive → message → leave) compatible with the existing runner loop.
+        """
+        scheduler = VisitorScheduler(scenario=scenario, seed=seed)
+        arrivals = scheduler.generate(num_cycles=num_cycles)
+
+        events: list[ScenarioEvent] = []
+        for arrival in arrivals:
+            v = arrival.visitor
+            source = v.visitor_id
+            name = v.name
+
+            # Visitor arrives
+            events.append(ScenarioEvent(arrival.cycle, "visitor_arrive", {
+                "source": source,
+                "name": name,
+                "channel": "sim",
+            }))
+
+            # Visitor says a greeting based on their goal
+            greeting = self._visitor_greeting(v.goal, name)
+            events.append(ScenarioEvent(arrival.cycle, "visitor_message", {
+                "source": source,
+                "content": greeting,
+            }))
+
+            # Visitor leaves after their visit duration
+            leave_cycle = min(
+                arrival.cycle + arrival.visit_duration_cycles,
+                num_cycles - 1,
+            )
+            events.append(ScenarioEvent(leave_cycle, "visitor_leave", {
+                "source": source,
+            }))
+
+        if self.verbose:
+            stats = scheduler.stats(arrivals, num_cycles)
+            print(f"[Sim] V2 scenario '{scenario}': "
+                  f"{stats['total_visitors']} visitors, "
+                  f"{stats['visitors_per_day']:.1f}/day, "
+                  f"by_part={stats['by_day_part']}")
+
+        return ScenarioManager(events, name=scenario)
+
+    @staticmethod
+    def _visitor_greeting(goal: str, name: str) -> str:
+        """Generate a simple greeting based on visitor goal.
+
+        Full dialogue templates are added in PR #2 (archetypes).
+        """
+        greetings = {
+            "buy": "Hi, I'm looking to buy some cards. What do you have?",
+            "sell": "Hello, I have some cards I'd like to sell. Are you buying?",
+            "browse": "Just looking around. Nice place you have here.",
+            "learn": "I'm trying to learn more about vintage cards. Can you help?",
+            "chat": "Hey! I just wanted to chat. How's business?",
+            "appraise": "I have a card I'd like appraised. Would you take a look?",
+            "trade": "I'm interested in trading. Do you do trades here?",
+        }
+        return greetings.get(goal, "Hello! What an interesting shop.")
+
+    def _budget_remaining(self) -> float:
+        """Remaining dollars since last sleep reset."""
+        return max(0.0, self.daily_budget - self._budget_spent_since_sleep)
+
+    def _sync_display_energy_from_budget(self):
+        """Energy is a display proxy: remaining budget ratio in [0, 1]."""
+        if self.daily_budget <= 0:
+            self._drives["energy"] = 0.0
+            return
+        self._drives["energy"] = max(0.0, min(1.0, self._budget_remaining() / self.daily_budget))
+
     async def run(self) -> SimulationResult:
         """Run all cycles, collect results."""
         # Initialize DB
@@ -241,6 +342,7 @@ OUTPUT SCHEMA:
             num_cycles=self.num_cycles,
             seed=self.seed,
             llm_mode=self.llm_mode,
+            daily_budget_usd=self.daily_budget,
         )
 
         for cycle_num in range(self.num_cycles):
@@ -269,15 +371,26 @@ OUTPUT SCHEMA:
 
             # Handle visitor state from events
             self._process_visitor_events(pipeline_events)
+            self._sync_display_energy_from_budget()
 
             # Check sleep window
             if not self.block_sleep and self.pipeline.should_sleep(self.clock):
+                pre_sleep_drives = dict(self._drives)
+                budget_before = self._budget_remaining()
+                # Sleep boundary resets the spend window.
+                self._budget_spent_since_sleep = 0.0
+                self._sync_display_energy_from_budget()
                 cycle_result = CycleResult(
                     cycle_num=cycle_num,
                     timestamp=self.clock.now().isoformat(),
                     cycle_type="sleep",
                     sleep_triggered=True,
-                    drives=dict(self._drives),
+                    drives=pre_sleep_drives,
+                    budget_usd_daily_cap=self.daily_budget,
+                    budget_spent_usd=max(0.0, self.daily_budget - budget_before),
+                    budget_remaining_usd=budget_before,
+                    budget_mode="normal",
+                    budget_after_sleep_usd=self._budget_remaining(),
                 )
                 result.cycles.append(cycle_result)
                 result.sleep_cycles.append(cycle_num)
@@ -285,14 +398,13 @@ OUTPUT SCHEMA:
                     "cycle": cycle_num, **self._drives,
                 })
 
-                # Sleep restores energy
-                self._drives["energy"] = min(1.0, self._drives["energy"] + 0.1)
+                # Keep a soft rest drift on sleep events.
                 self._drives["rest_need"] = max(0.0, self._drives["rest_need"] - 0.1)
                 await self._save_drives_to_db()
 
                 if self.verbose:
                     print(f"  [{cycle_num:04d}] SLEEP "
-                          f"(energy={self._drives['energy']:.2f})")
+                          f"(budget ${budget_before:.3f} -> ${self._budget_remaining():.3f})")
                 continue
 
             # Run one pipeline cycle
@@ -301,6 +413,8 @@ OUTPUT SCHEMA:
             result.drives_history.append({
                 "cycle": cycle_num, **self._drives,
             })
+            if cycle_result.cycle_type == "rest":
+                result.budget_rest_cycles += 1
 
             # Count actions from all surviving (gated) intentions
             if cycle_result.dialogue:
@@ -318,6 +432,7 @@ OUTPUT SCHEMA:
                 print(f"  [{cycle_num:04d}] {cycle_result.cycle_type:12s} "
                       f"v={self._drives['mood_valence']:+.2f} "
                       f"e={self._drives['energy']:.2f} "
+                      f"budget=${self._budget_remaining():.3f} "
                       f"sh={self._drives['social_hunger']:.2f}")
 
         # Gather LLM stats
@@ -336,25 +451,78 @@ OUTPUT SCHEMA:
     async def _run_cycle(self, cycle_num: int,
                          events: list[dict]) -> CycleResult:
         """Run a single pipeline cycle."""
-        # Build system prompt with drives
-        system = self._build_system_prompt()
-
-        # Build messages with events
-        messages = self._build_messages(events)
-
-        # Determine call site
-        call_site = "cortex"
-
         # Let pipeline decide behavior (for baselines / ablation)
         if hasattr(self.pipeline, 'pre_cycle'):
             self.pipeline.pre_cycle(self._drives, self._engagement, events)
+
+        # Energy is display-only: always derive it from real-dollar budget.
+        self._sync_display_energy_from_budget()
+        pre_cycle_budget = self._budget_remaining()
+        budget_mode = "emergency" if pre_cycle_budget <= 0 else "normal"
+
+        # Budget exhausted: skip LLM call and force a rest cycle.
+        if pre_cycle_budget <= 0:
+            parsed = {
+                "internal_monologue": "(resting — budget spent)",
+                "intentions": [],
+                "memory_updates": [],
+                "resonance": False,
+            }
+            self._apply_homeostatic_drift(
+                has_visitor=self._engagement["status"] == "engaged",
+                took_action=False,
+            )
+            # no_drives/no_affect should still apply post-drift.
+            if hasattr(self.pipeline, 'pre_cycle'):
+                self.pipeline.pre_cycle(self._drives, self._engagement, [])
+            self._sync_display_energy_from_budget()
+            await self._save_drives_to_db()
+            await self._log_cycle(
+                cycle_num,
+                "rest",
+                None,
+                None,
+                parsed,
+                cost_usd=0.0,
+            )
+            return CycleResult(
+                cycle_num=cycle_num,
+                timestamp=self.clock.now().isoformat(),
+                cycle_type="rest",
+                action=None,
+                dialogue=None,
+                internal_monologue=parsed["internal_monologue"],
+                expression="neutral",
+                has_visitor=self._engagement["status"] == "engaged",
+                drives=dict(self._drives),
+                intentions=[],
+                memory_updates=[],
+                resonance=False,
+                budget_usd_daily_cap=self.daily_budget,
+                budget_spent_usd=self._budget_spent_since_sleep,
+                budget_remaining_usd=self._budget_remaining(),
+                budget_mode=budget_mode,
+                raw_llm_output=parsed,
+            )
+
+        # Build system prompt with drives + budget context
+        system = self._build_system_prompt()
+        messages = self._build_messages(events)
 
         # Call LLM
         response = await self.llm.complete(
             messages=messages,
             system=system,
-            call_site=call_site,
+            call_site="cortex",
         )
+
+        usage = response.get("usage", {}) if isinstance(response, dict) else {}
+        try:
+            cycle_cost = float(usage.get("cost_usd") or 0.0)
+        except (TypeError, ValueError):
+            cycle_cost = 0.0
+        self._budget_spent_since_sleep += max(0.0, cycle_cost)
+        self._sync_display_energy_from_budget()
 
         # Parse response — strip markdown fences, then JSON
         text = response["content"][0]["text"].strip()
@@ -413,7 +581,8 @@ OUTPUT SCHEMA:
         new_drives = parsed.get("new_drives", parsed.get("drive_updates"))
         if new_drives and isinstance(new_drives, dict):
             for key in self._drives:
-                if key in new_drives:
+                # Energy remains budget-derived; ignore model-proposed values.
+                if key != "energy" and key in new_drives:
                     self._drives[key] = new_drives[key]
         else:
             # Apply homeostatic drift if LLM didn't provide drive updates
@@ -424,18 +593,22 @@ OUTPUT SCHEMA:
 
         # Clamp drives
         for key in ("social_hunger", "curiosity", "expression_need",
-                     "rest_need", "energy", "mood_arousal"):
+                     "rest_need", "mood_arousal"):
             self._drives[key] = max(0.0, min(1.0, self._drives[key]))
         self._drives["mood_valence"] = max(-1.0, min(1.0, self._drives["mood_valence"]))
 
         # Re-apply ablation overrides after drift (e.g. no_drives keeps flat)
         if hasattr(self.pipeline, 'pre_cycle'):
             self.pipeline.pre_cycle(self._drives, self._engagement, [])
+        self._sync_display_energy_from_budget()
 
         await self._save_drives_to_db()
 
         # Log to DB
-        await self._log_cycle(cycle_num, cycle_type, action, dialogue, parsed)
+        budget_mode = "emergency" if self._budget_remaining() <= 0 else "normal"
+        await self._log_cycle(
+            cycle_num, cycle_type, action, dialogue, parsed, cost_usd=cycle_cost
+        )
 
         return CycleResult(
             cycle_num=cycle_num,
@@ -450,6 +623,10 @@ OUTPUT SCHEMA:
             intentions=intentions,
             memory_updates=parsed.get("memory_updates", []),
             resonance=parsed.get("resonance", False),
+            budget_usd_daily_cap=self.daily_budget,
+            budget_spent_usd=self._budget_spent_since_sleep,
+            budget_remaining_usd=self._budget_remaining(),
+            budget_mode=budget_mode,
             raw_llm_output=parsed,
         )
 
@@ -479,6 +656,14 @@ OUTPUT SCHEMA:
         ]
         for key, val in self._drives.items():
             parts.append(f"  {key}: {val:.3f}")
+        parts.extend([
+            "",
+            "Budget status:",
+            f"  budget_usd_daily_cap: {self.daily_budget:.3f}",
+            f"  budget_spent_usd_since_sleep: {self._budget_spent_since_sleep:.6f}",
+            f"  budget_remaining_usd: {self._budget_remaining():.6f}",
+            "Note: energy is display-only and equals budget_remaining / budget_cap.",
+        ])
 
         if self._engagement["status"] == "engaged":
             parts.append(f"\nCurrently engaged with visitor: "
@@ -571,7 +756,6 @@ OUTPUT SCHEMA:
 
         if took_action:
             d["expression_need"] = max(0.0, d["expression_need"] - 0.03)
-            d["energy"] = max(0.0, d["energy"] - 0.02)
             d["mood_valence"] = min(1.0, d["mood_valence"] + 0.02)
         else:
             d["expression_need"] = min(1.0, d["expression_need"] + 0.005)
@@ -584,9 +768,6 @@ OUTPUT SCHEMA:
 
         # Valence drifts toward 0.0
         d["mood_valence"] += (0.0 - d["mood_valence"]) * 0.02
-
-        # Energy slowly drains
-        d["energy"] = max(0.0, d["energy"] - 0.002)
 
         # Rest need rises slowly
         d["rest_need"] = min(1.0, d["rest_need"] + 0.001)
@@ -677,14 +858,14 @@ OUTPUT SCHEMA:
 
     async def _log_cycle(self, cycle_num: int, cycle_type: str,
                          action: str | None, dialogue: str | None,
-                         parsed: dict):
+                         parsed: dict, cost_usd: float = 0.0):
         """Log cycle to the in-memory DB."""
         if not self.db:
             return
         await self.db.execute(
             """INSERT INTO cycle_log (cycle_number, routing_focus, trigger_type,
                action_taken, dialogue, internal_monologue, drives_snapshot,
-               timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+               cost_usd, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 cycle_num,
                 cycle_type,
@@ -693,6 +874,7 @@ OUTPUT SCHEMA:
                 dialogue,
                 parsed.get("internal_monologue", ""),
                 json.dumps(self._drives),
+                max(0.0, float(cost_usd or 0.0)),
                 self.clock.now().isoformat(),
             ),
         )

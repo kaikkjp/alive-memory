@@ -1,5 +1,7 @@
 """Tests for sim.runner — SimulationRunner end-to-end."""
 
+import json
+
 import pytest
 import pytest_asyncio
 
@@ -22,6 +24,48 @@ async def test_basic_run_completes():
     assert len(result.cycles) == 50
     assert result.variant == "full"
     assert result.scenario == "standard"
+
+
+@pytest.mark.asyncio
+async def test_budget_gating_forces_rest_cycles():
+    """Dollar budget exhaustion should force subsequent cycles into rest mode."""
+    runner = SimulationRunner(
+        variant="full",
+        scenario="standard",
+        num_cycles=5,
+        llm_mode="mock",
+        seed=42,
+        daily_budget=1.0,
+    )
+
+    async def expensive_stub(**kwargs):
+        payload = {
+            "internal_monologue": "test",
+            "dialogue": None,
+            "expression": "neutral",
+            "intentions": [],
+            "memory_updates": [],
+            "new_drives": {
+                "social_hunger": 0.5,
+                "curiosity": 0.5,
+                "expression_need": 0.3,
+                "rest_need": 0.2,
+                "mood_valence": 0.0,
+                "mood_arousal": 0.3,
+            },
+        }
+        return {
+            "content": [{"type": "text", "text": json.dumps(payload)}],
+            "usage": {"input_tokens": 1, "output_tokens": 1, "cost_usd": 0.6},
+        }
+
+    runner.llm.complete = expensive_stub
+    result = await runner.run()
+
+    rest_cycles = [c for c in result.cycles if c.cycle_type == "rest"]
+    assert len(rest_cycles) >= 1
+    assert result.budget_rest_cycles == len(rest_cycles)
+    assert any(c.budget_mode == "emergency" for c in rest_cycles)
 
 
 @pytest.mark.asyncio
