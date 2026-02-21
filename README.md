@@ -49,6 +49,20 @@ pip install -r requirements.txt  # includes pytest + pytest-asyncio
 python -m pytest tests/ -v
 ```
 
+## Manual Death-Spiral Harness
+
+Run sequential failure/recovery stress episodes and fit survival models:
+
+```bash
+python -m experiments.death_spiral_survival --replicates 120 --out-dir experiments/logs/death_spiral
+```
+
+Outputs:
+- `collapse_survival.csv` — time-to-collapse rows
+- `recovery_survival.csv` — time-to-recovery rows (post-collapse)
+- `survival_summary.json` — Cox + AFT-style estimates and group summaries
+- `trajectory_samples.json` — sample turn-by-turn traces for inspection
+
 ## Project Structure
 
 ```
