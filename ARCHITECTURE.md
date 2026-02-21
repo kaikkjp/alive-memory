@@ -4,7 +4,7 @@
 >
 > This is NOT the design/philosophy doc (see `character-bible.md` and `shopkeeper-v14-blueprint.md` for that). This is "what files do what, what depends on what, and what you're allowed to touch."
 
-Last updated: 2026-02-15
+Last updated: 2026-02-21
 
 ---
 
@@ -216,6 +216,51 @@ Next.js app. Two pages: public shop window + operator dashboard.
 | `src/lib/particles.ts` | Ambient particle effects |
 | `src/lib/scene-constants.ts` | Scene composition constants (canvas dims, character position, z-indexes, sprite map, gradient fallbacks) |
 
+### External Channel Integration — `body/`
+
+Package extracted from `pipeline/body.py` for external communication channels (social media, Telegram, web browsing). Not part of the cognitive pipeline — called by the pipeline's body stage.
+
+| File | Lines | What it does |
+|------|-------|-------------|
+| `body/channels.py` | 67 | Channel router — routes replies to the originating channel (visitor, Telegram, X). |
+| `body/internal.py` | 360 | Internal action executors extracted from `pipeline/body.py`. Dialogue emission, journal writes, room changes, gift handling. |
+| `body/web.py` | 143 | Web browse executor — real web search via OpenRouter `web_search` tool. |
+| `body/x_social.py` | 298 | X/Twitter social action execution (compose, reply, like). |
+| `body/x_client.py` | 174 | X/Twitter API client (tweepy wrapper). |
+| `body/telegram.py` | 251 | Telegram message send/receive action execution. |
+| `body/tg_client.py` | 80 | Telegram Bot API client. |
+| `body/rate_limiter.py` | 185 | Per-channel rate limiting (prevents X/Telegram API abuse). |
+| `body/executor.py` | 90 | Body executor — dispatches approved motor plan to the appropriate channel handler. |
+
+### Simulation Research Framework — `sim/`
+
+Offline research infrastructure for running controlled experiments. Self-contained — does not depend on the production `Heartbeat` class or live DB. Used for ablation studies, liveness measurement, and architecture validation.
+
+| File | Lines | What it does |
+|------|-------|-------------|
+| `sim/runner.py` | 720 | `SimulationRunner` — orchestrates N-cycle experiments with a given variant, scenario, and LLM mode. Lightweight cycle loop independent of production code. |
+| `sim/variants.py` | 89 | Ablated pipeline variants: `no_drives`, `no_sleep`, `no_affect`, `no_memory`, `no_basal_ganglia`, etc. Each removes one subsystem for controlled comparison. |
+| `sim/scenario.py` | 148 | Scenario definitions (visitor schedules, event injection) for repeatable experimental conditions. |
+| `sim/clock.py` | 90 | Simulation clock — fast-forward time without wall-clock delay. |
+| `sim/db.py` | 290 | Isolated SQLite DB for simulation runs (no prod DB contamination). |
+| `sim/llm/cached.py` | 212 | Cached LLM backend — replays recorded Cortex outputs (zero API cost, deterministic). |
+| `sim/llm/mock.py` | 545 | Mock LLM backend — returns synthetic outputs for pure-logic testing. |
+| `sim/metrics/collector.py` | 221 | Collects M1–M10 liveness metrics during simulation (uptime, initiative rate, affect variability, etc.). |
+| `sim/metrics/comparator.py` | 138 | Compares metric sets across variants — identifies statistically meaningful differences. |
+| `sim/metrics/exporter.py` | 143 | Exports collected metrics to JSON/CSV for analysis. |
+
+### Experiment Harnesses — `experiments/`
+
+One-off research scripts for specific experimental questions. Not part of the runtime. Run manually from the project root.
+
+| File | Lines | What it does |
+|------|-------|-------------|
+| `experiments/ablation_suite.py` | 483 | Full component ablation — runs all variants over N autonomous cycles and compares liveness metrics. |
+| `experiments/death_spiral_survival.py` | 648 | Death spiral stress test — injects adverse conditions (empty inbox, low energy, depressed affect) and measures recovery. |
+| `experiments/analyze_entropy.py` | 407 | Entropy analysis of cortex outputs — measures behavioral diversity and repetition. |
+| `experiments/export_cycles.py` | 133 | Exports cycle log rows to JSON for external analysis. |
+| `experiments/generate_baseline.py` | 75 | Generates a baseline metric snapshot from a fresh sim run. |
+
 ### Standalone Tools — `my-agent/`
 
 Separate Node.js code assistant built on OpenRouter SDK. Not part of the Shopkeeper runtime. Contains `agent.ts`, `cli.ts`, `tools.ts`.
@@ -279,6 +324,16 @@ Separate Node.js code assistant built on OpenRouter SDK. Not part of the Shopkee
 | `tests/test_backfill_embeddings.py` | Embedding backfill script |
 | `tests/test_feed_enrichment.py` | Feed enrichment via markdown.new, content type detection, fallback, dedup |
 | `tests/soak_live.py` | Live soak test (manual) |
+| `tests/test_sim_runner.py` | SimulationRunner — cycle execution and variant dispatch |
+| `tests/test_sim_variants.py` | Ablated pipeline variants |
+| `tests/test_sim_scenario.py` | Scenario definition and event injection |
+| `tests/test_sim_clock.py` | Simulation clock fast-forward |
+| `tests/test_sim_db.py` | Sim-isolated SQLite DB |
+| `tests/test_sim_cached_cortex.py` | Cached LLM backend (replay) |
+| `tests/test_sim_mock_cortex.py` | Mock LLM backend |
+| `tests/test_sim_metrics.py` | M1–M10 metric collection |
+| `tests/test_sim_baselines.py` | Baseline metric snapshot generation |
+| `tests/test_death_spiral_survival.py` | Death spiral stress test harness |
 
 ---
 
@@ -302,7 +357,8 @@ heartbeat_server.py
   │     ├── pipeline/validator.py (pure logic, imports re + models.pipeline)
   │     ├── pipeline/basal_ganglia.py (pure logic, imports models.pipeline + models.state)
   │     ├── pipeline/body.py
-  │     │     └── pipeline/action_registry.py
+  │     │     ├── pipeline/action_registry.py
+  │     │     └── body/ (channel executors: internal, x_social, telegram, web)
   │     ├── pipeline/output.py
   │     │     └── pipeline/hippocampus_write.py
   │     ├── pipeline/arbiter.py
@@ -365,12 +421,15 @@ Metacognitive monitor in `pipeline/output.py` compares executed behavior against
 |------|-------|-------|
 | Core engine (*.py root) | 18 | ~7,233 |
 | Pipeline (pipeline/*.py) | 31 | ~7,947 |
+| Body package (body/*.py) | 9 | ~1,649 |
+| Sim framework (sim/**/*.py) | 21 | ~2,775 |
+| Experiments (experiments/*.py) | 5 | ~1,746 |
 | API | 2 | ~793 |
 | Config | 5 | ~428 |
 | Models | 4 | ~636 |
 | Scripts | 8 | ~1,038 |
-| Tests | 104 | ~25,922 |
+| Tests | ~115 | ~27,000+ |
 | Frontend (window/src/) | 51 | ~5,865 |
 | Docs (*.md) | 14 | ~12,829 |
 | Deploy | 6 | ~511 |
-| **Total** | **~243** | **~63,202** | **~254** | **~71,069** |
+| **Total** | **~278** | **~69,572+** |
