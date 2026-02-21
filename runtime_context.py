@@ -102,7 +102,7 @@ _run_meta = RunMetadata(
     run_id=_run_id,
     boot_cycle_id=_boot_cycle_id,
     commit_hash=(os.getenv("GIT_COMMIT_HASH") or "").strip(),
-    config_hash=(os.getenv("CONFIG_HASH") or _default_config_hash()).strip(),
+    config_hash=(os.getenv("CONFIG_HASH") or "").strip(),
     process_start_utc=clock.now_utc().isoformat(),
 )
 
@@ -115,6 +115,8 @@ _cycle_ctx_var: contextvars.ContextVar[Optional[CycleContext]] = contextvars.Con
 def get_run_metadata() -> RunMetadata:
     if not _run_meta.commit_hash:
         _run_meta.commit_hash = _git_commit_hash()
+    if not _run_meta.config_hash:
+        _run_meta.config_hash = _default_config_hash()
     return _run_meta
 
 
