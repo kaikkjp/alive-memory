@@ -14,6 +14,7 @@ import re
 
 import clock
 from memory_translator import scrub_numbers
+from runtime_context import get_cycle_context, hash_text, resolve_cycle_id
 
 
 _MEMORY_DIRS = [
@@ -25,6 +26,16 @@ _MEMORY_DIRS = [
     'threads',
     'collection',
 ]
+
+
+def _estimate_tokens(text: str | None) -> int:
+    if not text:
+        return 0
+    return max(1, int(len(text) / 4))
+
+
+def _infer_source() -> str:
+    return 'awake' if get_cycle_context() else 'sleep'
 
 
 class MemoryWriter:
@@ -52,6 +63,28 @@ class MemoryWriter:
         with open(path, mode, encoding='utf-8') as f:
             f.write(clean)
 
+    async def _log_write(self, *, memory_type: str, source: str,
+                         text: str, location: str, payload: dict | None = None,
+                         sleep_session_id: str | None = None) -> None:
+        """Best-effort structured write log for evidence pack generation."""
+        try:
+            from db.analytics import log_memory_write
+
+            clean = scrub_numbers(text or "")
+            await log_memory_write(
+                memory_type=memory_type,
+                source=source,
+                content_hash=hash_text(clean),
+                tokens_written=_estimate_tokens(clean),
+                size_bytes=len(clean.encode('utf-8')),
+                cycle_id=resolve_cycle_id(None),
+                sleep_session_id=sleep_session_id,
+                location=location,
+                payload=payload or {},
+            )
+        except Exception:
+            return
+
     async def append_journal(self, text: str, mood_desc: str = None,
                              tags: list[str] = None) -> None:
         """Append an entry to today's journal file.
@@ -72,6 +105,13 @@ class MemoryWriter:
 
         path = self._path('journal', f'{date_str}.md')
         self._safe_write(path, entry)
+        await self._log_write(
+            memory_type='episodic',
+            source=_infer_source(),
+            text=entry,
+            location=f'file:{path}',
+            payload={'mood_desc': mood_desc, 'tags': tags or []},
+        )
 
     async def append_visitor(self, source_key: str, name: str,
                              entry: str) -> None:
@@ -92,6 +132,13 @@ class MemoryWriter:
 
         block = f'\n## {date_str}\n\n{entry.strip()}\n\n---\n'
         self._safe_write(path, block)
+        await self._log_write(
+            memory_type='semantic',
+            source=_infer_source(),
+            text=block,
+            location=f'file:{path}',
+            payload={'visitor': source_key, 'name': name},
+        )
 
     async def append_reflection(self, date: str, phase: str,
                                 text: str) -> None:
@@ -107,6 +154,14 @@ class MemoryWriter:
         entry = f'\n## {time_str}\n\n{text.strip()}\n'
         path = self._path('reflections', f'{date}-{phase}.md')
         self._safe_write(path, entry)
+        await self._log_write(
+            memory_type='summary',
+            source='sleep',
+            text=entry,
+            location=f'file:{path}',
+            payload={'phase': phase, 'date': date},
+            sleep_session_id=f"sleep-{date}-{phase}",
+        )
 
     async def append_browse(self, date: str, slug: str, text: str) -> None:
         """Write web search results.
@@ -117,6 +172,13 @@ class MemoryWriter:
             return
         path = self._path('browse', f'{date}-{slug}.md')
         self._safe_write(path, text.strip() + '\n')
+        await self._log_write(
+            memory_type='episodic',
+            source=_infer_source(),
+            text=text,
+            location=f'file:{path}',
+            payload={'slug': slug, 'date': date},
+        )
 
     async def append_thread(self, slug: str, entry: str) -> None:
         """Append to a thought thread.
@@ -131,6 +193,13 @@ class MemoryWriter:
         block = f'\n## {date_str}\n\n{entry.strip()}\n'
         path = self._path('threads', f'{slug}.md')
         self._safe_write(path, block)
+        await self._log_write(
+            memory_type='episodic',
+            source=_infer_source(),
+            text=block,
+            location=f'file:{path}',
+            payload={'slug': slug},
+        )
 
     async def append_collection(self, entry: str) -> None:
         """Append to the collection catalog.
@@ -146,6 +215,13 @@ class MemoryWriter:
             self._safe_write(path, '# My Collection\n\n', mode='w')
 
         self._safe_write(path, entry.strip() + '\n')
+        await self._log_write(
+            memory_type='semantic',
+            source=_infer_source(),
+            text=entry,
+            location=f'file:{path}',
+            payload={},
+        )
 
     async def write_self_file(self, filename: str, content: str) -> None:
         """Write/overwrite a self-knowledge file.  Sleep-only operation.
@@ -158,6 +234,14 @@ class MemoryWriter:
             filename = f'{filename}.md'
         path = self._path('self', filename)
         self._safe_write(path, content, mode='w')
+        await self._log_write(
+            memory_type='summary',
+            source='sleep',
+            text=content,
+            location=f'file:{path}',
+            payload={'filename': filename},
+            sleep_session_id=f"sleep-{clock.now().date().isoformat()}",
+        )
 
     async def annotate(self, filepath: str, note: str) -> None:
         """Add a bracketed annotation to an existing file.  Sleep-only.
@@ -172,6 +256,14 @@ class MemoryWriter:
         date_str = clock.now().strftime('%Y-%m-%d')
         annotation = f'\n[annotation \u2014 {date_str}] {note.strip()}\n'
         self._safe_write(full_path, annotation)
+        await self._log_write(
+            memory_type='summary',
+            source='sleep',
+            text=annotation,
+            location=f'file:{full_path}',
+            payload={'filepath': filepath},
+            sleep_session_id=f"sleep-{clock.now().date().isoformat()}",
+        )
 
 
 def slugify(text: str, max_len: int = 50) -> str:

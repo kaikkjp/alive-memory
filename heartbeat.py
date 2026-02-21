@@ -2,6 +2,7 @@
 
 import asyncio
 import random
+import traceback
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
@@ -34,6 +35,13 @@ from pipeline.enrich import fetch_readable_text
 from sleep import sleep_cycle, nap_consolidate
 from pipeline.day_memory import maybe_record_moment
 from identity.self_model import SelfModel
+from runtime_context import (
+    clear_cycle_context,
+    CycleContext,
+    get_run_metadata,
+    resolve_run_id,
+    set_cycle_context,
+)
 
 # Type for stage callbacks: async fn(stage_name, stage_data)
 StageCallback = Optional[Callable[[str, dict], Awaitable[None]]]
@@ -140,6 +148,7 @@ class Heartbeat:
         self._last_expression_taken: bool = False  # TASK-046: previous cycle had expression action
         self._recent_action_types: list[str] = []  # last 3 cycle primary actions
         self._self_model: Optional[SelfModel] = None  # TASK-061: persistent behavioral mirror
+        self._run_meta = get_run_metadata()
 
         # TASK-057: Set X draft cooldown (30 min between posts at gate level)
         from pipeline.action_registry import ACTION_REGISTRY
@@ -219,6 +228,30 @@ class Heartbeat:
 
     async def start(self):
         self.running = True
+        try:
+            from llm.config import resolve_model
+            model_name = resolve_model('cortex')
+        except Exception:
+            model_name = ''
+        try:
+            await db.register_run_start(
+                model_name=model_name,
+                metadata={'boot_cycle_id': self._run_meta.boot_cycle_id},
+            )
+            await db.log_runtime_event(
+                event_type='process_start',
+                cycle_id=self._run_meta.boot_cycle_id,
+                payload={
+                    'run_id': self._run_meta.run_id,
+                    'commit_hash': self._run_meta.commit_hash,
+                    'config_hash': self._run_meta.config_hash,
+                    'process_start_utc': self._run_meta.process_start_utc,
+                    'model_name': model_name,
+                },
+            )
+        except Exception as e:
+            print(f"  [Heartbeat] Runtime start logging failed: {e}")
+
         # Load arbiter state from DB (persisted across restarts)
         try:
             self._arbiter_state = await db.load_arbiter_state()
@@ -248,10 +281,31 @@ class Heartbeat:
             pass
         # TASK-061: Load persistent self-model
         self._self_model = SelfModel.load('identity/self_model.json')
+        try:
+            await db.log_runtime_event(
+                event_type='state_resume',
+                cycle_id=self._run_meta.boot_cycle_id,
+                payload={
+                    'restored_last_sleep_date': self._last_sleep_date,
+                    'cycle_interval_s': self._cycle_interval,
+                    'arbiter_state_present': bool(self._arbiter_state),
+                },
+            )
+        except Exception as e:
+            print(f"  [Heartbeat] Runtime resume logging failed: {e}")
         self._loop_task = asyncio.create_task(self._main_loop())
 
     async def stop(self):
         self.running = False
+        try:
+            await db.log_runtime_event(
+                event_type='process_exit',
+                cycle_id=self._run_meta.boot_cycle_id,
+                payload={'run_id': self._run_meta.run_id},
+            )
+            await db.mark_run_end(status='stopped')
+        except Exception as e:
+            print(f"  [Heartbeat] Runtime stop logging failed: {e}")
         self.pending_microcycle.set()  # wake up any wait
         self._wake_event.set()  # also wake interruptible_sleep
         if self._loop_task:
@@ -457,6 +511,18 @@ class Heartbeat:
             except asyncio.CancelledError:
                 break
             except RuntimeError as e:
+                clear_cycle_context()
+                try:
+                    stack_txt = traceback.format_exc()
+                    await db.log_runtime_event(
+                        event_type='uncaught_exception',
+                        cycle_id=self._run_meta.boot_cycle_id,
+                        error_type=type(e).__name__,
+                        stack_hash=db.hash_stacktrace(stack_txt),
+                        payload={'message': str(e)},
+                    )
+                except Exception:
+                    pass
                 if 'ANTHROPIC_API_KEY' in str(e):
                     print(f"\n  \033[91m[Error]\033[0m {e}")
                     self.running = False
@@ -465,6 +531,18 @@ class Heartbeat:
                 await asyncio.sleep(self._error_backoff)
                 self._error_backoff = min(60, self._error_backoff * 2)
             except Exception as e:
+                clear_cycle_context()
+                try:
+                    stack_txt = traceback.format_exc()
+                    await db.log_runtime_event(
+                        event_type='uncaught_exception',
+                        cycle_id=self._run_meta.boot_cycle_id,
+                        error_type=type(e).__name__,
+                        stack_hash=db.hash_stacktrace(stack_txt),
+                        payload={'message': str(e)},
+                    )
+                except Exception:
+                    pass
                 print(f"  [Heartbeat Error] {e}")
                 await asyncio.sleep(self._error_backoff)
                 self._error_backoff = min(60, self._error_backoff * 2)
@@ -629,6 +707,28 @@ class Heartbeat:
         """Initialize for simulation mode. No event loop task or TCP listener."""
         self.running = True
         try:
+            from llm.config import resolve_model
+            model_name = resolve_model('cortex')
+        except Exception:
+            model_name = ''
+        try:
+            await db.register_run_start(
+                model_name=model_name,
+                metadata={'boot_cycle_id': self._run_meta.boot_cycle_id, 'mode': 'simulation'},
+            )
+            await db.log_runtime_event(
+                event_type='process_start',
+                cycle_id=self._run_meta.boot_cycle_id,
+                payload={
+                    'run_id': self._run_meta.run_id,
+                    'commit_hash': self._run_meta.commit_hash,
+                    'config_hash': self._run_meta.config_hash,
+                    'mode': 'simulation',
+                },
+            )
+        except Exception as e:
+            print(f"  [Heartbeat] Simulation start logging failed: {e}")
+        try:
             self._arbiter_state = await db.load_arbiter_state()
         except Exception:
             self._arbiter_state = {
@@ -698,7 +798,17 @@ class Heartbeat:
         """
 
         cycle_id = str(uuid.uuid4())[:8]
+        trace_id = str(uuid.uuid4())[:12]
         start_time = clock.now_utc()
+        cycle_ctx = CycleContext(
+            cycle_id=cycle_id,
+            run_id=resolve_run_id(),
+            mode=mode,
+            focus=(focus_context.channel if focus_context else mode),
+            budget_state={},
+            trace_id=trace_id,
+        )
+        set_cycle_context(cycle_ctx)
 
         # 0a. Refresh parameter cache for this cycle
         await db.refresh_params_cache()
@@ -845,6 +955,33 @@ class Heartbeat:
             'memory_count': len(memory_chunks),
         })
 
+        # Budget state for this cycle (for governor + evidence pack joins)
+        budget_info = await db.get_budget_remaining()
+        budget_mode = 'normal'
+        if budget_info['remaining'] <= 0:
+            budget_mode = 'emergency'
+        elif budget_info['remaining'] <= max(budget_info['budget'] * 0.10, 0.10):
+            budget_mode = 'constrained'
+
+        governor_decision = {
+            'allowed_llm_calls': 0 if budget_mode == 'emergency' else 1,
+            'max_tokens': (
+                0
+                if budget_mode == 'emergency'
+                else (min(routing.token_budget, 1500) if budget_mode == 'constrained' else routing.token_budget)
+            ),
+            'tools_disabled': ['all'] if budget_mode == 'emergency' else [],
+        }
+        if governor_decision['allowed_llm_calls'] and governor_decision['max_tokens'] < routing.token_budget:
+            routing.token_budget = governor_decision['max_tokens']
+        cycle_ctx.budget_state = {
+            'budget_usd_daily_cap': budget_info['budget'],
+            'budget_spent_usd_today': budget_info['spent'],
+            'budget_remaining_usd_today': budget_info['remaining'],
+            'budget_mode': budget_mode,
+            'governor_decision': governor_decision,
+        }
+
         # ── Habit check: reflexive habits auto-fire, generative habits boost ──
         habit_result = await check_habits(drives, engagement)
         habit_boost = None  # set if generative habit matched
@@ -894,6 +1031,13 @@ class Heartbeat:
                 '_entropy_warning': None,
                 'intentions_count': 0,
                 'habit_fired': True,
+                'run_id': self._run_meta.run_id,
+                'trace_id': trace_id,
+                'budget_usd_daily_cap': budget_info['budget'],
+                'budget_spent_usd_today': budget_info['spent'],
+                'budget_remaining_usd_today': budget_info['remaining'],
+                'budget_mode': budget_mode,
+                'governor_decision': governor_decision,
             }
 
             # Build minimal validated for body/output compatibility
@@ -933,12 +1077,12 @@ class Heartbeat:
                 except asyncio.QueueFull:
                     pass
 
+            clear_cycle_context()
             return habit_log
 
         # 7a. Real-dollar budget check (TASK-050)
         # If daily dollar budget is spent, skip cortex entirely and rest.
         # No naps, no partial restore — budget is budget. She's done for the day.
-        budget_info = await db.get_budget_remaining()
         print(f"  [Heartbeat] Budget: ${budget_info['spent']:.3f} / "
               f"${budget_info['budget']:.2f} "
               f"(${budget_info['remaining']:.3f} remaining)")
@@ -978,6 +1122,13 @@ class Heartbeat:
                 '_entropy_warning': None,
                 'intentions_count': 0,
                 'budget_exhausted': True,
+                'run_id': self._run_meta.run_id,
+                'trace_id': trace_id,
+                'budget_usd_daily_cap': budget_info['budget'],
+                'budget_spent_usd_today': budget_info['spent'],
+                'budget_remaining_usd_today': budget_info['remaining'],
+                'budget_mode': budget_mode,
+                'governor_decision': governor_decision,
             }
 
             async with db.transaction():
@@ -1004,6 +1155,7 @@ class Heartbeat:
                 except asyncio.QueueFull:
                     pass
 
+            clear_cycle_context()
             return rest_log
 
         # Update energy display value: remaining / budget ratio
@@ -1080,6 +1232,8 @@ class Heartbeat:
         log = {
             'id': cycle_id,
             'mode': mode,
+            'run_id': self._run_meta.run_id,
+            'trace_id': trace_id,
             'drives': {
                 'social_hunger': round(drives.social_hunger, 2),
                 'curiosity': round(drives.curiosity, 2),
@@ -1105,6 +1259,11 @@ class Heartbeat:
             'resonance': validated.resonance,
             '_entropy_warning': validated.entropy_warning,
             'intentions_count': len(validated.intentions),
+            'budget_usd_daily_cap': budget_info['budget'],
+            'budget_spent_usd_today': budget_info['spent'],
+            'budget_remaining_usd_today': budget_info['remaining'],
+            'budget_mode': budget_mode,
+            'governor_decision': governor_decision,
         }
 
         # Gate resonance to engage-mode cycles only.
@@ -1246,6 +1405,7 @@ class Heartbeat:
             except asyncio.QueueFull:
                 pass
 
+        clear_cycle_context()
         return log
 
     def _build_silence_perception(self, idle_seconds: float) -> Optional[Perception]:
