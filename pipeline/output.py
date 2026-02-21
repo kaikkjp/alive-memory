@@ -26,6 +26,7 @@ from pipeline.hippocampus_write import hippocampus_consolidate
 from pipeline.hypothalamus import clamp
 from db.parameters import p
 import db
+from runtime_context import hash_json
 
 
 # ── Action-inferred drive effects (TASK-024) ──
@@ -79,6 +80,37 @@ INHIBITION_MIN_CYCLE = 100
 # Module-level latch: once we've confirmed cycle_count >= INHIBITION_MIN_CYCLE,
 # we skip the DB call on every subsequent cycle.
 _inhibition_guard_cleared: bool = False
+
+
+def _classify_action_type(action_name: str) -> str:
+    a = (action_name or '').lower()
+    if a in {'speak', 'tg_send', 'reply_x'}:
+        return 'chat_reply'
+    if a == 'browse_web':
+        return 'web_browse'
+    if a in {'post_x', 'post_x_draft'}:
+        return 'post_x_draft' if a == 'post_x_draft' else 'post_x'
+    if a in {'post_x_image', 'tg_send_image'}:
+        return 'gen_media'
+    return a
+
+
+def _classify_channel(action_name: str, target: str | None) -> str:
+    a = (action_name or '').lower()
+    if a.startswith('tg_'):
+        return 'telegram'
+    if a in {'post_x', 'reply_x', 'post_x_image', 'post_x_draft'}:
+        return 'x'
+    if a.startswith('x_') or a.endswith('_x'):
+        return 'x'
+    if a in {'browse_web'}:
+        return 'web'
+    if a in {'speak'}:
+        return 'chat'
+    t = (target or '').lower()
+    if 'visitor' in t:
+        return 'chat'
+    return 'internal'
 
 
 async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
@@ -403,10 +435,18 @@ async def _log_motor_plan(motor_plan: MotorPlan, body_output: BodyOutput,
             if i < len(body_output.executed):
                 exec_result = body_output.executed[i]
 
+            limiter = (exec_result.payload if exec_result and isinstance(exec_result.payload, dict) else {}) or {}
+            status = 'deferred'
+            if exec_result is not None:
+                status = 'executed' if exec_result.success else 'failed'
+            reason = None
+            if status in {'failed', 'deferred'}:
+                reason = exec_result.error if exec_result else 'no_execution_result'
+
             await db.log_action(
                 cycle_id=cycle_id,
                 action=decision.action,
-                status='executed' if exec_result else 'approved',
+                status=status,
                 source=decision.source,
                 impulse=decision.impulse,
                 priority=decision.priority,
@@ -416,14 +456,27 @@ async def _log_motor_plan(motor_plan: MotorPlan, body_output: BodyOutput,
                 energy_cost=None,
                 success=exec_result.success if exec_result else None,
                 error=exec_result.error if exec_result else None,
+                action_type=_classify_action_type(decision.action),
+                channel=_classify_channel(decision.action, decision.target),
+                reason=reason,
+                cooldown_state=limiter.get('cooldown_state'),
+                rate_limit_remaining=limiter.get('rate_limit_remaining'),
+                limiter_decision=limiter.get('limiter_decision'),
+                action_payload_hash=hash_json({
+                    'detail': decision.detail,
+                    'content': decision.content,
+                    'target': decision.target,
+                }),
+                target_id=decision.target,
             )
 
         # Log suppressed actions
         for decision in motor_plan.suppressed:
+            status = decision.status if decision.status in {'suppressed', 'deferred', 'failed'} else 'suppressed'
             await db.log_action(
                 cycle_id=cycle_id,
                 action=decision.action,
-                status=decision.status,
+                status=status,
                 source=decision.source,
                 impulse=decision.impulse,
                 priority=decision.priority,
@@ -433,6 +486,16 @@ async def _log_motor_plan(motor_plan: MotorPlan, body_output: BodyOutput,
                 energy_cost=None,
                 success=None,
                 error=None,
+                action_type=_classify_action_type(decision.action),
+                channel=_classify_channel(decision.action, decision.target),
+                reason=decision.suppression_reason,
+                limiter_decision='deny:basal_ganglia',
+                action_payload_hash=hash_json({
+                    'detail': decision.detail,
+                    'content': decision.content,
+                    'target': decision.target,
+                }),
+                target_id=decision.target,
             )
     except Exception as e:
         import traceback

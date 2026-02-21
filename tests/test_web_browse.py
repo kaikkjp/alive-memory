@@ -12,12 +12,18 @@ from models.pipeline import ActionRequest, ActionResult
 def _patch_deps():
     """Mock all external deps for web browse executor."""
     with patch('body.web.clock') as mock_clock, \
-         patch('body.web.check_rate_limit', new_callable=AsyncMock) as mock_rate, \
+         patch('body.web.get_limiter_decision', new_callable=AsyncMock) as mock_rate, \
          patch('body.web.record_action', new_callable=AsyncMock), \
          patch('body.rate_limiter.is_channel_enabled', new_callable=AsyncMock) as mock_chan, \
          patch('body.web.db') as mock_db:
         mock_clock.now_utc.return_value = datetime(2025, 1, 1, tzinfo=timezone.utc)
-        mock_rate.return_value = (True, '')
+        mock_rate.return_value = {
+            'allowed': True,
+            'reason': '',
+            'limiter_decision': 'allow',
+            'cooldown_state': 'ready',
+            'rate_limit_remaining': 1,
+        }
         mock_chan.return_value = True
         mock_db.append_event = AsyncMock()
         yield {
@@ -59,7 +65,13 @@ class TestBrowseWeb:
     @pytest.mark.asyncio
     async def test_rate_limit_blocks(self, _patch_deps):
         """Rate limit blocks execution."""
-        _patch_deps['rate_limit'].return_value = (False, 'hourly limit reached')
+        _patch_deps['rate_limit'].return_value = {
+            'allowed': False,
+            'reason': 'hourly limit reached',
+            'limiter_decision': 'deny:hourly_limit',
+            'cooldown_state': 'ready',
+            'rate_limit_remaining': 0,
+        }
         from body.web import execute_browse_web
         action = ActionRequest(type='browse_web', detail={'query': 'test'})
         result = await execute_browse_web(action)

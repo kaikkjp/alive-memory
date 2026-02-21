@@ -11,14 +11,22 @@ from models.pipeline import ActionRequest, ActionResult
 def _patch_deps():
     """Mock all external deps for X executors."""
     with patch('body.x_social.clock') as mock_clock, \
-         patch('body.x_social.check_rate_limit', new_callable=AsyncMock) as mock_rate, \
+         patch('body.x_social.get_limiter_decision', new_callable=AsyncMock) as mock_rate, \
          patch('body.x_social.record_action', new_callable=AsyncMock), \
          patch('body.x_social.is_channel_enabled', new_callable=AsyncMock) as mock_chan, \
          patch('body.x_social.db') as mock_db:
         mock_clock.now_utc.return_value = datetime(2025, 1, 1, tzinfo=timezone.utc)
-        mock_rate.return_value = (True, '')
+        mock_rate.return_value = {
+            'allowed': True,
+            'reason': '',
+            'limiter_decision': 'allow',
+            'cooldown_state': 'ready',
+            'rate_limit_remaining': 1,
+        }
         mock_chan.return_value = True
         mock_db.append_event = AsyncMock()
+        mock_db.get_setting = AsyncMock(return_value=None)
+        mock_db.set_setting = AsyncMock()
         yield {
             'clock': mock_clock,
             'rate_limit': mock_rate,
@@ -66,7 +74,13 @@ class TestPostX:
     @pytest.mark.asyncio
     async def test_rate_limit_blocks(self, _patch_deps):
         """Rate limit blocks posting."""
-        _patch_deps['rate_limit'].return_value = (False, 'daily limit reached')
+        _patch_deps['rate_limit'].return_value = {
+            'allowed': False,
+            'reason': 'daily limit reached',
+            'limiter_decision': 'deny:daily_limit',
+            'cooldown_state': 'ready',
+            'rate_limit_remaining': 0,
+        }
         from body.x_social import execute_post_x
         action = ActionRequest(type='post_x', detail={'text': 'test'})
         result = await execute_post_x(action)
@@ -179,6 +193,7 @@ class TestXMentionPollerCheckpoint:
             mock_db.mark_session_boundary = AsyncMock()
             mock_db.append_event = AsyncMock()
             mock_db.inbox_add = AsyncMock()
+            mock_db.set_setting = AsyncMock()
             await poller._poll_once()
 
         # since_id should be '300' (the max), not '200' (the last iterated)
@@ -204,6 +219,7 @@ class TestXMentionPollerCheckpoint:
             mock_db.mark_session_boundary = AsyncMock()
             mock_db.append_event = AsyncMock()
             mock_db.inbox_add = AsyncMock()
+            mock_db.set_setting = AsyncMock()
             await poller._poll_once()
 
         # since_id should NOT regress from 250 to 200

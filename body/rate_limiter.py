@@ -12,6 +12,7 @@ from datetime import datetime, timedelta, timezone
 
 import clock
 import db.connection as _connection
+from runtime_context import resolve_cycle_id, resolve_run_id, resolve_trace_id
 
 
 @dataclass
@@ -37,9 +38,21 @@ async def check_rate_limit(action_name: str) -> tuple[bool, str]:
 
     Returns ``(True, '')`` if allowed, or ``(False, reason)`` if blocked.
     """
+    decision = await get_limiter_decision(action_name)
+    return bool(decision['allowed']), str(decision.get('reason') or '')
+
+
+async def get_limiter_decision(action_name: str) -> dict:
+    """Return detailed limiter decision for action evidence logging."""
     limit = RATE_LIMITS.get(action_name)
     if not limit:
-        return True, ''  # no rate limit configured → allow
+        return {
+            'allowed': True,
+            'reason': '',
+            'cooldown_state': 'not_limited',
+            'rate_limit_remaining': None,
+            'limiter_decision': 'allow:no_limit',
+        }  # no rate limit configured → allow
 
     now = clock.now_utc()
 
@@ -49,34 +62,70 @@ async def check_rate_limit(action_name: str) -> tuple[bool, str]:
         elapsed = (now - last_ts).total_seconds()
         if elapsed < limit.cooldown_seconds:
             remaining = int(limit.cooldown_seconds - elapsed)
-            return False, f'cooldown: {remaining}s remaining'
+            return {
+                'allowed': False,
+                'reason': f'cooldown: {remaining}s remaining',
+                'cooldown_state': f'cooldown:{remaining}s',
+                'rate_limit_remaining': 0,
+                'limiter_decision': 'deny:cooldown',
+            }
 
     # ── Hourly window ──
     hour_ago = now - timedelta(hours=1)
     hourly_count = await _count_actions_since(action_name, hour_ago)
+    remaining_hour = max(limit.per_hour - hourly_count, 0)
     if hourly_count >= limit.per_hour:
-        return False, f'hourly limit reached ({limit.per_hour}/hr)'
+        return {
+            'allowed': False,
+            'reason': f'hourly limit reached ({limit.per_hour}/hr)',
+            'cooldown_state': 'ready',
+            'rate_limit_remaining': 0,
+            'limiter_decision': 'deny:hourly_limit',
+        }
 
     # ── Daily window ──
     day_ago = now - timedelta(hours=24)
     daily_count = await _count_actions_since(action_name, day_ago)
+    remaining_day = max(limit.per_day - daily_count, 0)
     if daily_count >= limit.per_day:
-        return False, f'daily limit reached ({limit.per_day}/day)'
+        return {
+            'allowed': False,
+            'reason': f'daily limit reached ({limit.per_day}/day)',
+            'cooldown_state': 'ready',
+            'rate_limit_remaining': 0,
+            'limiter_decision': 'deny:daily_limit',
+        }
 
-    return True, ''
+    return {
+        'allowed': True,
+        'reason': '',
+        'cooldown_state': 'ready',
+        'rate_limit_remaining': min(remaining_hour, remaining_day),
+        'limiter_decision': 'allow',
+    }
 
 
 async def record_action(action_name: str, success: bool = True,
                         cost_usd: float = 0.0, channel: str = None,
-                        error: str = None, payload: str = None) -> None:
+                        error: str = None, payload: str = None,
+                        cycle_id: str = None, run_id: str = None,
+                        trace_id: str = None,
+                        limiter_decision: str = None,
+                        cooldown_state: str = None,
+                        rate_limit_remaining: int = None) -> None:
     """Record that an external action was executed."""
     now = clock.now_utc()
+    resolved_cycle_id = resolve_cycle_id(cycle_id)
+    resolved_run_id = resolve_run_id(run_id)
+    resolved_trace_id = resolve_trace_id(trace_id)
     await _connection._exec_write(
         """INSERT INTO external_action_log
-           (action_name, timestamp, success, cost_usd, channel, error, payload)
-           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+           (action_name, timestamp, success, cost_usd, channel, error, payload,
+            cycle_id, run_id, trace_id, limiter_decision, cooldown_state, rate_limit_remaining)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (action_name, now.isoformat(), int(success), cost_usd,
-         channel, error, payload),
+         channel, error, payload, resolved_cycle_id, resolved_run_id,
+         resolved_trace_id, limiter_decision, cooldown_state, rate_limit_remaining),
     )
 
 
