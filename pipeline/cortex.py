@@ -67,14 +67,19 @@ RUMINATION_THRESHOLD = 5
 RUMINATION_DECAY_FACTOR = 0.3  # per cycle past threshold
 
 
-def _apply_rumination_breaker(threads: list) -> list:
+def _apply_rumination_breaker(threads: list, limit: int = 3) -> list:
     """Reorder threads by fatigue-adjusted priority.
 
     Threads that have appeared in context for >= RUMINATION_THRESHOLD consecutive
     cycles get exponentially reduced priority. Threads that drop out of context
     have their counter reset, so they can resurface later with fresh salience.
 
-    Returns threads sorted by effective priority (descending), max 3.
+    Args:
+        threads: Input threads to score and select.
+        limit: Max threads to return (default 3, use 2 for idle cycles).
+               Counter updates match this limit so fatigue tracking stays accurate.
+
+    Returns threads sorted by effective priority (descending), max `limit`.
     """
     global _THREAD_APPEARANCE_COUNTER, _LAST_SELECTED_THREAD_IDS
 
@@ -89,7 +94,7 @@ def _apply_rumination_breaker(threads: list) -> list:
         scored.append((t, effective))
 
     scored.sort(key=lambda x: x[1], reverse=True)
-    selected = [t for t, _ in scored[:3]]  # keep top 3
+    selected = [t for t, _ in scored[:limit]]
 
     selected_ids = {t.id for t in selected}
 
@@ -480,9 +485,9 @@ async def cortex_call(
         _r = enforce_section('U1_perceptions', "\n".join(perception_lines), 'user')
         parts.append(_r.text); _trim_results.append(_r)
 
-        # U4: Threads (limit to top 2)
+        # U4: Threads (limit to top 2 — pass limit so counters match)
         active_threads = await db.get_active_threads(limit=3)
-        active_threads = _apply_rumination_breaker(active_threads)[:2]
+        active_threads = _apply_rumination_breaker(active_threads, limit=2)
         if active_threads:
             thread_lines = ["\nTHINGS ON MY MIND:"]
             for t in active_threads:

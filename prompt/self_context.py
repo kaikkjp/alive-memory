@@ -280,9 +280,12 @@ async def assemble_self_context_cached(
     global _cache
     now = time.monotonic()
 
-    # Always rebuild when visitor present or force requested
+    # Always rebuild when visitor present or force requested.
+    # Also invalidate cache so next idle cycle gets fresh context
+    # (drives/actions change during engagement).
     if visitor is not None or habit_boost is not None or force_refresh:
         result = await assemble_self_context(visitor=visitor, habit_boost=habit_boost)
+        _cache = None  # stale after engagement — next idle rebuilds fresh
         return result
 
     # Check cache for idle cycles
