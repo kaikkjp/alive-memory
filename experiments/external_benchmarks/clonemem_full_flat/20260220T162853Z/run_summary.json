@@ -1,0 +1,273 @@
+{
+  "metadata": {
+    "model_name": "openai/all-MiniLM-L6-v2",
+    "git_commit": "a105a800608915cc8eed2f84cedd6b4d46aa8359",
+    "seed": 42,
+    "timestamp": "2026-02-20T16:31:09.837604+00:00",
+    "run_id": "20260220T162853Z",
+    "benchmark": "clonemem_flat"
+  },
+  "run_id": "20260220T162853Z",
+  "clone_root": "/private/tmp/CloneMemBench",
+  "output_dir": "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/clonemem_full_flat/20260220T162853Z",
+  "summary": {
+    "total_users": 1,
+    "metrics_users": 1,
+    "k10_recall_flat_mean": 0.3049986471861472,
+    "k10_recall_any_any_mean": 0.5,
+    "k_sanity_any_query_ge20": true,
+    "k_sanity_failures": 0,
+    "metric_monotonic_failures": 0,
+    "failed_eval_users": 0,
+    "failed_metric_users": 0
+  },
+  "items": [
+    {
+      "qa_file": "/private/tmp/CloneMemBench/data/releases/100k/guiling_chen_11ccc069-2a93-4e9d-af03-cdacb0b8d568_benchmark_en.json",
+      "user_id": "11ccc069-2a93-4e9d-af03-cdacb0b8d568",
+      "patched_qa": "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/clonemem_full_flat/20260220T162853Z/patched_qa/guiling_chen_11ccc069-2a93-4e9d-af03-cdacb0b8d568_benchmark_en_patched_wrapper.json",
+      "retrieval_file": "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/clonemem_full_flat/20260220T162853Z/retrieval/probe2_11ccc069-2a93-4e9d-af03-cdacb0b8d568_all-MiniLM-L6-v2-no_expansion-none-use_chunk.json",
+      "metric_file": "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/clonemem_full_flat/20260220T162853Z/metrics/metrics_11ccc069-2a93-4e9d-af03-cdacb0b8d568.json",
+      "eval": {
+        "command": [
+          "/usr/local/bin/python3",
+          "eval_flat.py",
+          "--in_file",
+          "/private/tmp/CloneMemBench/data/releases/100k/guiling_chen_11ccc069-2a93-4e9d-af03-cdacb0b8d568_benchmark_en.json",
+          "--output_dir",
+          "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/clonemem_full_flat/20260220T162853Z/retrieval",
+          "--outfile_prefix",
+          "probe2",
+          "--embedding_model",
+          "all-MiniLM-L6-v2",
+          "--join_method",
+          "none",
+          "--use_chunk",
+          "--retrieve_k",
+          "50",
+          "--num_workers",
+          "1"
+        ],
+        "returncode": 0,
+        "elapsed_seconds": 135.70431685447693,
+        "stdout_tail": "Loading data from /private/tmp/CloneMemBench/data/releases/100k/guiling_chen_11ccc069-2a93-4e9d-af03-cdacb0b8d568_benchmark_en.json...\nFound 1 user(s) to process\nNo GPUs detected, using CPU\nEmbedding model: all-MiniLM-L6-v2\nLLM model: meta-llama/Meta-Llama-3.1-8B-Instruct\nIndex expansion methods: None\nJoin method: none\nNumber of subquestions: disabled (no decomposition)\nNumber of workers: 1\n\n📝 Sequential processing (single worker)\n🎯 Process assigned to CPU for user Guilin Chen\n\n============================================================\nProcessing user: Guilin Chen (11ccc069-2a93-4e9d-af03-cdacb0b8d568) on cpu\nContext items: 324\nQA items: 32\n============================================================\n\n🔍 Processing 324 context items and 32 questions with temporal awareness...\n✓ Saved results for Guilin Chen to /Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/clonemem_full_flat/20260220T162853Z/retrieval/probe2_11ccc069-2a93-4e9d-af03-cdacb0b8d568_all-MiniLM-L6-v2-no_expansion-none-use_chunk.json\n📊 Final statistics: 324 contexts processed, 32 questions answered\n\n============================================================\n✓ Processing complete!\nProcessed 1 user(s)\nResults saved to: /Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/clonemem_full_flat/20260220T162853Z/retrieval\n============================================================\n",
+        "stderr_tail": "\nProcessing questions for Guilin Chen:   0%|          | 0/32 [00:00<?, ?it/s]\nProcessing questions for Guilin Chen:   3%|▎         | 1/32 [00:02<01:32,  2.98s/it]\nProcessing questions for Guilin Chen:   6%|▋         | 2/32 [00:05<01:19,  2.65s/it]\nProcessing questions for Guilin Chen:   9%|▉         | 3/32 [00:08<01:20,  2.79s/it]\nProcessing questions for Guilin Chen:  12%|█▎        | 4/32 [00:10<01:16,  2.73s/it]\nProcessing questions for Guilin Chen:  16%|█▌        | 5/32 [00:13<01:11,  2.66s/it]\nProcessing questions for Guilin Chen:  19%|█▉        | 6/32 [00:15<01:06,  2.56s/it]\nProcessing questions for Guilin Chen:  22%|██▏       | 7/32 [00:19<01:09,  2.79s/it]\nProcessing questions for Guilin Chen:  25%|██▌       | 8/32 [00:22<01:08,  2.84s/it]\nProcessing questions for Guilin Chen:  28%|██▊       | 9/32 [00:24<01:04,  2.81s/it]\nProcessing questions for Guilin Chen:  31%|███▏      | 10/32 [00:27<01:00,  2.74s/it]\nProcessing questions for Guilin Chen:  34%|███▍      | 11/32 [00:30<01:00,  2.89s/it]\nProcessing questions for Guilin Chen:  38%|███▊      | 12/32 [00:35<01:07,  3.39s/it]\nProcessing questions for Guilin Chen:  41%|████      | 13/32 [00:39<01:08,  3.60s/it]\nProcessing questions for Guilin Chen:  44%|████▍     | 14/32 [00:43<01:10,  3.92s/it]\nProcessing questions for Guilin Chen:  47%|████▋     | 15/32 [00:48<01:10,  4.13s/it]\nProcessing questions for Guilin Chen:  50%|█████     | 16/32 [00:52<01:04,  4.04s/it]\nProcessing questions for Guilin Chen:  53%|█████▎    | 17/32 [00:56<01:00,  4.05s/it]\nProcessing questions for Guilin Chen:  56%|█████▋    | 18/32 [01:00<00:55,  3.99s/it]\nProcessing questions for Guilin Chen:  59%|█████▉    | 19/32 [01:04<00:52,  4.07s/it]\nProcessing questions for Guilin Chen:  62%|██████▎   | 20/32 [01:08<00:49,  4.13s/it]\nProcessing questions for Guilin Chen:  66%|██████▌   | 21/32 [01:13<00:46,  4.24s/it]\nProcessing questions for Guilin Chen:  69%|██████▉   | 22/32 [01:17<00:41,  4.17s/it]\nProcessing questions for Guilin Chen:  72%|███████▏  | 23/32 [01:20<00:36,  4.01s/it]\nProcessing questions for Guilin Chen:  75%|███████▌  | 24/32 [01:24<00:32,  4.01s/it]\nProcessing questions for Guilin Chen:  78%|███████▊  | 25/32 [01:29<00:29,  4.25s/it]\nProcessing questions for Guilin Chen:  81%|████████▏ | 26/32 [01:33<00:25,  4.17s/it]\nProcessing questions for Guilin Chen:  84%|████████▍ | 27/32 [01:40<00:23,  4.79s/it]\nProcessing questions for Guilin Chen:  88%|████████▊ | 28/32 [01:44<00:19,  4.78s/it]\nProcessing questions for Guilin Chen:  91%|█████████ | 29/32 [01:49<00:14,  4.74s/it]\nProcessing questions for Guilin Chen:  94%|█████████▍| 30/32 [01:55<00:10,  5.16s/it]\nProcessing questions for Guilin Chen:  97%|█████████▋| 31/32 [02:02<00:05,  5.56s/it]\nProcessing questions for Guilin Chen: 100%|██████████| 32/32 [02:07<00:00,  5.67s/it]\nProcessing questions for Guilin Chen: 100%|██████████| 32/32 [02:07<00:00,  4.00s/it]\n"
+      },
+      "metric": {
+        "command": [
+          "/usr/local/bin/python3",
+          "/private/tmp/CloneMemBench/src/clonemem-eval/eval/compute_auto_metrics_for_clonemem.py",
+          "--in_file",
+          "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/clonemem_full_flat/20260220T162853Z/retrieval/metricin_11ccc069-2a93-4e9d-af03-cdacb0b8d568.json",
+          "--qa_file",
+          "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/clonemem_full_flat/20260220T162853Z/patched_qa/guiling_chen_11ccc069-2a93-4e9d-af03-cdacb0b8d568_benchmark_en_patched_wrapper.json",
+          "--out_file",
+          "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/clonemem_full_flat/20260220T162853Z/metrics/metrics_11ccc069-2a93-4e9d-af03-cdacb0b8d568.json"
+        ],
+        "returncode": 0,
+        "elapsed_seconds": 0.2281026840209961,
+        "stdout_tail": "Processing for user_id: 11ccc069-2a93-4e9d-af03-cdacb0b8d568\nFound 32 QA items with ground truth.\nLoading retrieval results from /Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/clonemem_full_flat/20260220T162853Z/retrieval/metricin_11ccc069-2a93-4e9d-af03-cdacb0b8d568.json...\n------------------------------\nEvaluated 32 queries.\n------------------------------\nAverage Metrics:\n\n@K=10:\n  recall_all_all: 0.1562\n  recall_all_any: 0.3438\n  recall_any_all: 0.2812\n  recall_any_any: 0.5000\n  recall_flat: 0.3050\n\n@K=20:\n  recall_all_all: 0.2500\n  recall_all_any: 0.3438\n  recall_any_all: 0.4375\n  recall_any_any: 0.5625\n  recall_flat: 0.3868\n\nSummary saved to /Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/clonemem_full_flat/20260220T162853Z/metrics/metrics_11ccc069-2a93-4e9d-af03-cdacb0b8d568.json for user: Guilin Chen (ID: 11ccc069-2a93-4e9d-af03-cdacb0b8d568)\n",
+        "stderr_tail": "\nEvaluating:   0%|          | 0/32 [00:00<?, ?it/s]\nEvaluating: 100%|██████████| 32/32 [00:00<00:00, 35469.80it/s]\n"
+      },
+      "retrieval_k_sanity": {
+        "n_queries": 32,
+        "n_queries_ge_20": 31,
+        "sampled_candidate_lengths": [
+          {
+            "query_id": "df5ad973-7e70-4805-bc85-fcc782b410ec",
+            "retrieved_candidates": 50
+          },
+          {
+            "query_id": "d0cc4b86-1a9c-4800-9c09-5442ccdf477a",
+            "retrieved_candidates": 9
+          },
+          {
+            "query_id": "b1607a3d-4353-46c7-8813-6e545e5e0660",
+            "retrieved_candidates": 50
+          },
+          {
+            "query_id": "637c6ae6-3179-4052-8faa-2021817e48dc",
+            "retrieved_candidates": 50
+          },
+          {
+            "query_id": "f60a9670-d4dc-4716-923b-044b01ad3dcc",
+            "retrieved_candidates": 50
+          },
+          {
+            "query_id": "debbef4a-084a-42a7-80e4-964158093028",
+            "retrieved_candidates": 50
+          },
+          {
+            "query_id": "22580a64-4b9f-44e4-ad16-c8d94cd6125c",
+            "retrieved_candidates": 41
+          },
+          {
+            "query_id": "7c7dd43a-ce14-431f-94eb-18366557abaa",
+            "retrieved_candidates": 50
+          },
+          {
+            "query_id": "1ada68df-dbdd-4a16-8046-74d7381c107a",
+            "retrieved_candidates": 41
+          },
+          {
+            "query_id": "3c11e764-dfe7-42a7-a67c-98eb3a544f5d",
+            "retrieved_candidates": 50
+          },
+          {
+            "query_id": "7109e0a6-aed7-49a7-8cac-e6a339b64862",
+            "retrieved_candidates": 50
+          },
+          {
+            "query_id": "d4bd243d-2455-46ed-a18d-ec54cf22f957",
+            "retrieved_candidates": 41
+          },
+          {
+            "query_id": "879f30bf-ffa5-4e8b-8e4a-e645bf6577e2",
+            "retrieved_candidates": 50
+          },
+          {
+            "query_id": "f452efa1-2590-4567-b56e-168ec766a528",
+            "retrieved_candidates": 50
+          },
+          {
+            "query_id": "577da4a0-96c5-4523-9977-c6f0d1bc5148",
+            "retrieved_candidates": 27
+          },
+          {
+            "query_id": "32b6d524-075b-4a36-b7bb-44ea4dc18665",
+            "retrieved_candidates": 50
+          },
+          {
+            "query_id": "e384d348-b118-499a-995b-60e13505ca2a",
+            "retrieved_candidates": 50
+          },
+          {
+            "query_id": "2d5422c3-47eb-4e4a-9238-192c0ce72fc2",
+            "retrieved_candidates": 50
+          },
+          {
+            "query_id": "930ed43a-b705-49c2-982b-6b31ca1038b5",
+            "retrieved_candidates": 50
+          },
+          {
+            "query_id": "371f19b5-6a8a-422b-ab77-bcee941d1a29",
+            "retrieved_candidates": 50
+          }
+        ],
+        "top_slice_assertions": [
+          {
+            "query_id": "577da4a0-96c5-4523-9977-c6f0d1bc5148",
+            "top10_ne_top20": true
+          },
+          {
+            "query_id": "d4bd243d-2455-46ed-a18d-ec54cf22f957",
+            "top10_ne_top20": true
+          },
+          {
+            "query_id": "1ada68df-dbdd-4a16-8046-74d7381c107a",
+            "top10_ne_top20": true
+          },
+          {
+            "query_id": "22580a64-4b9f-44e4-ad16-c8d94cd6125c",
+            "top10_ne_top20": true
+          },
+          {
+            "query_id": "838c38d5-90ee-4497-8f01-fc67b333ef1f",
+            "top10_ne_top20": true
+          },
+          {
+            "query_id": "1752fa4f-eae9-4b2d-ba25-84027b0ae61d",
+            "top10_ne_top20": true
+          },
+          {
+            "query_id": "df5ad973-7e70-4805-bc85-fcc782b410ec",
+            "top10_ne_top20": true
+          },
+          {
+            "query_id": "637c6ae6-3179-4052-8faa-2021817e48dc",
+            "top10_ne_top20": true
+          },
+          {
+            "query_id": "851d1c9e-8e68-400a-857e-1107c2b9494a",
+            "top10_ne_top20": true
+          },
+          {
+            "query_id": "25f8a1a7-5338-4d18-9b78-15f1999ce68b",
+            "top10_ne_top20": true
+          },
+          {
+            "query_id": "c83ab27d-0fba-4d85-9a0b-19736b730de1",
+            "top10_ne_top20": true
+          },
+          {
+            "query_id": "07e0dc76-f092-45f2-b737-80b5598d8bff",
+            "top10_ne_top20": true
+          },
+          {
+            "query_id": "f452efa1-2590-4567-b56e-168ec766a528",
+            "top10_ne_top20": true
+          },
+          {
+            "query_id": "930ed43a-b705-49c2-982b-6b31ca1038b5",
+            "top10_ne_top20": true
+          },
+          {
+            "query_id": "74c45951-7ec5-47d2-b03e-6c3d18e2c495",
+            "top10_ne_top20": true
+          },
+          {
+            "query_id": "50601ecc-cdc1-4018-a5bd-b23379423ac6",
+            "top10_ne_top20": true
+          },
+          {
+            "query_id": "7109e0a6-aed7-49a7-8cac-e6a339b64862",
+            "top10_ne_top20": true
+          },
+          {
+            "query_id": "879f30bf-ffa5-4e8b-8e4a-e645bf6577e2",
+            "top10_ne_top20": true
+          },
+          {
+            "query_id": "c7a779e2-3979-45f8-8c81-8a8ca69cdc37",
+            "top10_ne_top20": true
+          },
+          {
+            "query_id": "e384d348-b118-499a-995b-60e13505ca2a",
+            "top10_ne_top20": true
+          }
+        ],
+        "max_candidates": 50,
+        "min_candidates": 9
+      },
+      "metric_monotonicity_sanity": {
+        "recall_all_all": {
+          "k10": 0.15625,
+          "k20": 0.25,
+          "monotonic": true
+        },
+        "recall_all_any": {
+          "k10": 0.34375,
+          "k20": 0.34375,
+          "monotonic": true
+        },
+        "recall_any_all": {
+          "k10": 0.28125,
+          "k20": 0.4375,
+          "monotonic": true
+        },
+        "recall_any_any": {
+          "k10": 0.5,
+          "k20": 0.5625,
+          "monotonic": true
+        },
+        "recall_flat": {
+          "k10": 0.3049986471861472,
+          "k20": 0.3867965367965368,
+          "monotonic": true
+        }
+      },
+      "k10_recall_flat": 0.3049986471861472,
+      "k10_recall_any_any": 0.5
+    }
+  ]
+}

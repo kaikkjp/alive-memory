@@ -1,0 +1,82 @@
+{
+  "run_id": "20260220T163547Z",
+  "started_at_utc": "20260220T163547Z",
+  "output_dir": "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/overnight_runs/profile_20260220T163547Z",
+  "jobs": {
+    "ultrahorizon_heavy": {
+      "pid": 84181,
+      "cmd": [
+        "/usr/local/bin/python3",
+        "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/tools/run_ultrahorizon_scaled.py",
+        "--steps",
+        "50",
+        "--n-experiments",
+        "32",
+        "--max-concurrency",
+        "4",
+        "--window-size",
+        "64",
+        "--env",
+        "seq",
+        "--index",
+        "overnight",
+        "--exp-folder",
+        "codex_overnight",
+        "--model",
+        "qwen/qwen3.5-397b-a17b"
+      ],
+      "cwd": "/Users/user/Documents/Tokyo-Arc/product/alive",
+      "log_file": "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/overnight_runs/profile_20260220T163547Z/logs/ultrahorizon_heavy.log"
+    },
+    "maj_eval_persona_100": {
+      "pid": 84182,
+      "cmd": [
+        "/usr/local/bin/python3",
+        "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/tools/run_maj_eval_batch.py",
+        "--db-path",
+        "/Users/user/Documents/Tokyo-Arc/product/alive/data/shopkeeper_live.db",
+        "--source-table",
+        "events",
+        "--max-samples",
+        "100",
+        "--visitor-id",
+        "ALL",
+        "--jury-profile",
+        "persona",
+        "--model",
+        "qwen/qwen3.5-397b-a17b",
+        "--voting-method",
+        "average"
+      ],
+      "cwd": "/Users/user/Documents/Tokyo-Arc/product/alive",
+      "log_file": "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/overnight_runs/profile_20260220T163547Z/logs/maj_eval_persona_100.log"
+    },
+    "memoryagentbench_full": {
+      "pid": 84183,
+      "cmd": [
+        "/usr/local/bin/python3",
+        "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/tools/run_memoryagentbench_full.py",
+        "--force",
+        "--model",
+        "qwen/qwen3.5-397b-a17b"
+      ],
+      "cwd": "/Users/user/Documents/Tokyo-Arc/product/alive",
+      "log_file": "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/overnight_runs/profile_20260220T163547Z/logs/memoryagentbench_full.log"
+    },
+    "clonemem_full": {
+      "pid": 84187,
+      "cmd": [
+        "/usr/local/bin/python3",
+        "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/tools/run_clonemem_full.py",
+        "--retrieve-k",
+        "50",
+        "--embedding-model",
+        "all-MiniLM-L6-v2",
+        "--num-workers",
+        "1"
+      ],
+      "cwd": "/Users/user/Documents/Tokyo-Arc/product/alive",
+      "log_file": "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/overnight_runs/profile_20260220T163547Z/logs/clonemem_full.log"
+    }
+  }
+}

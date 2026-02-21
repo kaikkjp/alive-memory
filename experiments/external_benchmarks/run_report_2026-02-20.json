@@ -1,0 +1,96 @@
+{
+  "generated_at": "2026-02-20T15:41:00Z",
+  "tracks": {
+    "ecogym": {
+      "status": "blocked",
+      "reason": "Repository currently contains README/assets only; benchmark source code is not publicly released yet.",
+      "repo": "https://github.com/OPPO-PersonalAI/EcoGym"
+    },
+    "ultrahorizon": {
+      "status": "scaled_run_completed",
+      "mode": "sequence explore",
+      "details": {
+        "env": "seq",
+        "steps": 8,
+        "n_experiments": 3,
+        "max_concurrency": 2,
+        "window_size": 64,
+        "token_totals": {
+          "total_input_tokens": 701883,
+          "total_completion_tokens": 27627,
+          "total_tokens": 729510
+        },
+        "artifacts": [
+          "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/ultrahorizon_scaled/20260220T153452Z_seq_steps8_n3/run_summary.json",
+          "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/ultrahorizon_scaled/20260220T153452Z_seq_steps8_n3/SequenceExploreEnvironment_gpt-4o-mini_steps_8_wdsize_64_scaled/experiment-1/eval_output.json",
+          "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/ultrahorizon_scaled/20260220T153452Z_seq_steps8_n3/SequenceExploreEnvironment_gpt-4o-mini_steps_8_wdsize_64_scaled/experiment-2/eval_output.json",
+          "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/ultrahorizon_scaled/20260220T153452Z_seq_steps8_n3/SequenceExploreEnvironment_gpt-4o-mini_steps_8_wdsize_64_scaled/experiment-3/eval_output.json"
+        ],
+        "note": "Run completed. In-run logs show occasional commit/evaluation connection errors inside environment tools, but trajectories and token accounting were produced for all experiments."
+      }
+    },
+    "memoryagentbench": {
+      "status": "local_smoke_passed_with_ssl_bootstrap",
+      "details": {
+        "nltk_bootstrap": {
+          "punkt": true,
+          "punkt_tab": true
+        },
+        "local_dataset_staged": true,
+        "artifacts": [
+          "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/tools/run_memoryagentbench_local.py",
+          "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/memoryagentbench_local_smoke/run_result.json",
+          "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/memoryagentbench_local_smoke/infbench_sum_local_smoke_results.json"
+        ],
+        "note": "Upstream code still logs an NLTK SSL warning in stderr, but benchmark execution succeeded with pre-bootstrapped punkt resources."
+      }
+    },
+    "clonemem": {
+      "status": "patched_metric_passed",
+      "details": {
+        "schema_patch_script": "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/tools/patch_clonemem_schema.py",
+        "patched_qa": "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/clonemem_flat_smoke_minilm/guiling_patched_eval_v2.json",
+        "metrics": "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/clonemem_flat_smoke_minilm/metrics_recall_patched_v2.json",
+        "k10_recall_flat": 0.305,
+        "k10_recall_any_any": 0.5,
+        "note": "Remapped digital_trace_ids to evaluator-expected keys (media_ids / related_media_id), then reran upstream auto metric script."
+      }
+    },
+    "alive_internal_long_horizon": {
+      "status": "passed",
+      "details": {
+        "death_spiral_test": "9 passed",
+        "longitudinal_run": "10000-cycle mock completed",
+        "artifact": "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/internal_sim_longitudinal/full_longitudinal_s42.json"
+      }
+    },
+    "judges_maj_eval": {
+      "status": "scaled_run_completed",
+      "details": {
+        "library": "judges",
+        "jury": "3 judges",
+        "voting_method": "average",
+        "sampled_pairs": 8,
+        "artifact": "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/judges_batch/maj_eval_batch_20260220T153440Z.json",
+        "summary": {
+          "jury_score_mean": 2.25,
+          "jury_score_median": 2.0
+        }
+      }
+    },
+    "overnight_profile": {
+      "status": "scheduled",
+      "details": {
+        "scheduler": "at",
+        "manifest": "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/overnight_runs/profile_at_20260220T160102Z/manifest.json",
+        "jobs": [
+          "maj_eval_persona_100",
+          "clonemem_full",
+          "ultrahorizon_heavy",
+          "memoryagentbench_full"
+        ],
+        "queue_check": "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/tools/check_overnight_profile_at.py"
+      }
+    }
+  }
+}

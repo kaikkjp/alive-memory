@@ -1,0 +1,14 @@
+{
+  "run_summary": "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/clonemem_full_flat/20260220T163813Z/run_summary.json",
+  "summary": {
+    "total_users": 10,
+    "metrics_users": 8,
+    "k10_recall_flat_mean": 0.27701404552608355,
+    "k10_recall_any_any_mean": 0.5608698367031142,
+    "k_sanity_any_query_ge20": true,
+    "k_sanity_failures": 0,
+    "metric_monotonic_failures": 0,
+    "failed_eval_users": 0,
+    "failed_metric_users": 0
+  }
+}

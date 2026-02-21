@@ -1,0 +1,118 @@
+{
+  "run_id": "20260221_002544",
+  "cycles_per_variant": 1000,
+  "variants": [
+    "full",
+    "no_affect",
+    "no_drives",
+    "no_sleep",
+    "no_basal_ganglia",
+    "no_memory"
+  ],
+  "results": {
+    "full": {
+      "n": 495,
+      "h_focus": 0.9786,
+      "h_action": 0.3882,
+      "actions_per_cycle": 0.067,
+      "mean_valence": 0.3356,
+      "mean_drive_std": 0.2758,
+      "habit_fires": 0,
+      "budget_rest": 0,
+      "focus_dist": {
+        "express": 290,
+        "idle": 205
+      },
+      "action_dist": {
+        "_none_": 462,
+        "write_journal": 30,
+        "place_item": 2,
+        "close_shop": 1
+      }
+    },
+    "no_affect": {
+      "n": 496,
+      "h_focus": 0.1423,
+      "h_action": 0.0,
+      "actions_per_cycle": 0.0,
+      "mean_valence": -0.268,
+      "mean_drive_std": 0.0462,
+      "habit_fires": 0,
+      "budget_rest": 0,
+      "focus_dist": {
+        "express": 486,
+        "idle": 10
+      },
+      "action_dist": {
+        "_none_": 496
+      }
+    },
+    "no_drives": {
+      "n": 481,
+      "h_focus": 0.0,
+      "h_action": 0.0,
+      "actions_per_cycle": 0.0,
+      "mean_valence": 0.0,
+      "mean_drive_std": 0.0037,
+      "habit_fires": 0,
+      "budget_rest": 0,
+      "focus_dist": {
+        "idle": 481
+      },
+      "action_dist": {
+        "_none_": 481
+      }
+    },
+    "no_sleep": {
+      "n": 487,
+      "h_focus": 0.8088,
+      "h_action": 0.0,
+      "actions_per_cycle": 0.0,
+      "mean_valence": -0.3081,
+      "mean_drive_std": 0.0458,
+      "habit_fires": 0,
+      "budget_rest": 0,
+      "focus_dist": {
+        "express": 366,
+        "idle": 121
+      },
+      "action_dist": {
+        "_none_": 487
+      }
+    },
+    "no_basal_ganglia": {
+      "n": 489,
+      "h_focus": 0.144,
+      "h_action": 0.0,
+      "actions_per_cycle": 0.0,
+      "mean_valence": -0.2637,
+      "mean_drive_std": 0.0472,
+      "habit_fires": 0,
+      "budget_rest": 0,
+      "focus_dist": {
+        "express": 479,
+        "idle": 10
+      },
+      "action_dist": {
+        "_none_": 489
+      }
+    },
+    "no_memory": {
+      "n": 502,
+      "h_focus": 0.1628,
+      "h_action": 0.0,
+      "actions_per_cycle": 0.0,
+      "mean_valence": -0.2704,
+      "mean_drive_std": 0.0475,
+      "habit_fires": 0,
+      "budget_rest": 0,
+      "focus_dist": {
+        "express": 490,
+        "idle": 12
+      },
+      "action_dist": {
+        "_none_": 502
+      }
+    }
+  }
+}

@@ -1,0 +1,132 @@
+{
+  "config": {
+    "replicates": 120,
+    "max_turns": 120,
+    "shock_turns": 24,
+    "turn_hours": 0.05,
+    "failures_per_shock_turn": 1,
+    "shock_failure_scale": 0.05,
+    "collapse_valence_threshold": -0.12,
+    "collapse_arousal_threshold": -1.0,
+    "recovery_valence_threshold": -0.08,
+    "recovery_arousal_threshold": 0.28,
+    "stable_recovery_turns": 3,
+    "seed": 42,
+    "trajectory_samples": 6
+  },
+  "variants": [
+    {
+      "name": "baseline_no_bounce",
+      "group": 0,
+      "overrides": {
+        "hypothalamus.coupling.social_valence_floor": -1.0,
+        "hypothalamus.coupling.visitor_relief_factor": 0.02,
+        "output.drives.success_bonus_base": 0.01
+      }
+    },
+    {
+      "name": "floor_bounce",
+      "group": 1,
+      "overrides": {}
+    }
+  ],
+  "collapse_group_summary": {
+    "0": {
+      "n": 120,
+      "event_rate": 0.9583333333333334,
+      "mean_time_all": 25.2,
+      "median_time_events": 21.0
+    },
+    "1": {
+      "n": 120,
+      "event_rate": 0.9583333333333334,
+      "mean_time_all": 25.2,
+      "median_time_events": 21.0
+    }
+  },
+  "recovery_group_summary": {
+    "0": {
+      "n": 115,
+      "event_rate": 1.0,
+      "mean_time_all": 7.878260869565217,
+      "median_time_events": 8.0
+    },
+    "1": {
+      "n": 115,
+      "event_rate": 1.0,
+      "mean_time_all": 5.808695652173913,
+      "median_time_events": 6.0
+    }
+  },
+  "collapse_models": {
+    "cox": {
+      "ok": true,
+      "beta": 0.0,
+      "se": 0.1318749479454654,
+      "z": 0.0,
+      "p_value": 1.0,
+      "hazard_ratio": 1.0,
+      "ci95": [
+        0.7722284153043363,
+        1.2949536434837077
+      ],
+      "events": 230,
+      "n": 240,
+      "loglik": -1108.9507461064522,
+      "ridge": 0.001
+    },
+    "aft_logtime": {
+      "ok": true,
+      "beta": 0.0,
+      "se": 0.010259883573249556,
+      "z": 0.0,
+      "p_value": 1.0,
+      "acceleration_factor": 1.0,
+      "ci95": [
+        0.980091473072448,
+        1.0203129273894624
+      ],
+      "n_observed": 230,
+      "group0_events": 115,
+      "group1_events": 115
+    }
+  },
+  "recovery_models": {
+    "cox": {
+      "ok": true,
+      "beta": 0.8107366794705837,
+      "se": 0.14367875094430155,
+      "z": 5.64270411694262,
+      "p_value": 1.673998917262054e-08,
+      "hazard_ratio": 2.2495645844578864,
+      "ci95": [
+        1.6974486465962397,
+        2.981262985360227
+      ],
+      "events": 230,
+      "n": 230,
+      "loglik": -1041.7044008785695,
+      "ridge": 0.001
+    },
+    "aft_logtime": {
+      "ok": true,
+      "beta": -0.31216206292042137,
+      "se": 0.05325622635697729,
+      "z": -5.861512996208074,
+      "p_value": 4.586685697915982e-09,
+      "acceleration_factor": 0.7318629107761584,
+      "ci95": [
+        0.6593213262491515,
+        0.8123858562514388
+      ],
+      "n_observed": 230,
+      "group0_events": 115,
+      "group1_events": 115
+    }
+  },
+  "outputs": {
+    "collapse_survival_csv": "experiments/logs/death_spiral/collapse_survival.csv",
+    "recovery_survival_csv": "experiments/logs/death_spiral/recovery_survival.csv",
+    "trajectory_samples_json": "experiments/logs/death_spiral/trajectory_samples.json"
+  }
+}

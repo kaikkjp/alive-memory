@@ -1,0 +1,15 @@
+{
+  "output_file": "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/judges_batch/maj_eval_batch_20260220T160553Z.json",
+  "summary": {
+    "n_pairs": 59,
+    "jury_score_mean": 4.508474576271187,
+    "jury_score_median": 4.0,
+    "jury_score_min": 2.0,
+    "jury_score_max": 8.0,
+    "per_judge_mean": {
+      "Behavioral Coherence Reviewer": 4.610169491525424,
+      "Emotional Authenticity Reviewer": 3.76271186440678,
+      "Longitudinal Consistency Reviewer": 5.203389830508475
+    }
+  }
+}

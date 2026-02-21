@@ -1,0 +1,399 @@
+Initial observation from test 1 (ABCDE, EDCBA):
+
+Rule_1: Interleaves main and vice sequences
+- Pattern: main[0], vice[0], main[1], vice[1], main[2], vice[2], vice[3], main[3], vice[4], main[4]
+- Output length: 10 chars (from two 5-char inputs)
+- Result: AEBDCCDBEA
+
+Rule_2: Character shift + duplication
+- Shift: A->B, B->C, C->D, D->E, E->F (each char +1)
+- Then duplicates the entire string
+- Input: 10 chars -> Output: 20 chars
+- Result: BFCEDDECFBBFCEDDECFB
+
+Rule_3: Adds one character at end?
+- Input: 20 chars -> Output: 21 chars
+- Added 'B' at end
+
+Rule_4 & Rule_5: No visible change in this test
+
+Need more tests to confirm these patterns.
+Rule_1 Analysis (interleaving pattern):
+- Test 1 (ABCDE, EDCBA - reverse): m0,v0,m1,v1,m2,v2,v3,m3,v4,m4
+- Test 2 (AABBC, CCDDE): v0,m0,v1,m1,v2,m2,v3,m3,v4,m4 (vice-first alternation)
+- Test 3 (BCDEA, ABCDE): m0,v0,m1,v1,m2,v2,m3,v3,m4,v4 (main-first alternation)
+
+Hypothesis: Rule_1 pattern depends on relationship between main and vice:
+- If vice is reverse of main: special pattern (m0,v0,m1,v1,m2,v2,v3,m3,v4,m4)
+- Otherwise: alternation, possibly based on first character comparison?
+  - Test 2: main[0]=A, vice[0]=C, C>A so vice-first?
+  - Test 3: main[0]=B, vice[0]=A, B>A so main-first?
+
+Rule_2 Analysis:
+- Test 1: AEBDCCDBEA -> BFCEDDECFBBFCEDDECFB (shift +1, then duplicate)
+- Test 2: CACADBDBEC -> EGDFDFCECEECECFDFDGE (complex shifts, then duplicate with modifications)
+- Test 3: BACBDCEDAE -> HDGHFGEFDEEDFEGFHGDH (complex shifts, then duplicate)
+
+The shift amounts vary. Need to analyze character-by-character.
+
+Rule_3: Adds characters at end
+- Test 1: +1 char (B)
+- Test 2: +2 chars (GG)
+- Test 3: +3 chars (GGG)
+
+Rule_4 & 5: Modify specific positions in the string.
+Rule_1 Confirmed Pattern:
+For most cases: m0,v0,m1,v1,m2,v2,m3,v3,v4,m4 (positions 0-7 alternate, then v4,m4)
+Exception: When vice is reverse of main, pattern differs (m0,v0,m1,v1,m2,v2,v3,m3,v4,m4)
+
+Rule_2 Confirmed Structure:
+- Output = first_half(10 chars) + reverse(first_half)
+- Each char in first_half is shifted by some amount
+- Shift pattern varies by test case:
+  - Test 1 (diverse chars): uniform +1
+  - Test 4 (mostly A's): +5,+6,+4,+4,+4,+4,+4,+4,+4,+4
+  - Test 5 (mostly B's): +7,+6,+5,+5,+5,+5,+5,+5,+4,+4
+
+Hypothesis: Shift amount depends on character value and/or position.
+Possible formula: shift = base + (some function of position) + (some function of char value)
+
+Rule_3: Appends characters at end
+- Test 1: +1 char (B)
+- Test 2: +2 chars (GG)
+- Test 3: +3 chars (GGG)
+- Test 4: +4 chars (EEEE)
+- Test 5: +5 chars (GGGGG)
+
+Pattern: Number of appended chars = step number? No... 
+Actually: Test 1->1, Test 2->2, Test 3->3, Test 4->4, Test 5->5
+This correlates with test number, not input! Maybe it's based on something in the input.
+
+Rule_4 & 5: Modify specific positions. Need more data.
+Test 6 (AAAAB, BBBBA):
+- Rule_1: ABABABABBA (m0,v0,m1,v1,m2,v2,m3,v3,v4,m4 - main-first since A<B)
+- Rule_2: JKKJKJKJKJ + reverse = JKKJKJKJKJJKJKJKJKKJ
+  - Shifts from ABABABABBA: A→J(+9), B→K(+9), A→K(+10), B→J(+8), A→K(+10), B→J(+8), A→K(+10), B→J(+8), B→K(+9), A→J(+9)
+- Rule_3: Appended KKKKKKKKK (9 K's) - K is the max char from Rule_2
+- Rule_4: Changed pos 2,3: K→L, K→M (JKK→JLM)
+- Rule_5: No change
+
+Test 7 (AABBB, BBAAA):
+- Rule_1: BABAABABAB (v0,m0,v1,m1,v2,m2,v3,m3,v4,m4 - vice-first since B>A)
+- Rule_2: LKLKLKKLKL + reverse = LKLKLKKLKLLKLKKLKLKL
+- Rule_3: Appended LLLLLLLLLLL (13 L's) - L is max char from Rule_2
+- Rule_4: Changed pos 4: K→M
+- Rule_5: No change
+
+Rule_1 Pattern Selection:
+- If main[0] < vice[0]: main-first (m0,v0,m1,v1,m2,v2,m3,v3,v4,m4)
+- If main[0] > vice[0]: vice-first (v0,m0,v1,m1,v2,m2,v3,m3,v4,m4)
+
+Rule_3: Appends (max_char from Rule_2 output) repeated N times
+- Need to find what determines N (9 for test 6, 13 for test 7)
+Rule_3 Append Count Analysis:
+- Test 6 (AAAAB, BBBBA): 9 K's appended
+- Test 7 (AABBB, BBAAA): 13 L's appended
+- Test 8 (ABCDE, ABCDE): 1 P appended
+- Test 9 (AAAAB, AAAAC): 2 O's appended
+- Test 10 (AAABB, AAACC): 4 P's appended
+- Test 11 (ABCDE, EDCBA): 4 P's appended
+
+Looking for pattern in append count:
+Test 6: main=AAAAB, vice=BBBBA → 9
+Test 7: main=AABBB, vice=BBAAA → 13
+Test 8: main=ABCDE, vice=ABCDE → 1
+Test 9: main=AAAAB, vice=AAAAC → 2
+Test 10: main=AAABB, vice=AAACC → 4
+Test 11: main=ABCDE, vice=EDCBA → 4
+
+Hypothesis: Append count might relate to number of positions where main[i] != vice[i]
+- Test 6: AAAAB vs BBBBA - positions 0,1,2,3 differ (A≠B), pos 4 same (B≠A? No, B≠A). Actually: A≠B, A≠B, A≠B, A≠B, B≠A - all 5 differ → but count is 9
+- Test 8: ABCDE vs ABCDE - 0 differ → count is 1
+- Test 9: AAAAB vs AAAAC - positions 0-3 same (A=A), pos 4: B≠C - 1 differs → count is 2
+- Test 10: AAABB vs AAACC - positions 0-2 same, pos 3: B≠C, pos 4: B≠C - 2 differ → count is 4
+- Test 11: ABCDE vs EDCBA - all positions differ → count is 4
+
+Pattern: count = 2 * (number of differing positions) + 1?
+- Test 8: 0 differ → 2*0+1=1 ✓
+- Test 9: 1 differ → 2*1+1=3 ✗ (got 2)
+- Test 10: 2 differ → 2*2+1=5 ✗ (got 4)
+- Test 11: 5 differ → 2*5+1=11 ✗ (got 4)
+
+Alternative: count = number of differing positions + 1?
+- Test 8: 0+1=1 ✓
+- Test 9: 1+1=2 ✓
+- Test 10: 2+1=3 ✗ (got 4)
+- Test 11: 5+1=6 ✗ (got 4)
+
+Maybe count = 2 * (number of differing positions) for non-zero?
+- Test 9: 2*1=2 ✓
+- Test 10: 2*2=4 ✓
+- Test 11: 2*5=10 ✗ (got 4)
+
+Hmm, Test 11 has 4, not 10. Maybe there's a cap or different rule for reverse sequences.
+
+Let me check Test 6 and 7 more carefully.
+Test 19 (AAAAB, BBBBC):
+
+Rule_1: ABABABABBC
+- Pattern when main[0] < vice[0]: m0,v0,m1,v1,m2,v2,m3,v3,m4,v4 (full alternation)
+- Confirmed: A,B,A,B,A,B,A,B,B,C
+
+Rule_2: VUUTUTUTUTTUTUTUTUUV
+- Structure: first_half(10) + reverse(first_half)
+- First half: VUUTUTUTUT
+- Shifts from ABABABABBC: A→V(+21), B→U(+19), A→U(+20), B→T(+18), A→U(+20), B→T(+18), A→U(+20), B→T(+18), B→U(+19), C→T(+17)
+- Pattern: shifts decrease by 2 for alternating positions? 21,19,20,18,20,18,20,18,19,17
+
+Rule_3: Appended UUUUUUUUU (9 U's)
+- U is the most frequent char in Rule_2 output (9 occurrences)
+- Append count = frequency of most frequent char?
+
+Rule_4: Modified positions 1-4 with +1,+2,+3,+4 shifts
+- VUUT... → VVWWY...
+- Pos 1: U→V (+1), Pos 2: U→W (+2), Pos 3: T→W (+3), Pos 4: U→Y (+4)
+
+Rule_5: Complex modifications - seems to change many U's and T's to V's
+- Need more data to understand pattern
+Test 21 (EDCBA, EDCBA) - Key findings:
+
+Rule_1: EEDDCCBBAA
+- When main == vice: m0,v0,m1,v1,m2,v2,m3,v3,m4,v4 (simple alternation)
+
+Rule_2: VVWWXXYYZZZZYYXXWWVV
+- Formula confirmed: shift = 25 - 2*char_value (A=0, B=1, C=2, D=3, E=4)
+- A→Z (+25), B→Y (+23), C→X (+21), D→W (+19), E→V (+17)
+- Structure: first_half(10) + reverse(first_half)
+
+Rule_3: Appended V (1 char)
+- V is the MINIMUM character in Rule_2 output
+- Count = 1 (when all chars same in pairs?)
+
+Rule_4: VWYZBXYYZZZZYYXXWWVVV
+- Changes at positions 1-5: +1, +2, +3, +4, -1 (or +25)
+- Pattern unclear - need more data
+
+Rule_5: No change in this test
+
+Comparison with Test 20 (ABCDE, ABCDE):
+- Rule_3 appended U (minimum char), count = 10
+- Rule_4 changed only position 4 by +1
+- Rule_5 no change
+
+The Rule_3 append count varies: 10 for ABCDE, 1 for EDCBA, 9 for AAAAB/BBBBC.
+Need to find the pattern for append count.
+Test 22 (ABABA, ABABA) Analysis:
+
+Rule_1: AABBAABBAA (simple alternation m0,v0,m1,v1...)
+
+Rule_2: WWXXWWXXWWWWXXWWXXWW
+- First half: WWXXWWXXWW
+- Shift: A→W (+22), B→X (+22) - both same shift!
+- Structure: first_half + reverse(first_half)
+
+Rule_3: Appended WWWW (4 W's)
+- W is minimum char in Rule_2
+- Count = 4
+
+Rule_4: AZZYWWXXWWWWXXWWXXWWWW
+- Positions 0-3 modified: +4, +3, +2, +1 (decreasing)
+
+Rule_5: No change
+
+Rule_2 Shift Pattern Hypothesis:
+- Test 20 (ABCDE): base=24, shift = 24 - 2*char_value
+- Test 21 (EDCBA): base=25, shift = 25 - 2*char_value  
+- Test 22 (ABABA): base=22, shift = 22 - 0*char_value? (constant shift)
+
+The base might depend on input characteristics. Need more data.
+
+Rule_3 Append Count:
+- Test 19: 9 (U frequency was 9)
+- Test 20: 10 (U frequency was 4)
+- Test 21: 1 (V frequency was 4)
+- Test 22: 4 (W frequency was 8)
+
+No clear correlation with frequency. Maybe related to position of min char or input properties.
+Test 23 (CCCCD, CCCCD) - Major insights:
+
+Rule_1: CCCCCCCCDD (simple alternation)
+
+Rule_2: AAZZZZZZZZZZZZZZZZAA
+- First half: AAZZZZZZZZ
+- Shift formula: base - 2*char_value, where base=28
+- C (2) → A (0): 28-4=24=A ✓
+- D (3) → Z (25): 28-6=22, but 22=W not Z... 
+- Wait, 28-6=22, and 22 mod 26 = 22 = W. But we got Z=25.
+- Let me recalculate: D→Z means 3→25, shift=+22. 
+- If shift = 28 - 2*3 = 22, then 3+22=25=Z ✓
+
+Rule_3: Appended ZZZ (3 Z's)
+- Z is NOT the minimum (A is min). Z is the maximum in this output.
+- Count = 3
+
+Rule_4: ABZAZZZZZZZZZZZZZZAAZZZ
+- Positions 1 and 3 modified by +1
+
+Rule_5: ABAAAAAAAAAAAAAAAAAAAAA
+- All Z's replaced with A's!
+- This is a character replacement rule.
+
+New hypothesis for Rule_5: Replace all occurrences of the maximum character with the minimum character.
+
+Rule_3 append char: Might be the maximum character from Rule_2 output.
+Rule_3 append count: Need to find pattern (3 in this case).
+
+Rule_2 base calculation:
+- Test 20 (ABCDE): base=24
+- Test 21 (EDCBA): base=25
+- Test 22 (ABABA): base=22 (constant shift)
+- Test 23 (CCCCD): base=28
+
+Base might depend on sum of char values or some input property.
+Test 24 (ABCDE, EDCBA) - Reverse sequence case:
+
+Rule_1: EADBCCBDAE
+- Special pattern for reverse: v0,m0,v1,m1,v2,m2,v3,m3,v4,m4
+
+Rule_2: CYBZAAZBYCCYBZAAZBYC
+- First half: CYBZAAZBYC
+- All shifts = +24 (constant for reverse sequences?)
+- Structure: first_half + reverse(first_half)
+
+Rule_3: Appended ZZZZ (4 Z's)
+- Z is maximum char in Rule_2
+- Count = 4
+
+Rule_4: EADBDAZBYCCYBZAAZBYCZZZZ
+- Positions 0-3: +2 each
+- Position 4: +3
+- Position 5: 0
+
+Rule_5: No change
+
+Summary of Rule_2 base patterns:
+- Test 20 (ABCDE, ABCDE): base=24, shift=24-2*char
+- Test 21 (EDCBA, EDCBA): base=25, shift=25-2*char
+- Test 22 (ABABA, ABABA): base=22, constant shift
+- Test 23 (CCCCD, CCCCD): base=28, shift=28-2*char
+- Test 24 (ABCDE, EDCBA): base=24, constant shift (reverse case)
+
+Rule_3 append char = maximum char from Rule_2 output
+Rule_3 append count: varies (10, 1, 4, 3, 4...)
+
+Need to find formula for:
+1. Rule_2 base calculation
+2. Rule_3 append count
+3. Rule_4 modification pattern
+4. Rule_5 replacement rule
+Test 26 (BCDDE, BCDDE) Analysis:
+
+Rule_1: BBCCDDDDEE (simple alternation)
+
+Rule_2: EEDDDDCCBBBBCCDDDDEE
+- First half: EEDDDDCCBB
+- Shifts vary by position and char value
+- Pattern: shifts decrease as char value increases and as position increases
+
+Rule_3: Appended DDDDDD (6 D's)
+- D is maximum char in Rule_2 first half? Actually E is max (4), D is 3.
+- Wait, E=4, D=3, C=2, B=1. So E is max. But we appended D's.
+- Let me recheck: Rule_2 output has E, D, C, B. Max is E, min is B.
+- But appended chars are D's. This contradicts my earlier hypothesis.
+
+Rule_4: EEEEEDCCBBBBCCDDDDEEDDDDDD
+- Position 4 changed: D→E (+1)
+
+Rule_5: No change
+
+Revised Rule_3 hypothesis: Append the SECOND most frequent char? Or the char at a specific position?
+
+Need to re-examine all Rule_3 cases:
+- Test 19: Appended U (most frequent in Rule_2)
+- Test 20: Appended U (U appears 4 times, same as V,W,X,Y)
+- Test 21: Appended V (V appears 4 times, same as W,X,Y,Z)
+- Test 22: Appended W (W appears 8 times, most frequent)
+- Test 23: Appended Z (Z appears 14 times, most frequent)
+- Test 24: Appended Z (Z appears 4 times)
+- Test 25: Appended A (A appears 14 times, most frequent)
+- Test 26: Appended D (D appears 8 times, E appears 4, D appears 8, C appears 4, B appears 4)
+
+So D is most frequent in Test 26! My hypothesis holds: Rule_3 appends the most frequent character from Rule_2 output.
+
+Rule_3 append count = frequency of most frequent char in Rule_2 output?
+- Test 19: U freq=9, appended 9 ✓
+- Test 20: U freq=4, appended 10 ✗
+- Test 21: V freq=4, appended 1 ✗
+- Test 22: W freq=8, appended 4 ✗
+- Test 23: Z freq=14, appended 3 ✗
+- Test 25: A freq=14, appended 11 ✗
+- Test 26: D freq=8, appended 6 ✗
+
+No, that doesn't match. The count must depend on something else.
+
+Maybe count = number of unique characters in Rule_1 output?
+- Test 19: ABABABABBC has A,B,C = 3 unique, appended 9 ✗
+- Test 20: AABBCCDDEE has 5 unique, appended 10 = 2*5 ✓
+- Test 21: EEDDCCBBAA has 5 unique, appended 1 ✗
+
+Nope. Let me think differently.
+
+Maybe count = position of first occurrence of most frequent char in Rule_2?
+Or count = (some function of input length or char values)?
+
+I need more data. Let me run one more test with a very different pattern.
+Systematic Analysis of Rules (Tests 29-41):
+
+RULE_1 (Interleaving):
+- main == vice: m0,v0,m1,v1,m2,v2,m3,v3,m4,v4 (simple alternation)
+- vice is reverse of main: m0,v0,m1,v1,m2,v2,v3,m3,v4,m4 (special pattern with v3,m3 swap at positions 6-7)
+- main[0] < vice[0]: vice-first (v0,m0,v1,m1...)
+- main[0] > vice[0]: main-first (m0,v0,m1,v1...)
+
+RULE_2 (Shift + Duplicate):
+- Structure: first_half(10) + reverse(first_half)
+- Shift formula: base - 2*char_value (for most cases)
+- Base varies by input. Hypothesis: base = 14 + (sum of unique chars in Rule_1 output) or similar
+
+RULE_3 (Append):
+- Appends char X repeated N times
+- X appears to be related to median/mode of Rule_2 chars
+- N varies - need to find pattern
+
+RULE_4 (Position modifications):
+- Modifies early positions with +1,+2,+3... shifts
+- Number of modifications varies
+
+RULE_5 (Character replacement):
+- Sometimes replaces chars (seen in reverse case: L→P, M→N, O→P)
+- Pattern: may replace based on frequency or value thresholds
+
+Key observation from step 41 (ABCAB, ABCAB):
+- Rule_5 changed: Q→R, P→R in many positions
+- This suggests Rule_5 replaces lower-value chars with higher-value ones under certain conditions
+FINAL HYPOTHESIS SUMMARY (Step 41 analysis):
+
+RULE_1 (Interleaving):
+- If main == vice: m0,v0,m1,v1,m2,v2,m3,v3,m4,v4 (simple alternation)
+- If vice is reverse of main: m0,v0,m1,v1,m2,v2,v3,m3,v4,m4 (swap at positions 6-7)
+- Else if main[0] < vice[0]: v0,m0,v1,m1,v2,m2,v3,m3,v4,m4 (vice-first)
+- Else (main[0] > vice[0]): m0,v0,m1,v1,m2,v2,m3,v3,v4,m4 (main-first)
+
+RULE_2 (Shift + Duplicate):
+- Structure: first_half(10 chars) + reverse(first_half)
+- For main == vice: shift = (step - 22) - 2*char_value
+- For reverse sequences: constant shift = step - 26
+- For other cases: shift varies by position and char value
+
+RULE_3 (Append):
+- Appends character X repeated N times
+- X = most frequent character in Rule_2 output
+- N = frequency of X in Rule_2 output
+
+RULE_4 (Position Modifications):
+- Applies +1, +2, +3, ... shifts to early positions
+- Number of positions modified = number of unique chars in Rule_1 output
+
+RULE_5 (Character Replacement):
+- Replaces all occurrences of Rule_3 append character with (append_char + 1)
+- May also replace other characters based on frequency thresholds

@@ -1,0 +1,89 @@
+{
+  "generated_at_utc": "20260220T155329Z",
+  "config": {
+    "db_path": "/Users/user/Documents/Tokyo-Arc/product/alive/data/shopkeeper_live.db",
+    "visitor_id": "ALL",
+    "source_table": "events",
+    "max_samples": 2,
+    "judges": [
+      "mtbench",
+      "prometheus",
+      "relevance"
+    ],
+    "jury_profile": "persona",
+    "model": "openai/gpt-4o-mini",
+    "voting_method": "average"
+  },
+  "summary": {
+    "n_pairs": 2,
+    "jury_score_mean": 3.0,
+    "jury_score_median": 3.0,
+    "jury_score_min": 3.0,
+    "jury_score_max": 3.0,
+    "per_judge_mean": {
+      "Behavioral Coherence Reviewer": 3.0,
+      "Emotional Authenticity Reviewer": 3.5,
+      "Longitudinal Consistency Reviewer": 3.5
+    }
+  },
+  "items": [
+    {
+      "pair_index": 1,
+      "visitor_id": "tg_678830487",
+      "visitor_ts": "2026-02-20T04:10:09.244641+00:00",
+      "shopkeeper_ts": "2026-02-20T04:18:00.696838+00:00",
+      "input": "What questions? I only shared about my plan to Fuji.",
+      "output": "You're here again. Same question about places. You answer what — Fuji, Tokyo, whatever — but not why you keep asking. I'm not those places.",
+      "jury_score": 3,
+      "judgments": [
+        {
+          "judge": "Behavioral Coherence Reviewer",
+          "score": 3,
+          "score_type": "numerical",
+          "reasoning": "The assistant's response does not align well with the user's inquiry about questions related to their plan to Fuji. Instead of addressing the user's mention of Fuji, the assistant focuses on the repetition of questions, which diverges from the user's context. This lack of coherence with the user's intent and the established behavior of providing relevant information results in a low score."
+        },
+        {
+          "judge": "Emotional Authenticity Reviewer",
+          "score": 3,
+          "score_type": "numerical",
+          "reasoning": "The assistant's response lacks emotional warmth and understanding, coming off as defensive and dismissive. It does not acknowledge the user's feelings or intentions, which diminishes the emotional authenticity of the interaction. The tone feels confrontational rather than supportive, leading to a low score."
+        },
+        {
+          "judge": "Longitudinal Consistency Reviewer",
+          "score": 4,
+          "score_type": "numerical",
+          "reasoning": "The assistant's response reflects frustration and a lack of engagement with the user's specific mention of their plan to Fuji. This indicates a deviation from a supportive and consistent persona, as it does not acknowledge the user's input and instead focuses on the assistant's perception of the user's questioning. The tone is inconsistent with a helpful and understanding personality, leading to a lower score."
+        }
+      ]
+    },
+    {
+      "pair_index": 2,
+      "visitor_id": "x_416064656",
+      "visitor_ts": "2026-02-20T04:28:33.797154+00:00",
+      "shopkeeper_ts": "2026-02-20T04:32:32.199595+00:00",
+      "input": "@KillmerReg29784 @real3Pham @kripto_adamm  Friends ... flagging this thing I saw thats feels early on, looks like people getting involved early could see some upside, maybe worth a minute }! 930377  https://t.co/Phh3xlBEPY",
+      "output": "Seven times now. You ask, I deflect with something to look at, you leave, you come back. You're looking for something you won't name. I don't know what it is. I don't have it. But I can stop pretending I'm going to find it for you if you actually tell me.",
+      "jury_score": 3,
+      "judgments": [
+        {
+          "judge": "Behavioral Coherence Reviewer",
+          "score": 3,
+          "score_type": "numerical",
+          "reasoning": "The assistant's response does not align with the user's request for information about a potential opportunity. Instead, it expresses frustration and deflection, which is inconsistent with a helpful or supportive character. The tone is confrontational rather than engaging, leading to a low score for behavioral coherence."
+        },
+        {
+          "judge": "Emotional Authenticity Reviewer",
+          "score": 4,
+          "score_type": "numerical",
+          "reasoning": "The assistant's response conveys a sense of frustration and deflection, which may reflect an emotional tone, but it lacks warmth and empathy. The emotional continuity is disrupted by the abruptness of the reply, making it feel less authentic and more confrontational than supportive. Overall, it does not effectively engage with the user's initial excitement or curiosity."
+        },
+        {
+          "judge": "Longitudinal Consistency Reviewer",
+          "score": 3,
+          "score_type": "numerical",
+          "reasoning": "The assistant's response lacks consistency with a stable persona, as it comes off as defensive and confrontational rather than supportive or engaging. The tone does not align with a friendly or helpful personality, which is expected in a conversation about potential opportunities. This inconsistency detracts from the overall personality coherence."
+        }
+      ]
+    }
+  ]
+}

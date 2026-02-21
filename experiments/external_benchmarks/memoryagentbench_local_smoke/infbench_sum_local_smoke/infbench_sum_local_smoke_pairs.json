@@ -1,0 +1,9 @@
+[
+  {
+    "index": 0,
+    "question": "What mechanism is claimed to rescue trajectories after failure in this context?",
+    "answer": "floor-bounce mechanism",
+    "context_length": 19019,
+    "original_index": 0
+  }
+]

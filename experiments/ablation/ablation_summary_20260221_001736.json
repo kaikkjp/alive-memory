@@ -1,0 +1,25 @@
+{
+  "run_id": "20260221_001736",
+  "cycles_per_variant": 2,
+  "variants": [
+    "full"
+  ],
+  "results": {
+    "full": {
+      "n": 1,
+      "h_focus": 0.0,
+      "h_action": 0.0,
+      "actions_per_cycle": 0.0,
+      "mean_valence": 0.0,
+      "mean_drive_std": 0.0,
+      "habit_fires": 0,
+      "budget_rest": 0,
+      "focus_dist": {
+        "express": 1
+      },
+      "action_dist": {
+        "_none_": 1
+      }
+    }
+  }
+}

@@ -1,0 +1,8 @@
+[llm]
+model = "gpt-4o-mini"
+base_url = "https://openrouter.ai/api/v1"
+api_key = "REDACTED"
+api_type = "openai"
+api_version = ""
+temperature = 0.3
+max_tokens = 12288

@@ -1,0 +1,10 @@
+[MODEL_PIN] MODEL_EXPECTED=qwen/qwen3.5-397b-a17b runtime=qwen/qwen3.5-397b-a17b
+Traceback (most recent call last):
+  File "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/tools/run_ultrahorizon_scaled.py", line 366, in <module>
+    main()
+  File "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/tools/run_ultrahorizon_scaled.py", line 274, in main
+    ping_results.append(tool_ping(model=args.model, base_url=args.base_url, api_key=api_key, tag="agent_path"))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/tools/run_ultrahorizon_scaled.py", line 77, in tool_ping
+    raise RuntimeError(f"Tool ping failed for {tag}: unexpected response={text!r}")
+RuntimeError: Tool ping failed for agent_path: unexpected response=''

@@ -1,0 +1,99 @@
+{
+    "agent_config": {
+        "agent_name": "Long_context_agent_gpt-4o-mini",
+        "model": "gpt-4o-mini",
+        "temperature": 0.7,
+        "input_length_limit": 128000,
+        "buffer_length": 4000,
+        "output_dir": "./outputs/gpt-4o-mini"
+    },
+    "dataset_config": {
+        "dataset": "local_smoke",
+        "chunk_size": 4096,
+        "debug": false,
+        "seed": 42,
+        "context_max_length": 120000,
+        "sub_dataset": "infbench_sum_local_smoke",
+        "generation_max_length": 128,
+        "test_files": "",
+        "demo_files": "",
+        "use_chat_template": true,
+        "max_test_samples": 1,
+        "shots": 0,
+        "tag": "local_smoke",
+        "max_test_queries": 1
+    },
+    "data": [
+        {
+            "output": "The book discusses the ALIVE architecture, which operates through a system that runs one large language model (LLM) call per cognitive cycle and includes deterministic subsystems for routing, memory retrieval, and action gating. A key feature of this architecture is the \"floor-bounce mechanism,\" which is designed to prevent mood collapse by clamping negative emotional states and necessitating re-engagement in behavior after failures. The system also monitors long-term stability through simulated cycles, including death-spiral scenarios that may involve visitor interruptions. This architecture keeps track of emotional states, memory updates, and action outcomes over time, emphasizing that the floor-bounce mechanism is",
+            "input_len": 3442,
+            "output_len": 128,
+            "memory_construction_time": 0,
+            "query_time_len": 3.7865400314331055,
+            "parsed_output": "The book discusses the ALIVE architecture, which operates through a system that runs one large language model (LLM) call per cognitive cycle and includes deterministic subsystems for routing, memory retrieval, and action gating. A key feature of this architecture is the \"floor-bounce mechanism,\" which is designed to prevent mood collapse by clamping negative emotional states and necessitating re-engagement in behavior after failures. The system also monitors long-term stability through simulated cycles, including death-spiral scenarios that may involve visitor interruptions. This architecture keeps track of emotional states, memory updates, and action outcomes over time, emphasizing that the floor-bounce mechanism is",
+            "exact_match": false,
+            "f1": 0.042553191489361694,
+            "substring_exact_match": true,
+            "rougeL_f1": 0.05607476635514019,
+            "rougeL_recall": 1.0,
+            "rougeLsum_f1": 0.05607476635514019,
+            "rougeLsum_recall": 1.0,
+            "answer": [
+                "floor-bounce mechanism"
+            ],
+            "query": "You are given a book above and you are tasked to summarize it. \n\nWhat mechanism is claimed to rescue trajectories after failure in this context? \n\n Now summarize the book.",
+            "query_id": 0
+        }
+    ],
+    "metrics": {
+        "exact_match": [
+            false
+        ],
+        "f1": [
+            0.042553191489361694
+        ],
+        "substring_exact_match": [
+            true
+        ],
+        "rougeL_f1": [
+            0.05607476635514019
+        ],
+        "rougeL_recall": [
+            1.0
+        ],
+        "rougeLsum_f1": [
+            0.05607476635514019
+        ],
+        "rougeLsum_recall": [
+            1.0
+        ],
+        "input_len": [
+            3442
+        ],
+        "output_len": [
+            128
+        ],
+        "memory_construction_time": [
+            0
+        ],
+        "query_time_len": [
+            3.7865400314331055
+        ]
+    },
+    "time_cost": [
+        4.064064979553223
+    ],
+    "averaged_metrics": {
+        "exact_match": 0.0,
+        "f1": 4.255319148936169,
+        "substring_exact_match": 100.0,
+        "rougeL_f1": 5.607476635514019,
+        "rougeL_recall": 100.0,
+        "rougeLsum_f1": 5.607476635514019,
+        "rougeLsum_recall": 100.0,
+        "input_len": 3442.0,
+        "output_len": 128.0,
+        "memory_construction_time": 0.0,
+        "query_time_len": 3.7865400314331055
+    }
+}

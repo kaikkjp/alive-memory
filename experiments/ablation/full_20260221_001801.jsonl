@@ -1,0 +1,1 @@
+{"cycle_id": "8066c6ed", "ts": "2025-12-31T22:00:00+00:00", "elapsed_hours": 0.0, "routing_focus": "idle", "actions": [], "drives": {"social_hunger": 0.5, "curiosity": 0.5, "expression_need": 0.3, "rest_need": 0.2, "energy": 1.0, "mood_valence": -0.0, "mood_arousal": 0.3}, "token_budget": 3000, "is_budget_rest": false, "is_habit_fired": false}

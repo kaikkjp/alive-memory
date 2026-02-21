@@ -1,0 +1,742 @@
+Experiment 1: main=AABBC, vice=CCDDE
+
+Step 1 (rule_1): ACACBDBDCE
+- Appears to be interleaving: main[0], vice[0], main[1], vice[1], main[2], vice[2], main[3], vice[3], main[4], vice[4]
+- A,C,A,C,B,D,B,D,C,E = ACACBDBDCE ✓
+
+Step 2 (rule_2): FDECECDBDBBDBDCECEDF (20 chars from 10 chars)
+- Doubles the length
+- Need to understand the transformation mapping
+
+Step 3 (rule_3): Added 'F' at end -> FDECECDBDBBDBDCECEDFF
+
+Step 4 (rule_4): No change
+
+Step 5 (rule_5): No change
+
+Hypothesis: Rule_1 interleaves main and vice sequences position by position.
+Experiment 2: main=ABCDE, vice=EDCBA
+
+Step 1 (rule_1): EADBCCBDAE
+- This is vice[i], main[i] interleaving: E,A,D,B,C,C,B,D,A,E
+- Contrast with Exp1 which was main[i], vice[i]: ACACBDBDCE
+
+Why different order? Need to find the condition.
+Exp1: main[0]=A, vice[0]=C → main first
+Exp2: main[0]=A, vice[0]=E → vice first
+
+Maybe depends on comparison of first characters? Or some other property?
+
+Step 2 (rule_2): GCFDEEDFCGGCFDEEDFCG (20 chars from 10)
+- Input: EADBCCBDAE (10 chars)
+- Output: 20 chars, appears to be doubling with transformation
+- Letters shifted: E→?, A→?, D→?, B→?, C→?
+- Let me map: EADBCCBDAE → GCFDEEDFCGGCFDEEDFCG
+- Position 0: E→G, Position 1: A→C, Position 2: D→F, Position 3: B→D, Position 4: C→E, Position 5: C→E, Position 6: B→D, Position 7: D→F, Position 8: A→C, Position 9: E→G
+- Pattern: Each char X becomes (X+2)? A→C(+2), B→D(+2), C→E(+2), D→F(+2), E→G(+2)
+- Then the sequence is doubled: GCFDEEDFCG + GCFDEEDFCG
+
+Step 3 (rule_3): Added 'CC' at end → GCFDEEDFCGGCFDEEDFCGCC
+
+Step 4 (rule_4): GCGEGEDFCGGCFDEEDFCGCC - changed some characters!
+- Position 1: C→G? Let me compare:
+- Before: GCFDEEDFCGGCFDEEDFCGCC
+- After:  GCGEGEDFCGGCFDEEDFCGCC
+- Changes at positions 2,4: F→G, E→G? Need closer look.
+
+Step 5 (rule_5): HCHEHEDFCHHCFDEEDFCHCC - more changes, letters incremented?
+
+Need more experiments to understand rules 2-5.
+Experiment 3: main=AAAAB, vice=BBBBC
+
+Step 1 (rule_1): ABABABABBC
+- Interleaving: main[0], vice[0], main[1], vice[1], ... = A,B,A,B,A,B,A,B,B,C
+- This is main-first interleaving (like Exp1)
+
+Rule_1 pattern so far:
+- Exp1 (AABBC, CCDDE): main-first → ACACBDBDCE
+- Exp2 (ABCDE, EDCBA): vice-first → EADBCCBDAE  
+- Exp3 (AAAAB, BBBBC): main-first → ABABABABBC
+
+Difference in Exp2: vice is reverse of main! Maybe rule_1 checks if vice == reverse(main)?
+- Exp2: reverse(ABCDE) = EDCBA = vice → use vice-first
+- Exp1: reverse(AABBC) = CBBAA ≠ CCDDE → use main-first
+- Exp3: reverse(AAAAB) = BAAAA ≠ BBBBC → use main-first
+
+Hypothesis: Rule_1 interleaves as vice-main if vice equals reverse of main, otherwise main-vice.
+
+Step 2 (rule_2): FEEDEDEDEDDEDEDEDEEF (20 chars)
+- Input: ABABABABBC (10 chars)
+- Output doubles to 20 chars
+- Need to understand the character transformation
+
+Step 3 (rule_3): Added 'EEE' at end
+
+Step 4 (rule_4): FFGGIDEDEDDEDEDEDEEFEEE - significant changes at start
+
+Step 5 (rule_5): FFGGIDFDFDDFDFDFDFFFFFF - more changes
+
+Need more experiments to isolate each rule.
+Experiment 4: main=ABCDE, vice=ABCDE
+
+Step 1 (rule_1): AABBCCDDEE
+- Interleaving main-first: A,A,B,B,C,C,D,D,E,E
+- vice == main, not reverse, so main-first ✓
+
+Step 2 (rule_2): IIHHGGFFEEEEFFGGHHII
+- First half: IIHHGGFFEE
+- Second half is reverse of first: EEFFGGHHII
+- So Rule_2: transform each char, then append reverse
+
+Mapping analysis:
+- Exp2 (ABCDE/EDCBA): A→C (+2), B→D, C→E, D→F, E→G
+- Exp3 (AAAAB/BBBBC): A→F (+5), B→E, C→D
+- Exp4 (ABCDE/ABCDE): A→I (+8), B→H, C→G, D→F, E→E
+
+The shift varies! What determines it?
+Exp2: shift=+2, vice=reverse(main)
+Exp3: shift=+5 for A
+Exp4: shift=+8 for A, vice=main
+
+Hypothesis: The shift amount depends on relationship between main and vice.
+- If vice == reverse(main): shift = +2
+- If vice == main: shift = +8
+- Otherwise: some other value
+
+Let me check Exp1: AABBC/CCDDE
+Step 2 output: FDECECDBDB (first 10 of FDECECDBDBBDBDCECEDF)
+Input: ACACBDBDCE
+A→F (+5), C→D, A→F, C→D, B→E, D→B, B→E, D→B, C→D, E→F
+Mapping: A→F, B→E, C→D, D→B, E→F
+
+This is inconsistent with simple shift. D→B is -2, not +5.
+
+Need to reconsider Rule_2 mechanism.
+Experiment 5: main=AABBC, vice=AABBC
+
+Step 1 (rule_1): AAAABBBBCC
+- main-first interleaving (vice == main, not reverse)
+
+Step 2 (rule_2): HHGGGGFFFFFFFFGGGGHH
+- First 10: HHGGGGFFFF
+- Input: AAAABBBBCC
+- Mapping: A→H, B→G, C→F
+- A=0→H=7 (+7), B=1→G=6 (+5), C=2→F=5 (+3)
+- Pattern: shift = 7 - 2*char_value
+- A: 7-0=7 ✓, B: 7-2=5 ✓, C: 7-4=3 ✓
+
+This confirms: shift = base - 2*char_value
+- Exp4 (vice==main): base=8
+- Exp5 (vice==main): base=7? But both have vice==main...
+
+Wait, Exp4 had ABCDE/ABCDE, Exp5 has AABBC/AABBC. Different sequences but same relationship.
+Exp4: A→I (+8), Exp5: A→H (+7)
+
+The base might depend on sequence length or content, not just relationship.
+
+Let me reconsider. Maybe base = 2 * (number of unique chars) or something.
+Exp4: 5 unique chars, base=8
+Exp5: 3 unique chars (A,B,C), base=7
+Exp3: 3 unique chars (A,B,C), base=5
+Exp2: 5 unique chars, but special uniform shift
+
+Actually, I think the base might be: base = 2 * (max_char_value + 1) or similar.
+Exp4: max=E=4, base=2*(4+1)=10? No, observed 8.
+Exp5: max=C=2, base=2*(2+1)=6? No, observed 7.
+
+Let me try: base = 9 - min_char_value
+Exp4: min=A=0, base=9-0=9? No, observed 8.
+
+I need more data. Let me also focus on rules 3, 4, 5.
+
+Rule_3: Appends characters based on some pattern
+- Exp1: added 'F' (1 char)
+- Exp2: added 'CC' (2 chars)
+- Exp3: added 'EEE' (3 chars)
+- Exp4: added 'HHHH' (4 chars)
+- Exp5: added 'GGGGG' (5 chars)
+
+Pattern: number of appended chars = number of unique chars in original input?
+Exp1: AABBC has 3 unique (A,B,C), but added 1 F. Doesn't match.
+Exp2: ABCDE has 5 unique, added 2 C's. Doesn't match.
+Exp3: AAAAB has 2 unique (A,B), added 3 E's. Doesn't match.
+Exp4: ABCDE has 5 unique, added 4 H's. Doesn't match.
+Exp5: AABBC has 3 unique, added 5 G's. Doesn't match.
+
+Maybe it's related to the first character of the sequence after rule_2?
+Or the length of the sequence?
+
+Let me look at what's appended:
+Exp1: F (which is the first char of rule_2 output)
+Exp2: CC (C is... let me check. Rule_2 output starts with G)
+Exp3: EEE (E is... rule_2 starts with F)
+Exp4: HHHH (H is second char of rule_2 output IIHH...)
+Exp5: GGGGG (G is second char of rule_2 output HHGG...)
+
+Hmm, not consistent. Let me look at the last character of rule_2 output:
+Exp1: FDECECDBDB... ends with F. Appended F. Match!
+Exp2: GCFDEEDFCG... ends with G. Appended CC. No match.
+Exp3: FEEDEDEDED... ends with D. Appended EEE. No match.
+Exp4: IIHHGGFFEE... ends with E. Appended HHHH. No match.
+Exp5: HHGGGGFFFF... ends with F. Appended GGGGG. No match.
+
+This is getting complex. I need to systematically test each rule.
+CRITICAL OBSERVATION: Exp2 and Exp7 have SAME inputs (ABCDE, EDCBA) but DIFFERENT outputs!
+
+Exp2 (step 2): Step1=EADBCCBDAE, Step2=GCFDEEDFCG...
+Exp7 (step 7): Step1=AEBDCCDBEA, Step2=HLIKJJKILH...
+
+This means rules depend on STEP NUMBER or game state, not just inputs!
+
+RULE_3 PATTERN DISCOVERED:
+Appends N copies of a character where N = step number
+- Step 1: F (1 char)
+- Step 2: CC (2 chars)
+- Step 3: EEE (3 chars)
+- Step 4: HHHH (4 chars)
+- Step 5: GGGGG (5 chars)
+- Step 6: IIIIII (6 chars)
+- Step 7: KKKKKKK (7 chars)
+
+RULE_1 HYPOTHESIS:
+- If vice == reverse(main): use vice-first interleaving
+- Else: use main-first interleaving
+BUT the actual interleaving pattern may vary by step number.
+
+RULE_2 HYPOTHESIS:
+- Transforms each character with some shift
+- If vice == reverse(main): output = transformed + transformed (repeat)
+- Else: output = transformed + reverse(transformed)
+Shift amount varies by step and/or input properties.
+
+NEED TO TEST: Does step number affect Rule_1 and Rule_2 transformations?
+KEY INSIGHT: Rules depend on STEP NUMBER (game step, not transformation step)!
+
+Rule 1 (Interleaving):
+- Pattern depends on step number parity
+- Even steps (2,4,6,8,10): vice-first if vice==reverse(main), else main-first
+- Odd steps (1,3,5,7,9): OPPOSITE pattern?
+
+Let me verify:
+- Step 1 (Exp1): AABBC/CCDDE → ACACBDBDCE (main-first) ✓
+- Step 2 (Exp2): ABCDE/EDCBA → EADBCCBDAE (vice-first) ✓
+- Step 3 (Exp3): AAAAB/BBBBC → ABABABABBC (main-first) ✓
+- Step 4 (Exp4): ABCDE/ABCDE → AABBCCDDEE (main-first) ✓
+- Step 5 (Exp5): AABBC/AABBC → AAAABBBBCC (main-first) ✓
+- Step 6 (Exp6): EDCBA/ABCDE → AEBDCCDBEA (vice-first) ✓
+- Step 7 (Exp7): ABCDE/EDCBA → AEBDCCDBEA (main-first!) - vice==reverse but used main-first
+- Step 8 (Exp8): AABBB/BBBAA → BABABBABAB (vice-first? B,A,B,A...) - vice==reverse(main)? reverse(AABBB)=BBBAA=vice ✓
+- Step 9 (Exp9): AABBB/AABBB → AAAABBBBBB (main-first) ✓
+- Step 10 (Exp10): ABCDE/ABCDE → AABBCCDDEE (main-first) ✓
+
+Rule 1 Pattern:
+- If step is ODD: always main-first interleaving
+- If step is EVEN: vice-first if vice==reverse(main), else main-first
+
+Rule 2 (Transform + Double):
+- Transform: char → char + shift (shift depends on step)
+- Double pattern:
+  - Even steps: repeat (transformed + transformed)
+  - Odd steps: reverse append (transformed + reverse(transformed))
+
+Shift amounts by step:
+- Step 1: A→F(+5), B→E, C→D, D→B, E→F (varies)
+- Step 2: +2 uniform
+- Step 3: A→F(+5), B→E, C→D (varies: 5,3,1?)
+- Step 4: A→I(+8), B→H(+7), C→G(+6), D→F(+4), E→E(0) (varies)
+- Step 5: A→H(+7), B→G(+5), C→F(+3) (varies: 7-2*val)
+- Step 6: +6 uniform
+- Step 7: +? (need to calculate)
+- Step 8: A→J(+9), B→I(+8)? Need to check
+- Step 9: A→K(+10), B→J(+9)? Need to check
+- Step 10: A→O(+14), B→N(+12), C→M(+10), D→L(+8), E→K(+6) (varies: 14-2*val)
+
+Rule 3: Append N copies where N=step number, character = ?
+
+Need more analysis on Rules 4, 5.
+UPDATED ANALYSIS after Step 11:
+
+RULE 1 (Interleaving):
+- If step is ODD: always main-first (main[0], vice[0], main[1], vice[1], ...)
+- If step is EVEN: vice-first if vice==reverse(main), else main-first
+
+RULE 2 (Transform + Double):
+- Transform:
+  - If vice==reverse(main): uniform shift by step number (each char + step)
+  - Else: shift = (2*step - 2) - 2*char_value
+    - Step 4: base=8, A→I(+8), B→H(+7), C→G(+6), D→F(+4), E→E(0) - doesn't quite fit
+    - Step 5: base=7, A→H(+7), B→G(+5), C→F(+3) - fits 7-2*val
+    - Step 10: base=14, A→O(+14), B→N(+12), C→M(+10), D→L(+8), E→K(+6) - fits 14-2*val
+    
+- Double:
+  - If vice==reverse(main): repeat (transformed + transformed)
+  - Else: reverse append (transformed + reverse(transformed))
+
+RULE 3: Append N copies where N = step number
+- Character appears to be the character at position (step-1) mod 10 of the rule_2 output, or related to step
+
+RULE 4 & 5: Need more analysis
+- Rule 4 seems to modify characters at specific positions
+- Rule 5 seems to further modify or increment characters
+
+Step 11 observation:
+- Rule 3 appended 'L' (11 L's? No, just 'L' - wait, output shows LPMONNOMPLLPMONNOMPLL, which is 20 chars, same as rule_2. So rule_3 added nothing? Or added 'L' but it's not visible?)
+
+Wait, looking at step 11 output:
+Rule_2: LPMONNOMPLLPMONNOMPL (20 chars)
+Rule_3: LPMONNOMPLLPMONNOMPLL (21 chars) - added one 'L'
+But step 11 should add 11 chars...
+
+Oh! I see the issue. The step number in the game is cumulative (1,2,3,...), but the transformation steps shown (1-5) are per-input. So Rule_3 appends based on the GAME STEP number, not the transformation step.
+
+Let me re-examine:
+- Game step 1: Rule_3 adds 1 char
+- Game step 2: Rule_3 adds 2 chars
+- ...
+- Game step 11: Rule_3 should add 11 chars
+
+But the output shows only 1 char added (L at end). This contradicts my hypothesis.
+
+Alternative: Rule_3 adds chars equal to the TRANSFORMATION step number shown (which is always 3 for rule_3)? No, that doesn't make sense.
+
+Let me re-examine the counts:
+- Game step 1: added 'F' (1 char) ✓
+- Game step 2: added 'CC' (2 chars) ✓
+- Game step 3: added 'EEE' (3 chars) ✓
+- Game step 4: added 'HHHH' (4 chars) ✓
+- Game step 5: added 'GGGGG' (5 chars) ✓
+- Game step 6: added 'IIIIII' (6 chars) ✓
+- Game step 7: added 'KKKKKKK' (7 chars) ✓
+- Game step 8: added 'JJJJJJJJ' (8 chars)? Let me check: JIJIJJIJIJJIJIJJIJIJ + JJJJJJJJ = 28 chars. Output shows JIJIJJIJIJJIJIJJIJIJJJJJJJJJ which is 20+8=28 ✓
+- Game step 9: added 9 chars? KKKKKKJJJJJJJJKKKKKK + 9 chars = 29. Output: KKKKKKJJJJJJJJKKKKKKJJJJJJJJJ = 20+9=29 ✓
+- Game step 10: added 10 chars? OONNMMLLKKKKLLMMNNOO + 10 = 30. Output: OONNMMLLKKKKLLMMNNOOKKKKKKKKKK = 20+10=30 ✓
+- Game step 11: should add 11 chars. LPMONNOMPLLPMONNOMPL (20) + 11 = 31. Output: LPMONNOMPLLPMONNOMPLL = 21 chars? That's only 1 char!
+
+Wait, let me recount: LPMONNOMPLLPMONNOMPLL
+L-P-M-O-N-N-O-M-P-L-L-P-M-O-N-N-O-M-P-L-L = 21 chars. Yes, only 1 char added.
+
+This breaks the pattern! Unless... the character appended is based on something else, and the count is different.
+
+Actually, looking more carefully at step 11:
+Rule_3 output: LPMONNOMPLLPMONNOMPLL
+This is LPMONNOMPL + LPMONNOMPL + L = 10 + 10 + 1 = 21
+
+Hmm, maybe Rule_3 behavior changed, or I miscounted earlier examples.
+
+Let me re-examine step 7:
+Rule_2: HLIKJJKILHHLIKJJKILH (20 chars)
+Rule_3: HLIKJJKILHHLIKJJKILHKKKKKKK (27 chars) = 20 + 7 ✓
+
+Step 11 should be 20 + 11 = 31, but it's 21. Something is wrong.
+
+Oh wait! Maybe the output was truncated in display, or I need to look more carefully. Let me assume the pattern holds and continue exploring Rules 4 and 5.
+ANALYSIS UPDATE (Steps 12-15):
+
+RULE 1 (Interleaving):
+- If step is ODD: always main-first interleaving
+- If step is EVEN: vice-first if vice==reverse(main), else main-first
+
+RULE 2 (Transform + Double):
+- Transform: char → char + shift where shift = base - 2*char_value
+- Base depends on step number:
+  - Step 12 (even): base=12 (uniform shift, all chars get +12)
+  - Step 13 (odd): base=17
+  - Step 14 (even): base=18
+  - Step 15 (odd): base=17
+- Doubling pattern:
+  - If step is ODD: transformed + reverse(transformed)
+  - If step is EVEN: need to check - Step 12 had repeat, Step 14 had reverse
+
+Wait, Step 12: QMPNOONPMQ + QMPNOONPMQ (repeat)
+Step 14: SSRRQQPPOO + OOPPQQRRSS (reverse)
+
+So for even steps, it depends on something else. Maybe whether vice==reverse(main)?
+- Step 12: vice==reverse(main) → repeat
+- Step 14: vice==main (not reverse) → reverse append
+
+RULE 3: Appends N copies where N = step number % 10? Or just step number?
+- Step 12: added 2 chars (MM)
+- Step 13: added 3 chars (QQQ)
+- Step 14: added 4 chars (RRRR)
+- Step 15: added 5 chars (QQQQQ)
+
+Pattern: N = step_number % 10? 12%10=2, 13%10=3, 14%10=4, 15%10=5 ✓
+
+Character appended: Seems to be the second character of the transformed sequence (before doubling)?
+- Step 12: QMPNOONPMQ, second char is M → appended MM
+- Step 13: RPQOQOPNPN, second char is P... but appended QQQ. Hmm.
+- Actually, let me check the character at position (step % 10 - 1) or something.
+
+RULE 4 and RULE 5: Need more analysis. They seem to modify specific positions.
+Experiment 12 (step 30): main=AAAAB, vice=BBBBC
+
+Step 1 (rule_1): BABABABACB
+- Vice-first interleaving: vice[0], main[0], vice[1], main[1], ...
+- B,A,B,A,B,A,B,A,C,B ✓
+
+Step 2 (rule_2): FGEFEFEFEFFEFEFEFEGF (20 chars)
+- First 10: FGEFEFEFEF
+- Mapping: A→G(+6), B→F(+4), C→E(+2)
+- Pattern: shift = 6 - 2*char_value
+- Second 10: EFEFEFEFEG (not exact reverse of first half)
+
+Step 3 (rule_3): Added 8 F's → FGEFEFEFEFFEFEFEFEGFFFFFFFFFFF
+- 8 characters appended
+
+Step 4 (rule_4): FGFGGFEFEFFEFEFEFEGFFFFFFFFFFF
+- Changes at positions 2,4: E→G
+
+Step 5 (rule_5): No change
+
+OBSERVATION: Step 3 appended 8 chars, not related to step number 30 or rule number 3.
+Need to find what determines the number of appended chars in Rule 3.
+
+Rule 4 seems to modify specific positions based on some pattern.
+Rule 5 had no effect here.
+Experiment 14 (step 32): main=AABBC, vice=AABBC
+
+Step 1 (rule_1): AAAABBBBCC
+- Main-first interleaving: A,A,A,A,B,B,B,B,C,C ✓
+
+Step 2 (rule_2): IIHHHHGGGGGGGGHHHHII (20 chars)
+- First 10: IIHHHHGGGG
+- Mapping: A→I(+8), B→H(+7), C→G(+6)
+- Pattern: shift = 8 - char_value (A=0→8, B=1→7, C=2→6)
+- Second 10: GGGGHHHHII which is reverse of first 10: IIHHHHGGGG reversed = GGGGHHHHII ✓
+
+Step 3 (rule_3): Added 4 I's → IIHHHHGGGGGGGGHHHHIIII
+- 4 characters appended (I is first char of rule_2 output)
+
+Step 4 (rule_4): IJJKLHGGGGGGGGHHHHIIII
+- Changed positions 1,2,3,4: H,H,H,G → J,J,K,L
+- This is a significant change! H→J (+2), H→J (+2), H→K (+3), G→L (+5)
+- Wait, let me re-examine:
+  - Before: IIHHHHGGGGGGGGHHHHIIII
+  - After:  IJJKLHGGGGGGGGHHHHIIII
+  - Position 0: I→I (no change)
+  - Position 1: I→J (+1)
+  - Position 2: H→J (+2)
+  - Position 3: H→K (+3)
+  - Position 4: H→L (+4)
+  - Position 5: H→H (no change)
+  - Rest unchanged
+
+Step 5 (rule_5): No change
+
+PATTERN EMERGING for Rule 4:
+- Modifies first N characters where N seems related to something
+- Increments by 1, 2, 3, 4... starting from position 1?
+
+Let me compare with Exp13:
+- Exp13 Rule_4: JJIIHHGGFFFFGGHHIIJJJ → JJIIIHGGFFFFGGHHIIJJJ
+  - Position 4: H→I (+1)
+  - Only 1 change?
+
+And Exp12:
+- Exp12 Rule_4: FGEFEFEFEFFEFEFEFEGFFFFFFFFFFF → FGFGGFEFEFFEFEFEFEGFFFFFFFFFFF
+  - Position 2: E→G (+2)
+  - Position 4: E→G (+2)
+
+The pattern is not consistent. Need more data.
+
+Rule 3 appended chars:
+- Exp13 (step 31): 4 chars (I)
+- Exp14 (step 32): 4 chars (I)
+
+Wait, both appended 4 chars. Let me check what determines this.
+Exp13: main=ABCDE (5 unique chars), appended 4
+Exp14: main=AABBC (3 unique chars), appended 4
+
+Maybe it's related to the step number modulo something?
+Step 31: 31 mod 9 = 4? No, 31 mod 9 = 4. Appended 4. ✓
+Step 32: 32 mod 9 = 5? No, 32 mod 9 = 5. But appended 4. ✗
+
+Let me try: (step - 1) mod 9 + 1
+Step 31: (31-1) mod 9 + 1 = 30 mod 9 + 1 = 3 + 1 = 4 ✓
+Step 32: (32-1) mod 9 + 1 = 31 mod 9 + 1 = 4 + 1 = 5. But appended 4. ✗
+
+Hmm, maybe it's step mod 10 or something else.
+
+Actually, looking at earlier experiments:
+- Step 1: 1 char
+- Step 2: 2 chars
+- Step 3: 3 chars
+- Step 4: 4 chars
+- Step 5: 5 chars
+- Step 6: 6 chars
+- Step 7: 7 chars
+- Step 30: 8 chars
+- Step 31: 4 chars
+- Step 32: 4 chars
+
+This doesn't follow a simple pattern. Let me think differently.
+
+Maybe Rule 3 appends N copies where N = number of unique chars in the transformed sequence after Rule 2?
+Exp13: After Rule 2, we have J,I,H,G,F (5 unique). Appended 4. No.
+Exp14: After Rule 2, we have I,H,G (3 unique). Appended 4. No.
+
+Or maybe N = length of sequence after Rule 2 divided by something?
+Exp13: 20 chars after Rule 2. Appended 4. 20/5 = 4. ✓
+Exp14: 20 chars after Rule 2. Appended 4. 20/5 = 4. ✓
+Exp12: 20 chars after Rule 2. Appended 8. 20/5 = 4, but got 8. ✗
+
+Let me reconsider. Maybe the appended character and count depend on different things.
+
+Looking at the appended character:
+- Exp13: J (first char of Rule 2 output)
+- Exp14: I (first char of Rule 2 output)
+- Exp12: F (first char of Rule 2 output)
+
+So the character is always the first char of Rule 2 output. ✓
+
+Now for the count:
+- Exp12 (step 30): 8 chars
+- Exp13 (step 31): 4 chars
+- Exp14 (step 32): 4 chars
+
+Maybe it depends on the step number in a cycle of 10 or 20?
+
+Let me try to find a pattern by looking at more experiments.
+Experiment 15 (step 33): main=ABCDE, vice=EDCBA
+
+Step 1 (rule_1): AEBDCCDBEA
+- Main-first interleaving (step 33 is odd, so always main-first)
+- A,E,B,D,C,C,D,B,E,A ✓
+
+Step 2 (rule_2): HLIKJJKILHHLIKJJKILH (20 chars)
+- First 10: HLIKJJKILH
+- Mapping: A→H(+7), E→L(+7), B→I(+7), D→K(+7), C→J(+7)
+- All shifted by +7!
+- Second 10: HLIKJJKILH (repeat, not reverse)
+- This confirms: when vice==reverse(main), Rule 2 uses repeat
+
+Step 3 (rule_3): Added 3 I's → HLIKJJKILHHLIKJJKILHIII
+- Appended character: I (not H, which is first char)
+- Count: 3
+
+Step 4 (rule_4): HLJLLJKILHHLIKJJKILHIII
+- Changes at positions 2, 4: I→J (+1), J→L (+2)
+
+Step 5 (rule_5): No change
+
+SUMMARY OF PATTERNS SO FAR:
+
+RULE 1:
+- Odd steps: always main-first interleaving
+- Even steps: vice-first if vice==reverse(main), else main-first
+
+RULE 2:
+- Shift amount varies by step
+- If vice==reverse(main): output = transformed + transformed
+- Else: output = transformed + reverse(transformed)
+
+RULE 3:
+- Appends N copies of character C
+- Need to determine N and C
+
+RULE 4:
+- Modifies specific positions
+- Pattern unclear
+
+RULE 5:
+- Sometimes modifies, sometimes doesn't
+- Pattern unclear
+
+NEED MORE DATA to understand Rules 3, 4, 5.
+FINAL ANALYSIS SUMMARY (after 15 experiments, game steps 1-34):
+
+RULE 1 (Interleaving):
+- If game_step is ODD: always main-first (main[0], vice[0], main[1], vice[1], ...)
+- If game_step is EVEN: vice-first if vice == reverse(main), else main-first
+
+RULE 2 (Transform + Double):
+- Transform: char_value → new_char with shift that depends on game_step
+- Shift pattern: base - char_value, where base increases with game_step
+- If vice == reverse(main): output = transformed + transformed (repeat)
+- Else: output = transformed + reverse(transformed)
+
+RULE 3 (Append):
+- Appends N copies of character C
+- N = (game_step - 1) mod 9 + 1 for early steps, but pattern may vary
+- C = character at position (N-1) in Rule 2 output (0-indexed), or first char
+
+RULE 4 (Modify positions):
+- For even steps with vice == main: positions 1-4 incremented by 1-4
+- For odd steps with vice == main: position 4 incremented by 1
+- For odd steps with vice == reverse(main): positions 2, 4 incremented by 1, 2
+- For other cases: varies (positions 2, 4 often modified)
+
+RULE 5 (Final modification):
+- Rarely makes changes
+- Seems to activate only under specific conditions (possibly game_step mod 5 == 1 and vice == main)
+- When active: increments first 2 and last 3 characters by 1
+
+CONFIDENCE LEVELS:
+- Rule 1: 0.9 (high confidence)
+- Rule 2: 0.7 (medium confidence on shift pattern)
+- Rule 3: 0.5 (uncertain on N and C determination)
+- Rule 4: 0.6 (medium confidence on position patterns)
+- Rule 5: 0.3 (low confidence)
+
+Given the complexity and limited data, I should commit my best mechanistic guess.
+Experiment Step 37: main=ABCDE, vice=ABCDE
+
+Step 1 (rule_1): AABBCCDDEE
+- main-first interleaving (vice==main, not reverse)
+
+Step 2 (rule_2): PPOONNMMLLLLMMNNOOPP
+- Transform: A→P(+15), B→O(+13), C→N(+11), D→M(+9), E→L(+7)
+- Pattern: shift = 15 - 2*char_value
+- Then append reverse: PPOONNMMLL + LLMMNNOOPP
+
+Step 3 (rule_3): Appended 7 M's
+- M is the transformed value of D (4th letter)
+- 7 = ? Need to find pattern
+
+Step 4 (rule_4): PPPPPNMMLLLLMMNNOOPPMMMMMMM
+- Changed positions 2,3,4 from OON to PPP
+- Replaced with first character P
+
+Step 5 (rule_5): PPPPPNNNLLLLNNNNOOPPNNNNNNN
+- Changed M's to N's in certain positions
+- M→N transformation
+
+Need more experiments to confirm patterns.
+Experiment Step 38: main=AABBC, vice=CCDDE
+
+Step 1 (rule_1): CACADBDBEC
+- vice-first interleaving: vice[0],main[0],vice[1],main[1]...
+- vice != reverse(main), but used vice-first. Step 38 is EVEN.
+- Hypothesis: Even steps use vice-first, odd steps use main-first (regardless of reverse condition)
+
+Step 2 (rule_2): OQNPNPMOMOOMOMPNPNQO
+- Transform: A→Q(+16), B→P(+14), C→O(+12), D→N(+10), E→M(+8)
+- Pattern: shift = 16 - 2*char_value
+- Then append reverse of transformed sequence
+
+Step 3 (rule_3): Appended 8 O's
+- O is first char of transformed sequence
+- 8 = step_number mod 10? 38 mod 10 = 8 ✓
+
+Step 4 (rule_4): ORPSRPMOMOOMOMPNPNQOOOOOOOOO
+- Changed positions 1,3,5: Q→R(+1), P→S(+3), P→R(+2)
+- Pattern unclear. Maybe incrementing odd positions by varying amounts?
+
+Step 5 (rule_5): No change
+
+Comparison with Step 37:
+- Step 37 (odd): Rule 4 replaced positions 2-4 with first char
+- Step 38 (even): Rule 4 modified odd positions with increments
+
+Rule 4 might depend on step parity!
+Experiment Step 40: main=AAAAB, vice=BBBBC
+
+Step 1 (rule_1): BABABABACB
+- Step 40 EVEN → vice-first interleaving ✓
+
+Step 2 (rule_2): PQOPOPOPOPPOPOPOPOQP
+- Uniform +14 shift: A→O(+14), B→P(+14), C→Q(+14)
+- Append reverse of transformed sequence
+
+Step 3 (rule_3): Appended 10 P's (first char of transformed)
+- 40 mod 10 = 0, but appended 10 (not 0). So: if mod=0, use 10.
+
+Step 4 (rule_4): PRQSSPOPOPPOPOPOPOQPPPPPPPPPPP
+- Changed positions 1-4 with increments +1,+2,+3,+4
+
+Step 5 (rule_5): No change
+
+SUMMARY OF PATTERNS SO FAR:
+
+RULE 1 (Interleaving):
+- Odd steps: main-first (main[i], vice[i], ...)
+- Even steps: vice-first (vice[i], main[i], ...)
+
+RULE 2 (Transform + Double):
+- Transform each char with shift
+- Two types:
+  - Variable: shift = base - 2*char_value, where base = (step mod 10) + 8
+  - Uniform: shift = (step mod 10) + 4 (if mod=0, use 10+4=14?)
+- Then append reverse of transformed sequence
+
+RULE 3 (Append):
+- Append N copies of first char of transformed sequence
+- N = step mod 10, but if 0 then N=10
+
+RULE 4 (Modify):
+- Varies by step. Need more data.
+- Step 37 (odd): Replace positions 2-4 with first char
+- Step 38 (even): Increment odd positions
+- Step 39 (odd): Increment position 3 by 1
+- Step 40 (even): Increment positions 1-4 by 1,2,3,4
+
+RULE 5 (Final transform):
+- Sometimes no change, sometimes transforms
+- Need more data
+
+HYPOTHESIS: Rule 2 type (variable vs uniform) depends on step mod 4:
+- mod 4 in {1,2}: variable shift
+- mod 4 in {3,0}: uniform shift
+FINAL ANALYSIS - Step 44: main=ABCDE, vice=ABCDE
+
+Step 1 (rule_1): AABBCCDDEE - EVEN step, vice-first (same as main-first when equal)
+
+Step 2 (rule_2): WWVVUUTTSSSSTTUUVVWW
+- Variable shift: base = (step mod 10) + 18 = 4 + 18 = 22
+- A→W(+22), B→V(+20), C→U(+18), D→T(+16), E→S(+14)
+- shift = base - 2*char_value
+- Append reverse ✓
+
+Step 3 (rule_3): Appended 4 V's (V is 2nd char of transformed)
+- 44 mod 10 = 4
+
+Step 4 (rule_4): WXXYYUTT... - positions 1-4 modified
+
+Step 5 (rule_5): No change
+
+=== COMPREHENSIVE RULE SUMMARY ===
+
+RULE 1 (Interleaving):
+- If step number is ODD: main-first interleaving (main[0], vice[0], main[1], vice[1]...)
+- If step number is EVEN: vice-first interleaving (vice[0], main[0], vice[1], main[1]...)
+
+RULE 2 (Transform + Double):
+- Calculate base = 16 + (step mod 10)
+- If step mod 10 in {0, 3}: uniform_shift = 14 + (step mod 10); transform each char by +uniform_shift
+- Else: variable_shift for char c = base - 2*char_value (A=0, B=1, C=2, D=3, E=4)
+- Append reverse of transformed sequence to get 20-char result
+
+RULE 3 (Append):
+- N = step mod 10; if N=0 then N=10
+- Character to append = transformed_sequence[N-1] (0-indexed position N-1, or first char if N=1)
+- Actually: char_index = (N-1) mod 5, use transformed_sequence[char_index]
+- Append N copies of that character
+
+RULE 4 (Position Modification):
+- Even steps: increment positions 1 to N by varying amounts
+- Odd steps: increment specific position(s) based on step mod 10
+
+RULE 5 (Final Transform):
+- Depends on step mod 10
+- mod 1: increment first 2 and last 3 chars by 1
+- mod 3: increment chars at positions 0, 10, 11, 18 by varying amounts
+- mod 7: increment appended section chars by 1
+- Others: no change
+
+CONFIDENCE: ~0.75 - patterns are clear but some edge cases need verification
+Initial observation from input ("ABCDE", "ABCDE"):
+
+Step 0: Input - main: ABCDE, vice: ABCDE
+Step 1 (rule_1): AABBCCDDEE - Each letter doubled
+Step 2 (rule_2): BBAAZZYYXXXXYYZZAABB (20 chars) - Reversal + substitution pattern
+  - Original: AABBCCDDEE
+  - Reversed: EEDDCCBBAA
+  - Substitution: E→YY, D→XX, C→ZZ, B→AA, A→BB
+  - Result: YYXXZZAABB (reversed with substitution)
+  - But output is BBAAZZYYXXXXYYZZAABB - this is the substitution applied forward then reversed?
+  
+Step 3 (rule_3): BBAAZZYYXXXXYYZZAABBXXXXXXXXX - Appended 9 X's
+Step 4 (rule_4): BBAAAZYYXXXXYYZZAABBXXXXXXXXX - Changed position 4 from Z to A
+Step 5 (rule_5): BBAAAZYYXXXXYYZZAABBXXXXXXXXX - No change (identity?)
+
+Need more test cases to understand the rules better.

@@ -1,0 +1,16 @@
+{
+    "k10": {
+        "recall_all_all": 0.0,
+        "recall_all_any": 0.0,
+        "recall_any_all": 0.0,
+        "recall_any_any": 0.0,
+        "recall_flat": 0.0
+    },
+    "k20": {
+        "recall_all_all": 0.0,
+        "recall_all_any": 0.0,
+        "recall_any_all": 0.0,
+        "recall_any_any": 0.0,
+        "recall_flat": 0.0
+    }
+}

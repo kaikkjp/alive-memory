@@ -1,0 +1,19 @@
+Error initializing qwen client: unsupported provider
+Traceback (most recent call last):
+  File "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/tools/run_maj_eval_batch.py", line 424, in <module>
+    main()
+  File "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/tools/run_maj_eval_batch.py", line 351, in main
+    verdict = jury.vote(input=pair["input"], output=pair["output"])
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/user/Library/Python/3.12/lib/python/site-packages/judges/base.py", line 247, in vote
+    judgment = judge.judge(
+               ^^^^^^^^^^^^
+  File "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/tools/run_maj_eval_batch.py", line 55, in judge
+    reasoning, score = self._judge(user_prompt=user_prompt, system_prompt=system_prompt)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/user/Library/Python/3.12/lib/python/site-packages/judges/base.py", line 149, in _judge
+    client = instructor.from_provider(self.model)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/user/Library/Python/3.12/lib/python/site-packages/instructor/auto_client.py", line 1232, in from_provider
+    raise ConfigurationError(
+instructor.core.exceptions.ConfigurationError: Unsupported provider: qwen. Supported providers are: ['openai', 'azure_openai', 'databricks', 'anthropic', 'google', 'generative-ai', 'vertexai', 'mistral', 'cohere', 'perplexity', 'groq', 'writer', 'bedrock', 'cerebras', 'deepseek', 'fireworks', 'ollama', 'openrouter', 'xai', 'litellm']

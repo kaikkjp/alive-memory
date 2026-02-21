@@ -955,6 +955,63 @@ ORDER BY sim_day;
 
 ---
 
+### TASK-075: Circuit Breakers for Action Failures
+**Status:** BACKLOG
+**Priority:** High
+**Description:** When an external action fails (API timeout, rate limit, service down), the character retries the same action indefinitely. Observed in production: 262 browses in 500 death-spiral cycles. Circuit breakers prevent this by introducing increasing reluctance (like physical fatigue), with automatic recovery via exponential backoff cooldowns. Failures surface as character-aligned perceptions ("brain fog"), not raw errors.
+
+**Architecture:**
+- New `ActionCircuitBreaker` (dataclass `ActionHealth`) lives in `pipeline/basal_ganglia.py`
+- State machine: `closed` → `open` (after N consecutive failures) → `half_open` (after cooldown) → `closed` (on success)
+- Parameters: threshold=3 consecutive failures, base cooldown=5min, max=1hr, multiplier=2.0
+- Error translation: raw exceptions → character-aligned perceptions (e.g. "A wave of mental fatigue washes over you.")
+- Fatigue perception injected into sensorium when actions are blocked
+- DB persistence: migration `024_circuit_breaker_state.sql` (production only)
+
+**Rollout order:**
+1. `ActionHealth` dataclass + state machine in `pipeline/basal_ganglia.py`
+2. Failure reporting hook in `pipeline/body.py`
+3. Error-to-perception translation map in `pipeline/body.py`
+4. Fatigue perception injection via sensorium
+5. Migration `024_circuit_breaker_state.sql`
+6. Unit tests
+7. Integration test with failure injection
+
+**Scope (files you may touch):**
+- `pipeline/basal_ganglia.py`
+- `pipeline/body.py`
+- `pipeline/sensorium.py` (perception injection only)
+- `migrations/024_circuit_breaker_state.sql` (new)
+- `tests/test_circuit_breaker.py` (new)
+
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `pipeline/hippocampus.py`
+- `pipeline/hippocampus_write.py`
+- `db.py`
+- `heartbeat.py`
+- `config/identity.py`
+
+**Tests (tests/test_circuit_breaker.py):**
+1. `test_opens_after_threshold` — 3 failures → state=open
+2. `test_success_resets_counter` — 2 failures + 1 success → consecutive=0, state=closed
+3. `test_cooldown_exponential_backoff` — verify 300s → 600s → 1200s → ... → 3600s cap
+4. `test_half_open_allows_one_attempt` — after cooldown expires, one attempt permitted
+5. `test_half_open_failure_reopens` — failed half-open → back to open with longer cooldown
+6. `test_all_blocked_forces_idle` — all intended actions open → returns idle intention
+7. `test_fatigue_perception_injected` — blocked action produces sensorium perception
+8. `test_error_perception_not_raw` — body never passes raw exception strings to cortex
+
+**Integration test:** 100-cycle sim with `read_content` failing after cycle 20. Verify: browses stop within 3 cycles, action diversity increases, browses resume after cooldown, no raw error strings in cortex prompts.
+
+**Metrics to add to sim CSV:** `circuit_breaks`, `forced_idles`, `recovery_time_avg`, `action_diversity_post_break`
+
+**Definition of done:** 3 consecutive browse failures → circuit opens → she idles or picks other actions → after cooldown she tries again. No raw API errors ever reach the cortex prompt. All 8 unit tests pass. Integration test passes.
+
+**Not in scope:** Per-visitor circuit breakers, operator alerting, circuit breaker for the cortex LLM call itself.
+
+---
+
 ## Completed Tasks
 
 ### TASK-054: Fix inhibition self_assessment trigger

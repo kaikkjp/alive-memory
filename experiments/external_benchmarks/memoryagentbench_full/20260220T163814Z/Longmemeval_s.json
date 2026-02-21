@@ -1,0 +1,8 @@
+{
+  "dataset_config": "/private/tmp/MemoryAgentBench/configs/data_conf/Accurate_Retrieval/LongMemEval/Longmemeval_s.yaml",
+  "returncode": 1,
+  "elapsed_seconds": 8.305052042007446,
+  "latest_output_json": null,
+  "stdout_tail": "Dataset: longmemeval_s_-1_500\nLoading longmemeval_s_-1_500 from Hugging Face dataset: ai-hyz/MemoryAgentBench\nLoaded 22 samples from Accurate_Retrieval\nFiltered to 0 samples matching source 'longmemeval_s_-1_500' (from 22 total)\nDataset is empty - no samples found matching the filter criteria\n",
+  "stderr_tail": "02/21/2026 01:38:29 - INFO - conversation_creator - Running test on longmemeval_s_-1_500\nTraceback (most recent call last):\n  File \"/private/tmp/MemoryAgentBench/main.py\", line 208, in <module>\n    main()\n  File \"/private/tmp/MemoryAgentBench/main.py\", line 176, in main\n    start_time, all_context_chunks, all_query_answer_pairs = create_agent_and_fetch_data(\n                                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/private/tmp/MemoryAgentBench/initialization.py\", line 57, in create_agent_and_fetch_data\n    conversation_creator = ConversationCreator(agent_config, dataset_config)\n                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/private/tmp/MemoryAgentBench/conversation_creator.py\", line 45, in __init__\n    self._load_and_process_dataset(dataset_config)\n  File \"/private/tmp/MemoryAgentBench/conversation_creator.py\", line 101, in _load_and_process_dataset\n    raise ValueError(f\"No samples found for sub_dataset: {self.sub_dataset}. Please check the dataset configuration.\")\nValueError: No samples found for sub_dataset: longmemeval_s_-1_500. Please check the dataset configuration.\n"
+}

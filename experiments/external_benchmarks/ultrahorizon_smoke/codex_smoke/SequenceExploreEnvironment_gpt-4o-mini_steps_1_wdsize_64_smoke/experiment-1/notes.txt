@@ -1,0 +1,9 @@
+Input sequences: ('ABCDE', 'DECBA') resulted in transformations:
+1. Step 0: main: ABCDE, vice: DECBA
+2. Step 1: Rule 1 applied - Result: ADBECCDBEA
+3. Step 2: Rule 2 applied - Result: BFCEDDFCEBBECFDDECFB
+4. Step 3: Rule 3 applied - Result: BFCEDDFCEBBECFDDECFBB
+5. Step 4: Rule 4 applied - Result: BFCEDDFCEBBECFDDECFBB
+6. Step 5: Rule 5 applied - Result: BFCEDDFCEBBECFDDECFBB
+
+Final output: BFCEDDFCEBBECFDDECFBB. The transformations stabilize after step 2.

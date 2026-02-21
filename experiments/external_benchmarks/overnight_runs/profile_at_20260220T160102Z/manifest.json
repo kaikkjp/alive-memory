@@ -1,0 +1,90 @@
+{
+  "run_id": "20260220T160102Z",
+  "output_dir": "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/overnight_runs/profile_at_20260220T160102Z",
+  "scheduler": "at",
+  "jobs": {
+    "maj_eval_persona_100": {
+      "script": "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/overnight_runs/profile_at_20260220T160102Z/scripts/maj_eval_persona_100.sh",
+      "log_file": "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/overnight_runs/profile_at_20260220T160102Z/logs/maj_eval_persona_100.log",
+      "when": "now + 1 minute",
+      "command": [
+        "/usr/local/bin/python3",
+        "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/tools/run_maj_eval_batch.py",
+        "--db-path",
+        "/Users/user/Documents/Tokyo-Arc/product/alive/data/shopkeeper_live.db",
+        "--source-table",
+        "events",
+        "--max-samples",
+        "100",
+        "--visitor-id",
+        "ALL",
+        "--jury-profile",
+        "persona",
+        "--model",
+        "openai/gpt-4o-mini",
+        "--voting-method",
+        "average"
+      ],
+      "at_job_id": 2,
+      "at_time": "Sat Feb 21 01:01:02 2026",
+      "raw": "job 2 at Sat Feb 21 01:01:02 2026"
+    },
+    "clonemem_full": {
+      "script": "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/overnight_runs/profile_at_20260220T160102Z/scripts/clonemem_full.sh",
+      "log_file": "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/overnight_runs/profile_at_20260220T160102Z/logs/clonemem_full.log",
+      "when": "now + 2 minutes",
+      "command": [
+        "/usr/local/bin/python3",
+        "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/tools/run_clonemem_full.py",
+        "--retrieve-k",
+        "50",
+        "--embedding-model",
+        "all-MiniLM-L6-v2",
+        "--num-workers",
+        "1"
+      ],
+      "at_job_id": 3,
+      "at_time": "Sat Feb 21 01:01:04 2026",
+      "raw": "job 3 at Sat Feb 21 01:01:04 2026"
+    },
+    "ultrahorizon_heavy": {
+      "script": "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/overnight_runs/profile_at_20260220T160102Z/scripts/ultrahorizon_heavy.sh",
+      "log_file": "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/overnight_runs/profile_at_20260220T160102Z/logs/ultrahorizon_heavy.log",
+      "when": "now + 3 minutes",
+      "command": [
+        "/usr/local/bin/python3",
+        "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/tools/run_ultrahorizon_scaled.py",
+        "--steps",
+        "50",
+        "--n-experiments",
+        "32",
+        "--max-concurrency",
+        "4",
+        "--window-size",
+        "64",
+        "--env",
+        "seq",
+        "--index",
+        "overnight",
+        "--exp-folder",
+        "codex_overnight"
+      ],
+      "at_job_id": 4,
+      "at_time": "Sat Feb 21 01:01:05 2026",
+      "raw": "job 4 at Sat Feb 21 01:01:05 2026"
+    },
+    "memoryagentbench_full": {
+      "script": "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/overnight_runs/profile_at_20260220T160102Z/scripts/memoryagentbench_full.sh",
+      "log_file": "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/overnight_runs/profile_at_20260220T160102Z/logs/memoryagentbench_full.log",
+      "when": "now + 4 minutes",
+      "command": [
+        "/usr/local/bin/python3",
+        "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/tools/run_memoryagentbench_full.py",
+        "--force"
+      ],
+      "at_job_id": 5,
+      "at_time": "Sat Feb 21 01:01:05 2026",
+      "raw": "job 5 at Sat Feb 21 01:01:05 2026"
+    }
+  }
+}
