@@ -42,6 +42,21 @@ async def check_rate_limit(action_name: str) -> tuple[bool, str]:
     return bool(decision['allowed']), str(decision.get('reason') or '')
 
 
+def limiter_payload(limiter: dict | None) -> dict:
+    """Extract standard limiter metadata payload keys."""
+    if not isinstance(limiter, dict):
+        return {
+            'limiter_decision': '',
+            'cooldown_state': '',
+            'rate_limit_remaining': None,
+        }
+    return {
+        'limiter_decision': str(limiter.get('limiter_decision') or ''),
+        'cooldown_state': str(limiter.get('cooldown_state') or ''),
+        'rate_limit_remaining': limiter.get('rate_limit_remaining'),
+    }
+
+
 async def get_limiter_decision(action_name: str) -> dict:
     """Return detailed limiter decision for action evidence logging."""
     limit = RATE_LIMITS.get(action_name)

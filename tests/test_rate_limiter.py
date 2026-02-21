@@ -117,3 +117,32 @@ class TestChannelEnabled:
         from body.rate_limiter import is_channel_enabled
         result = await is_channel_enabled('carrier_pigeon')
         assert result is False
+
+
+class TestLimiterPayload:
+    """Test limiter_payload helper for executor metadata consistency."""
+
+    def test_payload_extracts_expected_keys(self):
+        from body.rate_limiter import limiter_payload
+
+        payload = limiter_payload({
+            'limiter_decision': 'allow',
+            'cooldown_state': 'ready',
+            'rate_limit_remaining': 3,
+            'allowed': True,
+        })
+        assert payload == {
+            'limiter_decision': 'allow',
+            'cooldown_state': 'ready',
+            'rate_limit_remaining': 3,
+        }
+
+    def test_payload_handles_none(self):
+        from body.rate_limiter import limiter_payload
+
+        payload = limiter_payload(None)
+        assert payload == {
+            'limiter_decision': '',
+            'cooldown_state': '',
+            'rate_limit_remaining': None,
+        }

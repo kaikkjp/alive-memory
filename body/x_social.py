@@ -13,7 +13,12 @@ import clock
 from models.event import Event
 from models.pipeline import ActionRequest, ActionResult
 from body.executor import register
-from body.rate_limiter import get_limiter_decision, record_action, is_channel_enabled
+from body.rate_limiter import (
+    get_limiter_decision,
+    is_channel_enabled,
+    limiter_payload,
+    record_action,
+)
 from pipeline.ack import on_visitor_connect
 import db
 
@@ -38,14 +43,11 @@ async def execute_post_x(action: ActionRequest, visitor_id: str = None,
         return result
 
     limiter = await get_limiter_decision('post_x')
+    limiter_meta = limiter_payload(limiter)
     if not limiter['allowed']:
         result.success = False
         result.error = str(limiter['reason'])
-        result.payload = {
-            'limiter_decision': limiter['limiter_decision'],
-            'cooldown_state': limiter['cooldown_state'],
-            'rate_limit_remaining': limiter['rate_limit_remaining'],
-        }
+        result.payload = dict(limiter_meta)
         return result
 
     text = (action.detail.get('text') or action.detail.get('content', '')).strip()
@@ -59,16 +61,12 @@ async def execute_post_x(action: ActionRequest, visitor_id: str = None,
 
     await record_action('post_x', success=api_result.get('success', False),
                         channel='x', error=api_result.get('error'),
-                        limiter_decision=limiter['limiter_decision'],
-                        cooldown_state=limiter['cooldown_state'],
-                        rate_limit_remaining=limiter['rate_limit_remaining'])
+                        **limiter_meta)
 
     if api_result.get('success'):
         result.payload = {
             'x_post_id': api_result['x_post_id'],
-            'limiter_decision': limiter['limiter_decision'],
-            'cooldown_state': limiter['cooldown_state'],
-            'rate_limit_remaining': limiter['rate_limit_remaining'],
+            **limiter_meta,
         }
         result.side_effects.append('x_post_live')
 
@@ -81,11 +79,7 @@ async def execute_post_x(action: ActionRequest, visitor_id: str = None,
     else:
         result.success = False
         result.error = api_result.get('error', 'post failed')
-        result.payload = {
-            'limiter_decision': limiter['limiter_decision'],
-            'cooldown_state': limiter['cooldown_state'],
-            'rate_limit_remaining': limiter['rate_limit_remaining'],
-        }
+        result.payload = dict(limiter_meta)
 
     return result
 
@@ -102,14 +96,11 @@ async def execute_reply_x(action: ActionRequest, visitor_id: str = None,
         return result
 
     limiter = await get_limiter_decision('reply_x')
+    limiter_meta = limiter_payload(limiter)
     if not limiter['allowed']:
         result.success = False
         result.error = str(limiter['reason'])
-        result.payload = {
-            'limiter_decision': limiter['limiter_decision'],
-            'cooldown_state': limiter['cooldown_state'],
-            'rate_limit_remaining': limiter['rate_limit_remaining'],
-        }
+        result.payload = dict(limiter_meta)
         return result
 
     text = (action.detail.get('text') or action.detail.get('content', '')).strip()
@@ -128,27 +119,19 @@ async def execute_reply_x(action: ActionRequest, visitor_id: str = None,
 
     await record_action('reply_x', success=api_result.get('success', False),
                         channel='x', error=api_result.get('error'),
-                        limiter_decision=limiter['limiter_decision'],
-                        cooldown_state=limiter['cooldown_state'],
-                        rate_limit_remaining=limiter['rate_limit_remaining'])
+                        **limiter_meta)
 
     if api_result.get('success'):
         result.payload = {
             'x_post_id': api_result['x_post_id'],
             'reply_to': reply_to_id,
-            'limiter_decision': limiter['limiter_decision'],
-            'cooldown_state': limiter['cooldown_state'],
-            'rate_limit_remaining': limiter['rate_limit_remaining'],
+            **limiter_meta,
         }
         result.side_effects.append('x_reply_sent')
     else:
         result.success = False
         result.error = api_result.get('error', 'reply failed')
-        result.payload = {
-            'limiter_decision': limiter['limiter_decision'],
-            'cooldown_state': limiter['cooldown_state'],
-            'rate_limit_remaining': limiter['rate_limit_remaining'],
-        }
+        result.payload = dict(limiter_meta)
 
     return result
 
@@ -165,14 +148,11 @@ async def execute_post_x_image(action: ActionRequest, visitor_id: str = None,
         return result
 
     limiter = await get_limiter_decision('post_x_image')
+    limiter_meta = limiter_payload(limiter)
     if not limiter['allowed']:
         result.success = False
         result.error = str(limiter['reason'])
-        result.payload = {
-            'limiter_decision': limiter['limiter_decision'],
-            'cooldown_state': limiter['cooldown_state'],
-            'rate_limit_remaining': limiter['rate_limit_remaining'],
-        }
+        result.payload = dict(limiter_meta)
         return result
 
     text = (action.detail.get('text') or action.detail.get('content', '')).strip()
@@ -187,26 +167,18 @@ async def execute_post_x_image(action: ActionRequest, visitor_id: str = None,
 
     await record_action('post_x_image', success=api_result.get('success', False),
                         channel='x', error=api_result.get('error'),
-                        limiter_decision=limiter['limiter_decision'],
-                        cooldown_state=limiter['cooldown_state'],
-                        rate_limit_remaining=limiter['rate_limit_remaining'])
+                        **limiter_meta)
 
     if api_result.get('success'):
         result.payload = {
             'x_post_id': api_result['x_post_id'],
-            'limiter_decision': limiter['limiter_decision'],
-            'cooldown_state': limiter['cooldown_state'],
-            'rate_limit_remaining': limiter['rate_limit_remaining'],
+            **limiter_meta,
         }
         result.side_effects.append('x_image_posted')
     else:
         result.success = False
         result.error = api_result.get('error', 'media post failed')
-        result.payload = {
-            'limiter_decision': limiter['limiter_decision'],
-            'cooldown_state': limiter['cooldown_state'],
-            'rate_limit_remaining': limiter['rate_limit_remaining'],
-        }
+        result.payload = dict(limiter_meta)
 
     return result
 

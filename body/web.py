@@ -13,7 +13,7 @@ import uuid
 import clock
 from models.pipeline import ActionRequest, ActionResult
 from body.executor import register
-from body.rate_limiter import get_limiter_decision, record_action
+from body.rate_limiter import get_limiter_decision, limiter_payload, record_action
 import db
 
 
@@ -33,14 +33,11 @@ async def execute_browse_web(action: ActionRequest, visitor_id: str = None,
 
     # Rate limit check
     limiter = await get_limiter_decision('browse_web')
+    limiter_meta = limiter_payload(limiter)
     if not limiter['allowed']:
         result.success = False
         result.error = str(limiter['reason'])
-        result.payload = {
-            'limiter_decision': limiter['limiter_decision'],
-            'cooldown_state': limiter['cooldown_state'],
-            'rate_limit_remaining': limiter['rate_limit_remaining'],
-        }
+        result.payload = dict(limiter_meta)
         return result
 
     # Channel kill switch
@@ -55,18 +52,12 @@ async def execute_browse_web(action: ActionRequest, visitor_id: str = None,
     except Exception as e:
         result.success = False
         result.error = f'web search failed: {type(e).__name__}: {e}'
-        result.payload = {
-            'limiter_decision': limiter['limiter_decision'],
-            'cooldown_state': limiter['cooldown_state'],
-            'rate_limit_remaining': limiter['rate_limit_remaining'],
-        }
+        result.payload = dict(limiter_meta)
         await record_action(
             'browse_web',
             success=False,
             error=result.error,
-            limiter_decision=limiter['limiter_decision'],
-            cooldown_state=limiter['cooldown_state'],
-            rate_limit_remaining=limiter['rate_limit_remaining'],
+            **limiter_meta,
         )
         print(f"  [BrowseWeb] Search failed: {e}")
         return result
@@ -119,9 +110,7 @@ async def execute_browse_web(action: ActionRequest, visitor_id: str = None,
     await record_action(
         'browse_web',
         success=True,
-        limiter_decision=limiter['limiter_decision'],
-        cooldown_state=limiter['cooldown_state'],
-        rate_limit_remaining=limiter['rate_limit_remaining'],
+        **limiter_meta,
     )
 
     result.content = result_text
@@ -129,9 +118,7 @@ async def execute_browse_web(action: ActionRequest, visitor_id: str = None,
         'query': query,
         'content_id': content_id,
         'result_length': len(result_text),
-        'limiter_decision': limiter['limiter_decision'],
-        'cooldown_state': limiter['cooldown_state'],
-        'rate_limit_remaining': limiter['rate_limit_remaining'],
+        **limiter_meta,
     }
     result.side_effects.append('web_content_fetched')
     return result
