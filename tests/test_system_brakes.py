@@ -361,6 +361,7 @@ class TestEnergyBudgetEnforcement:
 
             # TASK-050: budget_exhausted flag, rest routing, energy set to 0
             assert result['budget_exhausted'] is True
+            assert result['llm_calls_blocked'] is True
             assert result['routing_focus'] == 'rest'
             assert result['drives']['energy'] == 0.0
 
