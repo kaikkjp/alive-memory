@@ -1012,6 +1012,48 @@ ORDER BY sim_day;
 
 ---
 
+### TASK-076: Cortex Prompt Optimization — Idle Latency Kill
+**Status:** DONE (2026-02-21)
+**Priority:** High
+**Spec:** `tasks/TASK-075-prompt-optimization.md`
+**Description:** Idle cycles take ~14s and consume ~2800 tokens when they should take 3-5s and ~1100 tokens. Root cause: full engage-grade system prompt + output schema + full output budget sent on every cycle regardless of type. Fix: two-tier system prompt (idle vs engage), cycle-aware output token budget, reduced user message sections on idle, temperature tuning, self-context caching.
+
+**Projected impact (idle cycles):**
+- System prompt: ~1300 → ~700 tokens (-46%)
+- Output cap: 1500 → 400 tokens (-73%)
+- Self-context DB calls: 5+ per cycle → 5+ per 5 min (-90%)
+- Estimated latency: ~14s → ~4-6s (-60%)
+- Estimated cost: ~$0.004 → ~$0.001 (-75%)
+- Engage cycles: **unchanged**
+
+**Scope (files you may touch):**
+- `pipeline/cortex.py` — add `CORTEX_SYSTEM_IDLE`, route by cycle type, cycle-aware tokens + temperature
+- `prompt/budget.py` — add `get_output_tokens_for_cycle()`
+- `prompt/budget_config.json` — add `reserved_output_tokens_by_cycle_type`
+- `prompt/self_context.py` — add caching layer + `invalidate_self_context_cache()`
+- `heartbeat.py` — use cached self_context, invalidate after sleep
+- `llm/client.py` — gate `json_schema` by model name (sim-only, optional)
+- `llm/schema.py` — new file, JSON schema for M2.5 sim (optional)
+
+**Scope (files you may NOT touch):**
+- `db.py`
+- `config/identity.py`
+- `pipeline/hippocampus.py`
+- `pipeline/hippocampus_write.py`
+- `pipeline/validator.py`
+- `pipeline/basal_ganglia.py`
+
+**Tests:**
+1. 10 idle cycles — measure latency, input tokens, output tokens, completion quality
+2. 5 engage cycles — verify full schema output, `memory_updates` populated, dialogue quality unchanged
+3. Transition: idle → visitor arrives → engage schema → visitor leaves → idle schema resumes
+4. Edge case: visitor arrives during idle (microcycle interrupt) → full schema on next cycle
+5. Sim: 100-cycle mock with M2.5 + `json_schema`, compare action diversity to baseline
+
+**Definition of done:** Idle cycles consistently under 6s and under 1200 input tokens. Engage cycles fully unaffected. All existing tests pass.
+
+---
+
 ## Completed Tasks
 
 ### TASK-054: Fix inhibition self_assessment trigger

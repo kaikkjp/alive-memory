@@ -314,3 +314,17 @@ def get_reserved_output_tokens() -> int:
     """Get the configured reserved output tokens (max_tokens for API call)."""
     cfg = get_config()
     return cfg.get('reserved_output_tokens', 1500)
+
+
+def get_output_tokens_for_cycle(cycle_type: str) -> int:
+    """Return max output tokens based on cycle type.
+
+    Idle/rest cycles get small budgets to prevent token waste.
+    Engage cycles get full budget for rich dialogue + memory.
+    Falls back to reserved_output_tokens if no override for this cycle type.
+    """
+    cfg = get_config()
+    overrides = cfg.get('reserved_output_tokens_by_cycle_type', {})
+    if cycle_type in overrides:
+        return overrides[cycle_type]
+    return cfg.get('reserved_output_tokens', 1500)

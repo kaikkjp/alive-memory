@@ -29,6 +29,7 @@ async def complete(
     messages: list[dict],
     system: str | None = None,
     call_site: str = "default",
+    cycle_id: str | None = None,
     max_tokens: int = 4096,
     temperature: float = 0.7,
     timeout: float = 60.0,
@@ -44,6 +45,7 @@ async def complete(
         system: Optional system prompt string (separate from messages).
         call_site: Logical name for this call site used for model resolution
                    and cost logging (e.g. "cortex", "reflect").
+        cycle_id: Optional cycle correlation id propagated into llm_call_log.
         max_tokens: Maximum tokens in the completion.
         temperature: Sampling temperature.
         timeout: Read timeout in seconds (connect timeout is fixed at 10 s).
@@ -71,6 +73,22 @@ async def complete(
     }
     if tools:
         body["tools"] = tools
+
+    # TASK-076: Native JSON schema for models that benefit from it (sim-only)
+    if "minimax" in model.lower() or "m2.5" in model.lower():
+        try:
+            from llm.schema import SHOPKEEPER_SCHEMA
+            body["response_format"] = {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "shopkeeper_response",
+                    "strict": True,
+                    "schema": SHOPKEEPER_SCHEMA,
+                }
+            }
+        except ImportError:
+            pass  # schema not defined yet — skip
+
     headers = {
         **_HEADERS_STATIC,
         "Authorization": f"Bearer {api_key}",
@@ -118,6 +136,7 @@ async def complete(
             output_tokens=usage.get("output_tokens", 0),
             latency_ms=latency_ms,
             cost_usd=usage.get("cost_usd"),
+            cycle_id=cycle_id,
         )
     )
 
