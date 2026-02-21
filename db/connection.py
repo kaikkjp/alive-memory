@@ -6,6 +6,7 @@ import contextvars
 import json
 import os
 import pathlib
+import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
@@ -426,6 +427,27 @@ async def run_migrations(conn):
         )
         await conn.commit()
 
+        # Runtime migration event (best-effort; runtime_event_log may not exist yet).
+        try:
+            from runtime_context import get_boot_cycle_id, get_run_id
+            now = clock.now_utc().isoformat()
+            await conn.execute(
+                """INSERT INTO runtime_event_log
+                   (id, timestamp_utc, run_id, cycle_id, event_type, payload_json)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (
+                    str(uuid.uuid4()),
+                    now,
+                    get_run_id(),
+                    get_boot_cycle_id(),
+                    'db_migration',
+                    json.dumps({'version': version, 'filename': f.name}, ensure_ascii=True),
+                ),
+            )
+            await conn.commit()
+        except Exception:
+            pass
+
 
 async def _apply_event_contract_migration(conn):
     """Add Living Loop columns to events table."""
@@ -482,3 +504,62 @@ async def init_db():
     for col, col_type in [('body_state', 'TEXT'), ('gaze', 'TEXT'),
                           ('next_cycle_hints', 'JSON')]:
         await add_column_if_missing(db, 'cycle_log', col, col_type)
+
+    # Observability wiring compatibility columns (additive; safe on every start)
+    cycle_log_cols = [
+        ('run_id', 'TEXT'),
+        ('trace_id', 'TEXT'),
+        ('budget_usd_daily_cap', 'REAL'),
+        ('budget_spent_usd_today', 'REAL'),
+        ('budget_remaining_usd_today', 'REAL'),
+        ('budget_mode', 'TEXT'),
+        ('governor_decision', 'TEXT'),
+    ]
+    for col, col_type in cycle_log_cols:
+        await add_column_if_missing(db, 'cycle_log', col, col_type)
+
+    llm_log_cols = [
+        ('timestamp_utc', 'TEXT'),
+        ('run_id', 'TEXT'),
+        ('stage', 'TEXT'),
+        ('prompt_tokens', 'INTEGER'),
+        ('completion_tokens', 'INTEGER'),
+        ('total_tokens', 'INTEGER'),
+        ('success', 'INTEGER'),
+        ('error_type', 'TEXT'),
+        ('request_id', 'TEXT'),
+        ('cache_hit', 'INTEGER'),
+        ('used_cached_prompt', 'INTEGER'),
+        ('input_hash', 'TEXT'),
+        ('output_hash', 'TEXT'),
+        ('trace_id', 'TEXT'),
+    ]
+    for col, col_type in llm_log_cols:
+        await add_column_if_missing(db, 'llm_call_log', col, col_type)
+
+    action_log_cols = [
+        ('timestamp_utc', 'TEXT'),
+        ('run_id', 'TEXT'),
+        ('action_type', 'TEXT'),
+        ('channel', 'TEXT'),
+        ('reason', 'TEXT'),
+        ('cooldown_state', 'TEXT'),
+        ('rate_limit_remaining', 'INTEGER'),
+        ('limiter_decision', 'TEXT'),
+        ('action_payload_hash', 'TEXT'),
+        ('target_id', 'TEXT'),
+        ('trace_id', 'TEXT'),
+    ]
+    for col, col_type in action_log_cols:
+        await add_column_if_missing(db, 'action_log', col, col_type)
+
+    external_action_log_cols = [
+        ('cycle_id', 'TEXT'),
+        ('run_id', 'TEXT'),
+        ('trace_id', 'TEXT'),
+        ('limiter_decision', 'TEXT'),
+        ('cooldown_state', 'TEXT'),
+        ('rate_limit_remaining', 'INTEGER'),
+    ]
+    for col, col_type in external_action_log_cols:
+        await add_column_if_missing(db, 'external_action_log', col, col_type)

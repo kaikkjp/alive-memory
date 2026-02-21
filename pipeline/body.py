@@ -16,6 +16,7 @@ existing actions, body/web.py, body/x_social.py, body/telegram.py for external).
 """
 
 import clock
+import re
 from models.event import Event
 from models.pipeline import (
     ValidatedOutput, ActionRequest, MotorPlan,
@@ -25,6 +26,70 @@ from pipeline.hypothalamus import apply_expression_relief
 from body import dispatch_action
 from body.internal import END_ENGAGEMENT_LINES  # noqa: F401 — backward compat
 import db
+from runtime_context import hash_text
+
+
+def _tokenize_words(text: str | None) -> set[str]:
+    if not text:
+        return set()
+    parts = re.split(r'[^a-zA-Z0-9_]+', text.lower())
+    return {p for p in parts if len(p) >= 4}
+
+
+async def _log_recall_probe(visitor_id: str, dialogue: str, cycle_id: str | None) -> None:
+    """Best-effort delayed-recall test logging from live dialogue turns."""
+    try:
+        convo = await db.get_recent_conversation(visitor_id, limit=8)
+        question = ''
+        for row in reversed(convo):
+            if row.get('role') == 'visitor' and '?' in (row.get('text') or ''):
+                question = row.get('text') or ''
+                break
+        if not question:
+            return
+
+        traits = await db.get_visitor_traits(visitor_id, limit=30)
+        if not traits:
+            return
+
+        answer_tokens = _tokenize_words(dialogue)
+        if not answer_tokens:
+            return
+
+        best = None
+        best_score = 0.0
+        for trait in traits:
+            fact_tokens = _tokenize_words(f"{trait.trait_key} {trait.trait_value}")
+            if not fact_tokens:
+                continue
+            overlap = len(answer_tokens & fact_tokens) / max(len(fact_tokens), 1)
+            if overlap > best_score:
+                best_score = overlap
+                best = trait
+
+        if not best:
+            return
+
+        question_id = f"{visitor_id}:{hash_text(question)[:12]}:{int(clock.now_utc().timestamp())}"
+        horizon = int((clock.now_utc() - best.observed_at).total_seconds() // 3600)
+        retrieved = best_score >= 0.15
+        await db.log_recall_test(
+            question_id=question_id,
+            fact_id=best.id,
+            retrieved=retrieved,
+            answer_correctness_score=round(best_score, 3),
+            used_in_answer=retrieved,
+            horizon_hours=max(horizon, 0),
+            cycle_id=cycle_id,
+            payload={
+                'visitor_id': visitor_id,
+                'question_hash': hash_text(question),
+                'answer_hash': hash_text(dialogue),
+            },
+        )
+    except Exception:
+        # Recall probing is observability-only and must never break body execution.
+        return
 
 
 async def _execute_single_action(action: ActionRequest, visitor_id: str,
@@ -64,6 +129,7 @@ async def execute_body(motor_plan: MotorPlan, validated: ValidatedOutput,
         # Log to conversation
         if visitor_id:
             await db.append_conversation(visitor_id, 'shopkeeper', dialogue)
+            await _log_recall_probe(visitor_id, dialogue, cycle_id=cycle_id)
 
         # Write text fragment for window display
         frag_type = 'response' if visitor_id else 'thought'

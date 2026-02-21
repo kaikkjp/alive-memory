@@ -13,6 +13,49 @@ from models.state import (
 )
 import db.connection as _connection
 from db.connection import _write_lock, transaction, JST, COLD_SEARCH_ENABLED
+from runtime_context import get_cycle_context, hash_text, resolve_cycle_id
+
+
+def _estimate_tokens(text: str | None) -> int:
+    if not text:
+        return 0
+    return max(1, int(len(text) / 4))
+
+
+def _infer_memory_source() -> str:
+    return 'awake' if get_cycle_context() else 'sleep'
+
+
+async def _log_memory_write_event(
+    memory_type: str,
+    content_text: str,
+    location: str,
+    source: str | None = None,
+    cycle_id: str | None = None,
+    sleep_session_id: str | None = None,
+    fact_id: str | None = None,
+    payload: dict | None = None,
+) -> None:
+    """Best-effort structured memory-write logging."""
+    try:
+        from db.analytics import log_memory_write
+
+        text = content_text or ''
+        await log_memory_write(
+            memory_type=memory_type,
+            source=source or _infer_memory_source(),
+            content_hash=hash_text(text),
+            tokens_written=_estimate_tokens(text),
+            size_bytes=len(text.encode('utf-8')),
+            cycle_id=resolve_cycle_id(cycle_id),
+            sleep_session_id=sleep_session_id,
+            fact_id=fact_id,
+            location=location,
+            payload=payload or {},
+        )
+    except Exception:
+        # Memory-write evidence is best-effort and must not break runtime behavior.
+        return
 
 
 # ─── Visitors ───
@@ -89,13 +132,44 @@ async def get_latest_trait(visitor_id: str, category: str, key: str) -> Optional
 async def insert_trait(visitor_id: str, trait_category: str, trait_key: str,
                        trait_value: str, confidence: float = 0.5,
                        source_event_id: str = ''):
+    trait_id = str(uuid.uuid4())
+    observed_at = clock.now_utc().isoformat()
     await _connection._exec_write(
         """INSERT INTO visitor_traits
            (id, visitor_id, trait_category, trait_key, trait_value, observed_at, source_event_id, confidence)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-        (str(uuid.uuid4()), visitor_id, trait_category, trait_key, trait_value,
-         clock.now_utc().isoformat(), source_event_id, confidence)
+        (trait_id, visitor_id, trait_category, trait_key, trait_value,
+         observed_at, source_event_id, confidence)
     )
+    await _log_memory_write_event(
+        memory_type='semantic',
+        content_text=f"{trait_key}: {trait_value}",
+        location='visitor_traits',
+        fact_id=trait_id,
+        payload={
+            'visitor_id': visitor_id,
+            'trait_category': trait_category,
+            'trait_key': trait_key,
+            'source_event_id': source_event_id,
+            'observed_at': observed_at,
+        },
+    )
+    try:
+        from db.analytics import log_recall_injection
+
+        await log_recall_injection(
+            fact_id=trait_id,
+            content_hash=hash_text(trait_value),
+            injection_channel='event' if source_event_id else 'direct',
+            payload={
+                'visitor_id': visitor_id,
+                'trait_key': trait_key,
+                'trait_category': trait_category,
+                'source_event_id': source_event_id,
+            },
+        )
+    except Exception:
+        pass
 
 
 async def get_visitor_traits(visitor_id: str, limit: int = 20) -> list[VisitorTrait]:
@@ -177,12 +251,27 @@ async def get_totems(visitor_id: str = None, min_weight: float = 0.0,
 async def insert_totem(visitor_id: str = None, entity: str = '',
                        weight: float = 0.5, context: str = '',
                        category: str = 'general', source_event_id: str = None):
+    totem_id = str(uuid.uuid4())
     now = clock.now_utc().isoformat()
     await _connection._exec_write(
         """INSERT INTO totems
            (id, visitor_id, entity, weight, context, category, first_seen, last_referenced, source_event_id)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        (str(uuid.uuid4()), visitor_id, entity, weight, context, category, now, now, source_event_id)
+        (totem_id, visitor_id, entity, weight, context, category, now, now, source_event_id)
+    )
+    await _log_memory_write_event(
+        memory_type='semantic',
+        content_text=f"{entity} {context}".strip(),
+        location='totems',
+        fact_id=totem_id,
+        payload={
+            'visitor_id': visitor_id,
+            'entity': entity,
+            'weight': weight,
+            'category': category,
+            'source_event_id': source_event_id,
+            'first_seen': now,
+        },
     )
 
 
@@ -293,6 +382,24 @@ async def insert_journal(content: str, mood: str = None, tags: list = None,
            VALUES (?, ?, ?, ?, ?, ?)""",
         (jid, content, mood, day_alive, json.dumps(tags or []), now)
     )
+    tagset = {str(t).lower() for t in (tags or [])}
+    source = 'sleep' if tagset & {'sleep_reflection', 'nap_reflection', 'sleep_cycle', 'daily', 'quiet_day'} else _infer_memory_source()
+    memory_type = 'summary' if tagset & {'sleep_cycle', 'daily', 'quiet_day'} else 'episodic'
+    sleep_session_id = f"sleep-{clock.now().date().isoformat()}" if source == 'sleep' else None
+    await _log_memory_write_event(
+        memory_type=memory_type,
+        content_text=content or '',
+        location='journal_entries',
+        source=source,
+        sleep_session_id=sleep_session_id,
+        fact_id=jid,
+        payload={
+            'mood': mood,
+            'tags': tags or [],
+            'day_alive': day_alive,
+            'created_at': now,
+        },
+    )
     return jid
 
 
@@ -340,13 +447,28 @@ async def insert_daily_summary(summary: dict):
         'moment_ids': summary.get('moment_ids', []),
         'journal_entry_ids': summary.get('journal_entry_ids', []),
     }
+    summary_id = str(uuid.uuid4())
     await _connection._exec_write(
         """INSERT INTO daily_summaries
            (id, day_number, date, journal_entry_id, summary_bullets, emotional_arc, notable_totems, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-        (str(uuid.uuid4()), summary.get('day_number'), summary.get('date'),
+        (summary_id, summary.get('day_number'), summary.get('date'),
          None, json.dumps(index_data),
          summary.get('emotional_arc'), json.dumps(summary.get('notable_totems', [])), now)
+    )
+    await _log_memory_write_event(
+        memory_type='summary',
+        content_text=f"{summary.get('emotional_arc', '')} {json.dumps(index_data, ensure_ascii=True)}".strip(),
+        location='daily_summaries',
+        source='sleep',
+        sleep_session_id=f"sleep-{clock.now().date().isoformat()}",
+        fact_id=summary_id,
+        payload={
+            'day_number': summary.get('day_number'),
+            'date': summary.get('date'),
+            'moment_count': summary.get('moment_count', 0),
+            'created_at': now,
+        },
     )
 
 
@@ -562,6 +684,25 @@ async def insert_day_memory(moment) -> None:
              json.dumps(moment.tags), clock.now_utc().isoformat())
         )
         # commit is handled by transaction().__aexit__
+    await _log_memory_write_event(
+        memory_type='episodic',
+        content_text=moment.summary or '',
+        location='day_memory',
+        source='awake',
+        cycle_id=(
+            moment.raw_refs.get('cycle_id')
+            if isinstance(getattr(moment, 'raw_refs', None), dict)
+            else None
+        ),
+        fact_id=moment.id,
+        payload={
+            'moment_type': moment.moment_type,
+            'salience': moment.salience,
+            'visitor_id': moment.visitor_id,
+            'tags': moment.tags,
+            'raw_refs': moment.raw_refs,
+        },
+    )
 
 
 def _jst_today_start_utc() -> str:
@@ -765,6 +906,20 @@ async def insert_text_fragment(
            (id, content, fragment_type, cycle_id, thread_id, visitor_id, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?)""",
         (frag_id, content, fragment_type, cycle_id, thread_id, visitor_id, now)
+    )
+    await _log_memory_write_event(
+        memory_type='episodic',
+        content_text=content or '',
+        location='text_fragments',
+        cycle_id=cycle_id,
+        source=_infer_memory_source(),
+        fact_id=frag_id,
+        payload={
+            'fragment_type': fragment_type,
+            'thread_id': thread_id,
+            'visitor_id': visitor_id,
+            'created_at': now,
+        },
     )
     return frag_id
 
