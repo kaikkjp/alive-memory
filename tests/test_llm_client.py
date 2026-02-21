@@ -89,9 +89,13 @@ async def test_complete_formats_request() -> None:
     body = post_call.kwargs["json"]
     assert body["max_tokens"] == 100
     assert body["temperature"] == 0.5
-    # System becomes first message in OpenAI format
+    # System becomes first message in OpenAI format with cache_control (TASK-078)
     assert body["messages"][0]["role"] == "system"
-    assert body["messages"][0]["content"] == "You are a shopkeeper."
+    sys_content = body["messages"][0]["content"]
+    assert isinstance(sys_content, list)
+    assert sys_content[0]["type"] == "text"
+    assert sys_content[0]["text"] == "You are a shopkeeper."
+    assert sys_content[0]["cache_control"] == {"type": "ephemeral"}
 
 
 # ---------------------------------------------------------------------------
