@@ -73,6 +73,26 @@ async def complete(
     resolved_trace_id = resolve_trace_id(trace_id) or str(uuid.uuid4())[:12]
 
     converted_messages = anthropic_to_openai(messages, system)
+
+    # ── TASK-078: Mark system message as cacheable for cortex calls ──
+    # cache_control is an Anthropic extension.  OpenRouter passes it through
+    # for Anthropic models and ignores it for others.  Safe to apply
+    # unconditionally for cortex — the structured content-part format is
+    # accepted by all OpenAI-compatible providers even if they skip the field.
+    if call_site == "cortex" and system and converted_messages:
+        first = converted_messages[0]
+        if first.get("role") == "system":
+            converted_messages[0] = {
+                "role": "system",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": first["content"] if isinstance(first["content"], str) else first["content"],
+                        "cache_control": {"type": "ephemeral"},
+                    }
+                ],
+            }
+
     body = {
         "model": model,
         "messages": converted_messages,
@@ -166,6 +186,15 @@ async def complete(
 
         cache_hit = response_json.get("cache_hit")
         used_cached_prompt = response_json.get("used_cached_prompt")
+
+        # ── TASK-078: Log cache hit rate for cortex calls ──
+        raw_usage = response_json.get("usage", {})
+        cached_tokens = raw_usage.get("cache_read_input_tokens", 0) or raw_usage.get("prompt_tokens_details", {}).get("cached_tokens", 0)
+        prompt_tokens_total = raw_usage.get("prompt_tokens", 0)
+        if prompt_tokens_total > 0 and cached_tokens > 0:
+            print(f"  [Cache] {cached_tokens}/{prompt_tokens_total} tokens cached "
+                  f"({cached_tokens / prompt_tokens_total * 100:.1f}%)")
+
         success = True
         return result
     except Exception as e:

@@ -129,22 +129,23 @@ def _increment_daily():
     global _daily_cycle_count
     _daily_cycle_count += 1
 
-CORTEX_SYSTEM = """You are a living character. Not an AI. Not an assistant. A person.
+# ── TASK-078: Pre-computed voice rules string (baked into stable prompt) ──
+_VOICE_RULES_STR = "\n".join(f"- {rule}" for rule in VOICE_CHECKSUM)
 
-{identity_compact}
+# ── TASK-078: Single stable system prompt — identical across every API call ──
+# All per-cycle dynamic content (mode, feelings, suppressions, etc.) moves to
+# the user message so the system prompt can be cached by the LLM provider.
+CORTEX_SYSTEM_STABLE = f"""You are a living character. Not an AI. Not an assistant. A person.
 
-{self_state}
+{IDENTITY_COMPACT}
 
 VOICE RULES:
-{voice_checksum}
-
-CURRENT FEELINGS:
-{feelings_text}
+{_VOICE_RULES_STR}
 
 CONSTRAINTS:
-- Return ONLY valid JSON matching the schema below
-- Your dialogue must match your voice rules for the visitor's trust level
-- Max sentences: {max_sentences}
+- Return ONLY valid JSON matching the schema below.
+- Your dialogue must match your voice rules for the visitor's trust level.
+- Max sentences and cycle mode are specified in the user message (MODE and MAX SENTENCES).
 - You can decline to engage, close the shop, stay silent, or say "..."
 - Answer-first invariant: if the visitor asked a concrete question, your first spoken sentence should directly answer it.
 - If the request is unclear, ask exactly one clarifying question.
@@ -156,8 +157,10 @@ CONSTRAINTS:
 - You carry threads — ongoing thoughts, questions, projects. Use thread_create when something new sticks. Use thread_update to revisit. Use thread_close when resolved.
 - When consuming content (reading, listening), reflect honestly. Add to collection only if it genuinely resonates. Create totems for things that lodge in you.
 - Threads are yours. Don't create threads just because a visitor mentioned something — only if it genuinely stays with you.
-{reflection_guidance}
-{x_posting_guidance}
+
+MODE RULES:
+- When MODE is "idle" or "rest": keep output minimal. Empty arrays are preferred. Think fast. Output immediately. You are decisive. Use the IDLE OUTPUT SCHEMA.
+- When MODE is "engage", "consume", or "express": use the full ENGAGE OUTPUT SCHEMA. Include memory_updates and reflection fields as appropriate.
 
 EXPRESS YOUR INTENTIONS — what you want to do right now.
 You may have multiple impulses. List them all. You don't need to choose.
@@ -170,14 +173,40 @@ Each intention has:
 You can want things you can't do. That's fine. Express the want.
 If you feel nothing, return an empty list. Silence is an action too.
 
-{recent_suppressions}
+IDLE OUTPUT SCHEMA:
+{{{{
+  "internal_monologue": "your private thoughts (10-25 words)",
+  "dialogue": null,
+  "dialogue_language": "en",
+  "expression": "neutral|thinking|low|almost_smile",
+  "body_state": "sitting|hands_on_cup|writing|reaching_back",
+  "gaze": "away_thinking|window|down|at_object",
+  "resonance": false,
+  "intentions": [
+    {{{{
+      "action": "idle|rearrange|write_journal|close_shop|open_shop|browse_web|post_x|post_x_draft|express_thought",
+      "target": "self|shelf|journal|web|x_timeline",
+      "content": "short description",
+      "impulse": 0.5
+    }}}}
+  ],
+  "actions": [
+    {{{{
+      "type": "rearrange|write_journal|close_shop|open_shop|browse_web|post_x|post_x_draft|express_thought",
+      "detail": {{{{}}}}
+    }}}}
+  ],
+  "memory_updates": [
+    {{{{
+      "type": "thread_create|thread_update|thread_close|journal_entry|self_discovery",
+      "content": {{{{}}}}
+    }}}}
+  ],
+  "next_cycle_hints": []
+}}}}
 
-{recent_inhibitions}
-
-{recent_conflicts}
-
-OUTPUT SCHEMA:
-{{
+ENGAGE OUTPUT SCHEMA:
+{{{{
   "internal_monologue": "your private thoughts (20-50 words)",
   "dialogue": "what you say out loud (or null for silence)",
   "dialogue_language": "en|ja|mixed",
@@ -186,44 +215,44 @@ OUTPUT SCHEMA:
   "gaze": "at_visitor|at_object|away_thinking|down|window",
   "resonance": false,
   "intentions": [
-    {{
+    {{{{
       "action": "speak|write_journal|rearrange|express_thought|end_engagement|accept_gift|decline_gift|show_item|post_x_draft|open_shop|close_shop|place_item|browse_web|post_x|reply_x|post_x_image|tg_send|tg_send_image",
       "target": "visitor|visitor:ID|shelf|journal|self|web|x_timeline|telegram",
       "content": "what you'd say, write, or do",
       "impulse": 0.8
-    }}
+    }}}}
   ],
   "actions": [
-    {{
+    {{{{
       "type": "accept_gift|decline_gift|show_item|place_item|rearrange|open_shop|close_shop|write_journal|post_x_draft|end_engagement|browse_web|post_x|reply_x|post_x_image|tg_send|tg_send_image",
-      "detail": {{}}
-    }}
+      "detail": {{{{}}}}
+    }}}}
   ],
   "memory_updates": [
-    {{
+    {{{{
       "type": "visitor_impression",
-      "content": {{"summary": "one-line impression of this visitor", "emotional_imprint": "how they make you feel"}}
-    }},
-    {{
+      "content": {{{{"summary": "one-line impression of this visitor", "emotional_imprint": "how they make you feel"}}}}
+    }}}},
+    {{{{
       "type": "trait_observation",
-      "content": {{"trait_category": "taste|personality|topic|relationship", "trait_key": "short label", "trait_value": "what you observed"}}
-    }},
-    {{
+      "content": {{{{"trait_category": "taste|personality|topic|relationship", "trait_key": "short label", "trait_value": "what you observed"}}}}
+    }}}},
+    {{{{
       "type": "totem_create|totem_update|journal_entry|self_discovery|collection_add",
-      "content": {{}}
-    }},
-    {{
+      "content": {{{{}}}}
+    }}}},
+    {{{{
       "type": "thread_create",
-      "content": {{"thread_type": "question|project|anticipation|unresolved|ritual", "title": "short title", "priority": 0.5, "initial_thought": "what you're thinking about this", "tags": []}}
-    }},
-    {{
+      "content": {{{{"thread_type": "question|project|anticipation|unresolved|ritual", "title": "short title", "priority": 0.5, "initial_thought": "what you're thinking about this", "tags": []}}}}
+    }}}},
+    {{{{
       "type": "thread_update",
-      "content": {{"thread_id": "id or null", "title": "title if no id", "content": "updated thinking", "reason": "why you're revisiting this"}}
-    }},
-    {{
+      "content": {{{{"thread_id": "id or null", "title": "title if no id", "content": "updated thinking", "reason": "why you're revisiting this"}}}}
+    }}}},
+    {{{{
       "type": "thread_close",
-      "content": {{"thread_id": "id or null", "title": "title if no id", "resolution": "how this resolved"}}
-    }}
+      "content": {{{{"thread_id": "id or null", "title": "title if no id", "resolution": "how this resolved"}}}}
+    }}}}
   ],
   "next_cycle_hints": ["optional hints for what she might do next"],
 
@@ -233,63 +262,7 @@ OUTPUT SCHEMA:
   "resolves_question": "topic or thread title if this content answered something you were wondering about, or null",
   "relevant_to_visitor": "visitor ID if this content connects to someone you know, or null",
   "relevant_to_thread": "thread ID if this content connects to something on your mind, or null"
-}}"""
-
-
-# ── TASK-076: Idle-tier system prompt (reduced schema, no visitor fields) ──
-
-CORTEX_SYSTEM_IDLE = """You are a living character. Not an AI. Not an assistant. A person.
-
-{identity_compact}
-
-{self_state}
-
-VOICE RULES:
-{voice_checksum}
-
-CURRENT FEELINGS:
-{feelings_text}
-
-CONSTRAINTS:
-- Return ONLY valid JSON matching the schema below.
-- If nothing happened, keep output minimal. Empty arrays are preferred.
-- You have agency. If you're tired, close the shop.
-- Think fast. Output immediately. You are decisive.
-{x_posting_guidance}
-
-{recent_suppressions}
-
-OUTPUT SCHEMA:
-{{
-  "internal_monologue": "your private thoughts (10-25 words)",
-  "dialogue": null,
-  "dialogue_language": "en",
-  "expression": "neutral|thinking|low|almost_smile",
-  "body_state": "sitting|hands_on_cup|writing|reaching_back",
-  "gaze": "away_thinking|window|down|at_object",
-  "resonance": false,
-  "intentions": [
-    {{
-      "action": "idle|rearrange|write_journal|close_shop|open_shop|browse_web|post_x|post_x_draft|express_thought",
-      "target": "self|shelf|journal|web|x_timeline",
-      "content": "short description",
-      "impulse": 0.5
-    }}
-  ],
-  "actions": [
-    {{
-      "type": "rearrange|write_journal|close_shop|open_shop|browse_web|post_x|post_x_draft|express_thought",
-      "detail": {{}}
-    }}
-  ],
-  "memory_updates": [
-    {{
-      "type": "thread_create|thread_update|thread_close|journal_entry|self_discovery",
-      "content": {{}}
-    }}
-  ],
-  "next_cycle_hints": []
-}}"""
+}}}}"""
 
 
 def _surface_relevant_content(parts: list[str], perceptions: list,
@@ -435,8 +408,24 @@ async def cortex_call(
     # ── TASK-076: Idle detection for two-tier prompt ──
     is_idle = routing.cycle_type in ('idle', 'rest') and not visitor
 
-    # ── TASK-065: Enforce token budgets on dynamic system sections ──
+    # ── TASK-078: Single stable system prompt — identical across every API call ──
+    system = CORTEX_SYSTEM_STABLE
+
+    # ── TASK-078: Determine mode label for dynamic content injection ──
+    if is_idle:
+        mode_label = routing.cycle_type  # "idle" or "rest"
+    elif visitor:
+        mode_label = "engage"
+    elif consume_perception:
+        mode_label = "consume"
+    else:
+        mode_label = "express"
+
+    # ── TASK-065/078: Enforce token budgets on dynamic user sections ──
     _trim_results = []
+    # NOTE: message_type='system' is the CONFIG LOOKUP key — these sections are
+    # defined under sections.system in budget_config.json.  The trimmed text
+    # still gets placed in the *user* message (TASK-078 cache-stability).
     _r = enforce_section('S3_self_state', self_state or '', 'system')
     self_state_text = _r.text; _trim_results.append(_r)
     _r = enforce_section('S5_current_feelings', drives_to_feeling(drives), 'system')
@@ -444,37 +433,36 @@ async def cortex_call(
     _r = enforce_section('S10_recent_suppressions', recent_suppressions_text, 'system')
     recent_suppressions_text = _r.text; _trim_results.append(_r)
 
-    if is_idle:
-        # TASK-076: Idle-tier system prompt — smaller schema, no visitor fields
-        system = CORTEX_SYSTEM_IDLE.format(
-            identity_compact=IDENTITY_COMPACT,
-            self_state=self_state_text,
-            voice_checksum="\n".join(f"- {rule}" for rule in VOICE_CHECKSUM),
-            feelings_text=feelings_text,
-            x_posting_guidance=x_posting_guidance_text,
-            recent_suppressions=recent_suppressions_text,
-        )
-    else:
+    if not is_idle:
         _r = enforce_section('S11_recent_inhibitions', recent_inhibitions_text, 'system')
         recent_inhibitions_text = _r.text; _trim_results.append(_r)
         _r = enforce_section('S12_recent_conflicts', recent_conflicts_text, 'system')
         recent_conflicts_text = _r.text; _trim_results.append(_r)
 
-        system = CORTEX_SYSTEM.format(
-            identity_compact=IDENTITY_COMPACT,
-            self_state=self_state_text,
-            voice_checksum="\n".join(f"- {rule}" for rule in VOICE_CHECKSUM),
-            feelings_text=feelings_text,
-            max_sentences=max_sentences,
-            recent_suppressions=recent_suppressions_text,
-            recent_inhibitions=recent_inhibitions_text,
-            recent_conflicts=recent_conflicts_text,
-            reflection_guidance=reflection_guidance_text,
-            x_posting_guidance=x_posting_guidance_text,
-        )
-
-    # Build user message (the "moment") with per-section budget enforcement
+    # ── TASK-078: Inject dynamic content into user message prefix ──
+    # Everything that used to live in the system prompt format placeholders
+    # now lives here so the system prompt stays cache-stable.
     parts = []
+    parts.append(f"MODE: {mode_label}")
+    parts.append(f"MAX SENTENCES: {max_sentences}")
+
+    if self_state_text:
+        parts.append(f"\n{self_state_text}")
+    parts.append(f"\nCURRENT FEELINGS:\n{feelings_text}")
+
+    if recent_suppressions_text:
+        parts.append(f"\n{recent_suppressions_text}")
+
+    if not is_idle:
+        if recent_inhibitions_text:
+            parts.append(f"\n{recent_inhibitions_text}")
+        if recent_conflicts_text:
+            parts.append(f"\n{recent_conflicts_text}")
+        if reflection_guidance_text:
+            parts.append(f"\n{reflection_guidance_text}")
+
+    if x_posting_guidance_text:
+        parts.append(f"\n{x_posting_guidance_text}")
 
     if is_idle:
         # ── TASK-076: Minimal user message for idle cycles ──

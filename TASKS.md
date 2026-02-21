@@ -1115,6 +1115,31 @@ ORDER BY sim_day;
 
 ---
 
+### TASK-078: Cache-Safe Cortex Prompt Refactor
+**Status:** DONE (2026-02-22)
+**Priority:** High
+**Branch:** `feat/task-078-cache-safe-cortex`
+**Depends on:** TASK-076 (prompt optimization)
+**Description:** Merge the two prompt constants (`CORTEX_SYSTEM` and `CORTEX_SYSTEM_IDLE`) into a single `CORTEX_SYSTEM_STABLE` f-string precomputed at module level. Bake in `IDENTITY_COMPACT` and `VOICE_CHECKSUM` so the system message is identical across every API call. Move all per-cycle dynamic content (mode, feelings, suppressions, etc.) to the user message. Mark the system message as cacheable via `cache_control` in `llm/client.py` for cortex calls, and add cache hit rate logging.
+**Scope (files you may touch):**
+- `pipeline/cortex.py`
+- `llm/client.py`
+- `tests/test_llm_client.py`
+- `TASKS.md`
+**Scope (files you may NOT touch):**
+- `db.py`
+- `heartbeat.py`
+- `config/identity.py`
+- `pipeline/basal_ganglia.py`
+- `pipeline/validator.py`
+**Tests:**
+- Module loads: `python3 -c "import pipeline.cortex; print(len(pipeline.cortex.CORTEX_SYSTEM_STABLE))"`
+- No format placeholders: `python3 -c "import re, pipeline.cortex as c; print('OK' if not re.findall(r'\{[a-z_]+\}', c.CORTEX_SYSTEM_STABLE) else 'FAIL')"`
+- `python3 -m pytest tests/test_cortex_soak.py tests/test_cortex_timeout.py tests/test_llm_client.py -v --tb=short`
+**Definition of done:** Single stable system prompt with no format placeholders. All dynamic content in user message. Cache control header on cortex system message. Cache hit rate logged. All tests pass.
+
+---
+
 ## Completed Tasks
 
 ### TASK-054: Fix inhibition self_assessment trigger
