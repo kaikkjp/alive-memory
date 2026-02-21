@@ -225,3 +225,33 @@ class TestDynamicActionResolution:
         assert suppressed.status == 'incapable'
         assert 'surf_net' in suppressed.suppression_reason
         assert 'watch_video' in suppressed.suppression_reason
+
+    @pytest.mark.asyncio
+    async def test_post_x_backfills_text_from_intention_content(self, drives):
+        """post_x should bridge intention.content into detail.text when detail is empty."""
+        intentions = [
+            Intention(action='post_x', content='hello from intention content', impulse=0.8),
+        ]
+        validated = _validated_with_intentions(intentions, actions=[])
+
+        plan = await select_actions(validated, drives, context={})
+
+        assert len(plan.actions) == 1
+        approved = plan.actions[0]
+        assert approved.action == 'post_x'
+        assert approved.detail.get('text') == 'hello from intention content'
+
+    @pytest.mark.asyncio
+    async def test_read_content_backfills_content_id_from_intention_content(self, drives):
+        """read_content should extract content_id from intention.content when detail is empty."""
+        intentions = [
+            Intention(action='read_content', content='id:item-42', impulse=0.8),
+        ]
+        validated = _validated_with_intentions(intentions, actions=[])
+
+        plan = await select_actions(validated, drives, context={})
+
+        assert len(plan.actions) == 1
+        approved = plan.actions[0]
+        assert approved.action == 'read_content'
+        assert approved.detail.get('content_id') == 'item-42'
