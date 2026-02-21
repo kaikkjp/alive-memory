@@ -493,6 +493,7 @@ async def select_actions(validated: ValidatedOutput, drives: DrivesState,
         # Merge: keep any resolver metadata already on decision.detail, then
         # overlay the fetched request payload so caller fields win.
         decision.detail = {**decision.detail, **fetched_detail}
+        _backfill_action_detail(decision)
         decisions.append(decision)
 
     # Sort approved by priority descending
@@ -551,6 +552,48 @@ def _find_matching_detail(action_name: str, validated: ValidatedOutput) -> dict:
         if req.type == action_name:
             return req.detail
     return {}
+
+
+def _extract_content_id_from_content(content: str) -> str | None:
+    """Extract a content_id token from freeform intention content."""
+    raw = (content or '').strip()
+    if not raw:
+        return None
+
+    lowered = raw.lower()
+    if lowered.startswith('content_id:'):
+        value = raw.split(':', 1)[1].strip()
+        return value or None
+    if lowered.startswith('id:'):
+        value = raw.split(':', 1)[1].strip()
+        return value or None
+
+    return None
+
+
+def _backfill_action_detail(decision: ActionDecision) -> None:
+    """Bridge intention.content into executor-friendly detail keys."""
+    content = (decision.content or '').strip()
+    if not content:
+        return
+
+    detail = decision.detail
+
+    text_actions = {
+        'speak', 'write_journal', 'post_x_draft', 'post_x', 'reply_x',
+        'post_x_image', 'tg_send', 'express_thought',
+    }
+    if decision.action in text_actions and not detail.get('text') and not detail.get('content'):
+        detail['text'] = content
+
+    if decision.action == 'tg_send_image' and not detail.get('caption'):
+        detail['caption'] = content
+
+    content_actions = {'read_content', 'save_for_later', 'mention_in_conversation'}
+    if decision.action in content_actions and not detail.get('content_id'):
+        content_id = _extract_content_id_from_content(content)
+        if content_id:
+            detail['content_id'] = content_id
 
 
 def _enforce_limits(approved: list[ActionDecision]) -> list[ActionDecision]:

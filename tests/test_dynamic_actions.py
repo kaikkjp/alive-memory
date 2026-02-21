@@ -225,3 +225,64 @@ class TestDynamicActionResolution:
         assert suppressed.status == 'incapable'
         assert 'surf_net' in suppressed.suppression_reason
         assert 'watch_video' in suppressed.suppression_reason
+
+    @pytest.mark.asyncio
+    async def test_post_x_backfills_text_from_intention_content(self, drives):
+        """post_x should bridge intention.content into detail.text when detail is empty."""
+        intentions = [
+            Intention(action='post_x', content='hello from intention content', impulse=0.8),
+        ]
+        validated = _validated_with_intentions(intentions, actions=[])
+
+        plan = await select_actions(validated, drives, context={})
+
+        assert len(plan.actions) == 1
+        approved = plan.actions[0]
+        assert approved.action == 'post_x'
+        assert approved.detail.get('text') == 'hello from intention content'
+
+    @pytest.mark.asyncio
+    async def test_tg_send_image_backfills_caption_from_intention_content(self, drives):
+        """tg_send_image should bridge intention.content into detail.caption."""
+        intentions = [
+            Intention(action='tg_send_image', content='caption from intention', impulse=0.8),
+        ]
+        validated = _validated_with_intentions(intentions, actions=[])
+
+        plan = await select_actions(validated, drives, context={})
+
+        assert len(plan.actions) == 1
+        approved = plan.actions[0]
+        assert approved.action == 'tg_send_image'
+        assert approved.detail.get('caption') == 'caption from intention'
+        assert approved.detail.get('text') is None
+
+    @pytest.mark.asyncio
+    async def test_read_content_backfills_content_id_from_intention_content(self, drives):
+        """read_content should extract content_id from intention.content when detail is empty."""
+        intentions = [
+            Intention(action='read_content', content='id:item-42', impulse=0.8),
+        ]
+        validated = _validated_with_intentions(intentions, actions=[])
+
+        plan = await select_actions(validated, drives, context={})
+
+        assert len(plan.actions) == 1
+        approved = plan.actions[0]
+        assert approved.action == 'read_content'
+        assert approved.detail.get('content_id') == 'item-42'
+
+    @pytest.mark.asyncio
+    async def test_read_content_does_not_backfill_bare_token(self, drives):
+        """read_content should not treat a bare token as content_id."""
+        intentions = [
+            Intention(action='read_content', content='bitcoin', impulse=0.8),
+        ]
+        validated = _validated_with_intentions(intentions, actions=[])
+
+        plan = await select_actions(validated, drives, context={})
+
+        assert len(plan.actions) == 1
+        approved = plan.actions[0]
+        assert approved.action == 'read_content'
+        assert approved.detail.get('content_id') is None
