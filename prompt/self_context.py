@@ -15,6 +15,7 @@ Output is structured prose, NOT JSON — the LLM reads it as natural language.
 Missing data → line omitted (no "N/A").
 """
 
+import time
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -259,3 +260,48 @@ async def assemble_self_context(
     print(f'  [SelfContext] {len(block)} chars, ~{token_est} tokens')
 
     return block
+
+
+# ── TASK-076: Self-context cache for idle cycles ──
+
+_cache: tuple[str, float] | None = None
+_CACHE_TTL = 300  # 5 minutes
+
+
+async def assemble_self_context_cached(
+    visitor=None,
+    habit_boost=None,
+    force_refresh: bool = False,
+) -> str:
+    """Cached wrapper. Only caches when no visitor (idle cycles).
+
+    Engaged cycles always rebuild fresh (visitor context changes per turn).
+    """
+    global _cache
+    now = time.monotonic()
+
+    # Always rebuild when visitor present or force requested.
+    # Also invalidate cache so next idle cycle gets fresh context
+    # (drives/actions change during engagement).
+    if visitor is not None or habit_boost is not None or force_refresh:
+        result = await assemble_self_context(visitor=visitor, habit_boost=habit_boost)
+        _cache = None  # stale after engagement — next idle rebuilds fresh
+        return result
+
+    # Check cache for idle cycles
+    if _cache is not None:
+        text, ts = _cache
+        if now - ts < _CACHE_TTL:
+            print(f'  [SelfContext] cache hit ({now - ts:.0f}s old)')
+            return text
+
+    # Cache miss — rebuild and store
+    result = await assemble_self_context(visitor=visitor, habit_boost=habit_boost)
+    _cache = (result, now)
+    return result
+
+
+def invalidate_self_context_cache():
+    """Call after sleep cycle or significant state change."""
+    global _cache
+    _cache = None

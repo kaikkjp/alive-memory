@@ -28,7 +28,7 @@ from pipeline.enrich import fetch_url_metadata
 from pipeline.arbiter import (
     ArbiterFocus, decide_cycle_focus, update_arbiter_after_cycle,
 )
-from prompt.self_context import assemble_self_context
+from prompt.self_context import assemble_self_context_cached, invalidate_self_context_cache
 from pipeline.ambient import fetch_ambient_context
 from pipeline.enrich import fetch_readable_text
 from sleep import sleep_cycle, nap_consolidate
@@ -350,6 +350,8 @@ class Heartbeat:
                                 await db.set_setting('last_sleep_date', self._last_sleep_date)
                             except Exception:
                                 pass  # best-effort persist
+                            # TASK-076: Invalidate self-context cache after sleep
+                            invalidate_self_context_cache()
                             # TASK-061: Record sleep event in self-model
                             if self._self_model is not None:
                                 try:
@@ -1015,7 +1017,8 @@ class Heartbeat:
         # 7b. Self-context: unified self-awareness snapshot (TASK-060)
         # Replaces the old build_self_state() — assembles identity, state,
         # recent behavior, and temporal awareness into a single block.
-        self_state = await assemble_self_context(
+        # TASK-076: Cached on idle cycles (no visitor, no habit_boost)
+        self_state = await assemble_self_context_cached(
             visitor=visitor,
             habit_boost=habit_boost,
         )
@@ -1028,6 +1031,7 @@ class Heartbeat:
             routing, perceptions, memory_chunks,
             conversation, drives, visitor, gift_meta,
             self_state=self_state,
+            cycle_id=cycle_id,
         )
 
         # 9. Validate

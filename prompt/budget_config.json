@@ -3,7 +3,15 @@
 
   "model_context_window": 200000,
   "reserved_output_tokens": 1500,
-  "_comment_output": "Currently hardcoded at cortex.py:420. Future: make this configurable per cycle_type (engage=1500, idle=800, maintenance=600).",
+  "reserved_output_tokens_by_cycle_type": {
+    "idle": 400,
+    "rest": 300,
+    "express": 1200,
+    "engage": 1500,
+    "consume": 1000,
+    "ambient": 800
+  },
+  "_comment_output": "TASK-076: Cycle-aware output budgets. Idle/rest get small budgets, engage keeps full. Default falls back to reserved_output_tokens (1500).",
 
   "sections": {
     "system": {
@@ -129,7 +137,7 @@
         "compress_candidate": true,
         "_source": "cortex.py:115-172 — full JSON output schema with all fields",
         "_measured": 450,
-        "_comment": "LARGEST FIXED COST. The full output schema including intentions, actions, memory_updates (visitor_impression, trait_observation, totem_create/update, journal_entry, self_discovery, collection_add, thread_create/update/close), next_cycle_hints, and reflection fields. Compress candidate: could use a compact schema reference or strip example values. However, schema quality directly affects output parsing reliability — compress with caution."
+        "_comment": "LARGEST FIXED COST. Only sent on engage/consume cycles. Idle uses CORTEX_SYSTEM_IDLE with ~120-token minimal schema. See TASK-076."
       }
     },
 
