@@ -130,4 +130,20 @@ async def run_consolidation() -> int:
     # 3. Write daily summary (lightweight index, not narrative)
     await write_daily_summary(moments, all_reflections, journal_entry_ids)
 
+    # 4. Journal → sleep consolidation feedback (TASK-082)
+    # Waking-hour journals are pre-digested reflections — richer consolidation
+    # material. When present, they improve sleep quality via mood boost.
+    # reset_drives_for_morning() keeps mood, so this persists into next day.
+    try:
+        today_journals = await db.get_journals_from_current_day()
+        if today_journals:
+            sleep_quality_bonus = min(0.1, len(today_journals) * 0.04)
+            drives = await db.get_drives_state()
+            drives.mood_valence = min(1.0, max(-1.0, drives.mood_valence + sleep_quality_bonus))
+            await db.save_drives_state(drives)
+            print(f"[Sleep] Journal consolidation: {len(today_journals)} waking journals, "
+                  f"mood boost +{sleep_quality_bonus:.2f}")
+    except Exception as e:
+        print(f"[Sleep] Journal consolidation feedback failed: {e}")
+
     return processed_count

@@ -2,7 +2,7 @@
 
 from models.event import Event
 from models.state import DrivesState, EpistemicCuriosity, EPISTEMIC_CONFIG
-from db.parameters import p
+from db.parameters import p, p_or
 import db as _db
 
 # ── HOTFIX-002: Valence death spiral prevention ──
@@ -301,7 +301,7 @@ def _build_expression_relief() -> dict:
     """Build expression relief dict from parameters."""
     return {
         'action_speak':    {'expression_need': p('hypothalamus.expression_relief.speak_expression'), 'social_hunger': p('hypothalamus.expression_relief.speak_social')},
-        'write_journal':   {'expression_need': p('hypothalamus.expression_relief.write_journal_expression'), 'rest_need': p('hypothalamus.expression_relief.write_journal_rest')},
+        'write_journal':   {'expression_need': p('hypothalamus.expression_relief.write_journal_expression'), 'rest_need': p('hypothalamus.expression_relief.write_journal_rest'), 'mood_valence': p_or('hypothalamus.expression_relief.write_journal_mood', 0.05)},
         'write_journal_skipped': {'expression_need': p('hypothalamus.expression_relief.write_journal_skipped_expression')},
         'post_x_draft':    {'expression_need': p('hypothalamus.expression_relief.post_x_expression'), 'rest_need': p('hypothalamus.expression_relief.post_x_rest')},
         'rearrange':       {'expression_need': p('hypothalamus.expression_relief.rearrange_expression')},
@@ -317,5 +317,8 @@ async def apply_expression_relief(action_type: str):
     drives = await _db.get_drives_state()
     for field, delta in relief.items():
         current = getattr(drives, field)
-        setattr(drives, field, clamp(current + delta))
+        if field == 'mood_valence':
+            setattr(drives, field, clamp(current + delta, -1.0, 1.0))
+        else:
+            setattr(drives, field, clamp(current + delta))
     await _db.save_drives_state(drives)

@@ -25,6 +25,7 @@ from models.pipeline import (
 from models.state import DrivesState, EngagementState
 from pipeline.action_registry import ACTION_REGISTRY, check_prerequisites
 from pipeline.context_bands import compute_trigger_context
+from pipeline.habit_policy import evaluate_journal_habit
 
 
 # ── Trust-based priority boost: loaded from self_parameters at call time ──
@@ -287,6 +288,26 @@ async def check_habits(drives: DrivesState,
             habit_fired=True,
         )
 
+    # ── HabitPolicy: drive-coupled journal reflex (TASK-082) ──
+    # Fires independently of stored habits. Returns HabitBoost so cortex
+    # generates journal content (write_journal is generative).
+    try:
+        proposal = evaluate_journal_habit(
+            drives=drives,
+            cycles_since_last_journal=await db.get_cycles_since_last_journal(),
+            cycles_since_last_visitor=await db.get_cycles_since_last_visitor(),
+            journals_today=await db.get_journals_today(),
+            budget_emergency=False,  # conservative: full check in select_actions
+        )
+        if proposal:
+            return HabitBoost(
+                action='write_journal',
+                strength=proposal.priority,
+                habit_id='habit_policy:journal',
+            )
+    except Exception:
+        pass  # graceful degradation — policy failure shouldn't break pipeline
+
     return None  # all matching habits gated out
 
 
@@ -495,6 +516,39 @@ async def select_actions(validated: ValidatedOutput, drives: DrivesState,
         decision.detail = {**decision.detail, **fetched_detail}
         _backfill_action_detail(decision)
         decisions.append(decision)
+
+    # ── HabitPolicy: boost/inject write_journal (TASK-082) ──
+    try:
+        budget_emergency = (context or {}).get('budget_mode') == 'emergency'
+        proposal = evaluate_journal_habit(
+            drives=drives,
+            cycles_since_last_journal=await db.get_cycles_since_last_journal(),
+            cycles_since_last_visitor=await db.get_cycles_since_last_visitor(),
+            journals_today=await db.get_journals_today(),
+            budget_emergency=budget_emergency,
+        )
+        if proposal:
+            # Check if cortex already generated a write_journal
+            existing = [d for d in decisions
+                        if d.action == 'write_journal' and d.status == 'approved']
+            if existing:
+                # Boost priority to policy level
+                for d in existing:
+                    d.priority = max(d.priority, proposal.priority)
+                    d.source = 'habit_policy'
+            else:
+                # Inject as a new approved candidate
+                decisions.append(ActionDecision(
+                    action='write_journal',
+                    content='',
+                    impulse=proposal.priority,
+                    priority=proposal.priority,
+                    status='approved',
+                    source='habit_policy',
+                    detail={'text': '', '_habit_policy': True},
+                ))
+    except Exception:
+        pass  # graceful degradation
 
     # Sort approved by priority descending
     approved = [d for d in decisions if d.status == 'approved']
