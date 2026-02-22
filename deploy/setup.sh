@@ -143,11 +143,11 @@ echo "[7/9] Configuring environment..."
 ENV_FILE="${APP_DIR}/.env"
 if [ ! -f "${ENV_FILE}" ]; then
     echo ""
-    read -rp "  Enter your ANTHROPIC_API_KEY: " API_KEY
+    read -rp "  Enter your OPENROUTER_API_KEY: " API_KEY
     read -rp "  Enter your GEMINI_API_KEY (or press ENTER to skip): " GEMINI_KEY
 
     cat > "${ENV_FILE}" <<ENVEOF
-ANTHROPIC_API_KEY=${API_KEY}
+OPENROUTER_API_KEY=${API_KEY}
 GEMINI_API_KEY=${GEMINI_KEY}
 SHOPKEEPER_WS_PORT=8765
 SHOPKEEPER_HTTP_PORT=8080
