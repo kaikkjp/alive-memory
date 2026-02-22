@@ -147,9 +147,9 @@ async def complete(
     try:
         async with httpx.AsyncClient(timeout=timeout_obj) as client:
             # ── Retry with exponential backoff for transient errors ──
-            # Retryable: ReadTimeout, ConnectTimeout, ConnectError, 429, 502, 503
+            # Retryable: ReadTimeout, ConnectTimeout, ConnectError, 429, 500, 502, 503
             # Non-retryable: 400, 401, 403 (auth/validation — won't self-heal)
-            _RETRYABLE_STATUS = {429, 502, 503}
+            _RETRYABLE_STATUS = {429, 500, 502, 503}
             _MAX_ATTEMPTS = 3
             _BACKOFF_DELAYS = [2, 4, 8]
 
