@@ -63,7 +63,8 @@ async def complete(
         }
 
     Raises:
-        RuntimeError: On non-2xx HTTP responses (after one retry on 429).
+        RuntimeError: On non-2xx HTTP responses (after 3 retries for
+            transient errors: ReadTimeout, ConnectError, 429, 502, 503).
         ValueError: If OPENROUTER_API_KEY is not set.
     """
     api_key = get_api_key()
@@ -145,22 +146,62 @@ async def complete(
 
     try:
         async with httpx.AsyncClient(timeout=timeout_obj) as client:
-            resp = await client.post(OPENROUTER_BASE, json=body, headers=headers)
+            # ── Retry with exponential backoff for transient errors ──
+            # Retryable: ReadTimeout, ConnectTimeout, ConnectError, 429, 502, 503
+            # Non-retryable: 400, 401, 403 (auth/validation — won't self-heal)
+            _RETRYABLE_STATUS = {429, 502, 503}
+            _MAX_ATTEMPTS = 3
+            _BACKOFF_DELAYS = [2, 4, 8]
 
-            if resp.status_code == 429:
-                # Rate-limited — wait 2 s and retry once.
-                await asyncio.sleep(2)
-                resp = await client.post(OPENROUTER_BASE, json=body, headers=headers)
+            for attempt in range(1, _MAX_ATTEMPTS + 1):
+                try:
+                    resp = await client.post(
+                        OPENROUTER_BASE, json=body, headers=headers
+                    )
+                except (
+                    httpx.ReadTimeout,
+                    httpx.ConnectTimeout,
+                    httpx.ConnectError,
+                ) as exc:
+                    if attempt < _MAX_ATTEMPTS:
+                        delay = _BACKOFF_DELAYS[attempt - 1]
+                        print(
+                            f"[LLM] Retry {attempt}/{_MAX_ATTEMPTS}: "
+                            f"{type(exc).__name__}, backoff {delay}s "
+                            f"[{call_site}]"
+                        )
+                        await asyncio.sleep(delay)
+                        continue
+                    raise
+
+                if resp.status_code in _RETRYABLE_STATUS:
+                    if attempt < _MAX_ATTEMPTS:
+                        delay = _BACKOFF_DELAYS[attempt - 1]
+                        print(
+                            f"[LLM] Retry {attempt}/{_MAX_ATTEMPTS}: "
+                            f"HTTP {resp.status_code}, backoff {delay}s "
+                            f"[{call_site}]"
+                        )
+                        await asyncio.sleep(delay)
+                        continue
+                    raise RuntimeError(
+                        f"OpenRouter error {resp.status_code} after "
+                        f"{_MAX_ATTEMPTS} attempts: {resp.text}"
+                    )
+
+                # Non-retryable HTTP errors — fail immediately
+                if resp.status_code < 200 or resp.status_code >= 300:
+                    raise RuntimeError(
+                        f"OpenRouter error {resp.status_code}: {resp.text}"
+                    )
+
+                # Success — exit retry loop
+                break
 
             request_id = (
                 resp.headers.get("x-openrouter-request-id")
                 or resp.headers.get("x-request-id")
             )
-            if resp.status_code < 200 or resp.status_code >= 300:
-                raise RuntimeError(
-                    f"OpenRouter error {resp.status_code}: {resp.text}"
-                )
-
             response_json = resp.json()
 
         # OpenRouter returns the model that actually served the request,
