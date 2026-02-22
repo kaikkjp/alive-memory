@@ -1205,6 +1205,53 @@ ORDER BY sim_day;
 
 ---
 
+### TASK-082: HabitPolicy — Journaling as Homeostatic Reflex
+**Status:** DONE (2026-02-22)
+**Priority:** High (blocks full ablation suite)
+**Spec:** `tasks/TASK-082-habit-policy.md`
+**Description:** `write_journal` was selected 0 times across 1000 real-LLM cycles. Policy/utility gap — journaling has no immediate feedback and is dominated by visible actions when visitors are present. Fix at the controller layer: add `HabitPolicy` to basal ganglia that proposes `write_journal` as a high-priority candidate when drive conditions are met (expression_need > 0.6, cooldown elapsed, no recent visitor). LLM still generates content; action selection is driven by controller.
+**Scope (files you may touch):**
+- `pipeline/habit_policy.py` (new)
+- `pipeline/basal_ganglia.py`
+- `pipeline/hypothalamus.py`
+- `sleep.py` or `sleep/` consolidation phase
+- `db.py` (4 helper queries — at END of file only)
+- `tests/test_habit_policy.py` (new)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `pipeline/validator.py`
+- `pipeline/hippocampus.py`
+- `heartbeat.py`
+- `simulate.py`
+- `window/*`
+**Tests:** 8 unit tests in `tests/test_habit_policy.py` — see spec.
+**Definition of done:** `write_journal` appears 5–25× per 1000-cycle standard scenario. expression_need no longer pins at max. N2 loop resistance still passes. All 8 unit tests pass.
+
+---
+
+### TASK-083: Adversarial Returning Visitors
+**Status:** BACKLOG
+**Priority:** Medium (paper defensibility, not blocking ablation)
+**Spec:** `tasks/TASK-083-adversarial-visitors.md`
+**Depends on:** TASK-077 (sim v2), PR #3 returning visitors
+**Description:** The `returning` scenario only tests friendly recall — easy to dismiss as handcrafted. Adversarial visitors test whether memory actually works under stress. Three types: `doppelganger` (same name, different person — does she disambiguate?), `preference_drift` (returning visitor who explicitly changes taste — does she update?), `conflict` (returning visitor who disputes a prior transaction — does she handle without blindly overwriting?). Pass/fail scored per episode, aggregated for paper. Target: >70% overall pass rate.
+**Scope (files you may touch):**
+- `sim/visitors/archetypes.py`
+- `sim/visitors/returning.py`
+- `sim/visitors/templates/`
+- `sim/metrics/memory_score.py`
+- `sim/reports/`
+- `tests/test_adversarial_visitors.py` (new)
+**Scope (files you may NOT touch):**
+- `pipeline/*`
+- `db.py`
+- `heartbeat.py`
+- `simulate.py`
+**Tests:** Unit tests for all 3 scoring rules in `tests/test_adversarial_visitors.py` — see spec.
+**Definition of done:** 3 adversarial visitor types integrated into `returning` scenario. `AdversarialEpisode` evaluation runs per episode. `adversarial_episodes.json` emitted alongside other metric reports. >70% overall pass rate in a standard run.
+
+---
+
 ## Completed Tasks
 
 ### TASK-054: Fix inhibition self_assessment trigger
