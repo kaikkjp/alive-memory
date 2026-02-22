@@ -5,6 +5,7 @@ Usage:
     python -m sim --experiment baselines --llm mock --cycles 100
     python -m sim --experiment ablation --llm mock --cycles 100
     python -m sim --experiment stress --llm mock
+    python -m sim --experiment scenarios --llm mock --cycles 1000
     python -m sim --compare sim/results/
 """
 
@@ -58,7 +59,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--experiment", type=str, default=None,
-        choices=["baselines", "ablation", "stress", "longitudinal"],
+        choices=["baselines", "ablation", "stress", "longitudinal", "scenarios"],
         help="Run a predefined experiment batch",
     )
     parser.add_argument(
@@ -77,6 +78,8 @@ async def run_single(args) -> dict:
     """Run a single simulation."""
     from sim.runner import SimulationRunner
     from sim.metrics.collector import SimMetricsCollector
+    from sim.metrics.loop_resistance import LoopResistanceMetric
+    from sim.metrics.budget_efficiency import BudgetEfficiencyMetric
 
     print(f"[Sim] Running: variant={args.variant} scenario={args.scenario} "
           f"cycles={args.cycles} llm={args.llm} seed={args.seed} "
@@ -97,11 +100,16 @@ async def run_single(args) -> dict:
     result = await runner.run()
     elapsed = time.time() - t0
 
-    # Collect metrics
+    # Collect M-metrics
     collector = SimMetricsCollector()
     for cycle in result.cycles:
         collector.record_cycle(cycle.cycle_num, cycle)
     metrics = collector.compute_all()
+
+    # Collect N-metrics
+    result_dict = result.to_dict()
+    n2 = LoopResistanceMetric.from_result(result_dict)
+    n4 = BudgetEfficiencyMetric.from_result(result_dict)
 
     # Export
     output_path = await runner.export(result)
@@ -112,12 +120,20 @@ async def run_single(args) -> dict:
     print(f"[Sim] Entropy: {metrics['m3_entropy']}")
     print(f"[Sim] Knowledge: {metrics['m4_knowledge']}")
     print(f"[Sim] Emotional range: {metrics['m7_emotional_range']}")
+    print(f"[Sim] N2 Loop resistance: streak={n2.max_streak} "
+          f"repetition={n2.monologue_repetition:.3f} "
+          f"self_loop={n2.bigram_self_loop:.3f} "
+          f"{'PASS' if n2.passed else 'FAIL'}")
+    print(f"[Sim] N4 Budget efficiency: {n4.overall_meaningful_pct:.1f}% meaningful, "
+          f"${n4.total_budget_spent:.4f} spent")
     print(f"[Sim] Results: {output_path}")
 
     return {
         "variant": args.variant,
-        "result": result.to_dict(),
+        "result": result_dict,
         "metrics": metrics,
+        "n2_loop_resistance": n2.to_dict(),
+        "n4_budget_efficiency": n4.to_dict(),
     }
 
 
@@ -173,6 +189,77 @@ async def run_experiment(args):
         comparator.export_csv(args.output_dir)
         comparator.export_json(args.output_dir)
         print(f"\n[Experiment] Stress tests complete. "
+              f"Results in {args.output_dir}/")
+        return
+
+    elif args.experiment == "scenarios":
+        # Run full ALIVE across all v2 Poisson-scheduled scenarios
+        from sim.reports.comparison import ScenarioComparison
+
+        scenarios = ["isolation", "standard", "social", "stress", "returning"]
+        all_results: dict[str, dict] = {}
+
+        for sc in scenarios:
+            print(f"\n{'='*60}")
+            print(f"[Experiment] Scenario: {sc}")
+            print(f"{'='*60}")
+
+            runner = SimulationRunner(
+                variant="full", scenario=sc,
+                num_cycles=args.cycles, llm_mode=args.llm,
+                seed=args.seed, daily_budget=args.daily_budget,
+                output_dir=args.output_dir,
+                verbose=args.verbose,
+            )
+            t0 = time.time()
+            result = await runner.run()
+            elapsed = time.time() - t0
+
+            result_dict = result.to_dict()
+            all_results[sc] = result_dict
+            await runner.export(result)
+
+            # Quick per-scenario M-metrics for progress
+            collector = SimMetricsCollector()
+            for cycle in result.cycles:
+                collector.record_cycle(cycle.cycle_num, cycle)
+            metrics = collector.compute_all()
+            all_metrics[sc] = metrics
+
+            print(f"[Scenario:{sc}] Done in {elapsed:.1f}s — "
+                  f"entropy={metrics['m3_entropy']} "
+                  f"emotional_range={metrics['m7_emotional_range']}")
+
+        # Cross-scenario comparison with N1/N2/N4
+        comparison = ScenarioComparison(all_results)
+        comparison.export_csv(args.output_dir)
+        comparison.export_json(args.output_dir)
+
+        # Invariant checks
+        invariants = comparison.invariant_check()
+        all_pass = True
+        for sc_name, checks in invariants.items():
+            for check_name, passed in checks.items():
+                if not passed:
+                    all_pass = False
+                    print(f"[Invariant FAIL] {sc_name}: {check_name}")
+
+        if all_pass:
+            print(f"\n[Experiment] All invariants PASS")
+
+        # Print comparison summary
+        comparison.print_summary()
+
+        # N1 stimulus-response coupling: isolation vs stress
+        n1 = comparison.compute_n1("isolation", "stress")
+        if n1:
+            print(f"\n[N1] Stimulus-Response (isolation → stress): "
+                  f"dialogue_delta={n1.dialogue_delta:+.1f}pp "
+                  f"rearrange_delta={n1.rearrange_delta:+.1f}pp "
+                  f"score={n1.score:.3f} "
+                  f"{'PASS' if n1.passed else 'FAIL'}")
+
+        print(f"\n[Experiment] Scenarios complete. "
               f"Results in {args.output_dir}/")
         return
 
@@ -257,9 +344,17 @@ async def run_experiment(args):
 
 
 def do_compare(results_dir: str):
-    """Compare existing results and export tables."""
-    from sim.metrics.comparator import MetricsComparator
+    """Compare existing results and export tables.
 
+    Loads JSON result files from the directory and produces both
+    M-metric comparisons (via MetricsComparator) and full N-metric
+    scenario comparisons (via ScenarioComparison) when result files
+    contain cycle data.
+    """
+    from sim.metrics.comparator import MetricsComparator
+    from sim.reports.comparison import ScenarioComparison
+
+    # Legacy M-metric comparison
     comparator = MetricsComparator.from_results_dir(results_dir)
     comparator.export_csv(results_dir)
     comparator.export_json(results_dir)
@@ -269,6 +364,29 @@ def do_compare(results_dir: str):
         print(f"\nComparison ({len(table)} systems):")
         for row in table:
             print(f"  {row}")
+
+    # Try full scenario comparison if result files have cycle data
+    results_path = Path(results_dir)
+    scenario_results: dict[str, dict] = {}
+    for f in sorted(results_path.glob("*.json")):
+        if f.name.startswith("scenario_comparison"):
+            continue
+        try:
+            data = json.loads(f.read_text())
+            if "cycles" in data and len(data["cycles"]) > 0:
+                name = data.get("scenario", f.stem)
+                scenario_results[name] = data
+        except (json.JSONDecodeError, KeyError):
+            continue
+
+    if len(scenario_results) >= 2:
+        print(f"\n[Compare] Building scenario comparison "
+              f"({len(scenario_results)} scenarios)...")
+        comparison = ScenarioComparison(scenario_results)
+        comparison.export_csv(results_dir)
+        comparison.export_json(results_dir)
+        comparison.print_summary()
+
     print(f"\nExported to {results_dir}/")
 
 
