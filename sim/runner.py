@@ -666,13 +666,22 @@ OUTPUT SCHEMA:
         self._sync_display_energy_from_budget()
 
         # Parse response — strip markdown fences, then JSON
-        text = response["content"][0]["text"].strip()
-        text = re.sub(r'^```(?:json)?\s*', '', text)
-        text = re.sub(r'\s*```$', '', text)
-        try:
-            parsed = json.loads(text)
-        except json.JSONDecodeError:
-            parsed = {"internal_monologue": text}
+        # Guard: find first text block (tool_use blocks lack "text" key)
+        text_block = next(
+            (b for b in response.get("content", [])
+             if isinstance(b, dict) and b.get("type") == "text"),
+            None,
+        )
+        if text_block is None:
+            parsed = {"internal_monologue": "[no text in LLM response]"}
+        else:
+            text = text_block["text"].strip()
+            text = re.sub(r'^```(?:json)?\s*', '', text)
+            text = re.sub(r'\s*```$', '', text)
+            try:
+                parsed = json.loads(text)
+            except json.JSONDecodeError:
+                parsed = {"internal_monologue": text}
 
         # Apply ablation transforms to parsed output
         parsed = self._apply_ablation_transforms(parsed)
