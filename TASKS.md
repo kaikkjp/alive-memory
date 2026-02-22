@@ -1140,6 +1140,71 @@ ORDER BY sim_day;
 
 ---
 
+### TASK-079: Deploy Scripts Set Wrong API Key
+**Status:** DONE (2026-02-22)
+**Priority:** High
+**Description:** Runtime hard-requires `OPENROUTER_API_KEY` (heartbeat_server.py:142, terminal.py:933) but all deploy/setup scripts still set `ANTHROPIC_API_KEY`. A scripted deployment comes up with the wrong key and immediately fails startup checks. Reconcile by updating deploy scripts to set `OPENROUTER_API_KEY`, and update documentation to match.
+**Affected locations:**
+- `deploy/setup.sh:146,150` — prompts for and writes `ANTHROPIC_API_KEY`
+- `DEPLOY-NOW.sh:98` — writes `ANTHROPIC_API_KEY`
+- `README.md:20` — documents `ANTHROPIC_API_KEY` as required
+- `DEPLOY_VPS.md:25` — documents `ANTHROPIC_API_KEY`
+- `CLAUDE.md` env table — lists `ANTHROPIC_API_KEY`
+**Scope (files you may touch):**
+- `deploy/setup.sh`
+- `DEPLOY-NOW.sh`
+- `README.md`
+- `DEPLOY_VPS.md`
+- `CLAUDE.md` (env variable table only)
+**Scope (files you may NOT touch):**
+- `heartbeat_server.py`
+- `terminal.py`
+- `pipeline/*`
+- `db.py`
+**Tests:** After applying changes, grep entire repo for `ANTHROPIC_API_KEY` — should appear only in historical/fallback contexts, not as primary key. Grep for `OPENROUTER_API_KEY` — should appear in deploy scripts, docs, and runtime checks.
+**Definition of done:** Deploy scripts set `OPENROUTER_API_KEY`. All docs reference `OPENROUTER_API_KEY` as the required key. A fresh deploy using these scripts passes the startup API key check.
+
+---
+
+### TASK-080: browse_web Emits content_consumed for Failed Pool Inserts
+**Status:** BACKLOG
+**Priority:** Medium
+**Description:** In `body/web.py`, the pool insert (`insert_pool_item`) is best-effort — failures are caught and swallowed (line 82). But the `content_consumed` event is emitted unconditionally (line 100) with the `content_id` that was never persisted. This produces dangling `content_id` references in analytics/drive updates. Compare with `body/internal.py:245-248` (`read_content`), which validates pool item existence before emitting consumption events. Fix: gate the `content_consumed` event on pool insert success.
+**Scope (files you may touch):**
+- `body/web.py`
+- `tests/test_web_browse.py`
+**Scope (files you may NOT touch):**
+- `body/internal.py`
+- `pipeline/*`
+- `db.py`
+**Tests:**
+- Pool insert failure → no `content_consumed` event emitted, `db.append_event` not called
+- Pool insert success → `content_consumed` event emitted as before
+- MD memory write still attempted regardless of pool insert outcome
+**Definition of done:** `content_consumed` event is only emitted when `insert_pool_item` succeeds. MD memory writes are unaffected. Existing success-path tests still pass.
+
+---
+
+### TASK-081: test_web_browse Non-Hermetic — Leaks MagicMock Files to Repo
+**Status:** BACKLOG
+**Priority:** Medium
+**Description:** Test fixture in `tests/test_web_browse.py` mocks `clock.now_utc` (line 19) but not `clock.now()`. Production code at `body/web.py:92` calls `clock.now().strftime(...)` for the browse filename, which falls through to the unmocked `MagicMock.now()` — producing filenames like `<MagicMock name='clock.now().strftime()' id='...'>`. The `memory_writer` path also isn't mocked, so real files are written to `data/memory/browse/`. This is visible in the repo's untracked files (170+ MagicMock-named artifacts).
+**Fix:**
+1. Mock `clock.now()` in the fixture to return a proper `datetime` (alongside existing `clock.now_utc` mock)
+2. Mock `memory_writer.get_memory_writer` (or `writer.append_browse`) to prevent real file I/O
+3. Clean up existing `data/memory/browse/<MagicMock...>` artifacts (add to `.gitignore` if `data/memory/browse/` isn't already excluded)
+**Scope (files you may touch):**
+- `tests/test_web_browse.py`
+- `.gitignore` (add `data/memory/browse/` if not present)
+**Scope (files you may NOT touch):**
+- `body/web.py`
+- `memory_writer.py`
+- `pipeline/*`
+**Tests:** Run `python3 -m pytest tests/test_web_browse.py -v` — all pass, no new files created in `data/memory/browse/`.
+**Definition of done:** `clock.now()` returns a real datetime in test fixture. Memory writer is mocked. No filesystem side effects from test runs. Existing MagicMock artifacts cleaned up.
+
+---
+
 ## Completed Tasks
 
 ### TASK-054: Fix inhibition self_assessment trigger

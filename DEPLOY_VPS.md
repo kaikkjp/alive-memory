@@ -22,7 +22,7 @@ chmod 600 .env
 
 Edit `.env` and set at minimum:
 
-- `ANTHROPIC_API_KEY` — your Claude API key
+- `OPENROUTER_API_KEY` — your OpenRouter API key
 - `SHOPKEEPER_SERVER_TOKEN` — a long random string for TCP auth
 
 ### 2. Build
@@ -215,7 +215,7 @@ mkdir -p data
 ```bash
 cp .env.example .env
 chmod 600 .env
-# Edit .env: set ANTHROPIC_API_KEY and SHOPKEEPER_SERVER_TOKEN
+# Edit .env: set OPENROUTER_API_KEY and SHOPKEEPER_SERVER_TOKEN
 ```
 
 #### 4. Systemd service

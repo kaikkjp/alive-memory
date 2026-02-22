@@ -242,7 +242,7 @@ python simulate.py --cycles 10
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `ANTHROPIC_API_KEY` | Yes | Claude API key for cortex calls |
+| `OPENROUTER_API_KEY` | Yes | OpenRouter API key for all LLM calls |
 | `SHOPKEEPER_DB_PATH` | No | SQLite DB path (default: `data/shopkeeper.db`) |
 | `COLD_SEARCH_ENABLED` | No | Enable vector search (`true`/`false`, default `false`) |
 | `FAL_KEY` | For visuals | fal.ai API key for image generation |

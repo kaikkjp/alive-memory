@@ -5,7 +5,7 @@ A persistent AI character engine. She runs a shop, keeps a journal, collects obj
 ## Prerequisites
 
 - Python 3.12+
-- An [Anthropic API key](https://console.anthropic.com/)
+- An [OpenRouter API key](https://openrouter.ai/keys)
 
 ## Setup
 
@@ -17,7 +17,7 @@ git clone <repo-url> && cd alive
 pip install -r requirements.txt
 
 # Set your API key
-export ANTHROPIC_API_KEY='sk-ant-...'
+export OPENROUTER_API_KEY='sk-or-v1-...'
 ```
 
 ## Running

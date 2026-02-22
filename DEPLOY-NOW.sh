@@ -7,7 +7,7 @@ set -e
 VPS_IP="89.167.23.147"
 DOMAIN="shopkeeper.tokyo"
 REPO="TriMinhPham/shopkeeper"
-API_KEY="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"
+API_KEY="${OPENROUTER_API_KEY:?Set OPENROUTER_API_KEY before running this script}"
 
 echo "🚀 DEPLOYING SHOPKEEPER - FULLY AUTOMATED"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -95,7 +95,7 @@ sudo -u "\${DEPLOY_USER}" bash -c "
 # 7. Environment file (non-interactive)
 echo "[7/9] Creating .env..."
 cat > "\${APP_DIR}/.env" <<ENVEOF
-ANTHROPIC_API_KEY=${API_KEY}
+OPENROUTER_API_KEY=${API_KEY}
 GEMINI_API_KEY=
 SHOPKEEPER_WS_PORT=8765
 SHOPKEEPER_HTTP_PORT=8080
