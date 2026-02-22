@@ -936,3 +936,84 @@ async def get_executed_action_count_today() -> int:
     )
     row = await cursor.fetchone()
     return row['cnt'] if row else 0
+
+
+# ── HabitPolicy queries (TASK-082) ──
+
+async def get_cycles_since_last_journal() -> int:
+    """Return number of cycles since last write_journal action.
+
+    Returns 9999 if no journal ever written.
+    """
+    conn = await _connection.get_db()
+    cursor = await conn.execute(
+        """SELECT MAX(created_at) AS last_ts FROM action_log
+           WHERE action = 'write_journal' AND status = 'approved'"""
+    )
+    row = await cursor.fetchone()
+    last_ts = row['last_ts'] if row else None
+    if not last_ts:
+        return 9999
+    cursor = await conn.execute(
+        "SELECT COUNT(*) FROM cycle_log WHERE created_at > ?", (last_ts,)
+    )
+    row = await cursor.fetchone()
+    return row[0] if row else 9999
+
+
+async def get_journals_today() -> int:
+    """Return count of write_journal actions in current sleep-wake window (JST day)."""
+    conn = await _connection.get_db()
+    jst_now = clock.now()
+    day_start = jst_now.replace(hour=0, minute=0, second=0, microsecond=0)
+    day_start_utc = day_start.astimezone(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+    cursor = await conn.execute(
+        """SELECT COUNT(*) FROM action_log
+           WHERE action = 'write_journal' AND status = 'approved'
+           AND created_at >= ?""",
+        (day_start_utc,)
+    )
+    row = await cursor.fetchone()
+    return row[0] if row else 0
+
+
+async def get_cycles_since_last_visitor() -> int:
+    """Return number of cycles since last visitor was present.
+
+    Returns 9999 if no visitor ever seen.
+    """
+    conn = await _connection.get_db()
+    cursor = await conn.execute(
+        """SELECT MAX(ts) AS last_ts FROM events
+           WHERE event_type IN ('visitor_speech', 'visitor_connect')"""
+    )
+    row = await cursor.fetchone()
+    last_ts = row['last_ts'] if row else None
+    if not last_ts:
+        return 9999
+    cursor = await conn.execute(
+        "SELECT COUNT(*) FROM cycle_log WHERE created_at > ?", (last_ts,)
+    )
+    row = await cursor.fetchone()
+    return row[0] if row else 9999
+
+
+async def get_journals_from_current_day() -> list:
+    """Return journal entries from current sleep-wake window for consolidation.
+
+    Excludes sleep_reflection entries — those are sleep-generated, not
+    waking-hour journals from the shopkeeper's own write_journal actions.
+    """
+    conn = await _connection.get_db()
+    jst_now = clock.now()
+    day_start = jst_now.replace(hour=0, minute=0, second=0, microsecond=0)
+    day_start_utc = day_start.astimezone(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+    cursor = await conn.execute(
+        """SELECT id, content, mood, tags, created_at FROM journal_entries
+           WHERE created_at >= ?
+           AND tags NOT LIKE '%sleep_reflection%'
+           ORDER BY created_at ASC""",
+        (day_start_utc,)
+    )
+    rows = await cursor.fetchall()
+    return [dict(r) for r in rows]
