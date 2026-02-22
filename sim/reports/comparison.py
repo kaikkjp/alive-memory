@@ -158,6 +158,9 @@ class ScenarioComparison:
             5. unique_action_types >= 8
             6. total_posts + total_journals > 0
 
+        Invariants 1, 3, 4 apply only to the "standard" scenario.
+        Invariants 2, 5, 6 apply to all scenarios.
+
         Returns dict of scenario -> {invariant_name: passed}.
         """
         checks: dict[str, dict[str, bool]] = {}
@@ -166,26 +169,34 @@ class ScenarioComparison:
             scenario_checks: dict[str, bool] = {}
             data = self.results[name]
             cycles = data.get("cycles", [])
+            is_standard = (name == "standard")
 
             # Invariant 1: self-loop < 0.7 (standard only)
-            if report.n2_loop:
+            if is_standard and report.n2_loop:
                 scenario_checks["self_loop_lt_0.7"] = (
                     report.n2_loop.bigram_self_loop < 0.7
                 )
 
-            # Invariant 2: max streak < 20
+            # Invariant 2: max streak < 20 (all scenarios)
             if report.n2_loop:
                 scenario_checks["max_streak_lt_20"] = (
                     report.n2_loop.max_streak < 20
                 )
 
             # Invariant 3: repetition < 0.7 (standard only)
-            if report.n2_loop:
+            if is_standard and report.n2_loop:
                 scenario_checks["repetition_lt_0.7"] = (
                     report.n2_loop.monologue_repetition < 0.7
                 )
 
-            # Invariant 5: unique action types >= 8
+            # Invariant 4: social_hunger saturation streak < 50 (standard only)
+            if is_standard:
+                sh_streak = _social_hunger_saturation_streak(cycles)
+                scenario_checks["social_hunger_streak_lt_50"] = (
+                    sh_streak < 50
+                )
+
+            # Invariant 5: unique action types >= 8 (all scenarios)
             actions = set()
             for c in cycles:
                 a = c.get("action")
@@ -193,7 +204,7 @@ class ScenarioComparison:
                     actions.add(a)
             scenario_checks["unique_actions_gte_8"] = len(actions) >= 8
 
-            # Invariant 6: posts + journals > 0
+            # Invariant 6: posts + journals > 0 (all scenarios)
             total_posts = data.get("total_posts", 0)
             total_journals = data.get("total_journals", 0)
             scenario_checks["posts_or_journals_gt_0"] = (
@@ -285,6 +296,26 @@ class ScenarioComparison:
             print("  ".join(values))
 
 
+def _social_hunger_saturation_streak(cycles: list[dict]) -> int:
+    """Compute the longest consecutive run where social_hunger >= 0.95.
+
+    A high streak means the character is stuck at max social hunger
+    without satisfying it through dialogue — a sign of broken social
+    drive regulation.
+    """
+    max_streak = 0
+    current = 0
+    for c in cycles:
+        drives = c.get("drives", {})
+        sh = drives.get("social_hunger", 0.0)
+        if sh >= 0.95:
+            current += 1
+            max_streak = max(max_streak, current)
+        else:
+            current = 0
+    return max_streak
+
+
 class _CycleAdapter:
     """Adapter to make a cycle dict behave like CycleResult for SimMetricsCollector."""
 
@@ -326,3 +357,15 @@ class _CycleAdapter:
     @property
     def sleep_triggered(self) -> bool:
         return self._data.get("type") == "sleep" or self._data.get("cycle_type") == "sleep"
+
+    @property
+    def budget_usd_daily_cap(self) -> float:
+        return self._data.get("budget_usd_daily_cap", 1.0)
+
+    @property
+    def budget_remaining_usd(self) -> float:
+        return self._data.get("budget_remaining_usd", 1.0)
+
+    @property
+    def budget_after_sleep_usd(self) -> float | None:
+        return self._data.get("budget_after_sleep_usd")

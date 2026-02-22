@@ -5,7 +5,11 @@ import tempfile
 from pathlib import Path
 
 import pytest
-from sim.reports.comparison import ScenarioComparison, _CycleAdapter
+from sim.reports.comparison import (
+    ScenarioComparison,
+    _CycleAdapter,
+    _social_hunger_saturation_streak,
+)
 
 
 def _make_cycles(actions: list[str], monologues: list[str] | None = None) -> list[dict]:
@@ -27,20 +31,25 @@ def _make_cycles(actions: list[str], monologues: list[str] | None = None) -> lis
 
         mono = monologues[i] if monologues and i < len(monologues) else f"Thought {i}"
 
-        cycles.append({
+        cycle_dict: dict = {
             "cycle": i,
             "type": ctype,
             "action": action,
             "has_visitor": ctype == "dialogue",
             "dialogue": "Hello" if ctype == "dialogue" else None,
             "monologue": mono,
-            "drives": {"mood_valence": 0.1 * (i % 5 - 2), "mood_arousal": 0.3},
+            "drives": {"mood_valence": 0.1 * (i % 5 - 2), "mood_arousal": 0.3,
+                        "social_hunger": 0.5},
             "budget_spent_usd": 0.01 * (i + 1),
+            "budget_usd_daily_cap": 1.0,
             "budget_remaining_usd": 1.0 - 0.01 * (i + 1),
             "memory_updates": [],
             "intentions": [],
             "resonance": False,
-        })
+        }
+        if ctype == "sleep":
+            cycle_dict["budget_after_sleep_usd"] = 1.0
+        cycles.append(cycle_dict)
     return cycles
 
 
@@ -128,6 +137,7 @@ class TestInvariantCheck:
         assert std_checks["self_loop_lt_0.7"] is True
         assert std_checks["max_streak_lt_20"] is True
         assert std_checks["repetition_lt_0.7"] is True
+        assert std_checks["social_hunger_streak_lt_50"] is True
         assert std_checks["posts_or_journals_gt_0"] is True
 
     def test_bad_run_invariants(self):
@@ -138,6 +148,50 @@ class TestInvariantCheck:
         std_checks = checks["standard"]
         assert std_checks["max_streak_lt_20"] is False
         assert std_checks["posts_or_journals_gt_0"] is False
+
+    def test_standard_only_invariants_not_in_other_scenarios(self):
+        """Invariants 1, 3, 4 should only appear for 'standard' scenario."""
+        actions = ["rearrange"] * 10
+        isolation = _make_result("isolation", actions)
+        comp = ScenarioComparison({"isolation": isolation})
+        checks = comp.invariant_check()
+        iso_checks = checks["isolation"]
+        # Standard-only invariants should not be present
+        assert "self_loop_lt_0.7" not in iso_checks
+        assert "repetition_lt_0.7" not in iso_checks
+        assert "social_hunger_streak_lt_50" not in iso_checks
+        # Universal invariants should be present
+        assert "max_streak_lt_20" in iso_checks
+        assert "unique_actions_gte_8" in iso_checks
+        assert "posts_or_journals_gt_0" in iso_checks
+
+    def test_social_hunger_saturation_streak_fails(self):
+        """Invariant 4 fails when social_hunger is saturated for 50+ cycles."""
+        # Build cycles with social_hunger at 0.99 for 60 consecutive cycles
+        cycles = []
+        for i in range(60):
+            cycles.append({
+                "cycle": i,
+                "type": "idle",
+                "action": None,
+                "drives": {"social_hunger": 0.99},
+                "budget_spent_usd": 0.0,
+                "budget_usd_daily_cap": 1.0,
+                "budget_remaining_usd": 1.0,
+                "memory_updates": [],
+            })
+        result = {
+            "scenario": "standard",
+            "variant": "full",
+            "seed": 42,
+            "num_cycles": 60,
+            "cycles": cycles,
+            "total_posts": 0,
+            "total_journals": 0,
+        }
+        comp = ScenarioComparison({"standard": result})
+        checks = comp.invariant_check()
+        assert checks["standard"]["social_hunger_streak_lt_50"] is False
 
 
 class TestExport:
@@ -201,3 +255,49 @@ class TestCycleAdapter:
         assert c.sleep_triggered is True
         c2 = _CycleAdapter({"type": "idle"})
         assert c2.sleep_triggered is False
+
+    def test_budget_fields(self):
+        c = _CycleAdapter({
+            "budget_usd_daily_cap": 2.0,
+            "budget_remaining_usd": 1.5,
+            "budget_after_sleep_usd": 2.0,
+        })
+        assert c.budget_usd_daily_cap == 2.0
+        assert c.budget_remaining_usd == 1.5
+        assert c.budget_after_sleep_usd == 2.0
+
+    def test_budget_defaults(self):
+        c = _CycleAdapter({})
+        assert c.budget_usd_daily_cap == 1.0
+        assert c.budget_remaining_usd == 1.0
+        assert c.budget_after_sleep_usd is None
+
+
+class TestSocialHungerStreak:
+    """Test _social_hunger_saturation_streak helper."""
+
+    def test_empty(self):
+        assert _social_hunger_saturation_streak([]) == 0
+
+    def test_no_saturation(self):
+        cycles = [{"drives": {"social_hunger": 0.5}} for _ in range(10)]
+        assert _social_hunger_saturation_streak(cycles) == 0
+
+    def test_full_saturation(self):
+        cycles = [{"drives": {"social_hunger": 0.99}} for _ in range(10)]
+        assert _social_hunger_saturation_streak(cycles) == 10
+
+    def test_broken_streak(self):
+        cycles = (
+            [{"drives": {"social_hunger": 0.99}}] * 5
+            + [{"drives": {"social_hunger": 0.3}}]
+            + [{"drives": {"social_hunger": 0.99}}] * 3
+        )
+        assert _social_hunger_saturation_streak(cycles) == 5
+
+    def test_threshold_boundary(self):
+        """0.95 is the threshold — exactly 0.95 counts as saturated."""
+        cycles = [{"drives": {"social_hunger": 0.95}}] * 10
+        assert _social_hunger_saturation_streak(cycles) == 10
+        cycles_below = [{"drives": {"social_hunger": 0.949}}] * 10
+        assert _social_hunger_saturation_streak(cycles_below) == 0
