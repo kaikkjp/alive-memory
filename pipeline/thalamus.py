@@ -33,15 +33,17 @@ async def route(
     background = perceptions[1:4]
 
     # Determine cycle type
-    if focus.p_type == 'visitor_speech':
+    # TASK-087: digital_message/digital_connect/digital_disconnect route
+    # identically to their visitor_* counterparts.
+    if focus.p_type in ('visitor_speech', 'digital_message'):
         cycle_type = 'engage'
-    elif focus.p_type == 'visitor_connect':
-        # Visitor arrival competes with other perceptions via salience.
-        # High salience (familiar face, lonely) → engage and greet.
+    elif focus.p_type in ('visitor_connect', 'digital_connect'):
+        # Visitor/message arrival competes with other perceptions via salience.
+        # High salience (familiar face, lonely) → engage and greet/reply.
         # Low salience (stranger, she's absorbed) → idle, she notices but continues.
         cycle_type = 'engage' if focus.salience >= p('thalamus.routing.connect_salience_threshold') else 'idle'
-    elif focus.p_type == 'visitor_disconnect':
-        cycle_type = 'idle'  # she's alone now — reflect, don't engage
+    elif focus.p_type in ('visitor_disconnect', 'digital_disconnect'):
+        cycle_type = 'idle'  # they're gone — reflect, don't engage
     elif focus.p_type == 'visitor_silence':
         # Silence competes via salience: high-salience silence (she's invested
         # in the conversation) stays engage. Low-salience silence (boring
