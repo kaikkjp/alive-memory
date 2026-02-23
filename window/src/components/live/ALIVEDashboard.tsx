@@ -64,7 +64,7 @@ interface LiveDashboardState {
   shopOpen: boolean;
   timeOfDay: string;
   costToday: number;
-  costTotal: number;
+  cost30d: number;
   drives: LiveDrives;
   recentActions: LiveAction[];
   threads: LiveThread[];
@@ -220,6 +220,7 @@ export default function ALIVEDashboard() {
     const fetchState = async () => {
       try {
         const res = await fetch(`${API_BASE}/api/live`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         setState(data);
         setElapsed(0); // reset uptime ticker on fresh data

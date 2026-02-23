@@ -864,10 +864,10 @@ async def handle_live_dashboard(server, writer):
     cost_total = cost_summary.get('30d_total', 0.0)
 
     # ─── Recent Actions (last 10 from events) ───
-    recent_events = await db.get_recent_events(limit=20)
+    recent_events = await db.get_recent_events(limit=50)
     recent_actions = []
-    for e in recent_events:
-        if e.event_type in ('action_taken', 'action_executed'):
+    for e in reversed(recent_events):  # newest first
+        if e.event_type.startswith('action_'):
             action_name = ''
             detail = ''
             if isinstance(e.payload, dict):
@@ -1025,7 +1025,7 @@ async def handle_live_dashboard(server, writer):
         'shopOpen': room.shop_status == 'open',
         'timeOfDay': room.time_of_day or 'afternoon',
         'costToday': round(cost_today, 2),
-        'costTotal': round(cost_total, 2),
+        'cost30d': round(cost_total, 2),
         'drives': {
             'social_hunger': drives.social_hunger,
             'curiosity': drives.curiosity,
