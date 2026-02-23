@@ -86,12 +86,13 @@ class SimContentPool:
         """Mark a content item as consumed and return full details.
 
         Called when the cortex decides to ``read_content``.
-        Returns the full item including summary text.
+        Returns the full item including summary text, or None if
+        the content_id doesn't exist in the pool (typo / hallucination).
         """
-        self.consumed_ids.add(content_id)
-        self.seen_ids.add(content_id)
         for item in self.pool:
             if item["id"] == content_id:
+                self.consumed_ids.add(content_id)
+                self.seen_ids.add(content_id)
                 return item
         return None
 
