@@ -34,13 +34,20 @@ class ALIVEConfig:
     _BASE_PATH = os.path.join(os.path.dirname(__file__), 'alive_config.yaml')
 
     def __init__(self, override_path: str | None = None):
-        # Always load the base config first
-        base_path = os.environ.get('ALIVE_CONFIG', self._BASE_PATH)
-        with open(base_path) as f:
+        # Always load the canonical base config first
+        with open(self._BASE_PATH) as f:
             self._cfg = yaml.safe_load(f) or {}
 
-        # If an override path is given (and it's not the base), deep-merge on top
-        if override_path and os.path.abspath(override_path) != os.path.abspath(base_path):
+        # ALIVE_CONFIG env var is an override layer (deep-merged, not a replacement)
+        env_override = os.environ.get('ALIVE_CONFIG')
+        if env_override and os.path.abspath(env_override) != os.path.abspath(self._BASE_PATH):
+            with open(env_override) as f:
+                overrides = yaml.safe_load(f) or {}
+            self._cfg = _deep_merge(self._cfg, overrides)
+
+        # CLI --config is a second override layer on top of env
+        if override_path and os.path.abspath(override_path) != os.path.abspath(
+                env_override or self._BASE_PATH):
             with open(override_path) as f:
                 overrides = yaml.safe_load(f) or {}
             self._cfg = _deep_merge(self._cfg, overrides)
@@ -62,10 +69,15 @@ class ALIVEConfig:
 
     def reload(self, override_path: str | None = None):
         """Reload config from disk, optionally with an override layer."""
-        base_path = os.environ.get('ALIVE_CONFIG', self._BASE_PATH)
-        with open(base_path) as f:
+        with open(self._BASE_PATH) as f:
             self._cfg = yaml.safe_load(f) or {}
-        if override_path and os.path.abspath(override_path) != os.path.abspath(base_path):
+        env_override = os.environ.get('ALIVE_CONFIG')
+        if env_override and os.path.abspath(env_override) != os.path.abspath(self._BASE_PATH):
+            with open(env_override) as f:
+                overrides = yaml.safe_load(f) or {}
+            self._cfg = _deep_merge(self._cfg, overrides)
+        if override_path and os.path.abspath(override_path) != os.path.abspath(
+                env_override or self._BASE_PATH):
             with open(override_path) as f:
                 overrides = yaml.safe_load(f) or {}
             self._cfg = _deep_merge(self._cfg, overrides)
