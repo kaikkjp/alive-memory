@@ -869,7 +869,7 @@ async def handle_live_dashboard(server, writer):
         gaze = last_log.get('gaze') or 'middle_distance'
 
     # ─── Costs ───
-    cost_today = await db.get_llm_call_cost_today()
+    budget_info = await db.get_budget_remaining()
     cost_summary = await db.get_llm_costs_summary()
     cost_total = cost_summary.get('30d_total', 0.0)
 
@@ -1036,7 +1036,11 @@ async def handle_live_dashboard(server, writer):
         'gaze': gaze,
         'shopOpen': room.shop_status == 'open',
         'timeOfDay': room.time_of_day or 'afternoon',
-        'costToday': round(cost_today, 2),
+        'budget': {
+            'spent': round(budget_info['spent'], 4),
+            'cap': round(budget_info['budget'], 2),
+            'remaining': round(budget_info['remaining'], 4),
+        },
         'cost30d': round(cost_total, 2),
         'drives': {
             'social_hunger': drives.social_hunger,
