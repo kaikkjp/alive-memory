@@ -25,6 +25,19 @@ class Perception:
     salience: float = 0.5
 
 
+# ── TASK-087: Channel detection helpers ──
+
+DIGITAL_CHANNEL_PREFIXES = {'tg_': 'Telegram', 'x_': 'X'}
+
+
+def _detect_channel(visitor_id: str) -> str | None:
+    """Return platform name if visitor_id is from a digital channel, else None."""
+    for prefix, platform in DIGITAL_CHANNEL_PREFIXES.items():
+        if visitor_id.startswith(prefix):
+            return platform
+    return None
+
+
 async def build_perceptions(unread_events: list[Event], drives: DrivesState,
                            recent_fidgets: list = None,
                            focus_context=None,
@@ -68,14 +81,27 @@ async def build_perceptions(unread_events: list[Event], drives: DrivesState,
                     source_id=event.id if hasattr(event, 'id') else vid,
                 ))
 
-            perc = Perception(
-                p_type='visitor_speech',
-                source=event.source,
-                ts=event.ts,
-                content=text,
-                features=extract_features(text),
-                salience=calculate_salience(event, drives, visitor),
-            )
+            # TASK-087: Digital channels get different perception type + framing
+            channel = _detect_channel(vid)
+            if channel:
+                name = visitor.name if visitor and visitor.name else vid
+                perc = Perception(
+                    p_type='digital_message',
+                    source=event.source,
+                    ts=event.ts,
+                    content=f"A message on {channel} from {name}: \"{text}\"",
+                    features={**extract_features(text), 'channel': channel, 'is_digital': True},
+                    salience=calculate_salience(event, drives, visitor),
+                )
+            else:
+                perc = Perception(
+                    p_type='visitor_speech',
+                    source=event.source,
+                    ts=event.ts,
+                    content=text,
+                    features=extract_features(text),
+                    salience=calculate_salience(event, drives, visitor),
+                )
             perceptions.append(perc)
 
         elif event.event_type == 'visitor_connect':
@@ -83,39 +109,66 @@ async def build_perceptions(unread_events: list[Event], drives: DrivesState,
             visitor = await db.get_visitor(vid)
             trust = visitor.trust_level if visitor else 'stranger'
 
-            if trust == 'stranger':
-                content = "Someone new enters the shop."
-            elif trust == 'returner':
-                content = "Someone who's been here before walks in."
-            elif trust == 'regular':
-                name = visitor.name or "a familiar face"
-                content = f"{name} is back."
+            # TASK-087: Digital channels don't "enter the shop"
+            channel = _detect_channel(vid)
+            if channel:
+                name = visitor.name if visitor and visitor.name else "someone"
+                content = f"A new conversation on {channel} from {name}."
+                perc = Perception(
+                    p_type='digital_connect',
+                    source=event.source,
+                    ts=event.ts,
+                    content=content,
+                    features={'is_arrival': True, 'trust_level': trust, 'channel': channel, 'is_digital': True},
+                    salience=calculate_connect_salience(drives, trust),
+                )
             else:
-                name = visitor.name or "someone I know well"
-                content = f"{name} walks in. Something shifts."
+                if trust == 'stranger':
+                    content = "Someone new enters the shop."
+                elif trust == 'returner':
+                    content = "Someone who's been here before walks in."
+                elif trust == 'regular':
+                    name = visitor.name or "a familiar face"
+                    content = f"{name} is back."
+                else:
+                    name = visitor.name or "someone I know well"
+                    content = f"{name} walks in. Something shifts."
 
-            perc = Perception(
-                p_type='visitor_connect',
-                source=event.source,
-                ts=event.ts,
-                content=content,
-                features={'is_arrival': True, 'trust_level': trust},
-                salience=calculate_connect_salience(drives, trust),
-            )
+                perc = Perception(
+                    p_type='visitor_connect',
+                    source=event.source,
+                    ts=event.ts,
+                    content=content,
+                    features={'is_arrival': True, 'trust_level': trust},
+                    salience=calculate_connect_salience(drives, trust),
+                )
             perceptions.append(perc)
 
         elif event.event_type == 'visitor_disconnect':
             vid = event.source.split(':')[1] if ':' in event.source else event.source
             visitor = await db.get_visitor(vid)
             name = visitor.name if visitor and visitor.name else "they"
-            perc = Perception(
-                p_type='visitor_disconnect',
-                source=event.source,
-                ts=event.ts,
-                content=f"{name} left.",
-                features={'is_departure': True},
-                salience=0.4,
-            )
+
+            # TASK-087: Digital channels don't "leave the shop"
+            channel = _detect_channel(vid)
+            if channel:
+                perc = Perception(
+                    p_type='digital_disconnect',
+                    source=event.source,
+                    ts=event.ts,
+                    content=f"{name} went quiet on {channel}.",
+                    features={'is_departure': True, 'channel': channel, 'is_digital': True},
+                    salience=0.2,
+                )
+            else:
+                perc = Perception(
+                    p_type='visitor_disconnect',
+                    source=event.source,
+                    ts=event.ts,
+                    content=f"{name} left.",
+                    features={'is_departure': True},
+                    salience=0.4,
+                )
             perceptions.append(perc)
 
         elif event.event_type == 'ambient_discovery':

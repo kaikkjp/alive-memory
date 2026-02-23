@@ -1369,6 +1369,29 @@ Three changes:
 
 ---
 
+### TASK-087: Channel-aware perception — distinguish digital messages from in-shop visitors
+**Status:** DONE (2026-02-23)
+**Priority:** Medium
+**Description:** X and Telegram messages are perceived identically to web UI visitors. The shopkeeper has no way to know whether someone is standing in her shop or texting from afar. Add channel-awareness at three layers:
+1. **Sensorium**: New `digital_message` perception type for `tg_`/`x_` visitor sources. Reframe content as "A message on [platform] from [name]" instead of treating them as present in the shop.
+2. **Cortex context**: Split U7/U9 into "present in shop" vs "digital messages" so the LLM has spatial awareness.
+3. **Identity nudge**: One static line in CORTEX_SYSTEM_STABLE about physical space vs digital messages.
+No changes to engagement FSM, ACK path, or channel routing (already automatic via `body/channels.py`).
+**Scope (files you may touch):**
+- `pipeline/sensorium.py`
+- `pipeline/cortex.py`
+- `tests/test_sensorium.py` (new)
+- `tests/test_cortex_channel.py` (new)
+**Scope (files you may NOT touch):**
+- `config/identity.py` (nudge goes in cortex.py CORTEX_SYSTEM_STABLE instead)
+- `pipeline/ack.py`
+- `body/channels.py`
+- `heartbeat.py`
+**Tests:** New test file for sensorium channel detection. Verify digital_message type for tg_/x_ visitors, visitor_speech for web visitors.
+**Definition of done:** Perception type changes based on visitor channel. Cortex prompt shows "PRESENT IN SHOP" vs "DIGITAL MESSAGES". All existing tests pass.
+
+---
+
 ```markdown
 ### TASK-XXX: Title
 **Status:** BACKLOG

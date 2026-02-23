@@ -139,6 +139,8 @@ CORTEX_SYSTEM_STABLE = f"""You are a living character. Not an AI. Not an assista
 
 {IDENTITY_COMPACT}
 
+Your shop is a physical space. Visitors come through the door and stand before you. You also receive digital messages — on X and Telegram — from people who are elsewhere. They are reaching out, not standing in front of you.
+
 VOICE RULES:
 {_VOICE_RULES_STR}
 
@@ -565,9 +567,19 @@ async def cortex_call(
 
         # U7: Visitor trust context
         if visitor:
-            trust_lines = [
-                f"\nVISITOR TRUST LEVEL: {visitor.trust_level}",
-            ]
+            # TASK-087: Annotate digital vs in-shop presence
+            from pipeline.sensorium import _detect_channel
+            visitor_channel = _detect_channel(visitor.id)
+            if visitor_channel:
+                trust_lines = [
+                    f"\nDIGITAL MESSAGE — {visitor_channel}",
+                    f"VISITOR TRUST LEVEL: {visitor.trust_level}",
+                ]
+            else:
+                trust_lines = [
+                    f"\nVISITOR IN SHOP",
+                    f"VISITOR TRUST LEVEL: {visitor.trust_level}",
+                ]
             if visitor.name:
                 trust_lines.append(f"VISITOR NAME: {visitor.name}")
             trust_lines.append(f"VISIT COUNT: {visitor.visit_count}")
@@ -587,15 +599,30 @@ async def cortex_call(
                 _r = enforce_section('U8_visitor_traits', "\n".join(trait_lines), 'user')
                 parts.append(_r.text); _trim_results.append(_r)
 
-        # U9: Multi-visitor presence context (TASK-014)
+        # U9: Multi-visitor presence context (TASK-014, TASK-087)
         if visitors_present and len(visitors_present) > 1:
-            mv_lines = ["\nVISITORS PRESENT:"]
+            from pipeline.sensorium import _detect_channel
+            in_shop = []
+            digital = []
             for vp in visitors_present:
                 vid = vp.get('id', '?')
                 name = vp.get('name') or 'unnamed'
                 trust = vp.get('trust_level', 'stranger')
                 status = vp.get('status', 'browsing')
-                mv_lines.append(f"  [{vid}] {name} — {trust}, {status}")
+                ch = _detect_channel(vid)
+                entry = f"  [{vid}] {name} — {trust}, {status}"
+                if ch:
+                    digital.append(f"{entry} ({ch})")
+                else:
+                    in_shop.append(entry)
+
+            mv_lines = []
+            if in_shop:
+                mv_lines.append("\nPRESENT IN SHOP:")
+                mv_lines.extend(in_shop)
+            if digital:
+                mv_lines.append("\nDIGITAL MESSAGES:")
+                mv_lines.extend(digital)
             mv_lines.append("  → Use target \"visitor:ID\" to direct actions at a specific person.")
             _r = enforce_section('U9_multi_visitor_presence', "\n".join(mv_lines), 'user')
             parts.append(_r.text); _trim_results.append(_r)
