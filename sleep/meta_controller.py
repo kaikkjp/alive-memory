@@ -12,6 +12,8 @@ TASK-091 adds Phase 4b: evaluate pending experiments, classify outcomes,
 revert bad adjustments, update confidence, detect side effects.
 """
 
+import json
+
 import clock
 import db
 import db.connection as _connection
@@ -115,11 +117,13 @@ def detect_side_effects(
 def compute_adaptive_cooldown(base_cooldown: int, confidence: float) -> int:
     """Cooldown scales inversely with confidence.
 
-    High confidence (0.9): cooldown * 1.3 — can adjust again soon
-    Low confidence (0.3): cooldown * 3.1 — back off
-    No data yet (0.5 default): cooldown * 2.5 — cautious
+    High confidence (0.9): 0.7× base — proven link, adjust again soon
+    Default (0.5): 1.5× base — unknown link, cautious
+    Low confidence (0.3): 1.9× base — back off, this doesn't work well
+    Floor: 0.5× base (never shorter than half base).
     """
-    return round(base_cooldown * (1 + (1 - confidence) * 3))
+    multiplier = 2.5 - 2.0 * confidence
+    return round(base_cooldown * max(0.5, multiplier))
 
 
 # ── Outcome classification (TASK-091) ──
@@ -234,16 +238,27 @@ async def evaluate_experiments() -> list[dict]:
         )
 
         # Build "before" metrics for side-effect detection
-        # Use metric_value_at_change for the target, and assume others were in range
-        metrics_before: dict[str, float] = {}
-        for t_name, t_cfg in targets.items():
-            m = t_cfg.get('metric')
-            if m == target_metric:
-                metrics_before[m] = exp['metric_value_at_change']
-            elif m in all_metrics_now:
-                # Approximate: assume other metrics were at their current value
-                # minus any drift (conservative — may miss some side effects)
-                metrics_before[m] = all_metrics_now[m]
+        # Prefer stored snapshot (recorded at adjustment time); fall back to
+        # approximation for experiments created before the snapshot feature.
+        stored_snapshot = None
+        raw = exp.get('metrics_snapshot')
+        if raw:
+            try:
+                stored_snapshot = json.loads(raw) if isinstance(raw, str) else raw
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+        if stored_snapshot:
+            metrics_before = stored_snapshot
+        else:
+            # Fallback: approximate from current values (may miss side effects)
+            metrics_before = {}
+            for t_name, t_cfg in targets.items():
+                m = t_cfg.get('metric')
+                if m == target_metric:
+                    metrics_before[m] = exp['metric_value_at_change']
+                elif m in all_metrics_now:
+                    metrics_before[m] = all_metrics_now[m]
 
         # Check side effects
         side_effects = detect_side_effects(exp, metrics_before, all_metrics_now, targets)
@@ -511,7 +526,7 @@ async def run_meta_controller() -> list[dict]:
             print(f"  [MetaController] Failed to adjust {adj['param']}: {e}")
             continue
 
-        # Log experiment (with confidence at time of change)
+        # Log experiment (with confidence and metrics snapshot for evaluation)
         try:
             await db.record_experiment(
                 cycle_at_change=cycle_count,
@@ -522,6 +537,7 @@ async def run_meta_controller() -> list[dict]:
                 target_metric=adj['target_metric'],
                 metric_value_at_change=adj['metric_value'],
                 confidence_at_change=adj.get('confidence'),
+                metrics_snapshot=metrics,
             )
         except Exception as e:
             print(f"  [MetaController] Failed to log experiment: {e}")
