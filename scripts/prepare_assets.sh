@@ -42,6 +42,9 @@ fi
 # ─── Create output directories ───
 mkdir -p "${PUBLIC_DIR}" "${SPRITES_DIR}"
 
+# ─── Remove stale generated files (may have wrong perms from prior deploys) ───
+rm -f "${PUBLIC_DIR}/shop_interior.png" "${PUBLIC_DIR}/counter_foreground.png"
+
 # ─── Generate derived images ───
 echo "[prepare_assets] Generating shop_interior.png..."
 ${PYTHON} "${SCRIPT_DIR}/cut_window_mask.py"
