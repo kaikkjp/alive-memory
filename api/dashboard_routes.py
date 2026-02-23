@@ -994,20 +994,16 @@ async def handle_live_dashboard(server, writer):
            ORDER BY ts DESC LIMIT 1"""
     )
     sleep_row = await cursor.fetchone()
-    last_sleep = {
-        'quality': 0.0,
-        'dreamsConsolidated': 0,
-        'memoriesStrengthened': 0,
-        'hoursAgo': 0.0,
-    }
+    last_sleep = None
     if sleep_row and sleep_row['ts']:
         try:
             sleep_dt = datetime.fromisoformat(sleep_row['ts'].replace('Z', '+00:00'))
             if sleep_dt.tzinfo is None:
                 sleep_dt = sleep_dt.replace(tzinfo=timezone.utc)
             hours_ago = (clock.now_utc() - sleep_dt).total_seconds() / 3600
-            last_sleep['hoursAgo'] = round(hours_ago, 1)
-            last_sleep['quality'] = 0.75  # Default — actual quality not stored in cycle_log
+            last_sleep = {
+                'hoursAgo': round(hours_ago, 1),
+            }
         except (ValueError, TypeError):
             pass
 

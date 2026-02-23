@@ -42,9 +42,6 @@ interface LiveMemory {
 }
 
 interface LiveSleep {
-  quality: number;
-  dreamsConsolidated: number;
-  memoriesStrengthened: number;
   hoursAgo: number;
 }
 
@@ -70,7 +67,7 @@ interface LiveDashboardState {
   threads: LiveThread[];
   memory: LiveMemory;
   inhibitions: string[];
-  lastSleep: LiveSleep;
+  lastSleep: LiveSleep | null;
   visitors: LiveVisitors;
   monologue: string;
 }
@@ -516,28 +513,10 @@ export default function ALIVEDashboard() {
                 fontSize: 10, color: '#555', letterSpacing: '0.1em', textTransform: 'uppercase',
                 fontFamily: "'JetBrains Mono', monospace", marginBottom: 16,
               }}>
-                ◌ Last Sleep · {state.lastSleep.hoursAgo}h ago
+                ◌ Last Sleep {state.lastSleep ? `· ${Math.round(state.lastSleep.hoursAgo)}h ago` : ''}
               </div>
-              <div style={{ display: 'flex', gap: 24 }}>
-                <div>
-                  <div style={{
-                    fontSize: 28, fontWeight: 300, color: '#8b9dc3',
-                    fontFamily: "'JetBrains Mono', monospace",
-                  }}>
-                    {Math.round(state.lastSleep.quality * 100)}%
-                  </div>
-                  <div style={{ fontSize: 10, color: '#555', fontFamily: "'JetBrains Mono', monospace" }}>
-                    Sleep quality
-                  </div>
-                </div>
-                <div style={{ borderLeft: '1px solid #ffffff08', paddingLeft: 24, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <div style={{ fontSize: 12, color: '#888' }}>
-                    <span style={{ color: '#c49ee8' }}>{state.lastSleep.dreamsConsolidated}</span> experiences consolidated
-                  </div>
-                  <div style={{ fontSize: 12, color: '#888' }}>
-                    <span style={{ color: '#7ce8a3' }}>{state.lastSleep.memoriesStrengthened}</span> memories strengthened
-                  </div>
-                </div>
+              <div style={{ fontSize: 13, color: '#666', fontStyle: 'italic' }}>
+                {state.lastSleep ? 'Consolidation data not yet tracked' : 'No sleep recorded'}
               </div>
             </div>
 
