@@ -1378,6 +1378,104 @@ ORDER BY sim_day;
 
 ---
 
+### TASK-090: Meta-Controller — Metric-Driven Self-Tuning
+**Status:** IN_PROGRESS
+**Priority:** High
+**Depends on:** TASK-089 (config yaml), TASK-055 (self_parameters), TASK-056 (modify_self), TASK-061 (self-model), TASK-062 (drift detection)
+**Blocks:** TASK-091 (closed-loop evaluation), TASK-092 (identity evolution)
+**Spec:** `tasks/TASK-090-meta-controller.md`
+**Description:** Closes the loop between behavioral metrics and parameter adjustment. New sleep phase reads M1-M10 metrics over a configurable window, compares against target ranges defined in `alive_config.yaml`, and proposes bounded parameter adjustments. Implements Tier 2 of the three-tier self-regulation hierarchy (Tier 1: operator hard floor, Tier 2: metric-driven homeostasis, Tier 3: conscious modify_self). Max 2 adjustments per sleep cycle. All changes logged in `meta_experiments` table. Character-aligned events emitted for cortex awareness. Dashboard shows targets, current metrics, and recent adjustments.
+**Build order:**
+1. Config schema extension — `meta_controller` section in `alive_config.yaml`
+2. `meta_experiments` table + CRUD in `db/meta_experiments.py`
+3. Metric collection bridge (adapter for M1-M10)
+4. Core algorithm in `sleep/meta_controller.py`
+5. Wire as sleep Phase 4
+6. Event emission → sensorium perception
+7. Dashboard section
+8. Tests (13 unit + 2 integration)
+**Scope (files you may touch):**
+- `sleep/meta_controller.py` (new)
+- `db/meta_experiments.py` (new)
+- `migrations/090_meta_experiments.sql` (new)
+- `alive_config.yaml`
+- `config.py`
+- `sleep.py` or `sleep/__init__.py`
+- `pipeline/sensorium.py` (perception for adjustment events only)
+- `api/dashboard_routes.py`
+- `window/src/components/dashboard/`
+- `tests/test_meta_controller.py` (new)
+- `tests/test_meta_experiments_db.py` (new)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `pipeline/basal_ganglia.py`
+- `pipeline/hippocampus.py`
+- `heartbeat.py`
+- `config/identity.py`
+**Tests:** 13 unit tests (metric below/above/in target, hard floor enforcement, cooldown, priority ordering, disabled mode, experiment logging, event emission) + 2 integration tests (sleep phase runs, config actually changes).
+**Definition of done:** Meta-controller runs as sleep phase. Reads metrics, compares against targets, proposes bounded adjustments. Hard floor and self_parameters bounds enforced. Changes logged. Events emitted. Dashboard shows status. 500-cycle sim with bad config → corrects within 3 sleep cycles.
+
+---
+
+### TASK-091: Closed-Loop Self-Evaluation
+**Status:** BACKLOG
+**Priority:** High
+**Depends on:** TASK-090 (meta-controller)
+**Blocks:** TASK-092 (identity evolution)
+**Spec:** `tasks/TASK-091-closed-loop-evaluation.md`
+**Description:** TASK-090 adjusts parameters but never checks if adjustments worked. This task adds evaluation: after sufficient cycles, compare target metric before vs after. Classify outcomes (improved/degraded/neutral/side_effect). Revert degraded changes. Build confidence scores per param→metric link — high confidence means the meta-controller can act faster, low confidence means it backs off. Adaptive cooldown scales with confidence. Side effect detection catches unexpected metric coupling.
+**Build order:**
+1. Evaluation sub-phase in `sleep/meta_controller.py`
+2. `meta_confidence` table + CRUD
+3. Side effect detection
+4. Adaptive cooldown
+5. Revert mechanism
+6. Character-aligned perceptions for outcomes
+7. Dashboard experiment history
+8. Tests (10 unit + 2 integration)
+**Scope (files you may touch):**
+- `sleep/meta_controller.py`
+- `db/meta_experiments.py`
+- `migrations/091_meta_confidence.sql` (new)
+- `pipeline/sensorium.py` (perceptions for revert/improvement events)
+- `api/dashboard_routes.py`
+- `window/src/components/dashboard/`
+- `tests/test_meta_evaluation.py` (new)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `pipeline/basal_ganglia.py`
+- `heartbeat.py`
+- `config/identity.py`
+**Tests:** 10 unit tests (outcome classification, revert, confidence tracking, adaptive cooldown, side effects, too-early skip) + 2 integration tests (full adjust→evaluate→keep loop, bad adjustment→evaluate→revert loop).
+**Definition of done:** Experiments evaluated after sufficient cycles. Degraded/side_effect adjustments reverted. Confidence tracked. Low-confidence links deprioritized. Dashboard shows history. 1000-cycle sim demonstrates both keep and revert paths.
+
+---
+
+### TASK-092: Identity Evolution — Implement the Philosophical Gate
+**Status:** BACKLOG
+**Priority:** Medium
+**Depends on:** TASK-090 (meta-controller), TASK-091 (closed-loop evaluation)
+**Spec:** `tasks/TASK-092-identity-evolution.md`
+**Description:** Replaces TASK-063's `NotImplementedError` stubs with the three-tier resolution. When drift is detected (TASK-062): (1) if caused by conscious modify_self within protection window → defer; (2) if meta-controller already handling → defer; (3) if gradual baseline shift → accept as organic growth, update self-model; (4) if sudden drift with stable baseline → correct via meta-controller. Conscious overrides get 500-cycle protection window (configurable). Guard rails from TASK-063 enforced: safety traits immutable, one update per sleep, all decisions logged, operator override via dashboard.
+**Scope (files you may touch):**
+- `identity/evolution.py`
+- `alive_config.yaml` (add `identity_evolution` section)
+- `sleep/meta_controller.py` (add `request_correction()`)
+- `pipeline/output.py` (tag modify_self as `source: conscious`)
+- `db/meta_experiments.py`
+- `api/dashboard_routes.py`
+- `window/src/components/dashboard/`
+- `tests/test_identity_evolution.py` (new)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `pipeline/basal_ganglia.py`
+- `heartbeat.py`
+- `config/identity.py`
+**Tests:** 7 tests — conscious override protected, protection expiry, organic growth accepted, sudden drift corrected, meta-controller pending defers, guard rails block safety traits, one update per sleep.
+**Definition of done:** evolution.py stubs replaced. Three-tier logic operational. Conscious protection window works. Organic growth accepted. Sudden drift corrected. Guard rails enforced. Dashboard shows live evolution status.
+
+---
+
 ## Completed Tasks
 
 ### TASK-054: Fix inhibition self_assessment trigger
