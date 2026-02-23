@@ -671,6 +671,11 @@ async def cortex_call(
         result = json.loads(text)
         return CortexOutput.from_dict(result)
     except json.JSONDecodeError:
+        recovered = _recover_truncated_json(text)
+        if recovered:
+            print(f"[Cortex] Recovered truncated JSON ({len(text)} chars)")
+            return CortexOutput.from_dict(recovered)
+        print(f"[Cortex] JSON parse failed ({len(text)} chars, first 120: {text[:120]})")
         return fallback_response()
 
 
@@ -746,6 +751,17 @@ Return JSON: {{"journal": "your entry", "summary": {{"summary_bullets": ["..."],
             'journal': 'Today happened. I am still here.',
             'summary': {'summary_bullets': ['another day'], 'emotional_arc': 'quiet'},
         }
+
+
+def _recover_truncated_json(raw: str) -> dict | None:
+    """Try to recover a JSON object truncated by max_tokens."""
+    for i in range(len(raw) - 1, -1, -1):
+        if raw[i] == '}':
+            try:
+                return json.loads(raw[:i + 1])
+            except json.JSONDecodeError:
+                continue
+    return None
 
 
 def fallback_response() -> CortexOutput:

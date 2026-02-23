@@ -4,7 +4,7 @@
   "model_context_window": 200000,
   "reserved_output_tokens": 1500,
   "reserved_output_tokens_by_cycle_type": {
-    "idle": 400,
+    "idle": 600,
     "rest": 300,
     "express": 1200,
     "engage": 1500,
