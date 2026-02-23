@@ -852,6 +852,24 @@ async def handle_meta_controller(server, writer, authorization):
     })
 
 
+# ─── Experiment History (TASK-091) ───
+
+
+async def handle_experiment_history(server, writer, authorization):
+    """GET /api/dashboard/experiment-history — experiment history with outcomes."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+
+    experiments = await db.get_experiment_history(limit=50)
+    confidence = await db.get_all_confidence()
+
+    await server._http_json(writer, 200, {
+        'experiments': experiments,
+        'confidence': confidence,
+    })
+
+
 # ─── Public Live Dashboard ───
 
 # Action type categories for the live dashboard feed

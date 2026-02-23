@@ -1418,7 +1418,7 @@ ORDER BY sim_day;
 ---
 
 ### TASK-091: Closed-Loop Self-Evaluation
-**Status:** BACKLOG
+**Status:** DONE (2026-02-23)
 **Priority:** High
 **Depends on:** TASK-090 (meta-controller)
 **Blocks:** TASK-092 (identity evolution)

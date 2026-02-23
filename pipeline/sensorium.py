@@ -221,6 +221,25 @@ async def build_perceptions(unread_events: list[Event], drives: DrivesState,
                 )
                 perceptions.append(perc)
 
+        elif event.event_type == 'meta_controller_evaluation':
+            # TASK-091: Character-aligned perception of evaluation outcomes
+            evaluations = event.payload.get('evaluations', [])
+            content = _build_evaluation_perception(evaluations)
+            if content:
+                perc = Perception(
+                    p_type='meta_evaluation',
+                    source='self',
+                    ts=event.ts,
+                    content=content,
+                    features={
+                        'is_homeostatic': True,
+                        'is_evaluation': True,
+                        'evaluation_count': len(evaluations),
+                    },
+                    salience=0.6,
+                )
+                perceptions.append(perc)
+
     # ── Notification injection (TASK-041) + gap detection (TASK-042) ──
     # Surface content titles from the feed as background perceptions.
     # Gap detection scores notifications against her memory for curiosity spikes.
@@ -573,3 +592,39 @@ def _build_meta_controller_perception(adjustments: list[dict]) -> str | None:
     else:
         joined = " and ".join(parts)
         return f"{joined.capitalize()} — something recalibrated overnight."
+
+
+# ── Evaluation perception (TASK-091) ──
+
+# Diegetic perception templates for evaluation outcomes
+_EVAL_TEMPLATES = {
+    'improved': "A subtle shift I noticed recently seems to be working well. I feel more balanced.",
+    'degraded': "I tried approaching things differently, but it didn't feel right. I've settled back to how I was before.",
+    'neutral': "Something I adjusted recently doesn't seem to have made much difference either way.",
+    'side_effect': "Something I changed had unexpected consequences. I'm reverting to be safe.",
+}
+
+
+def _build_evaluation_perception(evaluations: list[dict]) -> str | None:
+    """Build a character-aligned perception of experiment evaluation outcomes.
+
+    She feels the result of her overnight adjustments — not the numbers,
+    but whether things feel better, worse, or the same.
+    """
+    if not evaluations:
+        return None
+
+    # Group by outcome type
+    outcomes = {}
+    for ev in evaluations:
+        outcome = ev.get('outcome', 'neutral')
+        outcomes.setdefault(outcome, []).append(ev)
+
+    # Priority: side_effect > degraded > improved > neutral
+    if 'side_effect' in outcomes:
+        return _EVAL_TEMPLATES['side_effect']
+    if 'degraded' in outcomes:
+        return _EVAL_TEMPLATES['degraded']
+    if 'improved' in outcomes:
+        return _EVAL_TEMPLATES['improved']
+    return _EVAL_TEMPLATES['neutral']
