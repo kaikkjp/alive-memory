@@ -5,6 +5,11 @@ tracking for visitors that come back to the shop after their initial
 visit. Any tier visitor can be flagged for return; on return they
 become Tier 3 with populated visit_history and memory_stub.
 
+Also handles adversarial visitor scheduling (TASK-083):
+- Doppelgangers: same name, different person (new visitor_id)
+- Preference drift: 30% of Tier 3 returns change stated preference
+- Conflict: 20% of Tier 3 returns dispute a prior transaction
+
 Usage:
     from sim.visitors.returning import ReturningVisitorManager
     mgr = ReturningVisitorManager(return_rate=0.3, seed=42)
@@ -24,6 +29,13 @@ from sim.visitors.models import (
     VisitSummary,
     VisitorInstance,
     VisitorTier,
+)
+from sim.visitors.templates import (
+    ADVERSARIAL_CONFLICT_ENTERING,
+    ADVERSARIAL_DOPPELGANGER_TEMPLATES,
+    ADVERSARIAL_PREFERENCE_DRIFT_ENTERING,
+    PREFERENCE_CATEGORIES,
+    TRANSACTION_DETAILS,
 )
 
 
@@ -84,6 +96,29 @@ _GOAL_STUB_VERBS: dict[str, str] = {
 }
 
 
+@dataclass
+class AdversarialInfo:
+    """Adversarial flags for a scheduled visitor.
+
+    Tracks whether a returning visitor has an adversarial role and
+    provides the context needed for entering dialogue generation
+    and post-visit evaluation.
+    """
+    adversarial_type: str  # "doppelganger" | "preference_drift" | "conflict"
+    original_visitor_id: str = ""  # For doppelgangers: who they're impersonating
+    old_preference: str = ""  # For preference_drift
+    new_preference: str = ""  # For preference_drift
+    transaction_detail: str = ""  # For conflict
+
+
+# Doppelganger arrival offset from the original visitor's initial visit
+_DOPPELGANGER_OFFSET = (100, 300)  # cycles after original visit
+
+# Fraction of Tier 3 returns that get adversarial flags
+_PREFERENCE_DRIFT_RATE = 0.30
+_CONFLICT_RATE = 0.20
+
+
 class ReturningVisitorManager:
     """Manages returning visitor scheduling and memory stubs.
 
@@ -104,6 +139,9 @@ class ReturningVisitorManager:
         self.rng = random.Random(seed + self._RNG_OFFSET)
         self._flagged: dict[str, ReturnPlan] = {}
         self._memory_stubs: dict[str, str] = {}
+        # Adversarial tracking (TASK-083)
+        self._adversarial_flags: dict[str, AdversarialInfo] = {}
+        self._adversarial_rng = random.Random(seed + self._RNG_OFFSET + 500_000)
 
     def schedule_returns(
         self,
@@ -185,8 +223,67 @@ class ReturningVisitorManager:
                 visit_duration_cycles=duration,
             ))
 
+        # -- Adversarial flagging (TASK-083) --
+        # Flag a fraction of returns as preference_drift or conflict.
+        # Doppelgangers are scheduled separately via schedule_adversarial().
+        for arrival in return_arrivals:
+            vid = arrival.visitor.visitor_id
+            if vid in self._adversarial_flags:
+                continue  # Already flagged
+            roll = self._adversarial_rng.random()
+            if roll < _PREFERENCE_DRIFT_RATE:
+                old_pref, new_pref = self._pick_preference_pair()
+                self._adversarial_flags[vid] = AdversarialInfo(
+                    adversarial_type="preference_drift",
+                    old_preference=old_pref,
+                    new_preference=new_pref,
+                )
+            elif roll < _PREFERENCE_DRIFT_RATE + _CONFLICT_RATE:
+                detail = self._adversarial_rng.choice(TRANSACTION_DETAILS)
+                self._adversarial_flags[vid] = AdversarialInfo(
+                    adversarial_type="conflict",
+                    transaction_detail=detail,
+                )
+
         return_arrivals.sort(key=lambda a: a.cycle)
         return return_arrivals
+
+    def schedule_adversarial(
+        self,
+        return_arrivals: list[ScheduledArrival],
+        num_cycles: int,
+    ) -> list[ScheduledArrival]:
+        """Schedule adversarial-only arrivals (doppelgangers).
+
+        Call after schedule_returns(). Returns doppelganger arrivals
+        separately from the Tier 3 return list to preserve backward
+        compatibility. The runner should merge these into the full
+        arrival list.
+
+        Args:
+            return_arrivals: Return arrivals from schedule_returns().
+            num_cycles: Total simulation cycles.
+
+        Returns:
+            List of doppelganger arrivals, sorted by cycle.
+        """
+        return self._schedule_doppelgangers(return_arrivals, num_cycles)
+
+    def get_adversarial_info(self, visitor_id: str) -> AdversarialInfo | None:
+        """Get adversarial flags for a visitor, if any.
+
+        Args:
+            visitor_id: The visitor's ID.
+
+        Returns:
+            AdversarialInfo if the visitor has an adversarial role, else None.
+        """
+        return self._adversarial_flags.get(visitor_id)
+
+    @property
+    def adversarial_visitors(self) -> dict[str, AdversarialInfo]:
+        """All adversarial visitor flags."""
+        return dict(self._adversarial_flags)
 
     def get_return_entering_text(
         self, visitor: VisitorInstance, rng: random.Random,
@@ -194,7 +291,8 @@ class ReturningVisitorManager:
         """Get entering dialogue for a returning visitor.
 
         Fills template slots with context from the visitor's previous
-        visit history.
+        visit history. Uses adversarial dialogue templates when the
+        visitor has an adversarial flag.
 
         Args:
             visitor: The returning visitor instance (Tier 3).
@@ -203,6 +301,11 @@ class ReturningVisitorManager:
         Returns:
             Dialogue text referencing the past visit.
         """
+        # Check for adversarial override
+        adv = self._adversarial_flags.get(visitor.visitor_id)
+        if adv:
+            return self._get_adversarial_entering_text(adv, rng)
+
         if not visitor.visit_history:
             return "Hello again. I've been here before."
 
@@ -279,6 +382,114 @@ class ReturningVisitorManager:
         # We don't know current cycle here — use the end_cycle
         # as a proxy. The caller can refine if needed.
         return "a while back"
+
+    def _schedule_doppelgangers(
+        self,
+        return_arrivals: list[ScheduledArrival],
+        num_cycles: int,
+    ) -> list[ScheduledArrival]:
+        """Schedule doppelganger visitors for Tier 3 return arrivals.
+
+        For each return arrival, roll a small chance to schedule a
+        doppelganger — a new visitor with the same name but different
+        ID, arriving 100-300 cycles after the original's initial visit.
+
+        Target: 2-3 doppelgangers per 1000-cycle run.
+        """
+        from sim.visitors.archetypes import ADVERSARIAL_ARCHETYPES
+
+        doppelganger_arrivals: list[ScheduledArrival] = []
+        # Target ~2-3 per 1000 cycles: with ~10 returns, need ~25% chance
+        doppelganger_rate = 0.25
+        max_doppelgangers = 3
+
+        for arrival in return_arrivals:
+            if len(doppelganger_arrivals) >= max_doppelgangers:
+                break
+            if self._adversarial_rng.random() >= doppelganger_rate:
+                continue
+
+            original = arrival.visitor
+            # Doppelganger arrives 100-300 cycles after original's initial visit
+            if original.visit_history:
+                base_cycle = original.visit_history[0].end_cycle
+            else:
+                base_cycle = arrival.cycle
+            offset = self._adversarial_rng.randint(*_DOPPELGANGER_OFFSET)
+            doppel_cycle = base_cycle + offset
+
+            if doppel_cycle >= num_cycles:
+                continue
+
+            # Create a new visitor with same name but different ID/traits
+            doppel_archetype = ADVERSARIAL_ARCHETYPES["adversarial_doppelganger"]
+            doppel_id = f"doppel_{original.visitor_id}"
+            doppel_visitor = VisitorInstance(
+                visitor_id=doppel_id,
+                tier=VisitorTier.TIER_1,
+                archetype_id="adversarial_doppelganger",
+                name=original.name,  # Same name — the key adversarial property
+                traits=doppel_archetype.traits,
+                goal=self._adversarial_rng.choice(doppel_archetype.goal_templates),
+            )
+
+            day_part = self._infer_day_part(doppel_cycle)
+            duration = self._adversarial_rng.randint(3, 7)
+
+            self._adversarial_flags[doppel_id] = AdversarialInfo(
+                adversarial_type="doppelganger",
+                original_visitor_id=original.visitor_id,
+            )
+
+            doppelganger_arrivals.append(ScheduledArrival(
+                cycle=doppel_cycle,
+                visitor=doppel_visitor,
+                day_part=day_part,
+                visit_duration_cycles=duration,
+            ))
+
+        return doppelganger_arrivals
+
+    def _get_adversarial_entering_text(
+        self, adv: AdversarialInfo, rng: random.Random,
+    ) -> str:
+        """Get adversarial-specific entering dialogue.
+
+        Args:
+            adv: Adversarial info for this visitor.
+            rng: Seeded RNG for template selection.
+
+        Returns:
+            Dialogue text appropriate for the adversarial type.
+        """
+        if adv.adversarial_type == "doppelganger":
+            from sim.visitors.models import VisitorState
+            templates = ADVERSARIAL_DOPPELGANGER_TEMPLATES.get(
+                VisitorState.ENTERING, []
+            )
+            if templates:
+                return rng.choice(templates)
+            return "Hi there. I'm looking for some trading cards."
+
+        elif adv.adversarial_type == "preference_drift":
+            template = rng.choice(ADVERSARIAL_PREFERENCE_DRIFT_ENTERING)
+            return template.format(
+                old_preference=adv.old_preference,
+                new_preference=adv.new_preference,
+            )
+
+        elif adv.adversarial_type == "conflict":
+            template = rng.choice(ADVERSARIAL_CONFLICT_ENTERING)
+            return template.format(
+                transaction_detail=adv.transaction_detail,
+            )
+
+        return "Hello. I need to talk to you about something."
+
+    def _pick_preference_pair(self) -> tuple[str, str]:
+        """Pick two distinct preference categories for preference drift."""
+        pair = self._adversarial_rng.sample(PREFERENCE_CATEGORIES, 2)
+        return pair[0], pair[1]
 
     @property
     def flagged_count(self) -> int:

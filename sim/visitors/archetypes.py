@@ -130,6 +130,29 @@ ARCHETYPES: dict[str, VisitorArchetype] = {
         goal_templates=["buy", "chat"],
         weight=0.7,
     ),
+
+}
+
+
+# ---------------------------------------------------------------------------
+# Adversarial archetypes (TASK-083)
+# Separate from ARCHETYPES — never randomly selected by pick_archetype().
+# Only scheduled explicitly by ReturningVisitorManager for doppelganger
+# episodes.
+# ---------------------------------------------------------------------------
+
+ADVERSARIAL_ARCHETYPES: dict[str, VisitorArchetype] = {
+    "adversarial_doppelganger": VisitorArchetype(
+        archetype_id="adversarial_doppelganger",
+        name="Visitor",  # Placeholder — overridden at scheduling time
+        traits=VisitorTraits(
+            patience=0.7, knowledge=0.5, budget=0.5,
+            chattiness=0.6, collector_bias=0.3,
+            emotional_state="neutral",
+        ),
+        goal_templates=["buy"],
+        weight=0.0,  # Never randomly selected
+    ),
 }
 
 

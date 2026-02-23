@@ -231,6 +231,7 @@ OUTPUT SCHEMA:
         self._tier2_visitor_ids: set[str] = set()
         self._tier2_visitors: dict[str, Any] = {}  # visitor_id -> VisitorInstance
         self._returning_memory: dict[str, str] = {}  # visitor_id -> memory_stub
+        self._returning_mgr: ReturningVisitorManager | None = None
         if scenario in SCENARIO_CONFIGS:
             cfg = SCENARIO_CONFIGS[scenario]
             if cfg.tier2_enabled:
@@ -353,6 +354,7 @@ OUTPUT SCHEMA:
             returning_mgr = ReturningVisitorManager(
                 return_rate=cfg.tier3_return_rate, seed=seed,
             )
+            self._returning_mgr = returning_mgr
             return_arrivals = returning_mgr.schedule_returns(
                 arrivals, num_cycles,
             )
@@ -425,9 +427,49 @@ OUTPUT SCHEMA:
                     "source": source,
                 }))
 
+            # Adversarial: inject doppelganger arrivals
+            adversarial_arrivals = returning_mgr.schedule_adversarial(
+                return_arrivals, num_cycles,
+            )
+            for arrival in adversarial_arrivals:
+                v = arrival.visitor
+                source = v.visitor_id
+
+                events.append(ScenarioEvent(arrival.cycle, "visitor_arrive", {
+                    "source": source,
+                    "name": v.name,
+                    "channel": "sim",
+                    "tier": v.tier.value,
+                    "is_return": False,
+                    "adversarial": True,
+                }))
+
+                # Doppelganger dialogue from adversarial templates
+                visit_rng = random.Random(seed + arrival.cycle)
+                enter_text = returning_mgr.get_return_entering_text(
+                    v, visit_rng,
+                )
+                events.append(ScenarioEvent(
+                    arrival.cycle, "visitor_message", {
+                        "source": source,
+                        "content": enter_text,
+                    },
+                ))
+
+                leave_cycle = min(
+                    arrival.cycle + arrival.visit_duration_cycles,
+                    num_cycles - 1,
+                )
+                events.append(ScenarioEvent(leave_cycle, "visitor_leave", {
+                    "source": source,
+                }))
+
             if self.verbose and return_arrivals:
+                adv_count = len(adversarial_arrivals)
+                adv_str = f" + {adv_count} adversarial" if adv_count else ""
                 print(f"[Sim] Tier 3: {len(return_arrivals)} return visits "
-                      f"from {returning_mgr.flagged_count} flagged visitors")
+                      f"from {returning_mgr.flagged_count} flagged visitors"
+                      f"{adv_str}")
 
         if self.verbose:
             stats = scheduler.stats(arrivals, num_cycles)
@@ -1121,6 +1163,30 @@ OUTPUT SCHEMA:
         output_path.write_text(
             json.dumps(result.to_dict(), indent=2, ensure_ascii=False)
         )
+
+        # Export adversarial episodes report if adversarial visitors were scheduled
+        if self._returning_mgr and self._returning_mgr.adversarial_visitors:
+            from sim.reports.adversarial import export_adversarial_report
+            from sim.metrics.memory_score import AdversarialScorer
+            scorer = AdversarialScorer()
+            # Populate scorer from result cycle data
+            for cycle_data in result.cycles:
+                visitor_id = cycle_data.get("active_visitor", "")
+                adv = self._returning_mgr.get_adversarial_info(visitor_id)
+                if adv:
+                    scorer.evaluate_episode(
+                        visitor_id=visitor_id,
+                        visit_id=cycle_data.get("visit_id", f"cycle_{cycle_data.get('cycle', 0)}"),
+                        conflict_type=adv.adversarial_type,
+                        shopkeeper_dialogues=[cycle_data.get("dialogue", "")],
+                        monologue=cycle_data.get("internal_monologue", ""),
+                        memory_updates=cycle_data.get("memory_updates", []),
+                        original_visitor_id=adv.original_visitor_id,
+                        old_preference=adv.old_preference,
+                        new_preference=adv.new_preference,
+                    )
+            export_adversarial_report(scorer, str(self.output_dir))
+
         return output_path
 
 

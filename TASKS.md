@@ -1230,7 +1230,7 @@ ORDER BY sim_day;
 ---
 
 ### TASK-083: Adversarial Returning Visitors
-**Status:** BACKLOG
+**Status:** DONE (2026-02-22)
 **Priority:** Medium (paper defensibility, not blocking ablation)
 **Spec:** `tasks/TASK-083-adversarial-visitors.md`
 **Depends on:** TASK-077 (sim v2), PR #3 returning visitors
@@ -1249,6 +1249,23 @@ ORDER BY sim_day;
 - `simulate.py`
 **Tests:** Unit tests for all 3 scoring rules in `tests/test_adversarial_visitors.py` — see spec.
 **Definition of done:** 3 adversarial visitor types integrated into `returning` scenario. `AdversarialEpisode` evaluation runs per episode. `adversarial_episodes.json` emitted alongside other metric reports. >70% overall pass rate in a standard run.
+
+---
+
+### TASK-084: Wire adversarial visitors into simulation runner
+**Status:** DONE (2026-02-23)
+**Priority:** High (P1 — TASK-083 features are dead code without this)
+**Depends on:** TASK-083 (adversarial visitors)
+**Description:** TASK-083 added adversarial visitor types (doppelganger, preference_drift, conflict) with scoring and reporting, but they are not wired into the simulation run path. Two gaps: (1) `sim/runner.py` never calls `schedule_adversarial()` so doppelganger traffic is never injected, and (2) `SimulationRunner.export()` never calls `export_adversarial_report()` so `adversarial_episodes.json` is never produced. Wire both into the runner.
+**Scope (files you may touch):**
+- `sim/runner.py`
+- `tests/test_runner*.py`
+**Scope (files you may NOT touch):**
+- `pipeline/*`
+- `db.py`
+- `heartbeat.py`
+**Tests:** Integration test confirming adversarial arrivals appear in simulation runs and `adversarial_episodes.json` is emitted on export.
+**Definition of done:** Running a `returning` scenario produces doppelganger/drift/conflict episodes in the run, and `adversarial_episodes.json` is written alongside other metric reports.
 
 ---
 

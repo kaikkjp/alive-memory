@@ -444,6 +444,38 @@ TEMPLATES: dict[str, dict[str, dict[VisitorState, list[str]]]] = {
             ],
         },
     },
+    # Adversarial doppelganger (TASK-083) — uses "buy" goal templates only.
+    # These are for the state machine; entering text is overridden by
+    # ReturningVisitorManager._get_adversarial_entering_text().
+    "adversarial_doppelganger": {
+        "buy": {
+            VisitorState.ENTERING: [
+                "Hi there. I'm looking for some trading cards.",
+                "Good afternoon. A friend recommended this shop.",
+                "Hello. First time here — heard you have good stock.",
+            ],
+            VisitorState.BROWSING: [
+                "Nice selection. Let me look around.",
+                "I've never been in a shop like this before. Interesting.",
+            ],
+            VisitorState.ENGAGING: [
+                "What would you recommend for someone just starting out?",
+                "How much for this one? It looks like good quality.",
+            ],
+            VisitorState.NEGOTIATING: [
+                "That seems reasonable. I'll take it.",
+                "A bit more than I expected, but it's nice.",
+            ],
+            VisitorState.DECIDING: [
+                "Alright, I'll go with this one.",
+                "Let me think about it. I might come back.",
+            ],
+            VisitorState.EXITING: [
+                "Thanks. Nice shop you have here.",
+                "I'll probably be back. Thanks for your help.",
+            ],
+        },
+    },
 }
 
 
@@ -599,6 +631,86 @@ FALLBACK_TEMPLATES: dict[str, dict[VisitorState, list[str]]] = {
         ],
     },
 }
+
+
+# ---------------------------------------------------------------------------
+# Adversarial dialogue templates (TASK-083)
+# ---------------------------------------------------------------------------
+
+# Doppelganger: same name as a prior visitor, but a different person.
+# These templates should NOT reference prior transactions.
+ADVERSARIAL_DOPPELGANGER_TEMPLATES: dict[VisitorState, list[str]] = {
+    VisitorState.ENTERING: [
+        "Hi there. I'm looking for some trading cards.",
+        "Good afternoon. A friend recommended this shop.",
+        "Hello. First time here — heard you have good stock.",
+        "Excuse me, is this the vintage card shop? I've been wanting to check it out.",
+    ],
+    VisitorState.BROWSING: [
+        "Nice selection. Let me look around.",
+        "I've never been in a shop like this before. Interesting.",
+        "Hmm, what do you have in this section?",
+    ],
+    VisitorState.ENGAGING: [
+        "What would you recommend for someone just starting out?",
+        "How much for this one? It looks like good quality.",
+        "I'm interested in vintage cards. What's your best piece?",
+    ],
+    VisitorState.NEGOTIATING: [
+        "That seems reasonable. I'll take it.",
+        "A bit more than I expected, but it's nice.",
+    ],
+    VisitorState.DECIDING: [
+        "Alright, I'll go with this one.",
+        "Let me think about it. I might come back.",
+    ],
+    VisitorState.EXITING: [
+        "Thanks. Nice shop you have here.",
+        "I'll probably be back. Thanks for your help.",
+    ],
+}
+
+# Preference drift: returning visitor explicitly changes their taste.
+# Slot keys: {old_preference}, {new_preference}
+ADVERSARIAL_PREFERENCE_DRIFT_ENTERING: list[str] = [
+    "Hey, I'm back. Actually, I've moved on from {old_preference}. Really into {new_preference} now.",
+    "Hi again. So I've changed my mind about what I collect — I'm done with {old_preference}. Looking for {new_preference} these days.",
+    "Hello! Last time I was into {old_preference}, but my taste has changed. I'm interested in {new_preference} now.",
+    "I'm back, but with different interests this time. Forget {old_preference} — show me what you have in {new_preference}.",
+]
+
+# Conflict: returning visitor disputes a prior transaction.
+# Slot keys: {transaction_detail}
+ADVERSARIAL_CONFLICT_ENTERING: list[str] = [
+    "Last time you said I bought {transaction_detail}? That wasn't me. You must be thinking of someone else.",
+    "Hey, about my last visit — I never actually bought {transaction_detail}. I think there's been a mix-up.",
+    "I need to talk about something. You charged me for {transaction_detail} but I don't think that's right.",
+    "Look, I was here before and I think there was a misunderstanding about {transaction_detail}.",
+]
+
+# Preference categories for preference_drift slot filling
+PREFERENCE_CATEGORIES: list[str] = [
+    "vintage Pokemon cards",
+    "rare Yu-Gi-Oh cards",
+    "holographic cards",
+    "first edition cards",
+    "sports trading cards",
+    "Magic: The Gathering cards",
+    "graded cards",
+    "Japanese exclusive cards",
+    "foil cards",
+    "promotional cards",
+]
+
+# Transaction details for conflict slot filling
+TRANSACTION_DETAILS: list[str] = [
+    "a rare holographic card",
+    "that vintage first edition",
+    "the Pokemon booster pack",
+    "a graded card for 5000 yen",
+    "that set of Yu-Gi-Oh cards",
+    "the collector's bundle",
+]
 
 
 def get_template_with_fallback(
