@@ -27,6 +27,7 @@ class SimContentPool:
         self.rng = random.Random(seed)
         self.seen_ids: set[str] = set()
         self.consumed_ids: set[str] = set()
+        self._total_seen: int = 0  # TASK-088: monotonic counter survives pool resets
         self.pool = list(CONTENT_POOL)
         self.rng.shuffle(self.pool)
 
@@ -66,6 +67,8 @@ class SimContentPool:
 
         # Mark as surfaced (seen) so they don't repeat immediately
         for item in selected:
+            if item["id"] not in self.seen_ids:
+                self._total_seen += 1
             self.seen_ids.add(item["id"])
 
         # Return in production notification format
@@ -92,6 +95,8 @@ class SimContentPool:
         for item in self.pool:
             if item["id"] == content_id:
                 self.consumed_ids.add(content_id)
+                if content_id not in self.seen_ids:
+                    self._total_seen += 1
                 self.seen_ids.add(content_id)
                 return item
         return None
@@ -100,7 +105,7 @@ class SimContentPool:
         """Return pool statistics for the simulation report."""
         return {
             "total_items": len(self.pool),
-            "seen_count": len(self.seen_ids),
+            "seen_count": self._total_seen,
             "consumed_count": len(self.consumed_ids),
             "consumed_ids": sorted(self.consumed_ids),
         }

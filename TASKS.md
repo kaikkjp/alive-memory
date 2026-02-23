@@ -1319,6 +1319,23 @@ ORDER BY sim_day;
 
 ---
 
+### TASK-088: Isolation Ablation Fixes — Frozen Drives, Speak Gate, Seen Count
+**Status:** DONE (2026-02-23)
+**Priority:** High (blocks paper claims)
+**Spec:** `tasks/TASK-isolation-fixes.md`
+**Description:** Five fixes for issues found in isolation ablation runs:
+1. **Unfreeze curiosity** — curiosity was pinned to 0.5 by strong homeostatic pull (0.02 coeff). Now action-responsive: reading drops it, idle raises it. Weak pull (0.005) to 0.45.
+2. **Unfreeze mood_arousal** — arousal was pinned to 0.3 by strong pull (0.05 coeff). Now action-responsive: active actions raise it, idle lowers it. Weak pull (0.01) to 0.35.
+3. **Fix expression_need decay** — expression_need decay was too small (-0.05) to offset accumulation. Bumped to -0.15 for expressive actions. Reading now builds expression (+0.04).
+4. **Gate speak when no visitor** — sim runner didn't filter speak/greet/farewell/show_item actions during isolation. Now converts to express_thought and suppresses dialogue.
+5. **Fix seen_count telemetry** — seen_ids set was cleared on pool reset, making seen_count < consumed_count (impossible). Added monotonic _total_seen counter.
+**Scope (files you may touch):**
+- `sim/runner.py` (homeostatic drift + speak gate)
+- `sim/llm/mock.py` (drive update computation)
+- `sim/content_pool.py` (seen_count tracking)
+
+---
+
 ## Completed Tasks
 
 ### TASK-054: Fix inhibition self_assessment trigger
@@ -1372,23 +1389,37 @@ Three changes:
 ### TASK-087: Channel-aware perception — distinguish digital messages from in-shop visitors
 **Status:** DONE (2026-02-23)
 **Priority:** Medium
+**Branch:** `feat/task-087-channel-aware-perception`
 **Description:** X and Telegram messages are perceived identically to web UI visitors. The shopkeeper has no way to know whether someone is standing in her shop or texting from afar. Add channel-awareness at three layers:
 1. **Sensorium**: New `digital_message` perception type for `tg_`/`x_` visitor sources. Reframe content as "A message on [platform] from [name]" instead of treating them as present in the shop.
 2. **Cortex context**: Split U7/U9 into "present in shop" vs "digital messages" so the LLM has spatial awareness.
 3. **Identity nudge**: One static line in CORTEX_SYSTEM_STABLE about physical space vs digital messages.
 No changes to engagement FSM, ACK path, or channel routing (already automatic via `body/channels.py`).
+**Completed:**
+- `pipeline/sensorium.py` — `_detect_channel()`, new perception types for all 3 event types
+- `pipeline/cortex.py` — identity nudge in CORTEX_SYSTEM_STABLE, U7/U9 split
+- `tests/test_sensorium_channels.py` — 17 tests, all pass
+
+---
+
+### TASK-087b: Wire digital perception types into thalamus + heartbeat
+**Status:** DONE (2026-02-23)
+**Priority:** High — TASK-087 is broken in production without this
+**Branch:** `feat/task-087-channel-aware-perception` (continue from TASK-087)
+**Description:** TASK-087 introduced `digital_message`, `digital_connect`, `digital_disconnect` perception types but three downstream consumers only check for `visitor_*` p_types. Without these fixes, Telegram/X messages silently break in production (routed as idle, never engage).
+**Three fixes:**
+1. **`pipeline/thalamus.py` (critical):** `route()` lines 36-43 check `focus.p_type == 'visitor_speech'` etc. `digital_message` falls through to idle — she never engages with Telegram/X messages. Fix: add `digital_message` → engage, `digital_connect` → engage/idle (same salience threshold), `digital_disconnect` → idle.
+2. **`heartbeat.py:905` (moderate):** Focus capping uses `not p.p_type.startswith('visitor_')`. Digital perceptions get salience capped to 0.3 when arbiter focus is active. Fix: also check `startswith('digital_')`.
+3. **`heartbeat.py:931` (moderate):** Mode binding override uses same `startswith('visitor_')` check. Arbiter overrides engage mode for digital messages. Fix: same — also check `startswith('digital_')`.
 **Scope (files you may touch):**
-- `pipeline/sensorium.py`
-- `pipeline/cortex.py`
-- `tests/test_sensorium.py` (new)
-- `tests/test_cortex_channel.py` (new)
-**Scope (files you may NOT touch):**
-- `config/identity.py` (nudge goes in cortex.py CORTEX_SYSTEM_STABLE instead)
-- `pipeline/ack.py`
-- `body/channels.py`
+- `pipeline/thalamus.py`
 - `heartbeat.py`
-**Tests:** New test file for sensorium channel detection. Verify digital_message type for tg_/x_ visitors, visitor_speech for web visitors.
-**Definition of done:** Perception type changes based on visitor channel. Cortex prompt shows "PRESENT IN SHOP" vs "DIGITAL MESSAGES". All existing tests pass.
+- `tests/test_thalamus.py` or new test file
+**Scope (files you may NOT touch):**
+- `pipeline/sensorium.py` (already done in TASK-087)
+- `pipeline/cortex.py` (already done in TASK-087)
+**Tests:** Verify thalamus routes `digital_message` to engage. Verify heartbeat focus capping preserves digital perception salience.
+**Definition of done:** Telegram/X messages trigger engage mode. All existing tests pass. Merge both TASK-087 + TASK-087b together.
 
 ---
 
