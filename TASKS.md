@@ -1269,6 +1269,30 @@ ORDER BY sim_day;
 
 ---
 
+### TASK-085: Public Live Dashboard
+**Status:** READY
+**Priority:** High
+**Branch:** `feat/live-dashboard`
+**Spec:** `tasks/cowork-brief-live-dashboard.md`
+**Description:** Ship a public-facing live dashboard at `/live` showing the Shopkeeper's real-time cognitive state. Single `/api/live` endpoint (no auth) returns all dashboard state. Frontend polls every 30s. Design component provided in `tasks/shopkeeper-dashboard.jsx`.
+**Data sources:** drives_state, engagement_state, room_state, cycle_log, events, threads, visitors, llm_costs, inhibitions, monologue from cortex output.
+**Scope (files you may touch):**
+- `api/dashboard_routes.py` (add `handle_live_dashboard` — public, no auth)
+- `heartbeat_server.py` (add `/api/live` route)
+- `window/src/app/live/page.tsx` (new)
+- `window/src/components/live/ALIVEDashboard.tsx` (new — converted from JSX)
+- `window/src/lib/types.ts` (add LiveDashboardData type)
+**Scope (files you may NOT touch):**
+- `pipeline/*`
+- `db.py`
+- `heartbeat.py`
+- `config/identity.py`
+- Existing `/dashboard` or `/` pages
+**Tests:** Visit `/live` — loads with real data, drives update on poll, uptime ticks, recent actions show correct timestamps, mood bar renders for negative valence.
+**Definition of done:** `/live` page loads with live data from `/api/live`. No auth required. Polls every 30s. Uptime ticks locally. All sections populated from real DB state.
+
+---
+
 ## Completed Tasks
 
 ### TASK-054: Fix inhibition self_assessment trigger

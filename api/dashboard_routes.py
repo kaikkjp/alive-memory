@@ -790,3 +790,267 @@ async def handle_metrics_backfill(server, writer, authorization):
     from metrics.backfill import backfill_all
     result = await backfill_all()
     await server._http_json(writer, 200, result)
+
+
+# ─── Public Live Dashboard ───
+
+# Action type categories for the live dashboard feed
+_ACTION_TYPE_MAP = {
+    'speak': 'social', 'greet': 'social', 'farewell': 'social',
+    'browse_web': 'explore', 'browse_content': 'explore', 'read_content': 'explore',
+    'write_journal': 'express', 'post_x_draft': 'express', 'express_thought': 'express',
+    'rearrange': 'maintain', 'make_tea': 'maintain', 'light_clean': 'maintain',
+    'show_item': 'maintain',
+    'idle': 'inner', 'sleep': 'inner', 'drift': 'inner', 'nap': 'inner',
+}
+
+
+async def handle_live_dashboard(server, writer):
+    """GET /api/live — public live dashboard (no auth required)."""
+    from datetime import datetime, timezone
+    conn = await db.get_db()
+
+    # ─── Uptime ───
+    cursor = await conn.execute(
+        "SELECT MIN(ts) as first, COUNT(*) as total FROM cycle_log"
+    )
+    row = await cursor.fetchone()
+    first_cycle_ts = row['first'] if row and row['first'] else None
+    total_cycles = row['total'] if row else 0
+
+    started_at = None
+    if first_cycle_ts:
+        try:
+            dt = datetime.fromisoformat(first_cycle_ts.replace('Z', '+00:00'))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            started_at = dt.isoformat()
+        except (ValueError, TypeError):
+            pass
+
+    # ─── Drives ───
+    drives = await db.get_drives_state()
+
+    # ─── Engagement & Room State ───
+    engagement = await db.get_engagement_state()
+    room = await db.get_room_state()
+
+    # Status: awake/sleeping based on engagement or mode
+    cursor = await conn.execute(
+        "SELECT mode FROM cycle_log ORDER BY ts DESC LIMIT 1"
+    )
+    mode_row = await cursor.fetchone()
+    last_mode = mode_row['mode'] if mode_row and mode_row['mode'] else 'ambient'
+    if last_mode in ('sleep', 'nap'):
+        status = 'sleeping'
+    else:
+        status = 'awake'
+
+    # ─── Latest Monologue + Body State ───
+    last_log = await db.get_last_cycle_log()
+    monologue = ''
+    expression = 'neutral'
+    body_state = 'sitting'
+    gaze = 'middle_distance'
+    if last_log:
+        monologue = last_log.get('internal_monologue') or ''
+        expression = last_log.get('expression') or 'neutral'
+        body_state = last_log.get('body_state') or 'sitting'
+        gaze = last_log.get('gaze') or 'middle_distance'
+
+    # ─── Costs ───
+    cost_today = await db.get_llm_call_cost_today()
+    cost_summary = await db.get_llm_costs_summary()
+    cost_total = cost_summary.get('30d_total', 0.0)
+
+    # ─── Recent Actions (last 10 from events) ───
+    recent_events = await db.get_recent_events(limit=20)
+    recent_actions = []
+    for e in recent_events:
+        if e.event_type in ('action_taken', 'action_executed'):
+            action_name = ''
+            detail = ''
+            if isinstance(e.payload, dict):
+                action_name = e.payload.get('action', e.payload.get('action_type', ''))
+                detail = e.payload.get('detail', e.payload.get('description', ''))
+            elif isinstance(e.payload, str):
+                action_name = e.payload
+            ts_str = ''
+            if e.ts:
+                try:
+                    dt = e.ts if isinstance(e.ts, datetime) else datetime.fromisoformat(str(e.ts))
+                    # Convert to JST for display
+                    from datetime import timedelta
+                    jst = dt + timedelta(hours=9) if dt.tzinfo else dt
+                    ts_str = jst.strftime('%-I:%M %p')
+                except (ValueError, TypeError):
+                    ts_str = str(e.ts)
+            action_type = _ACTION_TYPE_MAP.get(action_name, 'inner')
+            recent_actions.append({
+                'time': ts_str,
+                'action': action_name,
+                'detail': detail,
+                'type': action_type,
+            })
+            if len(recent_actions) >= 10:
+                break
+
+    # If no action_taken events, try cycle_log actions field
+    if not recent_actions:
+        cursor = await conn.execute(
+            """SELECT ts, actions FROM cycle_log
+               WHERE actions IS NOT NULL AND actions != '[]'
+               ORDER BY ts DESC LIMIT 10"""
+        )
+        rows = await cursor.fetchall()
+        for row in rows:
+            try:
+                actions_list = json.loads(row['actions']) if row['actions'] else []
+                ts_str = ''
+                if row['ts']:
+                    dt = datetime.fromisoformat(row['ts'].replace('Z', '+00:00'))
+                    from datetime import timedelta
+                    jst = dt + timedelta(hours=9)
+                    ts_str = jst.strftime('%-I:%M %p')
+                for act in actions_list:
+                    act_name = act if isinstance(act, str) else (act.get('action', '') if isinstance(act, dict) else '')
+                    act_detail = act.get('detail', '') if isinstance(act, dict) else ''
+                    recent_actions.append({
+                        'time': ts_str,
+                        'action': act_name,
+                        'detail': act_detail,
+                        'type': _ACTION_TYPE_MAP.get(act_name, 'inner'),
+                    })
+            except (json.JSONDecodeError, TypeError):
+                continue
+
+    # ─── Active Threads ───
+    active_threads = await db.get_active_threads(limit=10)
+    threads = []
+    for t in active_threads:
+        age = ''
+        if t.last_touched:
+            now = clock.now_utc()
+            last = t.last_touched if t.last_touched.tzinfo else t.last_touched.replace(tzinfo=timezone.utc)
+            delta = now - last
+            if delta.days > 0:
+                age = f'{delta.days}d'
+            else:
+                hours = delta.seconds // 3600
+                age = f'{hours}h' if hours > 0 else f'{delta.seconds // 60}m'
+        threads.append({
+            'title': t.title,
+            'type': t.thread_type or 'thought',
+            'age': age,
+            'priority': round(t.touch_count / max(1, t.touch_count + 3), 2),
+        })
+
+    # ─── Memory Stats ───
+    cursor = await conn.execute("SELECT COUNT(*) as cnt FROM visitors")
+    row = await cursor.fetchone()
+    total_impressions = row['cnt'] if row else 0
+
+    cursor = await conn.execute("SELECT COUNT(*) as cnt FROM visitor_traits")
+    row = await cursor.fetchone()
+    total_traits = row['cnt'] if row else 0
+
+    cursor = await conn.execute("SELECT COUNT(*) as cnt FROM totems")
+    row = await cursor.fetchone()
+    totems_count = row['cnt'] if row else 0
+
+    cursor = await conn.execute(
+        "SELECT COUNT(*) as cnt FROM journal_entries "
+        "WHERE tags LIKE '%identity%' OR tags LIKE '%self_discovery%'"
+    )
+    row = await cursor.fetchone()
+    self_discoveries_count = row['cnt'] if row else 0
+
+    journals_count = await db.count_journal_entries()
+
+    # ─── Inhibitions ───
+    inhibitions_raw = await db.get_active_inhibitions()
+    inhibitions = [inh.get('context', inh.get('action', '')) for inh in inhibitions_raw]
+
+    # ─── Last Sleep ───
+    cursor = await conn.execute(
+        """SELECT ts FROM cycle_log
+           WHERE mode IN ('sleep', 'nap')
+           ORDER BY ts DESC LIMIT 1"""
+    )
+    sleep_row = await cursor.fetchone()
+    last_sleep = {
+        'quality': 0.0,
+        'dreamsConsolidated': 0,
+        'memoriesStrengthened': 0,
+        'hoursAgo': 0.0,
+    }
+    if sleep_row and sleep_row['ts']:
+        try:
+            sleep_dt = datetime.fromisoformat(sleep_row['ts'].replace('Z', '+00:00'))
+            if sleep_dt.tzinfo is None:
+                sleep_dt = sleep_dt.replace(tzinfo=timezone.utc)
+            hours_ago = (clock.now_utc() - sleep_dt).total_seconds() / 3600
+            last_sleep['hoursAgo'] = round(hours_ago, 1)
+            last_sleep['quality'] = 0.75  # Default — actual quality not stored in cycle_log
+        except (ValueError, TypeError):
+            pass
+
+    # ─── Visitors ───
+    visitors_today = await db.get_visitor_count_today()
+    cursor = await conn.execute(
+        "SELECT COUNT(DISTINCT source) as cnt FROM events WHERE event_type = 'visitor_connect'"
+    )
+    row = await cursor.fetchone()
+    total_visitors = row['cnt'] if row else 0
+
+    cursor = await conn.execute(
+        """SELECT COUNT(DISTINCT v.id) as cnt FROM visitors v
+           WHERE v.visit_count > 1"""
+    )
+    row = await cursor.fetchone()
+    returning_visitors = row['cnt'] if row else 0
+
+    currently_present = 1 if engagement.status == 'engaged' else 0
+
+    # ─── Assemble response ───
+    await server._http_json(writer, 200, {
+        'uptime': {
+            'started_at': started_at,
+            'totalCycles': total_cycles,
+        },
+        'status': status,
+        'expression': expression,
+        'bodyState': body_state,
+        'gaze': gaze,
+        'shopOpen': room.shop_status == 'open',
+        'timeOfDay': room.time_of_day or 'afternoon',
+        'costToday': round(cost_today, 2),
+        'costTotal': round(cost_total, 2),
+        'drives': {
+            'social_hunger': drives.social_hunger,
+            'curiosity': drives.curiosity,
+            'expression_need': drives.expression_need,
+            'rest_need': drives.rest_need,
+            'energy': drives.energy,
+            'mood_valence': drives.mood_valence,
+            'mood_arousal': drives.mood_arousal,
+        },
+        'recentActions': recent_actions[:10],
+        'threads': threads,
+        'memory': {
+            'totalImpressions': total_impressions,
+            'totalTraits': total_traits,
+            'totems': totems_count,
+            'selfDiscoveries': self_discoveries_count,
+            'journals': journals_count,
+        },
+        'inhibitions': inhibitions,
+        'lastSleep': last_sleep,
+        'visitors': {
+            'today': visitors_today,
+            'total': total_visitors,
+            'returning': returning_visitors,
+            'currentlyPresent': currently_present,
+        },
+        'monologue': monologue,
+    })

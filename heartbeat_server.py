@@ -1209,6 +1209,8 @@ class ShopkeeperServer:
                 await dashboard_routes.handle_metrics_backfill(self, writer, authorization)
             elif path == '/api/metrics/public' and method == 'GET':
                 await dashboard_routes.handle_metrics_public(self, writer)
+            elif path == '/api/live' and method == 'GET':
+                await dashboard_routes.handle_live_dashboard(self, writer)
             elif path == '/api/weather' and method == 'GET':
                 await self._http_weather(writer)
             elif path == '/api/outdoor' and method == 'GET':
