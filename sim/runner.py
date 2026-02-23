@@ -668,7 +668,7 @@ OUTPUT SCHEMA:
             }
             self._apply_homeostatic_drift(
                 has_visitor=self._engagement["status"] == "engaged",
-                took_action=False,
+                action=None,
             )
             # no_drives/no_affect should still apply post-drift.
             if hasattr(self.pipeline, 'pre_cycle'):
@@ -763,6 +763,13 @@ OUTPUT SCHEMA:
             if _impulse(i) >= IMPULSE_THRESHOLD
         ]
 
+        # ── TASK-088 Fix 4: Gate speak when no visitor ──
+        has_visitor_now = self._engagement["status"] == "engaged"
+        if not has_visitor_now:
+            for intent in intentions:
+                if intent.get("action") in ("speak", "greet", "farewell", "show_item"):
+                    intent["action"] = "express_thought"
+
         # Normalize action: real schema uses browse_web, runner counts use read_content
         action = None
         if intentions:
@@ -771,6 +778,9 @@ OUTPUT SCHEMA:
             action = "read_content" if raw_action == "browse_web" else raw_action
 
         dialogue = parsed.get("dialogue")
+        # Suppress dialogue when nobody is present (TASK-088)
+        if dialogue and not has_visitor_now:
+            dialogue = None
 
         # If action is read_content, consume from content pool
         if action == "read_content" and intentions:
@@ -808,7 +818,7 @@ OUTPUT SCHEMA:
             # Apply homeostatic drift if LLM didn't provide drive updates
             self._apply_homeostatic_drift(
                 has_visitor=self._engagement["status"] == "engaged",
-                took_action=bool(action),
+                action=action,
             )
 
         # Clamp drives
@@ -1077,8 +1087,15 @@ OUTPUT SCHEMA:
             if key in self._drives:
                 self._drives[key] = value
 
-    def _apply_homeostatic_drift(self, has_visitor: bool, took_action: bool):
-        """Apply gentle drive drift when LLM doesn't provide updates."""
+    def _apply_homeostatic_drift(self, has_visitor: bool,
+                                took_action: bool = False,
+                                action: str | None = None):
+        """Apply action-responsive drive drift when LLM doesn't provide updates.
+
+        TASK-088: Curiosity, arousal, and expression_need are now action-
+        responsive instead of pinned to equilibrium. Homeostatic pulls are
+        weak so action-based deltas dominate.
+        """
         d = self._drives
 
         if has_visitor:
@@ -1088,17 +1105,39 @@ OUTPUT SCHEMA:
         else:
             d["social_hunger"] = min(1.0, d["social_hunger"] + 0.01)
 
-        if took_action:
-            d["expression_need"] = max(0.0, d["expression_need"] - 0.03)
+        # ── Expression need: action-specific (TASK-088 Fix 3) ──
+        expressive_actions = {"write_journal", "post_x", "post_x_image", "speak"}
+        if action in expressive_actions:
+            d["expression_need"] = max(0.0, d["expression_need"] - 0.15)
+            d["mood_valence"] = min(1.0, d["mood_valence"] + 0.02)
+        elif action == "read_content":
+            d["expression_need"] = min(1.0, d["expression_need"] + 0.04)
+            d["mood_valence"] = min(1.0, d["mood_valence"] + 0.01)
+        elif action is not None:
+            d["expression_need"] = max(0.0, d["expression_need"] - 0.01)
             d["mood_valence"] = min(1.0, d["mood_valence"] + 0.02)
         else:
-            d["expression_need"] = min(1.0, d["expression_need"] + 0.005)
+            growth = 0.01
+            if d["social_hunger"] > 0.8:
+                growth += 0.02
+            d["expression_need"] = min(1.0, d["expression_need"] + growth)
 
-        # Curiosity drifts toward 0.5
-        d["curiosity"] += (0.5 - d["curiosity"]) * 0.02
+        # ── Curiosity: action-responsive (TASK-088 Fix 1) ──
+        if action in ("read_content", "browse_web"):
+            d["curiosity"] = max(0.0, d["curiosity"] - 0.08)
+        elif action is None:
+            d["curiosity"] = min(1.0, d["curiosity"] + 0.03)
+        else:
+            d["curiosity"] = min(1.0, d["curiosity"] + 0.01)
+        d["curiosity"] += (0.45 - d["curiosity"]) * 0.005
 
-        # Arousal decays toward 0.3
-        d["mood_arousal"] += (0.3 - d["mood_arousal"]) * 0.05
+        # ── Arousal: action-responsive (TASK-088 Fix 2) ──
+        if action in ("read_content", "write_journal", "speak", "post_x",
+                       "post_x_image", "express_thought"):
+            d["mood_arousal"] = min(1.0, d["mood_arousal"] + 0.04)
+        elif action is None:
+            d["mood_arousal"] = max(0.0, d["mood_arousal"] - 0.02)
+        d["mood_arousal"] += (0.35 - d["mood_arousal"]) * 0.01
 
         # Valence drifts toward 0.0
         d["mood_valence"] += (0.0 - d["mood_valence"]) * 0.02

@@ -419,11 +419,11 @@ class MockCortex:
 
     def _compute_drive_updates(self, drives: dict, has_visitor: bool,
                                action: str | None) -> dict:
-        """Compute gentle drive updates — homeostatic drift.
+        """Compute action-responsive drive updates.
 
-        action is the chosen action string (e.g. "post_x", "read_content")
-        or None for idle. Expressive actions (post, journal) satisfy
-        expression_need; browsing builds it slightly instead.
+        TASK-088: Curiosity, arousal, and expression_need now respond
+        meaningfully to actions instead of being pinned to equilibrium.
+        Homeostatic pulls are weak so action deltas dominate.
         """
         social = drives.get("social_hunger", 0.5)
         curiosity = drives.get("curiosity", 0.5)
@@ -439,31 +439,40 @@ class MockCortex:
         else:
             social = min(1.0, social + 0.01)
 
-        expressive_actions = {"post_x", "write_journal", "speak"}
+        # ── Expression need: action-specific (TASK-088 Fix 3) ──
+        expressive_actions = {"post_x", "write_journal", "speak", "post_x_image"}
         if action in expressive_actions:
-            # Posting/journaling satisfies expression need
-            expression = max(0.0, expression - 0.05)
+            expression = max(0.0, expression - 0.15)
             energy = max(0.0, energy - 0.02)
             valence = min(1.0, valence + 0.02)
         elif action == "read_content":
-            # Browsing costs energy but builds expression (found
-            # something to talk about) and feeds curiosity
-            expression = min(1.0, expression + 0.01)
+            expression = min(1.0, expression + 0.04)
             energy = max(0.0, energy - 0.01)
-            curiosity = min(1.0, curiosity + 0.01)
         elif action is not None:
-            # Other actions: generic satisfaction
             expression = max(0.0, expression - 0.01)
             energy = max(0.0, energy - 0.02)
         else:
-            # Idle — expression slowly builds
-            expression = min(1.0, expression + 0.005)
+            growth = 0.01
+            if social > 0.8:
+                growth += 0.02
+            expression = min(1.0, expression + growth)
 
-        # Curiosity drifts toward 0.5
-        curiosity += (0.5 - curiosity) * 0.02
+        # ── Curiosity: action-responsive (TASK-088 Fix 1) ──
+        if action in ("read_content", "browse_web"):
+            curiosity = max(0.0, curiosity - 0.08)
+        elif action is None:
+            curiosity = min(1.0, curiosity + 0.03)
+        else:
+            curiosity = min(1.0, curiosity + 0.01)
+        curiosity += (0.45 - curiosity) * 0.005
 
-        # Arousal decays toward 0.3
-        arousal += (0.3 - arousal) * 0.05
+        # ── Arousal: action-responsive (TASK-088 Fix 2) ──
+        if action in ("read_content", "write_journal", "speak", "post_x",
+                       "post_x_image", "express_thought"):
+            arousal = min(1.0, arousal + 0.04)
+        elif action is None:
+            arousal = max(0.0, arousal - 0.02)
+        arousal += (0.35 - arousal) * 0.01
 
         # Valence drifts toward 0.0 (homeostasis)
         valence += (0.0 - valence) * 0.02

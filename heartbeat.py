@@ -900,9 +900,10 @@ class Heartbeat:
         perceptions = apply_affect_lens(perceptions, drives)
 
         # ── Focus injection: cap non-focus non-visitor perceptions ──
+        # TASK-087: digital_* types get the same protection as visitor_*
         if focus_context and focus_context.payload:
             for p in perceptions:
-                if p.salience < 1.0 and not p.p_type.startswith('visitor_'):
+                if p.salience < 1.0 and not p.p_type.startswith(('visitor_', 'digital_')):
                     p.salience = min(p.salience, 0.3)
             # Re-sort after salience capping
             perceptions.sort(key=lambda p: p.salience, reverse=True)
@@ -927,8 +928,9 @@ class Heartbeat:
         # 5. Thalamus: route
         routing = await route(perceptions, drives, engagement, visitor)
 
-        # ── Mode binding: arbiter focus overrides Thalamus unless visitor is primary ──
-        if focus_context and routing.focus and not routing.focus.p_type.startswith('visitor_'):
+        # ── Mode binding: arbiter focus overrides Thalamus unless visitor/digital is primary ──
+        # TASK-087: digital_* types get the same protection as visitor_*
+        if focus_context and routing.focus and not routing.focus.p_type.startswith(('visitor_', 'digital_')):
             routing.cycle_type = focus_context.pipeline_mode
             # Override token budget if arbiter specified one
             if focus_context.token_budget_hint:
