@@ -1293,6 +1293,32 @@ ORDER BY sim_day;
 
 ---
 
+### TASK-086: SimContentPool — Feed for Simulated Inner Life
+**Status:** BACKLOG
+**Priority:** Critical (blocks meaningful isolation/standard ablation results)
+**Depends on:** None (independent of TASK-079)
+**Spec:** `tasks/TASK-086-sim-content-pool.md`
+**Description:** In production, the Shopkeeper has an RSS content feed driving curiosity → reflection → journaling → threads. In the sim, this entire loop is severed — feed ingestion is skipped, no `content_pool` table, no notifications. Result: in isolation she has zero external stimulus, burns through budget on hollow cycles, then sleeps indefinitely. Fix: create `sim/content_pool.py` with 100 curated content items mirroring her production RSS feed, surface items as notifications matching production format, wire into `sim/runner.py`.
+**Scope (files you may touch):**
+- `sim/data/content_pool_data.py` (new — 100 curated content items)
+- `sim/content_pool.py` (new — `SimContentPool` class)
+- `sim/runner.py` (wire notifications into cycle perception, handle `read_content` consumption)
+- `sim/db.py` (add `content_pool` table if needed for tracking)
+**Scope (files you may NOT touch):**
+- `pipeline/*`
+- `db.py`
+- `heartbeat.py`
+- `config/identity.py`
+- `simulate.py`
+**Tests:**
+- SimContentPool surfaces ~50 items per 100 waking cycles
+- Consumed items return full summary
+- Pool resets when all items consumed
+- Notifications match production format
+**Definition of done:** Isolation run completes 1000 cycles with <200 sleep cycles. At least 5 `read_content` actions. At least 3 journals. At least 2 new threads created from consumed content. Content pool provides meaningful external stimulus throughout simulation.
+
+---
+
 ## Completed Tasks
 
 ### TASK-054: Fix inhibition self_assessment trigger
