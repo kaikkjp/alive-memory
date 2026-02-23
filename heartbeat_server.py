@@ -1203,6 +1203,8 @@ class ShopkeeperServer:
                 await dashboard_routes.handle_external_actions(self, writer, authorization)
             elif path == '/api/dashboard/channel-toggle' and method == 'POST':
                 await dashboard_routes.handle_channel_toggle(self, writer, authorization, body_bytes)
+            elif path == '/api/dashboard/meta-controller' and method == 'GET':
+                await dashboard_routes.handle_meta_controller(self, writer, authorization)
             elif path == '/api/dashboard/metrics' and method == 'GET':
                 await dashboard_routes.handle_metrics(self, writer, authorization)
             elif path == '/api/dashboard/metrics/backfill' and method == 'POST':

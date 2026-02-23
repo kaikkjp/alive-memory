@@ -1379,7 +1379,7 @@ ORDER BY sim_day;
 ---
 
 ### TASK-090: Meta-Controller — Metric-Driven Self-Tuning
-**Status:** IN_PROGRESS
+**Status:** DONE (2026-02-23)
 **Priority:** High
 **Depends on:** TASK-089 (config yaml), TASK-055 (self_parameters), TASK-056 (modify_self), TASK-061 (self-model), TASK-062 (drift detection)
 **Blocks:** TASK-091 (closed-loop evaluation), TASK-092 (identity evolution)

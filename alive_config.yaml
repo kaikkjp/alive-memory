@@ -130,6 +130,70 @@ sim:
   default_output_dir: "sim/results"
 
 # ----------------------------------------------------------
+# META-CONTROLLER — metric-driven self-tuning (TASK-090)
+# ----------------------------------------------------------
+# Runs once per sleep cycle. Reads behavioral metrics, compares against
+# target ranges, proposes bounded parameter adjustments.
+# Three-tier hierarchy: Operator hard floor > Meta-controller > Conscious modify_self.
+meta_controller:
+  enabled: true
+  evaluation_window: 50          # cycles to look back for metric calculation
+  min_cycles_before_adjust: 100  # don't adjust if system just started
+  max_adjustments_per_sleep: 2   # cap changes per sleep cycle
+  cooldown_cycles: 200           # min cycles between adjusting same param
+
+  # Target metric ranges — the operator's definition of "healthy"
+  # All target min/max are in NORMALIZED scale (0.0–1.0).
+  # Raw collector values are normalized via `normalize` before comparison:
+  #   initiative_rate: raw 0–100 (percent) → /100 → 0.0–1.0
+  #   emotional_range: raw 0–125 (bin count) → /125 → 0.0–1.0
+  targets:
+    initiative_rate:
+      min: 0.12
+      max: 0.35
+      metric: initiative_rate    # maps to metrics_snapshots.metric_name
+      normalize: 100.0           # divide raw value by this to get 0–1 scale
+    emotional_range:
+      min: 0.3
+      max: 0.8
+      metric: emotional_range
+      normalize: 125.0           # 5^3 possible bins
+    # Future metrics (uncomment when production collectors exist):
+    # action_diversity:
+    #   min: 0.5
+    #   max: 0.9
+    #   metric: action_diversity
+
+  # Parameter-metric mapping — which knobs affect which metrics
+  # Direction: +1 means "raising this param raises the metric"
+  # Step: how much to adjust per intervention
+  adjustments:
+    initiative_rate:
+      - param: hypothalamus.equilibria.diversive_curiosity
+        direction: 1
+        step: 0.03
+        priority: 1
+      - param: hypothalamus.equilibria.expression_need
+        direction: 1
+        step: 0.03
+        priority: 2
+    emotional_range:
+      - param: hypothalamus.equilibria.mood_arousal
+        direction: 1
+        step: 0.02
+        priority: 1
+
+  # Operator hard floor — non-negotiable bounds
+  # These override ALL other bounds, including self_parameters table bounds
+  hard_floor:
+    hypothalamus.equilibria.diversive_curiosity: [0.2, 0.8]
+    hypothalamus.equilibria.social_hunger: [0.3, 0.9]
+    hypothalamus.equilibria.expression_need: [0.2, 0.8]
+    hypothalamus.equilibria.mood_valence: [-0.85, 0.5]
+    hypothalamus.equilibria.mood_arousal: [0.1, 0.7]
+    hypothalamus.equilibria.rest_need: [0.1, 0.5]
+
+# ----------------------------------------------------------
 # DB-BACKED PARAMETERS (documentation — canonical values in self_parameters table)
 # See migrations/022_self_parameters.sql for full seed data.
 # ----------------------------------------------------------

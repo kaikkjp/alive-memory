@@ -1,11 +1,12 @@
 """Sleep package — daily and nap consolidation phases.
 
 Thin orchestrator. All logic lives in submodules:
-    sleep.reflection     — LLM call, daily summary, context gathering helpers
-    sleep.nap            — lighter mid-cycle nap consolidation
-    sleep.meta_review    — self-modification revert, trait stability, auto-promote
-    sleep.wake           — drive reset, memory flush, thread lifecycle, content pool
-    sleep.consolidation  — moment iteration, journal writes, daily summary
+    sleep.reflection      — LLM call, daily summary, context gathering helpers
+    sleep.nap             — lighter mid-cycle nap consolidation
+    sleep.meta_review     — self-modification revert, trait stability, auto-promote
+    sleep.meta_controller — metric-driven self-tuning (TASK-090)
+    sleep.wake            — drive reset, memory flush, thread lifecycle, content pool
+    sleep.consolidation   — moment iteration, journal writes, daily summary
 
 Public API (backward-compatible with old sleep.py):
     sleep_cycle()        — full night sleep
@@ -46,6 +47,7 @@ from sleep.wake import (  # noqa: F401
     manage_thread_lifecycle,
     cleanup_content_pool,
 )
+from sleep.meta_controller import run_meta_controller  # noqa: F401
 from sleep.consolidation import run_consolidation  # noqa: F401
 from sleep.nap import nap_consolidate  # noqa: F401
 
@@ -77,7 +79,13 @@ async def sleep_cycle() -> int:
     # 3-4. Reviews (trait stability, meta-sleep revert, auto-promote)
     await run_meta_review()
 
-    # 5-9. Wake transition (threads, content pool, drives, budget reset, embedding, flush)
+    # 5. Meta-controller — metric-driven parameter homeostasis (TASK-090)
+    try:
+        await run_meta_controller()
+    except Exception as e:
+        print(f"  [Sleep] Meta-controller error (non-fatal): {e}")
+
+    # 6-10. Wake transition (threads, content pool, drives, budget reset, embedding, flush)
     await run_wake_transition()
 
     return processed_count
