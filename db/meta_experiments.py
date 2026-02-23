@@ -20,18 +20,21 @@ async def record_experiment(
     target_metric: str,
     metric_value_at_change: float,
     confidence_at_change: float | None = None,
+    metrics_snapshot: dict | None = None,
 ) -> int:
     """Record a meta-controller adjustment. Returns the experiment id."""
     now = clock.now_utc().isoformat()
+    snapshot_json = json.dumps(metrics_snapshot) if metrics_snapshot else None
     conn = await _connection.get_db()
     cursor = await conn.execute(
         """INSERT INTO meta_experiments
            (cycle_at_change, param_name, old_value, new_value, reason,
             target_metric, metric_value_at_change, outcome,
-            confidence_at_change, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)""",
+            confidence_at_change, metrics_snapshot, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)""",
         (cycle_at_change, param_name, old_value, new_value, reason,
-         target_metric, metric_value_at_change, confidence_at_change, now),
+         target_metric, metric_value_at_change, confidence_at_change,
+         snapshot_json, now),
     )
     await conn.commit()
     return cursor.lastrowid

@@ -80,15 +80,19 @@ async def _seed_cycles(conn, count: int):
 
 async def _seed_experiment(conn, cycle: int, param: str, old_val: float,
                            new_val: float, target_metric: str,
-                           metric_val: float, outcome: str = 'pending') -> int:
+                           metric_val: float, outcome: str = 'pending',
+                           metrics_snapshot: dict | None = None) -> int:
     """Insert a meta_experiments row. Returns id."""
+    import json as _json
+    snapshot_json = _json.dumps(metrics_snapshot) if metrics_snapshot else None
     cursor = await conn.execute(
         """INSERT INTO meta_experiments
            (cycle_at_change, param_name, old_value, new_value, reason,
-            target_metric, metric_value_at_change, outcome, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
+            target_metric, metric_value_at_change, outcome,
+            metrics_snapshot, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
         (cycle, param, old_val, new_val, 'test reason',
-         target_metric, metric_val, outcome),
+         target_metric, metric_val, outcome, snapshot_json),
     )
     await conn.commit()
     return cursor.lastrowid
@@ -249,17 +253,20 @@ async def test_neutral_outcome(test_db):
 
 @pytest.mark.asyncio
 async def test_side_effect_detected(test_db):
-    """4. Target metric improved but another left range → outcome=side_effect, reverted."""
+    """4. Target metric improved but another left range (via stored snapshot) → outcome=side_effect, reverted."""
+    # Experiment stores a snapshot showing emotional_range was IN range (0.50)
+    # at the time of adjustment.
     exp_id = await _seed_experiment(
         test_db, cycle=100,
         param='hypothalamus.equilibria.diversive_curiosity',
         old_val=0.37, new_val=0.40,
         target_metric='initiative_rate', metric_val=0.05,
+        metrics_snapshot={'initiative_rate': 0.05, 'emotional_range': 0.50},
     )
     # initiative_rate improved (now in range)
     await _seed_metric(test_db, 'initiative_rate', 0.20)
-    # But emotional_range dropped out of range (was assumed in-range, now out)
-    await _seed_metric(test_db, 'emotional_range', 0.25)  # below min 0.3
+    # But emotional_range dropped OUT of range (was 0.50, now 0.25 < min 0.3)
+    await _seed_metric(test_db, 'emotional_range', 0.25)
 
     config = _mc_config(eval_window=50)
     with patch('sleep.meta_controller.cfg_section', return_value=config):
@@ -267,17 +274,10 @@ async def test_side_effect_detected(test_db):
         results = await evaluate_experiments()
 
     assert len(results) == 1
-    # Side effect detection uses approximate "before" values, so the outcome
-    # depends on whether emotional_range was in range before. Since we seed
-    # 0.25 as current (the only snapshot), and before is approximated from
-    # current, side effect won't fire here because both before and after
-    # are the same value (0.25). The primary outcome is still 'improved'.
-    # Side effects only trigger when before was IN range and after is OUT.
-    # To properly test: we need before=0.50 (in range) and after=0.25 (out).
-    # The current implementation approximates before as current for non-target
-    # metrics. For a proper side-effect test, we'd need historical snapshots.
-    # Let's verify the improved outcome at minimum.
-    assert results[0]['outcome'] in ('improved', 'side_effect')
+    assert results[0]['outcome'] == 'side_effect'
+    assert results[0]['reverted'] is True
+    assert len(results[0]['side_effects']) == 1
+    assert results[0]['side_effects'][0]['metric'] == 'emotional_range'
 
 
 @pytest.mark.asyncio
@@ -369,22 +369,30 @@ async def test_low_confidence_skipped(test_db):
 
 @pytest.mark.asyncio
 async def test_adaptive_cooldown(test_db):
-    """8. High confidence → short cooldown, low confidence → long cooldown."""
+    """8. High confidence → shorter than base, low confidence → longer than base."""
     from sleep.meta_controller import compute_adaptive_cooldown
 
-    # High confidence (0.9): cooldown * 1.3
-    high = compute_adaptive_cooldown(200, 0.9)
-    assert high == 260  # 200 * (1 + 0.1 * 3) = 200 * 1.3
+    base = 200
 
-    # Low confidence (0.3): cooldown * 3.1
-    low = compute_adaptive_cooldown(200, 0.3)
-    assert low == 620  # 200 * (1 + 0.7 * 3) = 200 * 3.1
+    # High confidence (0.9): 0.7× base — shorter than base (proven link)
+    high = compute_adaptive_cooldown(base, 0.9)
+    assert high == 140  # 200 * max(0.5, 2.5 - 1.8) = 200 * 0.7
+    assert high < base  # truly shorter
 
-    # Default (0.5): cooldown * 2.5
-    default = compute_adaptive_cooldown(200, 0.5)
-    assert default == 500  # 200 * (1 + 0.5 * 3) = 200 * 2.5
+    # Low confidence (0.3): 1.9× base — longer than base (unreliable link)
+    low = compute_adaptive_cooldown(base, 0.3)
+    assert low == 380  # 200 * max(0.5, 2.5 - 0.6) = 200 * 1.9
+    assert low > base  # truly longer
 
-    assert high < default < low
+    # Default (0.5): 1.5× base — cautious
+    default = compute_adaptive_cooldown(base, 0.5)
+    assert default == 300  # 200 * max(0.5, 2.5 - 1.0) = 200 * 1.5
+
+    # Perfect confidence (1.0): floor at 0.5× base
+    perfect = compute_adaptive_cooldown(base, 1.0)
+    assert perfect == 100  # 200 * max(0.5, 0.5) = 200 * 0.5
+
+    assert perfect < high < base < default < low
 
 
 @pytest.mark.asyncio
