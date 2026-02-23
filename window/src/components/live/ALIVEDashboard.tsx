@@ -243,8 +243,8 @@ export default function ALIVEDashboard() {
   if (!state) {
     return (
       <div style={{ minHeight: '100vh', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ color: '#555', fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
-          Loading...
+        <div style={{ color: connectionLost ? '#e87c7c' : '#555', fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
+          {connectionLost ? 'connection lost — retrying...' : 'Loading...'}
         </div>
       </div>
     );

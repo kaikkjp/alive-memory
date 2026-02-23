@@ -796,12 +796,22 @@ async def handle_metrics_backfill(server, writer, authorization):
 
 # Action type categories for the live dashboard feed
 _ACTION_TYPE_MAP = {
+    # social
     'speak': 'social', 'greet': 'social', 'farewell': 'social',
+    'end_engagement': 'social', 'decline_gift': 'social',
+    # explore
     'browse_web': 'explore', 'browse_content': 'explore', 'read_content': 'explore',
-    'write_journal': 'express', 'post_x_draft': 'express', 'express_thought': 'express',
+    # express
+    'write_journal': 'express', 'journal': 'express',
+    'post_x_draft': 'express', 'post_x': 'express',
+    'express_thought': 'express', 'modify_self': 'express',
+    # maintain
     'rearrange': 'maintain', 'make_tea': 'maintain', 'light_clean': 'maintain',
-    'show_item': 'maintain',
+    'show_item': 'maintain', 'room_delta': 'maintain', 'place_item': 'maintain',
+    'open_shop': 'maintain', 'close_shop': 'maintain',
+    # inner
     'idle': 'inner', 'sleep': 'inner', 'drift': 'inner', 'nap': 'inner',
+    'body': 'inner',
 }
 
 
@@ -868,13 +878,19 @@ async def handle_live_dashboard(server, writer):
     recent_actions = []
     for e in reversed(recent_events):  # newest first
         if e.event_type.startswith('action_'):
-            action_name = ''
+            # Derive action name from event_type (e.g. action_speak → speak)
+            action_name = e.event_type[len('action_'):]
             detail = ''
             if isinstance(e.payload, dict):
-                action_name = e.payload.get('action', e.payload.get('action_type', ''))
-                detail = e.payload.get('detail', e.payload.get('description', ''))
+                # Override with payload action if present (e.g. action_room_delta)
+                action_name = e.payload.get('action', action_name)
+                detail = (e.payload.get('detail', '')
+                          or e.payload.get('description', '')
+                          or e.payload.get('text', '')
+                          or e.payload.get('reason', '')
+                          or e.payload.get('draft', ''))
             elif isinstance(e.payload, str):
-                action_name = e.payload
+                detail = e.payload
             ts_str = ''
             if e.ts:
                 try:
