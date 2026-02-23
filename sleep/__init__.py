@@ -47,7 +47,7 @@ from sleep.wake import (  # noqa: F401
     manage_thread_lifecycle,
     cleanup_content_pool,
 )
-from sleep.meta_controller import run_meta_controller  # noqa: F401
+from sleep.meta_controller import run_meta_controller, evaluate_experiments  # noqa: F401
 from sleep.consolidation import run_consolidation  # noqa: F401
 from sleep.nap import nap_consolidate  # noqa: F401
 
@@ -79,7 +79,13 @@ async def sleep_cycle() -> int:
     # 3-4. Reviews (trait stability, meta-sleep revert, auto-promote)
     await run_meta_review()
 
-    # 5. Meta-controller — metric-driven parameter homeostasis (TASK-090)
+    # 5a. Meta-controller evaluation — closed-loop feedback (TASK-091)
+    try:
+        await evaluate_experiments()
+    except Exception as e:
+        print(f"  [Sleep] Meta-controller evaluation error (non-fatal): {e}")
+
+    # 5b. Meta-controller — metric-driven parameter homeostasis (TASK-090)
     try:
         await run_meta_controller()
     except Exception as e:
