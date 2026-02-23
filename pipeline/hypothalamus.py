@@ -3,16 +3,14 @@
 from models.event import Event
 from models.state import DrivesState, EpistemicCuriosity, EPISTEMIC_CONFIG
 from db.parameters import p, p_or
+from alive_config import cfg
 import db as _db
 
 # ── HOTFIX-002: Valence death spiral prevention ──
-# Hard floor: she can be deeply unhappy but not catatonic.
-# At -0.85 she's miserable but can still speak/act. At -1.0 she froze.
-VALENCE_HARD_FLOOR = -0.85
-# Per-cycle clamp: cortex/coupling cannot swing valence more than this.
-# Gives mood inertia — thoughts influence mood gradually, not instantly.
-MAX_VALENCE_DELTA_PER_CYCLE = 0.10
-VALENCE_EQUILIBRIUM = 0.05  # must match hypothalamus.equilibria.mood_valence
+# All constants loaded from alive_config.yaml via cfg()
+VALENCE_HARD_FLOOR = cfg('hypothalamus.valence_hard_floor', -0.85)
+MAX_VALENCE_DELTA_PER_CYCLE = cfg('hypothalamus.max_valence_delta_per_cycle', 0.10)
+VALENCE_EQUILIBRIUM = cfg('hypothalamus.valence_equilibrium', 0.05)
 
 
 def clamp(v: float, lo: float = 0.0, hi: float = 1.0) -> float:
@@ -34,9 +32,11 @@ def _homeostatic_pull(current: float, equilibrium: float,
     """
     distance = abs(equilibrium - current)
     base_delta = (equilibrium - current) * p('hypothalamus.homeostatic_pull_rate') * elapsed_hours
-    if distance > 0.5:
-        # Exponential spring — gets much stronger past 0.5 distance
-        multiplier = 1 + (distance * 3)
+    spring_distance = cfg('hypothalamus.exponential_spring_distance', 0.5)
+    spring_multiplier = cfg('hypothalamus.exponential_spring_multiplier', 3.0)
+    if distance > spring_distance:
+        # Exponential spring — gets much stronger past threshold
+        multiplier = 1 + (distance * spring_multiplier)
         delta = base_delta * multiplier
     else:
         delta = base_delta
@@ -240,51 +240,51 @@ def drives_to_feeling(d: DrivesState,
     parts = []
 
     # Social
-    if d.social_hunger > 0.8:
+    if d.social_hunger > cfg('hypothalamus.feeling_social_high', 0.8):
         parts.append("I feel deeply lonely. The shop has been too quiet.")
-    elif d.social_hunger > 0.6:
+    elif d.social_hunger > cfg('hypothalamus.feeling_social_mid', 0.6):
         parts.append("I could use some company.")
-    elif d.social_hunger < 0.2:
+    elif d.social_hunger < cfg('hypothalamus.feeling_social_low', 0.2):
         parts.append("I've had enough interaction for now. I need some quiet.")
 
     # Energy
-    if d.energy < 0.3:
+    if d.energy < cfg('hypothalamus.feeling_energy_low', 0.3):
         parts.append("I'm tired. Everything feels heavy today.")
-    elif d.energy > 0.8:
+    elif d.energy > cfg('hypothalamus.feeling_energy_high', 0.8):
         parts.append("I feel sharp and present.")
 
     # Diversive curiosity (TASK-043)
-    if d.diversive_curiosity > 0.7:
+    if d.diversive_curiosity > cfg('hypothalamus.feeling_curiosity_high', 0.7):
         parts.append("Your attention keeps drifting. You want to find something — you don't know what yet.")
-    elif d.diversive_curiosity > 0.5:
+    elif d.diversive_curiosity > cfg('hypothalamus.feeling_curiosity_mid', 0.5):
         parts.append("Part of you is scanning, open to whatever catches your eye.")
-    elif d.diversive_curiosity < 0.15:
+    elif d.diversive_curiosity < cfg('hypothalamus.feeling_curiosity_low', 0.15):
         parts.append("You're content. Nothing is pulling your attention anywhere.")
 
     # Epistemic curiosity (TASK-043) — specific active questions
     if epistemic_curiosities:
-        active = [ec for ec in epistemic_curiosities if not ec.resolved and ec.intensity > 0.05]
+        active = [ec for ec in epistemic_curiosities if not ec.resolved and ec.intensity > cfg('hypothalamus.epistemic_min_intensity', 0.05)]
         if active:
             strongest = max(active, key=lambda ec: ec.intensity)
-            if strongest.intensity > 0.7:
+            if strongest.intensity > cfg('hypothalamus.epistemic_strong_intensity', 0.7):
                 parts.append(f"You keep coming back to this: {strongest.question}. It won't leave you alone.")
-            elif strongest.intensity > 0.4:
+            elif strongest.intensity > cfg('hypothalamus.epistemic_moderate_intensity', 0.4):
                 parts.append(f"In the back of your mind: {strongest.question}")
 
             # Additional active ECs
-            others = [ec for ec in active if ec.id != strongest.id and ec.intensity > 0.3]
+            others = [ec for ec in active if ec.id != strongest.id and ec.intensity > cfg('hypothalamus.epistemic_secondary_min', 0.3)]
             if others:
-                topics = [ec.topic for ec in others[:2]]
+                topics = [ec.topic for ec in others[:int(cfg('hypothalamus.epistemic_secondary_max', 2))]]
                 parts.append(f"You're also loosely thinking about: {', '.join(topics)}")
 
     # Expression
-    if d.expression_need > 0.7:
+    if d.expression_need > cfg('hypothalamus.feeling_expression_high', 0.7):
         parts.append("There's something building inside me that wants to come out. I should write, or post, or rearrange something.")
 
     # Mood
-    if d.mood_valence < -0.5:
+    if d.mood_valence < cfg('hypothalamus.feeling_valence_low', -0.5):
         parts.append("Everything feels dim right now.")
-    elif d.mood_valence > 0.5:
+    elif d.mood_valence > cfg('hypothalamus.feeling_valence_high', 0.5):
         parts.append("There's a warmth in me. Something happened that I'm still carrying.")
 
     if not parts:

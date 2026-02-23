@@ -70,6 +70,10 @@ def parse_args() -> argparse.Namespace:
         "--verbose", "-v", action="store_true",
         help="Print progress every 100 cycles",
     )
+    parser.add_argument(
+        "--config", type=str, default=None,
+        help="Path to alive_config.yaml override (for parameter sweeps)",
+    )
 
     return parser.parse_args()
 
@@ -392,6 +396,12 @@ def do_compare(results_dir: str):
 
 def main():
     args = parse_args()
+
+    # Load alternate config before any sim imports touch cfg()
+    if args.config:
+        from alive_config import load_config
+        load_config(args.config)
+        print(f"[Sim] Loaded config override: {args.config}")
 
     if args.compare:
         do_compare(args.compare)

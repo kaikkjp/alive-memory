@@ -11,6 +11,7 @@ elevated, cooldown has elapsed, and no visitor is present.
 
 from dataclasses import dataclass
 from models.state import DrivesState
+from alive_config import cfg
 
 
 @dataclass
@@ -20,16 +21,14 @@ class HabitProposal:
     reason: str
 
 
-# ── Journaling Policy ──
+# ── Journaling Policy — all thresholds from alive_config.yaml ──
 
-JOURNAL_EXPRESSION_THRESHOLD = 0.6    # expression_need must exceed this
-JOURNAL_COOLDOWN_CYCLES = 80          # min cycles between journals
-JOURNAL_NO_VISITOR_WINDOW = 5         # must have no visitor for this many recent cycles
-JOURNAL_MAX_PER_DAY = 3               # hard cap per sleep-wake window
-JOURNAL_PRIORITY = 0.75               # priority when triggered
-
-# Diminishing returns: each subsequent journal in a day reduces priority
-JOURNAL_DIMINISHING_FACTOR = 0.6      # priority *= this per journal in current day
+JOURNAL_EXPRESSION_THRESHOLD = cfg('habit_policy.journal.expression_threshold', 0.6)
+JOURNAL_COOLDOWN_CYCLES = cfg('habit_policy.journal.cooldown_cycles', 80)
+JOURNAL_NO_VISITOR_WINDOW = cfg('habit_policy.journal.no_visitor_window', 5)
+JOURNAL_MAX_PER_DAY = cfg('habit_policy.journal.max_per_day', 3)
+JOURNAL_PRIORITY = cfg('habit_policy.journal.priority', 0.75)
+JOURNAL_DIMINISHING_FACTOR = cfg('habit_policy.journal.diminishing_factor', 0.6)
 
 
 def evaluate_journal_habit(
@@ -63,7 +62,7 @@ def evaluate_journal_habit(
         return None
 
     # Optional boost: low mood increases urgency
-    mood_boost = 0.1 if drives.mood_valence < -0.2 else 0.0
+    mood_boost = cfg('habit_policy.journal.mood_boost_amount', 0.1) if drives.mood_valence < cfg('habit_policy.journal.mood_boost_threshold', -0.2) else 0.0
 
     # Calculate priority with diminishing returns
     priority = JOURNAL_PRIORITY * (JOURNAL_DIMINISHING_FACTOR ** journals_today) + mood_boost
