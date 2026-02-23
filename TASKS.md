@@ -1294,7 +1294,7 @@ ORDER BY sim_day;
 ---
 
 ### TASK-086: SimContentPool — Feed for Simulated Inner Life
-**Status:** BACKLOG
+**Status:** DONE (2026-02-23)
 **Priority:** Critical (blocks meaningful isolation/standard ablation results)
 **Depends on:** None (independent of TASK-079)
 **Spec:** `tasks/TASK-086-sim-content-pool.md`

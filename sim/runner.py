@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any
 
 from sim.clock import SimulatedClock
+from sim.content_pool import SimContentPool
 from sim.db import InMemoryDB
 from sim.scenario import ScenarioEvent, ScenarioManager
 from sim.visitors.archetypes import ARCHETYPES
@@ -74,6 +75,7 @@ class SimulationResult:
     total_journals: int = 0
     daily_budget_usd: float = 1.0
     budget_rest_cycles: int = 0
+    content_pool_stats: dict = field(default_factory=dict)
     llm_stats: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
@@ -90,6 +92,7 @@ class SimulationResult:
             "sleep_cycles": len(self.sleep_cycles),
             "daily_budget_usd": self.daily_budget_usd,
             "budget_rest_cycles": self.budget_rest_cycles,
+            "content_pool_stats": self.content_pool_stats,
             "visitors_seen": len(self.visitors),
             "llm_stats": self.llm_stats,
             "cycles": [
@@ -223,6 +226,10 @@ OUTPUT SCHEMA:
         }
         self._visitor_history: dict[str, dict] = {}  # visitor_id -> info
         self._sync_display_energy_from_budget()
+
+        # Content pool — synthetic RSS feed for the inner life loop
+        self.content_pool = SimContentPool(seed=seed)
+        self._last_notifications: list[dict] = []  # current cycle's notifications
 
         # Tier 2 LLM visitor engine + dynamic event queue
         # Must be initialized before _build_v2_scenario which populates them
@@ -584,6 +591,11 @@ OUTPUT SCHEMA:
                           f"(budget ${budget_before:.3f} -> ${self._budget_remaining():.3f})")
                 continue
 
+            # Surface content notifications for this cycle
+            self._last_notifications = self.content_pool.get_notifications(
+                cycle_num, max_items=3,
+            )
+
             # Run one pipeline cycle
             cycle_result = await self._run_cycle(cycle_num, pipeline_events)
             result.cycles.append(cycle_result)
@@ -615,6 +627,9 @@ OUTPUT SCHEMA:
                       f"e={self._drives['energy']:.2f} "
                       f"budget=${self._budget_remaining():.3f} "
                       f"sh={self._drives['social_hunger']:.2f}")
+
+        # Gather content pool stats
+        result.content_pool_stats = self.content_pool.stats()
 
         # Gather LLM stats
         if hasattr(self.llm, 'report'):
@@ -756,6 +771,19 @@ OUTPUT SCHEMA:
             action = "read_content" if raw_action == "browse_web" else raw_action
 
         dialogue = parsed.get("dialogue")
+
+        # If action is read_content, consume from content pool
+        if action == "read_content" and intentions:
+            detail = intentions[0].get("detail") or {}
+            content_id = detail.get("content_id") or intentions[0].get("content", "")
+            # Try to extract content_id from content string if it looks like an id
+            if content_id and not content_id.startswith(("tcg_", "jpn_", "phi_", "atm_", "misc_")):
+                # Check if there's a content_id in the intention detail
+                content_id = detail.get("content_id", "")
+            if content_id:
+                consumed = self.content_pool.consume(content_id)
+                if consumed and self.verbose:
+                    print(f"  [{cycle_num:04d}] READ: {consumed['title'][:60]}")
 
         # Determine cycle type
         if dialogue:
@@ -935,11 +963,14 @@ OUTPUT SCHEMA:
         return "\n".join(parts)
 
     def _build_messages(self, events: list[dict]) -> list[dict]:
-        """Build messages from events for this cycle."""
-        if not events:
-            return [{"role": "user", "content": "No new events. Continue your day."}]
+        """Build messages from events for this cycle.
 
+        Includes content notifications from the SimContentPool,
+        matching the production format from pipeline/notifications.py.
+        """
         parts = []
+        has_visitor = self._engagement["status"] == "engaged"
+
         for event in events:
             etype = event.get("event_type", "")
             source = event.get("source", "")
@@ -966,6 +997,34 @@ OUTPUT SCHEMA:
                 parts.append(f"X mention from {source}: {content}")
             else:
                 parts.append(f"[{etype}] {content}")
+
+        # Inject content notifications (matches production sensorium format)
+        if self._last_notifications:
+            notif_lines = []
+            for n in self._last_notifications:
+                notif_lines.append(
+                    f'  \u2022 "{n["title"]}" ({n["source"]}) '
+                    f'\u2014 {n["topic"]} [id:{n["content_id"]}]'
+                )
+            notif_text = "\n".join(notif_lines)
+
+            if has_visitor:
+                parts.append(
+                    f"(In the background, you notice some things in your feed:\n"
+                    f"{notif_text}\n"
+                    f"  You could read_content(content_id) or "
+                    f"save_for_later(content_id) later.)"
+                )
+            else:
+                parts.append(
+                    f"You notice some things in your feed:\n"
+                    f"{notif_text}\n"
+                    f"  You could read_content(content_id) or "
+                    f"save_for_later(content_id)."
+                )
+
+        if not parts:
+            return [{"role": "user", "content": "No new events. Continue your day."}]
 
         return [{"role": "user", "content": "\n".join(parts)}]
 

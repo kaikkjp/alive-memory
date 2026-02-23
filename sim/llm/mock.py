@@ -229,15 +229,30 @@ class MockCortex:
             })
             self.state.post_count += 1
         elif curiosity >= 0.5 and self.rng.random() > 0.3:
-            # Curious — browse
-            topic = self.rng.choice(_BROWSE_TOPICS)
-            monologue_pool = "curious"
-            intentions.append({
-                "action": "read_content",
-                "target": "web",
-                "content": topic,
-                "impulse": min(0.9, curiosity + 0.1),
-            })
+            # Curious — check notifications first, fall back to random browse
+            notifications = ctx.get("notifications", [])
+            if notifications:
+                # Pick a notification to read (prefer first = most recent)
+                chosen = self.rng.choice(notifications)
+                content_id = chosen["content_id"]
+                monologue_pool = "curious"
+                intentions.append({
+                    "action": "read_content",
+                    "target": "web",
+                    "content": content_id,
+                    "detail": {"content_id": content_id},
+                    "impulse": min(0.9, curiosity + 0.1),
+                })
+            else:
+                # No notifications — fall back to random browse topic
+                topic = self.rng.choice(_BROWSE_TOPICS)
+                monologue_pool = "curious"
+                intentions.append({
+                    "action": "read_content",
+                    "target": "web",
+                    "content": topic,
+                    "impulse": min(0.9, curiosity + 0.1),
+                })
             self.state.browse_count += 1
         elif social_hunger > 0.7:
             monologue_pool = "social"
@@ -465,8 +480,8 @@ class MockCortex:
     def _parse_context(self, messages: list[dict], system: str) -> dict:
         """Parse incoming messages to extract simulation context.
 
-        Looks for drive state, visitor presence, and conversation
-        in the message content.
+        Looks for drive state, visitor presence, conversation,
+        and content notifications in the message content.
         """
         ctx: dict = {
             "has_visitor": False,
@@ -474,6 +489,7 @@ class MockCortex:
             "visitor_name": None,
             "visit_count": 0,
             "drives": {},
+            "notifications": [],  # content notifications from SimContentPool
         }
 
         full_text = system
@@ -501,6 +517,7 @@ class MockCortex:
                     break
 
         # Parse drive values from system prompt (drives section)
+        import re
         drive_keywords = {
             "social_hunger": "social_hunger",
             "curiosity": "curiosity",
@@ -510,14 +527,21 @@ class MockCortex:
             "mood_arousal": "mood_arousal",
         }
         for key, label in drive_keywords.items():
-            # Look for patterns like "social_hunger: 0.7" or "Social hunger is high"
-            import re
             match = re.search(rf'{key}\s*[:=]\s*([-\d.]+)', full_text, re.IGNORECASE)
             if match:
                 try:
                     ctx["drives"][label] = float(match.group(1))
                 except ValueError:
                     pass
+
+        # Parse content notifications from message text
+        # Format: • "title" (source) — topic [id:content_id]
+        notif_pattern = re.compile(
+            r'\[id:([a-z]+_\d+)\]'
+        )
+        for match in notif_pattern.finditer(full_text):
+            content_id = match.group(1)
+            ctx["notifications"].append({"content_id": content_id})
 
         return ctx
 
