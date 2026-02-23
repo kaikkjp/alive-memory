@@ -1270,7 +1270,7 @@ ORDER BY sim_day;
 ---
 
 ### TASK-085: Public Live Dashboard
-**Status:** READY
+**Status:** DONE (2026-02-23)
 **Priority:** High
 **Branch:** `feat/live-dashboard`
 **Spec:** `tasks/cowork-brief-live-dashboard.md`
@@ -1333,6 +1333,48 @@ ORDER BY sim_day;
 - `sim/runner.py` (homeostatic drift + speak gate)
 - `sim/llm/mock.py` (drive update computation)
 - `sim/content_pool.py` (seen_count tracking)
+
+---
+
+### TASK-089: Extract All Constants to alive_config.yaml
+**Status:** DONE (2026-02-23)
+**Priority:** Critical (blocks ablation rerun and paper)
+**Spec:** `tasks/TASK-config-extraction.md`
+**Description:** Every tuning change currently requires a code commit. Extract all ~50 hardcoded behavioral constants (drive equilibria, routing thresholds, habit policies, gating rules, circuit breaker params, sleep params, budget caps) to a single `alive_config.yaml` file with a Python loader singleton. Enables config-only tuning, grid search / parameter sweeps, and "Table 2: Configuration Parameters" for the paper.
+**Build order:**
+1. Create `alive_config.yaml` (all constants) + `config.py` (loader + singleton)
+2. Rewire `pipeline/hypothalamus.py` — all 7 drive constants from config
+3. Rewire `pipeline/basal_ganglia.py` — action gating + circuit breaker from config
+4. Rewire `pipeline/habit_policy.py` — habit thresholds from config
+5. Rewire `sleep.py` — sleep constants from config
+6. Rewire `pipeline/cortex.py` + `llm/client.py` — token caps + budget from config
+7. Add `--config` CLI flag to `sim/__main__.py`
+8. Fix `seen_count` telemetry (seen_count >= consumed_count always)
+9. Create `experiments/configs/` with variant configs for sweeps
+**Scope (files you may touch):**
+- `alive_config.yaml` (new — all constants)
+- `config.py` (new — loader + singleton)
+- `pipeline/hypothalamus.py`
+- `pipeline/basal_ganglia.py`
+- `pipeline/habit_policy.py`
+- `pipeline/cortex.py`
+- `llm/client.py`
+- `sleep.py`
+- `sim/__main__.py`
+- `sim/metrics/` (seen_count fix)
+- `experiments/configs/` (new — variant configs)
+**Scope (files you may NOT touch):**
+- `db.py`
+- `heartbeat.py`
+- `config/identity.py`
+- `pipeline/validator.py`
+- `pipeline/hippocampus.py`
+- `pipeline/hippocampus_write.py`
+**Tests:**
+- 100-cycle isolation run with default config: curiosity/arousal/expression oscillate, speak=0, seen>=consumed
+- Diff a run between `default.yaml` and `high_curiosity.yaml` — drives should differ
+- All existing tests pass unchanged
+**Definition of done:** All ~50 pipeline constants in `alive_config.yaml`. Pipeline reads from config singleton. `--config` flag works for sim. Variant configs enable parameter sweeps. `seen_count >= consumed_count` always. Re-run full 3-seed isolation ablation for paper numbers.
 
 ---
 

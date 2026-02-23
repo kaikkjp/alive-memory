@@ -18,8 +18,10 @@ from config.identity import IDENTITY_COMPACT, VOICE_CHECKSUM
 import db
 from prompt.budget import enforce_section, estimate_tokens, get_reserved_output_tokens, get_output_tokens_for_cycle
 
+from alive_config import cfg
+
 CORTEX_MODEL = "claude-sonnet-4-5-20250929"
-API_CALL_TIMEOUT = 60.0  # Hard timeout per request (seconds)
+API_CALL_TIMEOUT = cfg('cortex.api_call_timeout', 60.0)
 
 # ── Circuit Breaker & Cost Controls ──
 
@@ -28,9 +30,9 @@ _circuit_open_until: float = 0.0
 _daily_cycle_count: int = 0
 _daily_cycle_date: str = ''
 
-DAILY_CYCLE_CAP = 500
-MAX_CONSECUTIVE_FAILURES = 3
-CIRCUIT_OPEN_SECONDS = 300  # 5 min cooldown
+DAILY_CYCLE_CAP = cfg('cortex.daily_cycle_cap', 500)
+MAX_CONSECUTIVE_FAILURES = cfg('cortex.max_consecutive_failures', 3)
+CIRCUIT_OPEN_SECONDS = cfg('cortex.circuit_open_seconds', 300)
 
 
 def _check_circuit() -> bool:
@@ -63,8 +65,8 @@ def _record_success():
 # effective priority so other threads can surface.
 _THREAD_APPEARANCE_COUNTER: dict[str, int] = {}
 _LAST_SELECTED_THREAD_IDS: set[str] = set()
-RUMINATION_THRESHOLD = 5
-RUMINATION_DECAY_FACTOR = 0.3  # per cycle past threshold
+RUMINATION_THRESHOLD = cfg('cortex.rumination_threshold', 5)
+RUMINATION_DECAY_FACTOR = cfg('cortex.rumination_decay_factor', 0.3)
 
 
 def _apply_rumination_breaker(threads: list, limit: int = 3) -> list:
@@ -657,7 +659,7 @@ async def cortex_call(
           f"{f' ({len(trimmed)} trims)' if trimmed else ''}")
 
     # TASK-076: Lower temperature on idle for faster, more predictable output
-    temperature = 0.4 if is_idle else 0.7
+    temperature = cfg('cortex.idle_temperature', 0.4) if is_idle else cfg('cortex.engage_temperature', 0.7)
 
     try:
         print(f"[Cortex] API call start — {routing.cycle_type}")

@@ -9,6 +9,7 @@ import sys
 
 import db
 from db.parameters import p
+from alive_config import cfg
 
 
 async def run_consolidation() -> int:
@@ -78,7 +79,9 @@ async def run_consolidation() -> int:
                 try:
                     from pipeline.cold_search import search_cold_memory
                     cold_echoes = await search_cold_memory(
-                        query=moment.summary, limit=3, exclude_today=True,
+                        query=moment.summary,
+                        limit=int(cfg('sleep_consolidation.cold_search_limit', 3)),
+                        exclude_today=True,
                     )
                 except Exception as e:
                     print(f"[Sleep] Cold search failed, proceeding without: {e}")
@@ -137,7 +140,9 @@ async def run_consolidation() -> int:
     try:
         today_journals = await db.get_journals_from_current_day()
         if today_journals:
-            sleep_quality_bonus = min(0.1, len(today_journals) * 0.04)
+            per_journal = cfg('sleep_consolidation.journal_mood_bonus', 0.04)
+            bonus_cap = cfg('sleep_consolidation.journal_mood_bonus_cap', 0.1)
+            sleep_quality_bonus = min(bonus_cap, len(today_journals) * per_journal)
             drives = await db.get_drives_state()
             drives.mood_valence = min(1.0, max(-1.0, drives.mood_valence + sleep_quality_bonus))
             await db.save_drives_state(drives)

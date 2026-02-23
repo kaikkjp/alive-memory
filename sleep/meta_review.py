@@ -10,6 +10,7 @@ import sys
 
 import clock
 import db
+from alive_config import cfg
 
 # Drive fields governed by each parameter category — for meta-sleep review
 _CATEGORY_DRIVE_MAP: dict[str, list[str]] = {
@@ -33,7 +34,7 @@ async def run_meta_review() -> None:
     await _pkg.review_self_modifications()
 
     # Auto-promote high-frequency pending actions
-    promoted = await db.promote_pending_actions(threshold=5)
+    promoted = await db.promote_pending_actions(threshold=int(cfg('sleep_meta.auto_promote_threshold', 5)))
     if promoted:
         print(f"  [Sleep] Auto-promoted {len(promoted)} pending actions: {[a['action_name'] for a in promoted]}")
 
@@ -47,21 +48,24 @@ async def review_trait_stability():
             trait.visitor_id, trait.trait_category, trait.trait_key
         )
 
-        if len(observations) >= 3:
-            # observations are DESC (most recent first), so [:3] = 3 most recent
-            recent_three = observations[:3]
+        window = int(cfg('sleep_meta.trait_recent_window', 3))
+        if len(observations) >= window:
+            # observations are DESC (most recent first)
+            recent_three = observations[:window]
             consistent = all(
                 o.trait_value == recent_three[0].trait_value
                 for o in recent_three
             )
             if consistent:
-                new_stability = min(1.0, trait.stability + 0.2)
+                increment = cfg('sleep_meta.trait_stability_increment', 0.2)
+                cap = cfg('sleep_meta.trait_stability_max', 1.0)
+                new_stability = min(cap, trait.stability + increment)
                 await db.update_trait_stability(trait.id, new_stability)
 
         # Check for unconfirmed anomalies (> 7 days old)
         if trait.status == 'anomaly':
             days_old = (clock.now_utc() - trait.observed_at).days
-            if days_old > 7:
+            if days_old > int(cfg('sleep_meta.anomaly_expiration_days', 7)):
                 await db.update_trait_status(trait.id, 'archived')
 
 
@@ -99,7 +103,7 @@ async def review_self_modifications() -> None:
             if current is None:
                 continue
             deviation = abs(current - equilibrium)
-            if deviation > 0.4:
+            if deviation > cfg('sleep_meta.drive_deviation_threshold', 0.4):
                 degraded = True
                 print(f"    [Sleep] Drive {drive_field} deviation {deviation:.2f} — flagging {param_key} for revert")
                 break

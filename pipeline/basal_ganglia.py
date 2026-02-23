@@ -18,6 +18,7 @@ from collections import Counter
 import clock
 import db
 from db.parameters import p
+from alive_config import cfg
 from models.pipeline import (
     Intention, ValidatedOutput, ActionDecision, MotorPlan, InhibitionCheck,
     HabitBoost,
@@ -86,7 +87,7 @@ def _calculate_priority(intention: Intention, drives: DrivesState,
                 base += p('basal_ganglia.priority.interest_bonus')
 
         # Active disengagement — if she's absorbed and conversation is dull
-        if drives.expression_need > 0.7 and intention.impulse < 0.4:
+        if drives.expression_need > cfg('basal_ganglia.disengagement_expression_threshold', 0.7) and intention.impulse < cfg('basal_ganglia.disengagement_impulse_threshold', 0.4):
             base *= p('basal_ganglia.priority.disengagement_factor')
 
     return min(base, 1.0)
@@ -150,18 +151,18 @@ async def _check_inhibition(action_name: str, context: dict) -> InhibitionCheck:
 # ── Drive gates for habit auto-fire ──
 # Habits should only fire when the relevant drive supports the action.
 # Without this, write_journal fires every cycle and drains curiosity to 0.
-# NOTE: This is a structural mapping (action -> (drive_field, threshold)).
-# The open_shop rest gate is evaluated at check time via p().
-HABIT_DRIVE_GATES: dict[str, tuple[str, float]] = {
-    'write_journal':   ('expression_need', 0.2),
-    'express_thought': ('expression_need', 0.2),
-    'post_x_draft':    ('expression_need', 0.2),
-    'speak':           ('social_hunger', 0.3),
-    'rearrange':       ('energy', 0.3),
-    'place_item':      ('energy', 0.3),
-    'open_shop':       ('energy', 0.3),
-    'close_shop':      ('rest_need', 0.0),  # always allowed by drive; gated by shop status
-}
+# NOTE: Loaded from alive_config.yaml. The open_shop rest gate is via p().
+def _load_drive_gates() -> dict[str, tuple[str, float]]:
+    gates_cfg = cfg('basal_ganglia.drive_gates', {})
+    result = {}
+    for action, spec in gates_cfg.items():
+        if isinstance(spec, dict):
+            result[action] = (spec['field'], spec['threshold'])
+        else:
+            result[action] = spec
+    return result
+
+HABIT_DRIVE_GATES: dict[str, tuple[str, float]] = _load_drive_gates()
 
 # Backward-compat export (used by tests/test_habits.py).
 # Actual logic reads from p('basal_ganglia.habit.cooldown_cycles').
