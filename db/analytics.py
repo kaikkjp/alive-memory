@@ -948,14 +948,14 @@ async def get_cycles_since_last_journal() -> int:
     conn = await _connection.get_db()
     cursor = await conn.execute(
         """SELECT MAX(created_at) AS last_ts FROM action_log
-           WHERE action = 'write_journal' AND status = 'approved'"""
+           WHERE action = 'write_journal' AND status = 'executed'"""
     )
     row = await cursor.fetchone()
     last_ts = row['last_ts'] if row else None
     if not last_ts:
         return 9999
     cursor = await conn.execute(
-        "SELECT COUNT(*) FROM cycle_log WHERE created_at > ?", (last_ts,)
+        "SELECT COUNT(*) FROM cycle_log WHERE ts > ?", (last_ts,)
     )
     row = await cursor.fetchone()
     return row[0] if row else 9999
@@ -969,7 +969,7 @@ async def get_journals_today() -> int:
     day_start_utc = day_start.astimezone(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
     cursor = await conn.execute(
         """SELECT COUNT(*) FROM action_log
-           WHERE action = 'write_journal' AND status = 'approved'
+           WHERE action = 'write_journal' AND status = 'executed'
            AND created_at >= ?""",
         (day_start_utc,)
     )
@@ -992,7 +992,7 @@ async def get_cycles_since_last_visitor() -> int:
     if not last_ts:
         return 9999
     cursor = await conn.execute(
-        "SELECT COUNT(*) FROM cycle_log WHERE created_at > ?", (last_ts,)
+        "SELECT COUNT(*) FROM cycle_log WHERE ts > ?", (last_ts,)
     )
     row = await cursor.fetchone()
     return row[0] if row else 9999

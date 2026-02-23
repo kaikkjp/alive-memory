@@ -243,50 +243,49 @@ async def check_habits(drives: DrivesState,
     matches = [h for h in all_habits
                if h['strength'] >= habit_threshold and h['trigger_context'] == trigger_key]
 
-    if not matches:
-        return None
+    # ── Stored habits: try learned habits first ──
+    if matches:
+        # Sort by strength descending, try each until one passes all gates
+        matches.sort(key=lambda h: h['strength'], reverse=True)
 
-    # Sort by strength descending, try each until one passes all gates
-    matches.sort(key=lambda h: h['strength'], reverse=True)
+        for habit in matches:
+            action = habit['action']
 
-    for habit in matches:
-        action = habit['action']
+            # Gate: drive state must support this action
+            if not _passes_drive_gate(action, drives):
+                continue
 
-        # Gate: drive state must support this action
-        if not _passes_drive_gate(action, drives):
-            continue
+            # Gate: per-action cooldown (safety net against rapid re-fire)
+            if not _passes_cooldown_gate(action):
+                continue
 
-        # Gate: per-action cooldown (safety net against rapid re-fire)
-        if not _passes_cooldown_gate(action):
-            continue
+            # Gate: context checks requiring DB (e.g. shop must be open)
+            if not await _passes_shop_gate(action):
+                continue
 
-        # Gate: context checks requiring DB (e.g. shop must be open)
-        if not await _passes_shop_gate(action):
-            continue
+            # All gates passed — record fire and return
+            _record_habit_fire(action)
 
-        # All gates passed — record fire and return
-        _record_habit_fire(action)
+            cap = ACTION_REGISTRY.get(action)
+            if cap and cap.generative:
+                return HabitBoost(
+                    action=action,
+                    strength=habit['strength'],
+                    habit_id=habit['id'],
+                )
 
-        cap = ACTION_REGISTRY.get(action)
-        if cap and cap.generative:
-            return HabitBoost(
-                action=action,
-                strength=habit['strength'],
-                habit_id=habit['id'],
+            return MotorPlan(
+                actions=[ActionDecision(
+                    action=action,
+                    source='habit',
+                    impulse=habit['strength'],
+                    priority=habit['strength'],
+                    status='approved',
+                    detail={},
+                )],
+                suppressed=[],
+                habit_fired=True,
             )
-
-        return MotorPlan(
-            actions=[ActionDecision(
-                action=action,
-                source='habit',
-                impulse=habit['strength'],
-                priority=habit['strength'],
-                status='approved',
-                detail={},
-            )],
-            suppressed=[],
-            habit_fired=True,
-        )
 
     # ── HabitPolicy: drive-coupled journal reflex (TASK-082) ──
     # Fires independently of stored habits. Returns HabitBoost so cortex
@@ -308,7 +307,7 @@ async def check_habits(drives: DrivesState,
     except Exception:
         pass  # graceful degradation — policy failure shouldn't break pipeline
 
-    return None  # all matching habits gated out
+    return None  # no habit or policy fired
 
 
 async def _resolve_dynamic_action(action_name: str, decision: ActionDecision) -> str | None:
@@ -517,7 +516,10 @@ async def select_actions(validated: ValidatedOutput, drives: DrivesState,
         _backfill_action_detail(decision)
         decisions.append(decision)
 
-    # ── HabitPolicy: boost/inject write_journal (TASK-082) ──
+    # ── HabitPolicy: boost cortex-generated write_journal (TASK-082) ──
+    # Only boosts existing decisions — injection without content is useless
+    # because the executor skips empty journal text.  The primary mechanism
+    # is check_habits() → HabitBoost → cortex generates content.
     try:
         budget_emergency = (context or {}).get('budget_mode') == 'emergency'
         proposal = evaluate_journal_habit(
@@ -528,25 +530,12 @@ async def select_actions(validated: ValidatedOutput, drives: DrivesState,
             budget_emergency=budget_emergency,
         )
         if proposal:
-            # Check if cortex already generated a write_journal
             existing = [d for d in decisions
                         if d.action == 'write_journal' and d.status == 'approved']
             if existing:
-                # Boost priority to policy level
                 for d in existing:
                     d.priority = max(d.priority, proposal.priority)
                     d.source = 'habit_policy'
-            else:
-                # Inject as a new approved candidate
-                decisions.append(ActionDecision(
-                    action='write_journal',
-                    content='',
-                    impulse=proposal.priority,
-                    priority=proposal.priority,
-                    status='approved',
-                    source='habit_policy',
-                    detail={'text': '', '_habit_policy': True},
-                ))
     except Exception:
         pass  # graceful degradation
 
