@@ -60,7 +60,7 @@ interface LiveDashboardState {
   gaze: string;
   shopOpen: boolean;
   timeOfDay: string;
-  costToday: number;
+  budget: { spent: number; cap: number; remaining: number };
   cost30d: number;
   drives: LiveDrives;
   recentActions: LiveAction[];
@@ -330,28 +330,67 @@ export default function ALIVEDashboard() {
 
         {/* Uptime & Core Stats */}
         <div style={{
-          display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 1, marginBottom: 32,
-          background: '#ffffff06', borderRadius: 8, overflow: 'hidden', animation: 'fadeIn 0.8s ease',
+          display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1, marginBottom: 8,
+          background: '#ffffff06', borderRadius: '8px 8px 0 0', overflow: 'hidden', animation: 'fadeIn 0.8s ease',
         }}>
           {[
-            { label: 'Alive for', value: `${days}d ${hours}h ${minutes}m ${secs}s`, mono: true },
-            { label: 'Total cycles', value: state.uptime.totalCycles.toLocaleString(), mono: true },
-            { label: 'Cost today', value: `$${state.costToday.toFixed(2)}`, mono: true },
-            { label: 'Visitors today', value: state.visitors.today, mono: true },
+            { label: 'Alive for', value: `${days}d ${hours}h ${minutes}m ${secs}s` },
+            { label: 'Total cycles', value: state.uptime.totalCycles.toLocaleString() },
+            { label: 'Visitors today', value: state.visitors.today },
           ].map((stat, i) => (
             <div key={i} style={{ background: '#0f0f0f', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 4 }}>
               <span style={{ fontSize: 10, color: '#555', letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: "'JetBrains Mono', monospace" }}>
                 {stat.label}
               </span>
               <span style={{
-                fontSize: stat.mono ? 20 : 24, fontWeight: 300, color: '#e0e0e0',
-                fontFamily: stat.mono ? "'JetBrains Mono', monospace" : "'Crimson Pro', serif",
+                fontSize: 20, fontWeight: 300, color: '#e0e0e0',
+                fontFamily: "'JetBrains Mono', monospace",
               }}>
                 {stat.value}
               </span>
             </div>
           ))}
         </div>
+
+        {/* Budget Bar */}
+        {(() => {
+          const pct = Math.min(state.budget.spent / Math.max(state.budget.cap, 0.01), 1);
+          const pctDisplay = Math.round(pct * 100);
+          const barColor = pct < 0.6 ? '#4ade80' : pct < 0.85 ? '#e8c84a' : '#e87c7c';
+          return (
+            <div style={{
+              background: '#0f0f0f', borderRadius: '0 0 8px 8px', padding: '14px 24px',
+              marginBottom: 32, animation: 'fadeIn 0.8s ease',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <span style={{ fontSize: 10, color: '#555', letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: "'JetBrains Mono', monospace" }}>
+                  Daily Budget
+                </span>
+                <span style={{ fontSize: 11, color: '#666', fontFamily: "'JetBrains Mono', monospace" }}>
+                  ${state.budget.spent.toFixed(2)} / ${state.budget.cap.toFixed(2)}
+                </span>
+              </div>
+              <div style={{
+                width: '100%', height: 6, background: '#1a1a1a', borderRadius: 3,
+                overflow: 'hidden', position: 'relative',
+              }}>
+                <div style={{
+                  width: `${Math.max(pctDisplay, 1)}%`, height: '100%', background: barColor,
+                  borderRadius: 3, transition: 'width 1s ease, background 0.5s ease',
+                }} />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+                <span style={{ fontSize: 9, color: '#444', fontFamily: "'JetBrains Mono', monospace" }}>
+                  {pctDisplay}% used
+                </span>
+                <span style={{ fontSize: 9, color: '#444', fontFamily: "'JetBrains Mono', monospace" }}>
+                  ${state.budget.remaining.toFixed(2)} remaining
+                </span>
+              </div>
+            </div>
+          );
+        })()}
+
 
         {/* Main Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 32 }}>
