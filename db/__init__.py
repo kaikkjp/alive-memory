@@ -234,6 +234,15 @@ from db.analytics import (
     update_inhibition,
 )
 
+# ── meta_experiments ──
+from db.meta_experiments import (
+    record_experiment,
+    get_recent_experiments,
+    get_pending_experiments,
+    get_last_adjustment_cycle,
+    get_latest_metric_value,
+)
+
 # ── social ──
 from db.social import (
     approve_draft,

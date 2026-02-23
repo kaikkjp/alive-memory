@@ -203,6 +203,24 @@ async def build_perceptions(unread_events: list[Event], drives: DrivesState,
             )
             perceptions.append(perc)
 
+        elif event.event_type == 'meta_controller_adjustment':
+            # TASK-090: Character-aligned perception of homeostatic tuning
+            adj_list = event.payload.get('adjustments', [])
+            content = _build_meta_controller_perception(adj_list)
+            if content:
+                perc = Perception(
+                    p_type='meta_adjustment',
+                    source='self',
+                    ts=event.ts,
+                    content=content,
+                    features={
+                        'is_homeostatic': True,
+                        'adjustment_count': len(adj_list),
+                    },
+                    salience=0.6,
+                )
+                perceptions.append(perc)
+
     # ── Notification injection (TASK-041) + gap detection (TASK-042) ──
     # Surface content titles from the feed as background perceptions.
     # Gap detection scores notifications against her memory for curiosity spikes.
@@ -513,3 +531,45 @@ def _build_focus_perception(focus_context) -> Perception | None:
         )
 
     return None
+
+
+# ── Meta-controller perception (TASK-090) ──
+
+# Maps metric targets to diegetic descriptions she can feel
+_METRIC_FEELINGS: dict[str, tuple[str, str]] = {
+    'initiative_rate': ("I've been less active than usual", "I've been restless lately"),
+    'emotional_range': ("things have felt flat", "my feelings have been running wild"),
+}
+
+
+def _build_meta_controller_perception(adjustments: list[dict]) -> str | None:
+    """Build a character-aligned perception of homeostatic parameter adjustment.
+
+    She doesn't see raw numbers — she feels a vague shift, like waking up
+    slightly different. The perception uses diegetic language consistent
+    with the Shopkeeper's voice.
+    """
+    if not adjustments:
+        return None
+
+    parts = []
+    for adj in adjustments:
+        target = adj.get('target_metric', '')
+        old_val = adj.get('old_value', 0)
+        new_val = adj.get('new_value', 0)
+
+        # Try to find a diegetic description
+        feelings = _METRIC_FEELINGS.get(target)
+        if feelings:
+            if new_val > old_val:
+                parts.append(feelings[0])  # low metric → raising param
+            else:
+                parts.append(feelings[1])  # high metric → lowering param
+        else:
+            parts.append("something shifted in how I approach things")
+
+    if len(parts) == 1:
+        return f"{parts[0].capitalize()}, so something adjusted — subtly."
+    else:
+        joined = " and ".join(parts)
+        return f"{joined.capitalize()} — something recalibrated overnight."

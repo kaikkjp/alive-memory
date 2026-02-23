@@ -792,6 +792,66 @@ async def handle_metrics_backfill(server, writer, authorization):
     await server._http_json(writer, 200, result)
 
 
+# ─── Meta-Controller (TASK-090) ───
+
+
+async def handle_meta_controller(server, writer, authorization):
+    """GET /api/dashboard/meta-controller — meta-controller status and history."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+
+    from alive_config import cfg_section
+    mc_config = cfg_section('meta_controller')
+
+    # Fetch recent experiments
+    recent = await db.get_recent_experiments(limit=10)
+
+    # Fetch pending experiments count
+    pending = await db.get_pending_experiments()
+
+    # Build target status from latest metrics
+    targets_status = {}
+    targets = mc_config.get('targets', {})
+    for target_name, target in targets.items():
+        metric_name = target.get('metric')
+        if not metric_name:
+            continue
+
+        # Get latest metric value
+        row = await db.get_latest_metric_value(metric_name)
+        current_value = row['value'] if row else None
+        status = 'unknown'
+        if current_value is not None:
+            if current_value < target.get('min', 0):
+                status = 'low'
+            elif current_value > target.get('max', 1):
+                status = 'high'
+            else:
+                status = 'ok'
+
+        targets_status[target_name] = {
+            'min': target.get('min'),
+            'max': target.get('max'),
+            'metric': metric_name,
+            'current': current_value,
+            'status': status,
+            'last_updated': row['timestamp'] if row else None,
+        }
+
+    await server._http_json(writer, 200, {
+        'enabled': mc_config.get('enabled', True),
+        'targets': targets_status,
+        'recent_adjustments': recent,
+        'pending_count': len(pending),
+        'config': {
+            'evaluation_window': mc_config.get('evaluation_window', 50),
+            'cooldown_cycles': mc_config.get('cooldown_cycles', 200),
+            'max_adjustments_per_sleep': mc_config.get('max_adjustments_per_sleep', 2),
+        },
+    })
+
+
 # ─── Public Live Dashboard ───
 
 # Action type categories for the live dashboard feed
