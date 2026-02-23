@@ -787,4 +787,47 @@ CONTENT_POOL: list[dict] = [
         "topic": "atmosphere",
         "interest_score": 0.7,
     },
+
+    # ── Additional items to complete 100 ──
+
+    {
+        "id": "tcg_021",
+        "title": "The forgotten Carddass prism variants: a collector's field guide",
+        "summary": "Prism variants from the early Carddass era are often misidentified or overlooked. Subtle differences in holographic pattern, card stock weight, and print registration distinguish true prism variants from standard holographic cards. A growing community of specialists is documenting these distinctions.",
+        "source": "tcg_daily",
+        "topic": "tcg_history",
+        "interest_score": 0.9,
+    },
+    {
+        "id": "tcg_022",
+        "title": "When a collection becomes an archive: the line between hobby and preservation",
+        "summary": "At some point, a large enough collection crosses a threshold from personal hobby into cultural preservation. The collector becomes a de facto archivist, responsible for objects that document an era. This shift changes the relationship with the collection entirely.",
+        "source": "aeon",
+        "topic": "collecting_philosophy",
+        "interest_score": 0.85,
+    },
+    {
+        "id": "jpn_021",
+        "title": "The night market tradition: why some Tokyo shops only open after dark",
+        "summary": "A handful of Tokyo's specialty shops operate exclusively in the evening hours, serving customers who work during the day. This tradition dates back to the Edo period when certain merchants catered to theater actors and night workers.",
+        "source": "tokyo_weekender",
+        "topic": "tokyo_life",
+        "interest_score": 0.75,
+    },
+    {
+        "id": "phi_021",
+        "title": "The aesthetics of care: how maintenance is a form of attention",
+        "summary": "Maintaining an object — polishing, repairing, storing properly — is a form of sustained attention that deepens the relationship between person and thing. The act of care transforms ownership into stewardship.",
+        "source": "kyoto_journal",
+        "topic": "philosophy",
+        "interest_score": 0.85,
+    },
+    {
+        "id": "phi_022",
+        "title": "What we learn from things that last: durability as a design philosophy",
+        "summary": "In a disposable culture, objects that last decades become teachers. They show that durability requires intention at every stage — material choice, construction method, and the expectation that someone will still care about this object in thirty years.",
+        "source": "aeon",
+        "topic": "philosophy",
+        "interest_score": 0.8,
+    },
 ]
