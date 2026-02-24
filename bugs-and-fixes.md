@@ -425,3 +425,119 @@ All three entry points now route through `on_visitor_connect()` from `pipeline/a
 3. `db.mark_session_boundary()` scopes the conversation window
 
 The broken `db.insert_visitor()` calls and double-`try/except/pass` patterns are removed.
+
+---
+---
+
+# INCIDENT-006 — Simulation corrupted production DB + ablation scripts killed VPS service
+
+Date: 2026-02-24
+Files changed: `db/connection.py`, `sim/db.py`, `simulate.py`
+
+---
+
+## Incident Summary
+
+Two separate failures on the same day, same root cause family: **simulation code running against production resources without isolation.**
+
+### Failure 1 — Sim pointed at local production DB (dev machine)
+
+`simulate.py` ran against `data/shopkeeper.db` instead of a separate sim DB. The production database was corrupted beyond recovery:
+
+```
+sqlite3.DatabaseError: database disk image is malformed
+Tree 2 page 2 cell 0: invalid page number 741
+Tree 2 page 2 cell 132: invalid page number 738
+...
+```
+
+The 2MB corrupted file (down from 4.9MB pre-incident) was unrecoverable. `PRAGMA integrity_check` failed on hundreds of pages. The WAL file (4MB) could not be checkpointed. Recovery required restoring from `prod_snapshot_20260220_1551.db` (Feb 20, 3892 events) — losing ~4 days of data.
+
+**How it happened**: `simulate.py` constructs a sim DB path from `--output` and `--run-label`. Without explicit flags, the default path is `data/sim/sim_<timestamp>.db` (safe). But certain flag combinations (e.g. `--output data/ --run-label shopkeeper`) resolve to `data/shopkeeper.db` — the production file.
+
+There was no guard anywhere in the path: `simulate.py` passed the path to `db.set_db_path()` which accepted it without question, and `get_db()` opened it with full write access.
+
+### Failure 2 — Ablation scripts locked VPS DB and broke directory permissions
+
+On the VPS, `experiments/ablation_monitor.sh` spawned two `python3 -m sim` processes **as root** via tmux:
+
+```
+root 642549  timeout ... python3 -m sim --variant no_sleep ...
+root 642552  python3 -m sim --variant no_sleep ...
+root 642559  timeout ... python3 -m sim --variant no_memory ...
+root 642561  python3 -m sim --variant no_memory ...
+```
+
+These root-owned processes caused two problems:
+
+1. **DB lock contention**: The sim processes held SQLite write locks, causing the production `heartbeat_server.py` (running as user `shopkeeper`) to fail with `database is locked` on every cycle. The WAL file grew to 28MB from uncommitted writes.
+
+2. **Directory ownership corruption**: Root processes modified files under `/var/www/shopkeeper/`, changing the parent directory ownership from `shopkeeper:shopkeeper` to `501:staff`. When the service restarted (via deploy or manual), systemd could not `chdir` into the working directory:
+
+```
+shopkeeper.service: Changing to the requested working directory failed: Permission denied
+shopkeeper.service: Main process exited, code=exited, status=200/CHDIR
+```
+
+The service entered a crash loop. nginx proxied to the dead backend → `500 Internal Server Error`.
+
+**Resolution**: Kill ablation processes, fix ownership (`chown shopkeeper:shopkeeper /var/www/shopkeeper`), restart service.
+
+---
+
+## Fix — Three-layer production DB guard
+
+### Layer 1: `db/connection.py` — `set_db_path()` rejects production filenames
+
+```python
+PRODUCTION_DB_NAMES = frozenset({"shopkeeper.db", "shopkeeper-prod.db"})
+
+def set_db_path(path: str):
+    ...
+    basename = os.path.basename(path)
+    if basename in PRODUCTION_DB_NAMES:
+        raise RuntimeError(
+            f"REFUSED: set_db_path() tried to open production DB '{path}'. "
+            f"Use a different filename."
+        )
+```
+
+This is the deepest guard. Any code path that redirects the production DB module to a production filename crashes immediately.
+
+### Layer 2: `simulate.py` — validates path before `set_db_path()`
+
+```python
+def _validate_sim_db_path(path: str) -> None:
+    basename = os.path.basename(path)
+    if basename in PRODUCTION_DB_NAMES:
+        raise RuntimeError(
+            f"REFUSED: simulation tried to open production DB '{path}'. "
+            f"Use --db to specify a separate file."
+        )
+```
+
+Belt-and-suspenders. Catches the problem before it reaches `db/connection.py`.
+
+### Layer 3: `sim/db.py` — `_assert_not_production()` future-proofs InMemoryDB
+
+Currently the `sim/` module only uses `:memory:` databases (safe by construction). The guard is there in case someone adds file-backed mode in the future.
+
+### CLI addition: `--db` flag on `simulate.py`
+
+```bash
+python simulate.py --days 7 --db /tmp/sim_ablation/no_sleep_s42.db
+```
+
+Explicit DB path, overrides `--output`/`--run-label`. Makes it impossible to accidentally construct a production path through flag combination.
+
+---
+
+## Operational Lessons
+
+1. **Never run experiment scripts as root on the VPS.** Use the `shopkeeper` user. Root processes corrupt file ownership and bypass Unix permission boundaries.
+
+2. **Experiment scripts on VPS must use isolated DB paths.** The `sim/` module is safe (in-memory). The older `simulate.py` and `experiments/*.py` scripts use the real `db.py` module with `set_db_path()` — they now have guards, but should still use explicit `--db` or `--output` flags pointing to `/tmp/` or a dedicated experiments directory.
+
+3. **The WAL file is a canary.** A WAL growing beyond a few MB means writes aren't being checkpointed — typically because another process is holding a read lock. Monitor WAL size in production.
+
+4. **The 28MB WAL and `database is locked` errors were the first symptoms**, visible in `journalctl` logs before the 500. Alerting on repeated `database is locked` in heartbeat logs would have caught this earlier.

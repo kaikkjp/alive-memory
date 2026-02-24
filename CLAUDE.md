@@ -154,6 +154,12 @@ The operator pre-loads chains by setting multiple tasks to `READY` before a sess
 - The cognitive pipeline is: Cortex → Validator → Basal Ganglia → Body → Output. Changes to this chain must be reflected across all stages simultaneously.
 - `pipeline/executor.py` is **DEPRECATED**. Use `pipeline/basal_ganglia.py` → `pipeline/body.py` → `pipeline/output.py`.
 
+### Simulation safety rules:
+- **NEVER run simulation code against the production DB.** `db/connection.py` has a hard guard in `set_db_path()` that rejects filenames matching `shopkeeper.db` or `shopkeeper-prod.db`. Do not bypass this.
+- When using `simulate.py`, always use `--db` or `--output` to specify an isolated path. Default is `data/sim/` (safe).
+- The `sim/` module uses in-memory SQLite only — safe by construction.
+- On VPS: never run experiment scripts as root. Use the `shopkeeper` user. Root processes corrupt directory ownership and lock the DB. See INCIDENT-006 in `bugs-and-fixes.md`.
+
 ### Database rules:
 - All DB access goes through `db.py`. Never use raw aiosqlite elsewhere.
 - New tables need a migration file in `migrations/`.
@@ -267,3 +273,5 @@ python simulate.py --cycles 10
 - Don't modify the character bible or identity without owner approval
 - Don't use `pipeline/executor.py` for new code — it's deprecated
 - Don't pipe test output through `tail` or `head` in background tasks — use `--tb=short` flag instead
+- Don't run `simulate.py` or `experiments/*.py` without `--db` or `--output` pointing to an isolated path — see INCIDENT-006
+- Don't run experiment scripts as root on the VPS — use the `shopkeeper` user
