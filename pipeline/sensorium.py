@@ -240,6 +240,23 @@ async def build_perceptions(unread_events: list[Event], drives: DrivesState,
                 )
                 perceptions.append(perc)
 
+        elif event.event_type == 'identity_evolution':
+            # TASK-092: Character-aligned perception of identity evolution
+            content = _build_identity_evolution_perception(event.payload)
+            if content:
+                perc = Perception(
+                    p_type='identity_evolution',
+                    source='self',
+                    ts=event.ts,
+                    content=content,
+                    features={
+                        'is_homeostatic': True,
+                        'evolution_type': event.payload.get('type', 'unknown'),
+                    },
+                    salience=0.5,
+                )
+                perceptions.append(perc)
+
     # ── Notification injection (TASK-041) + gap detection (TASK-042) ──
     # Surface content titles from the feed as background perceptions.
     # Gap detection scores notifications against her memory for curiosity spikes.
@@ -628,3 +645,24 @@ def _build_evaluation_perception(evaluations: list[dict]) -> str | None:
     if 'improved' in outcomes:
         return _EVAL_TEMPLATES['improved']
     return _EVAL_TEMPLATES['neutral']
+
+
+# ── Identity evolution perceptions (TASK-092) ──
+
+_EVOLUTION_TEMPLATES = {
+    'accepted': "Something about me has changed gradually... it feels natural, "
+                "like a quiet shift I barely noticed until now.",
+    'corrected': "Something feels more settled now, like I've found my footing again.",
+}
+
+
+def _build_identity_evolution_perception(payload: dict) -> str | None:
+    """Build a character-aligned perception of identity evolution decisions.
+
+    She feels the outcome of evolution — acceptance feels like growth,
+    correction feels like settling back to center. Defers are silent.
+    """
+    evo_type = payload.get('type', '')
+    if evo_type in _EVOLUTION_TEMPLATES:
+        return _EVOLUTION_TEMPLATES[evo_type]
+    return None

@@ -1207,6 +1207,8 @@ class ShopkeeperServer:
                 await dashboard_routes.handle_meta_controller(self, writer, authorization)
             elif path == '/api/dashboard/experiment-history' and method == 'GET':
                 await dashboard_routes.handle_experiment_history(self, writer, authorization)
+            elif path == '/api/dashboard/identity-evolution' and method == 'GET':
+                await dashboard_routes.handle_identity_evolution(self, writer, authorization)
             elif path == '/api/dashboard/metrics' and method == 'GET':
                 await dashboard_routes.handle_metrics(self, writer, authorization)
             elif path == '/api/dashboard/metrics/backfill' and method == 'POST':

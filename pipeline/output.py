@@ -443,11 +443,14 @@ async def _log_motor_plan(motor_plan: MotorPlan, body_output: BodyOutput,
             if status in {'failed', 'deferred'}:
                 reason = exec_result.error if exec_result else 'no_execution_result'
 
+            # TASK-092: Tag modify_self actions as conscious for evolution tracking
+            log_source = 'conscious' if decision.action == 'modify_self' else decision.source
+
             await db.log_action(
                 cycle_id=cycle_id,
                 action=decision.action,
                 status=status,
-                source=decision.source,
+                source=log_source,
                 impulse=decision.impulse,
                 priority=decision.priority,
                 content=decision.content or None,

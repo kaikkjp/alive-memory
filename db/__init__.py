@@ -246,6 +246,9 @@ from db.meta_experiments import (
     get_confidence,
     update_confidence,
     get_all_confidence,
+    get_conscious_modifications,
+    get_param_drift,
+    get_drifted_params,
 )
 
 # ── social ──
