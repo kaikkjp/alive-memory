@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { dashboardFetch } from '@/lib/dashboard-api';
 
 interface EvolutionData {
   enabled: boolean;
@@ -54,14 +55,11 @@ export default function EvolutionPanel() {
 
   const fetchEvolution = async () => {
     try {
-      const res = await fetch('/api/dashboard/identity-evolution', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('dashboard_token') || ''}` },
-      });
-      if (res.ok) {
-        setData(await res.json());
-      }
-    } catch (err) {
-      console.error('Failed to fetch evolution data:', err);
+      const res = await dashboardFetch('/api/dashboard/identity-evolution');
+      setData(await res.json());
+    } catch {
+      // dashboardFetch handles 401/session-expiry; swallow other errors
+      setData(null);
     } finally {
       setLoading(false);
     }

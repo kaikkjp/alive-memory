@@ -595,6 +595,10 @@ async def request_correction(param_name: str, target_value: float) -> dict | Non
         clamped = max(floor_bounds[0], min(floor_bounds[1], clamped))
     clamped = round(clamped, 4)
 
+    # Re-check after clamping — avoid no-op writes and bogus experiments
+    if clamped == old_value:
+        return None
+
     try:
         await db.set_param(
             param_name, clamped,
@@ -605,9 +609,11 @@ async def request_correction(param_name: str, target_value: float) -> dict | Non
         print(f"  [MetaController] Correction failed for {param_name}: {e}")
         return None
 
-    # Log as experiment for tracking
+    # Log as experiment for tracking — mark completed immediately since
+    # drift corrections are one-shot (no ongoing metric to evaluate).
+    # Leaving them 'pending' blocks future evolution decisions (P1 fix).
     try:
-        await db.record_experiment(
+        exp_id = await db.record_experiment(
             cycle_at_change=cycle_count,
             param_name=param_name,
             old_value=old_value,
@@ -615,6 +621,12 @@ async def request_correction(param_name: str, target_value: float) -> dict | Non
             reason='identity_evolution: sudden drift correction',
             target_metric='drift_correction',
             metric_value_at_change=0.0,
+        )
+        await db.update_experiment_outcome(
+            experiment_id=exp_id,
+            outcome='completed',
+            metric_value_after=0.0,
+            evaluation_cycle=cycle_count,
         )
     except Exception as e:
         print(f"  [MetaController] Failed to log correction experiment: {e}")

@@ -287,7 +287,22 @@ class IdentityEvolution:
               f"sudden drift ({drift_report.drift_magnitude:.3f})")
 
     async def defer(self, drift_report: DriftReport, reason: str) -> None:
-        """No action — logged but silent."""
+        """No action — but persist for dashboard visibility."""
+        event = Event(
+            event_type='identity_evolution',
+            source='self',
+            payload={
+                'type': 'deferred',
+                'param': drift_report.trait_name,
+                'baseline_value': drift_report.baseline_value,
+                'current_value': drift_report.current_value,
+                'drift_magnitude': drift_report.drift_magnitude,
+                'reason': reason,
+            },
+            channel='system',
+            salience_base=0.1,
+        )
+        await db.append_event(event)
         print(f"  [IdentityEvolution] Deferred {drift_report.trait_name}: {reason}")
 
     # ── Internal helpers ──
