@@ -870,6 +870,89 @@ async def handle_experiment_history(server, writer, authorization):
     })
 
 
+async def handle_identity_evolution(server, writer, authorization):
+    """GET /api/dashboard/identity-evolution — identity evolution status (TASK-092)."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+
+    from alive_config import cfg_section
+    from sleep.meta_controller import _get_cycle_count
+
+    ie_config = cfg_section('identity_evolution') or {}
+    cycle_count = await _get_cycle_count()
+
+    # Active conscious protection windows
+    protection_cycles = ie_config.get('conscious_protection_cycles', 500)
+    try:
+        conscious_mods = await db.get_conscious_modifications(
+            window_cycles=protection_cycles,
+            cycle_count=cycle_count,
+        )
+    except Exception:
+        conscious_mods = []
+    protections = []
+    for mod in conscious_mods:
+        protections.append({
+            'param': mod['param_key'],
+            'new_value': mod['new_value'],
+            'modified_at': mod['ts'],
+        })
+
+    # Recent evolution events from event store
+    evolution_events = []
+    try:
+        conn = await db.connection.get_db()
+        cursor = await conn.execute(
+            """SELECT payload, ts FROM events
+               WHERE event_type = 'identity_evolution'
+               ORDER BY ts DESC LIMIT 20"""
+        )
+        rows = await cursor.fetchall()
+        import json as _json
+        for row in rows:
+            payload = row['payload']
+            if isinstance(payload, str):
+                try:
+                    payload = _json.loads(payload)
+                except (ValueError, TypeError):
+                    payload = {}
+            evolution_events.append({
+                'type': payload.get('type', 'unknown'),
+                'payload': payload,
+                'ts': row['ts'],
+            })
+    except Exception:
+        pass
+
+    # Current drift status
+    window = ie_config.get('baseline_shift_window', 1000)
+    min_drift = ie_config.get('drift_magnitude_threshold', 0.05)
+    try:
+        drifted = await db.get_drifted_params(
+            window_cycles=window,
+            cycle_count=cycle_count,
+            min_drift=min_drift,
+        )
+    except Exception:
+        drifted = []
+
+    await server._http_json(writer, 200, {
+        'enabled': ie_config.get('enabled', False),
+        'config': {
+            'conscious_protection_cycles': protection_cycles,
+            'baseline_shift_window': window,
+            'organic_growth_threshold': ie_config.get('organic_growth_threshold', 0.15),
+            'max_updates_per_sleep': ie_config.get('max_updates_per_sleep', 1),
+            'protected_traits': ie_config.get('protected_traits', []),
+        },
+        'conscious_protections': protections,
+        'recent_decisions': evolution_events,
+        'current_drift': drifted,
+        'cycle_count': cycle_count,
+    })
+
+
 # ─── Public Live Dashboard ───
 
 # Action type categories for the live dashboard feed

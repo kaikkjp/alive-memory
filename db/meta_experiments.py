@@ -232,3 +232,163 @@ async def get_all_confidence() -> list[dict]:
     )
     rows = await cursor.fetchall()
     return [dict(r) for r in rows]
+
+
+# ── Identity evolution queries (TASK-092) ──
+
+async def get_conscious_modifications(
+    window_cycles: int,
+    cycle_count: int,
+    param_names: list[str] | None = None,
+) -> list[dict]:
+    """Get recent conscious (modify_self) parameter modifications.
+
+    Uses cycle_log timestamps to approximate the time window.
+    Returns modifications where modified_by='self' within the window.
+    """
+    conn = await _connection.get_db()
+
+    # Find the timestamp at (cycle_count - window_cycles) to bound the query
+    cursor = await conn.execute(
+        """SELECT ts FROM cycle_log
+           ORDER BY ts ASC
+           LIMIT 1 OFFSET ?""",
+        (max(0, cycle_count - window_cycles),),
+    )
+    row = await cursor.fetchone()
+    if row is None:
+        # Fewer cycles than window — use all history
+        cutoff_ts = '1970-01-01T00:00:00'
+    else:
+        cutoff_ts = row['ts']
+
+    if param_names:
+        placeholders = ','.join('?' for _ in param_names)
+        cursor = await conn.execute(
+            f"""SELECT * FROM parameter_modifications
+                WHERE modified_by = 'self'
+                  AND ts >= ?
+                  AND param_key IN ({placeholders})
+                ORDER BY ts DESC""",
+            (cutoff_ts, *param_names),
+        )
+    else:
+        cursor = await conn.execute(
+            """SELECT * FROM parameter_modifications
+               WHERE modified_by = 'self'
+                 AND ts >= ?
+               ORDER BY ts DESC""",
+            (cutoff_ts,),
+        )
+    rows = await cursor.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def get_param_drift(
+    param_name: str,
+    window_cycles: int,
+    cycle_count: int,
+) -> dict | None:
+    """Measure how much a parameter has drifted over a window of cycles.
+
+    Returns dict with 'oldest_value', 'newest_value', 'shift' (absolute),
+    or None if no modifications in the window.
+    """
+    conn = await _connection.get_db()
+
+    # Find cutoff timestamp
+    cursor = await conn.execute(
+        """SELECT ts FROM cycle_log
+           ORDER BY ts ASC
+           LIMIT 1 OFFSET ?""",
+        (max(0, cycle_count - window_cycles),),
+    )
+    row = await cursor.fetchone()
+    cutoff_ts = row['ts'] if row else '1970-01-01T00:00:00'
+
+    # Get oldest modification in window (use old_value as starting point)
+    cursor = await conn.execute(
+        """SELECT old_value, new_value, ts FROM parameter_modifications
+           WHERE param_key = ? AND ts >= ?
+           ORDER BY ts ASC
+           LIMIT 1""",
+        (param_name, cutoff_ts),
+    )
+    oldest = await cursor.fetchone()
+    if oldest is None:
+        return None
+
+    # Get newest modification
+    cursor = await conn.execute(
+        """SELECT new_value, ts FROM parameter_modifications
+           WHERE param_key = ? AND ts >= ?
+           ORDER BY ts DESC
+           LIMIT 1""",
+        (param_name, cutoff_ts),
+    )
+    newest = await cursor.fetchone()
+    if newest is None:
+        return None
+
+    oldest_val = oldest['old_value']
+    newest_val = newest['new_value']
+
+    # Count total modifications in window (distinguishes gradual from sudden)
+    cursor = await conn.execute(
+        """SELECT COUNT(*) as cnt FROM parameter_modifications
+           WHERE param_key = ? AND ts >= ?""",
+        (param_name, cutoff_ts),
+    )
+    count_row = await cursor.fetchone()
+
+    return {
+        'oldest_value': oldest_val,
+        'newest_value': newest_val,
+        'shift': abs(newest_val - oldest_val),
+        'modification_count': count_row['cnt'],
+    }
+
+
+async def get_drifted_params(
+    window_cycles: int,
+    cycle_count: int,
+    min_drift: float = 0.05,
+) -> list[dict]:
+    """Find all parameters that have drifted beyond a threshold in the window.
+
+    Returns list of dicts with 'param_name', 'baseline_value', 'current_value',
+    'drift_magnitude' for each drifted parameter.
+    """
+    conn = await _connection.get_db()
+
+    # Find cutoff timestamp
+    cursor = await conn.execute(
+        """SELECT ts FROM cycle_log
+           ORDER BY ts ASC
+           LIMIT 1 OFFSET ?""",
+        (max(0, cycle_count - window_cycles),),
+    )
+    row = await cursor.fetchone()
+    cutoff_ts = row['ts'] if row else '1970-01-01T00:00:00'
+
+    # Get distinct params modified in the window
+    cursor = await conn.execute(
+        """SELECT DISTINCT param_key FROM parameter_modifications
+           WHERE ts >= ?""",
+        (cutoff_ts,),
+    )
+    param_rows = await cursor.fetchall()
+
+    drifted = []
+    for pr in param_rows:
+        param_name = pr['param_key']
+        drift_info = await get_param_drift(param_name, window_cycles, cycle_count)
+        if drift_info and drift_info['shift'] >= min_drift:
+            drifted.append({
+                'param_name': param_name,
+                'baseline_value': drift_info['oldest_value'],
+                'current_value': drift_info['newest_value'],
+                'drift_magnitude': drift_info['shift'],
+            })
+
+    return drifted

@@ -4,11 +4,11 @@
  1. test_improved_outcome — metric was below target, now in range → outcome=improved, change kept
  2. test_degraded_outcome — metric was below target, now further below → outcome=degraded, reverted
  3. test_neutral_outcome — metric shifted <5% → outcome=neutral, kept
- 4. test_side_effect_detected — target metric improved but another left range → outcome=side_effect, reverted
+ 4. test_side_effect_detected — target metric improved but another left range (via stored snapshot) → outcome=side_effect, reverted
  5. test_revert_restores_value — after degraded, param returns to old_value
  6. test_confidence_updates — 3 improved + 1 degraded → confidence=0.75
  7. test_low_confidence_skipped — confidence <0.3 after 5 attempts → meta-controller skips this link
- 8. test_adaptive_cooldown — high confidence → short cooldown, low confidence → long cooldown
+ 8. test_adaptive_cooldown — high confidence → shorter than base, low confidence → longer than base
  9. test_too_early_to_evaluate — experiment only 30 cycles old, window=50 → skipped
 10. test_revert_logged_as_experiment — revert creates its own experiment entry
 11. test_full_loop (integration) — adjust → evaluate → keep cycle

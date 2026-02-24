@@ -561,3 +561,70 @@ async def run_meta_controller() -> list[dict]:
 
     print(f"  [MetaController] {len(adjustments)} adjustment(s) applied and logged")
     return adjustments
+
+
+# ── Correction request from identity evolution (TASK-092) ──
+
+async def request_correction(param_name: str, target_value: float) -> dict | None:
+    """Request a parameter correction on behalf of the identity evolution module.
+
+    Called when evolution detects sudden drift (not conscious, not organic growth).
+    Uses the meta-controller's existing infrastructure for parameter changes.
+
+    Returns the adjustment dict, or None if the correction failed.
+    """
+    from db.parameters import get_param
+
+    cycle_count = await _get_cycle_count()
+
+    current = await get_param(param_name)
+    if current is None:
+        print(f"  [MetaController] Correction request failed: unknown param {param_name}")
+        return None
+
+    old_value = current['value']
+    if old_value == target_value:
+        return None
+
+    # Apply hard floor bounds from config
+    mc = cfg_section('meta_controller')
+    hard_floor = mc.get('hard_floor', {})
+    clamped = target_value
+    floor_bounds = hard_floor.get(param_name)
+    if floor_bounds and isinstance(floor_bounds, list) and len(floor_bounds) == 2:
+        clamped = max(floor_bounds[0], min(floor_bounds[1], clamped))
+    clamped = round(clamped, 4)
+
+    try:
+        await db.set_param(
+            param_name, clamped,
+            modified_by='identity_evolution',
+            reason='drift correction — sudden drift without baseline shift',
+        )
+    except Exception as e:
+        print(f"  [MetaController] Correction failed for {param_name}: {e}")
+        return None
+
+    # Log as experiment for tracking
+    try:
+        await db.record_experiment(
+            cycle_at_change=cycle_count,
+            param_name=param_name,
+            old_value=old_value,
+            new_value=clamped,
+            reason='identity_evolution: sudden drift correction',
+            target_metric='drift_correction',
+            metric_value_at_change=0.0,
+        )
+    except Exception as e:
+        print(f"  [MetaController] Failed to log correction experiment: {e}")
+
+    adj = {
+        'param': param_name,
+        'old_value': old_value,
+        'new_value': clamped,
+        'reason': 'identity_evolution: sudden drift correction',
+    }
+    print(f"  [MetaController] Correction applied: {param_name} "
+          f"{old_value:.4f} → {clamped:.4f}")
+    return adj
