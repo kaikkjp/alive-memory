@@ -44,6 +44,18 @@ SLEEP_END_HOUR = 6
 SLEEP_ADVANCE_SECONDS = 3 * 3600  # 3 hours for sleep consolidation
 VISITOR_DEPART_DELAY_MIN = 5  # minutes after last message before departure
 
+PRODUCTION_DB_NAMES = frozenset({"shopkeeper.db", "shopkeeper-prod.db"})
+
+
+def _validate_sim_db_path(path: str) -> None:
+    """Hard guard: refuse to open anything that looks like the production DB."""
+    basename = os.path.basename(path)
+    if basename in PRODUCTION_DB_NAMES:
+        raise RuntimeError(
+            f"REFUSED: simulation tried to open production DB '{path}'. "
+            f"Use --db to specify a separate file."
+        )
+
 
 def load_visitor_schedule(visitor_file: str, sim_start: datetime) -> list[dict]:
     """Load visitor script from JSON and build a flat, sorted event schedule.
@@ -243,6 +255,7 @@ async def run_simulation(
     daily_budget: float = None,
     output_dir: str = None,
     run_label: str = None,
+    db_path: str = None,
 ):
     """Main simulation loop."""
 
@@ -255,18 +268,26 @@ async def run_simulation(
     target = start + timedelta(days=days)
 
     # 2. Create simulation DB
-    sim_db_dir = pathlib.Path(output_dir) if output_dir else pathlib.Path('data/sim')
-    sim_db_dir.mkdir(parents=True, exist_ok=True)
-    if run_label:
-        # Named run: deterministic filenames for easy reference
-        sim_db_path = str(sim_db_dir / f'{run_label}.db')
-        log_base = run_label
+    if db_path:
+        # Explicit --db path takes priority
+        sim_db_path = str(pathlib.Path(db_path).resolve())
+        sim_db_dir = pathlib.Path(sim_db_path).parent
+        sim_db_dir.mkdir(parents=True, exist_ok=True)
+        log_base = pathlib.Path(sim_db_path).stem
     else:
-        # Default: unique filenames via timestamp + uuid
-        run_id = str(uuid.uuid4())[:8]
-        ts_str = start.strftime('%Y%m%d_%H%M%S')
-        sim_db_path = str(sim_db_dir / f'sim_{ts_str}_{run_id}.db')
-        log_base = f'timeline_{ts_str}_{run_id}'
+        sim_db_dir = pathlib.Path(output_dir) if output_dir else pathlib.Path('data/sim')
+        sim_db_dir.mkdir(parents=True, exist_ok=True)
+        if run_label:
+            # Named run: deterministic filenames for easy reference
+            sim_db_path = str(sim_db_dir / f'{run_label}.db')
+            log_base = run_label
+        else:
+            # Default: unique filenames via timestamp + uuid
+            run_id = str(uuid.uuid4())[:8]
+            ts_str = start.strftime('%Y%m%d_%H%M%S')
+            sim_db_path = str(sim_db_dir / f'sim_{ts_str}_{run_id}.db')
+            log_base = f'timeline_{ts_str}_{run_id}'
+    _validate_sim_db_path(sim_db_path)
     db.set_db_path(sim_db_path)
     await db.init_db()
 
@@ -488,6 +509,8 @@ Examples:
                         help='Output directory for DB and timeline log (default: data/sim/)')
     parser.add_argument('--run-label', default=None,
                         help='Label for output files (e.g. sim_v2_tight → sim_v2_tight.db)')
+    parser.add_argument('--db', default=None,
+                        help='Explicit DB path (overrides --output/--run-label)')
     args = parser.parse_args()
 
     if args.daily_budget is not None and args.daily_budget <= 0:
@@ -510,6 +533,7 @@ Examples:
         daily_budget=args.daily_budget,
         output_dir=args.output,
         run_label=args.run_label,
+        db_path=args.db,
     ))
 
 

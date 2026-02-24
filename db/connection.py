@@ -23,11 +23,20 @@ DB_PATH = os.environ.get('SHOPKEEPER_DB_PATH', 'data/shopkeeper.db')
 _db: Optional[aiosqlite.Connection] = None
 
 
+PRODUCTION_DB_NAMES = frozenset({"shopkeeper.db", "shopkeeper-prod.db"})
+
+
 def set_db_path(path: str):
     """Override DB_PATH for simulation. Must be called before first get_db()."""
     global DB_PATH, _db
     if _db is not None:
         raise RuntimeError("set_db_path() must be called before first get_db()")
+    basename = os.path.basename(path)
+    if basename in PRODUCTION_DB_NAMES:
+        raise RuntimeError(
+            f"REFUSED: set_db_path() tried to open production DB '{path}'. "
+            f"Use a different filename (e.g. --output /tmp/sim/ --run-label my_run)."
+        )
     DB_PATH = path
 
 
