@@ -13,12 +13,28 @@ Usage:
 
 from __future__ import annotations
 
+import os
 import sqlite3
 from pathlib import Path
 
 
 # Path to migrations directory (relative to project root)
 _MIGRATIONS_DIR = Path(__file__).parent.parent / "migrations"
+
+# Hard guard: simulation must NEVER touch production databases.
+PRODUCTION_DB_NAMES = frozenset({"shopkeeper.db", "shopkeeper-prod.db"})
+
+
+def _assert_not_production(path: str) -> None:
+    """Refuse to open anything that looks like the production DB."""
+    if path == ":memory:":
+        return
+    basename = os.path.basename(path)
+    if basename in PRODUCTION_DB_NAMES:
+        raise RuntimeError(
+            f"REFUSED: sim tried to open production DB '{path}'. "
+            f"Use --db to specify a separate file."
+        )
 
 
 class InMemoryDB:
@@ -34,6 +50,7 @@ class InMemoryDB:
 
     async def init(self):
         """Initialize the in-memory database with full schema."""
+        _assert_not_production(":memory:")
         self.conn = sqlite3.connect(":memory:")
         self.conn.row_factory = sqlite3.Row
         self._create_core_tables()
