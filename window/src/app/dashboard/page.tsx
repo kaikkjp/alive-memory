@@ -21,6 +21,7 @@ import XDraftsPanel from '@/components/dashboard/XDraftsPanel';
 import ActionsPanel from '@/components/dashboard/ActionsPanel';
 import BudgetPanel from '@/components/dashboard/BudgetPanel';
 import DriftPanel from '@/components/dashboard/DriftPanel';
+import EvolutionPanel from '@/components/dashboard/EvolutionPanel';
 import ExternalActionsPanel from '@/components/dashboard/ExternalActionsPanel';
 
 export default function DashboardPage() {
@@ -130,6 +131,7 @@ export default function DashboardPage() {
             <CostsPanel />
             <BudgetPanel />
             <DriftPanel />
+            <EvolutionPanel />
           </div>
         </section>
 

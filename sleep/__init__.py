@@ -47,7 +47,7 @@ from sleep.wake import (  # noqa: F401
     manage_thread_lifecycle,
     cleanup_content_pool,
 )
-from sleep.meta_controller import run_meta_controller, evaluate_experiments  # noqa: F401
+from sleep.meta_controller import run_meta_controller, evaluate_experiments, request_correction  # noqa: F401
 from sleep.consolidation import run_consolidation  # noqa: F401
 from sleep.nap import nap_consolidate  # noqa: F401
 
@@ -91,7 +91,70 @@ async def sleep_cycle() -> int:
     except Exception as e:
         print(f"  [Sleep] Meta-controller error (non-fatal): {e}")
 
+    # 5c. Identity evolution — three-tier drift resolution (TASK-092)
+    # Runs AFTER meta-controller so it can see whether drift was already addressed.
+    try:
+        await _run_identity_evolution()
+    except Exception as e:
+        print(f"  [Sleep] Identity evolution error (non-fatal): {e}")
+
     # 6-10. Wake transition (threads, content pool, drives, budget reset, embedding, flush)
     await run_wake_transition()
 
     return processed_count
+
+
+async def _run_identity_evolution() -> None:
+    """Run the identity evolution phase during sleep (TASK-092).
+
+    Detects per-parameter drift, evaluates each through the three-tier
+    hierarchy, and acts (accept/correct/defer) on at most one per sleep.
+    """
+    from identity.evolution import IdentityEvolution, DriftReport, EvolutionAction
+    from sleep.meta_controller import _get_cycle_count
+
+    evo = IdentityEvolution()
+    if not evo.enabled:
+        print("  [IdentityEvolution] Disabled in config")
+        return
+
+    cycle_count = await _get_cycle_count()
+    ie_config = evo._yaml_config
+    window = ie_config.get('baseline_shift_window', 1000)
+    min_drift = ie_config.get('drift_magnitude_threshold', 0.05)
+
+    # Build per-parameter drift reports from modification history
+    drifted = await db.get_drifted_params(
+        window_cycles=window,
+        cycle_count=cycle_count,
+        min_drift=min_drift,
+    )
+
+    if not drifted:
+        print("  [IdentityEvolution] No parameter drift detected")
+        return
+
+    print(f"  [IdentityEvolution] {len(drifted)} drifted param(s) found")
+
+    for d in drifted:
+        if not evo.can_update():
+            print("  [IdentityEvolution] Rate limit reached — stopping")
+            break
+
+        report = DriftReport(
+            trait_name=d['param_name'],
+            baseline_value=d['baseline_value'],
+            current_value=d['current_value'],
+            drift_magnitude=d['drift_magnitude'],
+        )
+
+        decision = await evo.evaluate_drift(report, cycle_count)
+        print(f"  [IdentityEvolution] {report.trait_name}: "
+              f"{decision.action.value} — {decision.reason}")
+
+        if decision.action == EvolutionAction.ACCEPT:
+            await evo.accept_drift(report)
+        elif decision.action == EvolutionAction.CORRECT:
+            await evo.correct_drift(report)
+        elif decision.action == EvolutionAction.DEFER:
+            await evo.defer(report, decision.reason)
