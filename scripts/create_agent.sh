@@ -1,119 +1,134 @@
-#!/usr/bin/env bash
-# TASK-095 Phase 4: Create and start a new agent container.
+#!/bin/bash
+# create_agent.sh — Create and start a new ALIVE agent
 #
-# Usage: ./scripts/create_agent.sh <agent-id> <host-port> <api-key> [openrouter-key]
-#
-# Creates:
-#   /data/agents/<agent-id>/           — agent config root
-#   /data/agents/<agent-id>/db/        — SQLite databases
-#   /data/agents/<agent-id>/memory/    — memory files
-#   /data/agents/<agent-id>/api_keys.json — API key for external access
-#   /data/agents/<agent-id>/identity.yaml — (optional, copied from default)
-#
-# Then starts a Docker container named alive-agent-<agent-id>.
+# Usage: ./scripts/create_agent.sh <agent_id> <port> <openrouter_api_key>
+# Example: ./scripts/create_agent.sh hina 9001 sk-or-v1-xxxxx
 
 set -euo pipefail
 
-AGENTS_ROOT="${AGENTS_ROOT:-/data/agents}"
-IMAGE="${AGENT_IMAGE:-alive-engine:latest}"
+AGENT_ID="${1:?Usage: create_agent.sh <agent_id> <port> <openrouter_api_key>}"
+PORT="${2:?Usage: create_agent.sh <agent_id> <port> <openrouter_api_key>}"
+API_KEY="${3:?Usage: create_agent.sh <agent_id> <port> <openrouter_api_key>}"
 
-usage() {
-    echo "Usage: $0 <agent-id> <host-port> <api-key> [openrouter-key]"
-    echo ""
-    echo "  agent-id       Unique identifier (alphanumeric + hyphens)"
-    echo "  host-port      Host port to map to container 8080"
-    echo "  api-key        API key for external access (sk-live-...)"
-    echo "  openrouter-key Optional OpenRouter API key (or set OPENROUTER_API_KEY env)"
-    exit 1
-}
-
-if [[ $# -lt 3 ]]; then
-    usage
-fi
-
-AGENT_ID="$1"
-HOST_PORT="$2"
-API_KEY="$3"
-OR_KEY="${4:-${OPENROUTER_API_KEY:-}}"
-
-# Validate agent ID (alphanumeric + hyphens only)
-if [[ ! "$AGENT_ID" =~ ^[a-zA-Z0-9][a-zA-Z0-9-]*$ ]]; then
-    echo "ERROR: agent-id must be alphanumeric with hyphens, got: $AGENT_ID"
-    exit 1
-fi
-
-# Validate port is a number
-if [[ ! "$HOST_PORT" =~ ^[0-9]+$ ]]; then
-    echo "ERROR: host-port must be a number, got: $HOST_PORT"
-    exit 1
-fi
-
-CONTAINER_NAME="alive-agent-${AGENT_ID}"
-CONFIG_DIR="${AGENTS_ROOT}/${AGENT_ID}"
-
-# Check if container already exists
-if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
-    echo "ERROR: Container ${CONTAINER_NAME} already exists."
-    echo "  To restart: docker start ${CONTAINER_NAME}"
-    echo "  To destroy: ./scripts/destroy_agent.sh ${AGENT_ID}"
-    exit 1
-fi
-
-# Create directory structure
-echo "[create_agent] Creating config directory: ${CONFIG_DIR}"
-mkdir -p "${CONFIG_DIR}/db" "${CONFIG_DIR}/memory"
-
-# Write API keys file
-echo "[create_agent] Writing api_keys.json"
-cat > "${CONFIG_DIR}/api_keys.json" <<KEYS
-[
-    {"key": "${API_KEY}", "name": "${AGENT_ID}", "rate_limit": 60}
-]
-KEYS
-
-# Copy default identity if not present
+DATA_DIR="/data/alive-agents"
+AGENT_DIR="$DATA_DIR/$AGENT_ID"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-if [[ ! -f "${CONFIG_DIR}/identity.yaml" ]] && [[ -f "${PROJECT_ROOT}/config/default_identity.yaml" ]]; then
-    echo "[create_agent] Copying default identity.yaml"
-    cp "${PROJECT_ROOT}/config/default_identity.yaml" "${CONFIG_DIR}/identity.yaml"
+
+# Validate agent_id (alphanumeric + hyphens only)
+if [[ ! "$AGENT_ID" =~ ^[a-z0-9][a-z0-9_-]*$ ]]; then
+    echo "ERROR: agent_id must be lowercase alphanumeric with hyphens/underscores"
+    exit 1
 fi
 
-# Build docker run command
-DOCKER_ARGS=(
-    -d
-    --name "${CONTAINER_NAME}"
-    --restart unless-stopped
-    -v "${CONFIG_DIR}:/agent-config"
-    -p "127.0.0.1:${HOST_PORT}:8080"
-    -e "AGENT_ID=${AGENT_ID}"
-    -e "AGENT_CONFIG_DIR=/agent-config"
-)
-
-# Add OpenRouter key if available
-if [[ -n "$OR_KEY" ]]; then
-    DOCKER_ARGS+=(-e "OPENROUTER_API_KEY=${OR_KEY}")
+# Check for existing container
+if docker ps -a --format '{{.Names}}' | grep -q "^alive-agent-${AGENT_ID}$"; then
+    echo "ERROR: Agent '$AGENT_ID' already exists. Destroy first: ./scripts/destroy_agent.sh $AGENT_ID"
+    exit 1
 fi
 
-# Add any extra env vars from .env file if present
-if [[ -f "${CONFIG_DIR}/.env" ]]; then
-    echo "[create_agent] Loading extra env vars from ${CONFIG_DIR}/.env"
-    DOCKER_ARGS+=(--env-file "${CONFIG_DIR}/.env")
+# Check port not in use
+if ss -tlnp | grep -q ":${PORT} "; then
+    echo "ERROR: Port $PORT already in use"
+    exit 1
 fi
 
-echo "[create_agent] Starting container: ${CONTAINER_NAME} on port ${HOST_PORT}"
-docker run "${DOCKER_ARGS[@]}" "${IMAGE}"
+# Check image exists
+if ! docker image inspect alive-engine:latest >/dev/null 2>&1; then
+    echo "ERROR: alive-engine:latest image not found. Build first: docker build -t alive-engine:latest ."
+    exit 1
+fi
 
-echo "[create_agent] Waiting for health check..."
-for i in $(seq 1 10); do
-    sleep 3
-    if curl -sf "http://127.0.0.1:${HOST_PORT}/api/health" > /dev/null 2>&1; then
-        echo "[create_agent] Agent '${AGENT_ID}' is healthy on port ${HOST_PORT}"
-        exit 0
+echo "Creating agent: $AGENT_ID (port $PORT)"
+
+# Create directories
+mkdir -p "$AGENT_DIR/config"
+mkdir -p "$AGENT_DIR/db"
+mkdir -p "$AGENT_DIR/memory"
+mkdir -p "$AGENT_DIR/identity"
+
+# Create default identity.yaml if not present
+if [ ! -f "$AGENT_DIR/config/identity.yaml" ]; then
+    cat > "$AGENT_DIR/config/identity.yaml" <<'YAML'
+name: "New Agent"
+role: "An ALIVE agent"
+bio: |
+  A persistent AI character powered by the ALIVE cognitive architecture.
+  Configure this agent's personality through the management portal.
+voice_rules:
+  - "Speaks naturally and thoughtfully"
+communication_style:
+  formality: 0.5
+  verbosity: 0.5
+  emoji_usage: 0.1
+language: "en"
+domain_context: ""
+greeting: "Hello..."
+boundaries: []
+manager_interaction:
+  reveal_inner_state: true
+  accept_instructions: true
+YAML
+    echo "  Created default identity.yaml"
+fi
+
+# Copy default alive_config.yaml if not present
+if [ ! -f "$AGENT_DIR/config/alive_config.yaml" ]; then
+    # Try to copy from repo, fall back to minimal
+    REPO_CONFIG="$(dirname "$SCRIPT_DIR")/alive_config.yaml"
+    if [ -f "$REPO_CONFIG" ]; then
+        cp "$REPO_CONFIG" "$AGENT_DIR/config/alive_config.yaml"
+        echo "  Copied alive_config.yaml from repo"
+    else
+        echo "  WARNING: No alive_config.yaml found — agent will use built-in defaults"
     fi
-    echo "[create_agent] Attempt ${i}/10..."
+fi
+
+# Start container
+docker run -d \
+    --name "alive-agent-${AGENT_ID}" \
+    -p "${PORT}:8080" \
+    -v "$AGENT_DIR/config/:/app/config/:ro" \
+    -v "$AGENT_DIR/db/:/app/data/" \
+    -v "$AGENT_DIR/memory/:/app/data/memory/" \
+    -v "$AGENT_DIR/identity/:/app/identity/" \
+    -e "AGENT_ID=${AGENT_ID}" \
+    -e "OPENROUTER_API_KEY=${API_KEY}" \
+    -e "AGENT_CONFIG_DIR=/app/config/" \
+    --restart unless-stopped \
+    --memory 512m \
+    --cpus 0.5 \
+    alive-engine:latest
+
+echo "  Container started: alive-agent-${AGENT_ID}"
+
+# Wait for health
+echo -n "  Waiting for agent to start"
+for i in $(seq 1 30); do
+    if curl -s "http://127.0.0.1:${PORT}/api/health" >/dev/null 2>&1; then
+        echo ""
+        echo "  ✅ Agent '$AGENT_ID' is healthy on port $PORT"
+        break
+    fi
+    echo -n "."
+    sleep 2
 done
 
-echo "[create_agent] WARNING: Agent did not become healthy within 30s."
-echo "  Check logs: docker logs ${CONTAINER_NAME}"
-exit 1
+# Check if we timed out
+if ! curl -s "http://127.0.0.1:${PORT}/api/health" >/dev/null 2>&1; then
+    echo ""
+    echo "  ⚠️  Agent not responding after 60s. Check logs:"
+    echo "     docker logs alive-agent-${AGENT_ID} --tail 50"
+fi
+
+# Update nginx routes
+if [ -f "$SCRIPT_DIR/nginx_regen.sh" ]; then
+    echo "  Updating nginx routes..."
+    bash "$SCRIPT_DIR/nginx_regen.sh"
+fi
+
+echo ""
+echo "Agent '$AGENT_ID' created."
+echo "  Local:  http://127.0.0.1:${PORT}/api/state"
+echo "  Public: https://api.alive.kaikk.jp/${AGENT_ID}/state"
+echo "  Logs:   docker logs alive-agent-${AGENT_ID} -f"
+echo "  Config: $AGENT_DIR/config/"

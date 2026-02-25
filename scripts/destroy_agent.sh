@@ -1,60 +1,49 @@
-#!/usr/bin/env bash
-# TASK-095 Phase 4: Stop and remove an agent container.
+#!/bin/bash
+# destroy_agent.sh — Stop and remove an ALIVE agent
 #
-# Usage: ./scripts/destroy_agent.sh <agent-id> [--purge]
-#
-# Without --purge: stops container and removes it, keeps data.
-# With --purge: also deletes /data/agents/<agent-id>/ (irreversible).
+# Usage: ./scripts/destroy_agent.sh <agent_id> [--purge]
+#   --purge: also delete agent data (DB, memory, config). IRREVERSIBLE.
 
 set -euo pipefail
 
-AGENTS_ROOT="${AGENTS_ROOT:-/data/agents}"
+AGENT_ID="${1:?Usage: destroy_agent.sh <agent_id> [--purge]}"
+PURGE="${2:-}"
 
-usage() {
-    echo "Usage: $0 <agent-id> [--purge]"
-    echo ""
-    echo "  --purge    Also delete all agent data (DB, memory, config)"
-    exit 1
-}
-
-if [[ $# -lt 1 ]]; then
-    usage
-fi
-
-AGENT_ID="$1"
-PURGE=false
-if [[ "${2:-}" == "--purge" ]]; then
-    PURGE=true
-fi
-
+DATA_DIR="/data/alive-agents"
+AGENT_DIR="$DATA_DIR/$AGENT_ID"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CONTAINER_NAME="alive-agent-${AGENT_ID}"
-CONFIG_DIR="${AGENTS_ROOT}/${AGENT_ID}"
 
-# Stop container if running
-if docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
-    echo "[destroy_agent] Stopping container: ${CONTAINER_NAME}"
-    docker stop "${CONTAINER_NAME}"
+# Check container exists
+if ! docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+    echo "ERROR: Agent '$AGENT_ID' not found (no container '${CONTAINER_NAME}')"
+    exit 1
 fi
 
-# Remove container if exists
-if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
-    echo "[destroy_agent] Removing container: ${CONTAINER_NAME}"
-    docker rm "${CONTAINER_NAME}"
-else
-    echo "[destroy_agent] Container ${CONTAINER_NAME} not found (already removed?)"
+echo "Destroying agent: $AGENT_ID"
+
+# Stop and remove container
+docker stop "$CONTAINER_NAME" 2>/dev/null || true
+docker rm "$CONTAINER_NAME" 2>/dev/null || true
+echo "  Container removed."
+
+# Update nginx routes
+if [ -f "$SCRIPT_DIR/nginx_regen.sh" ]; then
+    echo "  Updating nginx routes..."
+    bash "$SCRIPT_DIR/nginx_regen.sh"
 fi
 
-if [[ "$PURGE" == true ]]; then
-    if [[ -d "$CONFIG_DIR" ]]; then
-        echo "[destroy_agent] PURGING data directory: ${CONFIG_DIR}"
-        rm -rf "${CONFIG_DIR}"
-        echo "[destroy_agent] Data purged."
-    else
-        echo "[destroy_agent] No data directory found at ${CONFIG_DIR}"
+# Purge data if requested
+if [ "$PURGE" = "--purge" ]; then
+    if [ -d "$AGENT_DIR" ]; then
+        echo "  ⚠️  Purging agent data: $AGENT_DIR"
+        rm -rf "$AGENT_DIR"
+        echo "  Data purged."
     fi
 else
-    echo "[destroy_agent] Data preserved at ${CONFIG_DIR}"
-    echo "  To also delete data: $0 ${AGENT_ID} --purge"
+    echo "  Data preserved at: $AGENT_DIR"
+    echo "  To also delete data: ./scripts/destroy_agent.sh $AGENT_ID --purge"
 fi
 
-echo "[destroy_agent] Done."
+echo ""
+echo "Agent '$AGENT_ID' destroyed."
