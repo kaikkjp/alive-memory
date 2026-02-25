@@ -23,6 +23,9 @@ import BudgetPanel from '@/components/dashboard/BudgetPanel';
 import DriftPanel from '@/components/dashboard/DriftPanel';
 import EvolutionPanel from '@/components/dashboard/EvolutionPanel';
 import ExternalActionsPanel from '@/components/dashboard/ExternalActionsPanel';
+import MetaControllerPanel from '@/components/dashboard/MetaControllerPanel';
+import ExperimentHistoryPanel from '@/components/dashboard/ExperimentHistoryPanel';
+import MetricsPanel from '@/components/dashboard/MetricsPanel';
 
 export default function DashboardPage() {
   const [authenticated, setAuthenticated] = useState(false);
@@ -167,6 +170,9 @@ export default function DashboardPage() {
             System
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <MetricsPanel />
+            <MetaControllerPanel />
+            <ExperimentHistoryPanel />
             <ParametersPanel />
             <ActionsPanel />
             <TimelinePanel />
