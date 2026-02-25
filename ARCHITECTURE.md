@@ -196,7 +196,6 @@ Next.js app. Two pages: public shop window + operator dashboard.
 | `next.config.ts` | Next.js build configuration |
 | `src/app/page.tsx` | Shop window page — scene canvas + text stream + chat |
 | `src/app/dashboard/page.tsx` | Operator dashboard — 13 panels |
-| `src/components/SceneCanvas.tsx` | 6-layer scene compositor (scenery, shop interior, character sprite, counter foreground, vignette, dust particles) with legacy canvas fallback |
 | `src/components/TextStream.tsx` | Live activity text stream |
 | `src/components/ChatGate.tsx` | Token-gated chat entry |
 | `src/components/ChatPanel.tsx` | Visitor chat interface |
@@ -206,7 +205,6 @@ Next.js app. Two pages: public shop window + operator dashboard.
 | `src/components/dashboard/*.tsx` | Dashboard panels (Vitals, Drives, Costs, Controls, Collection, Threads, Pool, Timeline, Body, Behavioral, ContentPool, Feed, ConsumptionHistory) |
 | `src/app/layout.tsx` | Next.js root layout |
 | `src/hooks/useShopkeeperSocket.ts` | WebSocket connection hook |
-| `src/hooks/useSceneTransition.ts` | Scene crossfade transition logic |
 | `src/hooks/useParticles.ts` | Ambient particle effect hook |
 | `src/lib/compositor.ts` | Client-side canvas compositing |
 | `src/lib/api.ts` | REST API client |
@@ -214,7 +212,6 @@ Next.js app. Two pages: public shop window + operator dashboard.
 | `src/lib/types.ts` | TypeScript type definitions |
 | `src/lib/auth-manager.ts` | Chat token auth |
 | `src/lib/particles.ts` | Ambient particle effects |
-| `src/lib/scene-constants.ts` | Scene composition constants (canvas dims, character position, z-indexes, sprite map, gradient fallbacks) |
 
 ### External Channel Integration — `body/`
 
@@ -419,14 +416,14 @@ Metacognitive monitor in `pipeline/output.py` compares executed behavior against
 
 | Area | Files | Lines |
 |------|-------|-------|
-| Core engine (*.py root) | 21 | ~7,898 |
-| Pipeline (pipeline/*.py) | 32 | ~8,657 |
-| API | 2 | ~1,234 |
-| Config | 5 | ~428 |
+| Core engine (*.py root) | 21 | ~8,157 |
+| Pipeline (pipeline/*.py) | 32 | ~8,710 |
+| API | 4 | ~1,433 |
+| Config | 7 | ~623 |
 | Models | 4 | ~636 |
 | Scripts | 16 | ~3,835 |
-| Tests | 125 | ~33,619 |
-| Frontend (window/src/) | 54 | ~6,677 |
-| Docs (*.md) | 51 | ~33,431 |
+| Tests | 133 | ~35,492 |
+| Frontend (window/src/) | 57 | ~7,353 |
+| Docs (*.md) | 51 | ~33,611 |
 | Deploy | 7 | ~565 |
-| **Total** | **~317** | **~96,980** | **~316** | **~96,354** | **~314** | **~94,831** | **~307** | **~92,853** | **~302** | **~91,218** | **~296** | **~89,591** |
+| **Total** | **~332** | **~100,415** |

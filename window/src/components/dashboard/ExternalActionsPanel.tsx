@@ -37,7 +37,6 @@ function RateLimitRow({ rl }: { rl: ExternalRateLimitStatus }) {
           {rl.cooldown_remaining > 0 && (
             <span className="text-yellow-500">{rl.cooldown_remaining}s</span>
           )}
-          <span>{rl.energy_cost.toFixed(2)}e</span>
         </div>
       </div>
       <div className="flex gap-2">

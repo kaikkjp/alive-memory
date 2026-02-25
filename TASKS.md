@@ -1597,7 +1597,7 @@ No changes to engagement FSM, ACK path, or channel routing (already automatic vi
 ---
 
 ### TASK-097: Dashboard cleanup — vestigial energy_cost + API client consistency
-**Status:** BACKLOG
+**Status:** DONE (2026-02-25)
 **Priority:** Low
 **Description:** Two cleanup issues found in dashboard audit:
 

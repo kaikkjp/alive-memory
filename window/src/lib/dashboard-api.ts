@@ -263,4 +263,9 @@ export const dashboardApi = {
     const res = await dashboardFetch('/api/dashboard/metrics');
     return res.json();
   },
+
+  async getIdentityEvolution() {
+    const res = await dashboardFetch('/api/dashboard/identity-evolution');
+    return res.json();
+  },
 };

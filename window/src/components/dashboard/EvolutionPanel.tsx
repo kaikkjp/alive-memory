@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { dashboardFetch } from '@/lib/dashboard-api';
+import { dashboardApi } from '@/lib/dashboard-api';
 
 interface EvolutionData {
   enabled: boolean;
@@ -55,10 +55,9 @@ export default function EvolutionPanel() {
 
   const fetchEvolution = async () => {
     try {
-      const res = await dashboardFetch('/api/dashboard/identity-evolution');
-      setData(await res.json());
+      setData(await dashboardApi.getIdentityEvolution());
     } catch {
-      // dashboardFetch handles 401/session-expiry; swallow other errors
+      // dashboardApi handles 401/session-expiry; swallow other errors
       setData(null);
     } finally {
       setLoading(false);
