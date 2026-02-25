@@ -591,7 +591,9 @@ OUTPUT SCHEMA:
                         await self.db.record_taste_outcome(
                             item_id=outcome["item_id"],
                             eval_id=outcome.get("eval_id"),
+                            cycle_acquired=outcome["cycle_acquired"],
                             cycle_outcome=outcome["cycle_outcome"],
+                            buy_price=outcome["buy_price"],
                             sell_price=outcome.get("sell_price"),
                             profit=outcome.get("profit", 0),
                             time_to_sell=outcome.get("time_to_sell"),

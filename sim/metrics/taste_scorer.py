@@ -83,11 +83,21 @@ def _mock_scores(evals: list, result: dict) -> dict:
     result["empty_decisions"] = empty_decisions
     result["pass_decisions_non_empty"] = empty_decisions == 0
 
-    # 5. cycle_types_correct — check that browse cycles happened
-    # (We can infer from evaluations being recorded during browse cycles)
-    cycles_seen = {e.get("cycle", -1) for e in evals}
-    result["unique_eval_cycles"] = len(cycles_seen)
-    result["pass_cycle_types_correct"] = len(cycles_seen) > 0
+    # 5. cycle_types_correct — verify browse/normal/outcome/sleep coverage.
+    # Evaluations only happen in browse cycles (cycle % 10 in {0,1,2}).
+    # We check that eval cycles fall exclusively in browse slots,
+    # AND that enough days passed for all 4 cycle types to have occurred.
+    eval_cycles = [e.get("cycle", -1) for e in evals]
+    unique_eval_cycles = set(eval_cycles)
+    # All eval cycles should be browse slots (cycle % 10 in {0,1,2})
+    browse_only = all((c % 10) in (0, 1, 2) for c in eval_cycles if c >= 0)
+    # At least one full day completed (10 cycles = browse + normal + outcome + sleep)
+    max_cycle = max(eval_cycles) if eval_cycles else -1
+    full_day_passed = max_cycle >= 9  # at least one complete 10-cycle day
+    result["unique_eval_cycles"] = len(unique_eval_cycles)
+    result["browse_only_correct"] = browse_only
+    result["full_day_passed"] = full_day_passed
+    result["pass_cycle_types_correct"] = browse_only and full_day_passed
 
     return result
 

@@ -157,6 +157,8 @@ class TestResolvePendingOutcomes:
         assert len(resolved) == 1
         assert resolved[0]["item_id"] == listing["id"]
         assert resolved[0]["cycle_outcome"] == 10
+        assert resolved[0]["cycle_acquired"] == 0
+        assert resolved[0]["buy_price"] == listing["listed_price"]
         assert "sell_price" in resolved[0]
         assert "profit" in resolved[0]
         assert "outcome_category" in resolved[0]

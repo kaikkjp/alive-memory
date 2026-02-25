@@ -41,7 +41,7 @@ class TasteFormationScenario:
         scarcity = config.get("scarcity", {})
         self.browse_slots_per_day = scarcity.get("browse_slots_per_day", 3)
         self.inventory_cap = scarcity.get("inventory_cap", 20)
-        self.daily_capital = scarcity.get("daily_capital", 500)
+        self.daily_capital = scarcity.get("daily_capital", 100000)
         self.outcome_delay = config.get("feedback", {}).get(
             "outcome_delay_cycles", 50,
         )
@@ -161,6 +161,7 @@ class TasteFormationScenario:
                 outcome["eval_id"] = pending["eval_id"]
                 outcome["cycle_acquired"] = pending["cycle_acquired"]
                 outcome["cycle_outcome"] = current_cycle
+                outcome["buy_price"] = pending["buy_price"]
                 resolved.append(outcome)
 
                 # Remove from inventory
