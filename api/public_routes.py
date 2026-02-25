@@ -16,6 +16,30 @@ from pipeline.ack import on_visitor_message
 from pipeline.sanitize import sanitize_input
 
 
+async def _wait_for_dialogue(heartbeat, subscriber_id: str, timeout: float = 30.0) -> dict | None:
+    """Wait for a cycle log that contains dialogue, skipping non-dialogue cycles.
+
+    The subscriber queue receives logs from ALL cycle types (idle, ambient,
+    habit, engage). Only engage cycles produce dialogue. We drain non-dialogue
+    logs until we find one with actual speech or the timeout expires.
+    """
+    import time
+    deadline = time.monotonic() + timeout
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return None
+        log = await heartbeat.wait_for_cycle_log(subscriber_id, timeout=remaining)
+        if log is None:
+            return None
+        # Got a log — check if it has dialogue
+        dialogue = log.get('dialogue')
+        if dialogue:
+            return log
+        # No dialogue — could be a habit/idle cycle that fired between
+        # subscribe and the engage cycle. Keep waiting.
+
+
 async def handle_chat(server, writer, body_bytes: bytes, api_key_meta: dict):
     """Handle POST /api/chat — send a message and get the agent's response.
 
@@ -70,10 +94,14 @@ async def handle_chat(server, writer, body_bytes: bytes, api_key_meta: dict):
         })
         return
 
-    # Trigger microcycle and wait for response
-    await server.heartbeat.schedule_microcycle()
-
-    log = await server.heartbeat.wait_for_cycle_log(visitor_id, timeout=30)
+    # Trigger microcycle and wait for response.
+    # Subscribe BEFORE scheduling so we don't miss the publish.
+    server.heartbeat.subscribe_cycle_logs(visitor_id)
+    try:
+        await server.heartbeat.schedule_microcycle()
+        log = await _wait_for_dialogue(server.heartbeat, visitor_id, timeout=30)
+    finally:
+        server.heartbeat.unsubscribe_cycle_logs(visitor_id)
 
     if log:
         dialogue = log.get('dialogue', '')
