@@ -1563,6 +1563,65 @@ No changes to engagement FSM, ACK path, or channel routing (already automatic vi
 
 ---
 
+### TASK-096: Dashboard panels — meta-controller, experiment history, metrics
+**Status:** BACKLOG
+**Priority:** Medium
+**Description:** Three backend API endpoints added in TASK-071/090/091 have no corresponding frontend panels, API client functions, or TypeScript types. The data is served but invisible on the dashboard.
+
+**Missing panels:**
+1. **MetaControllerPanel** — `/api/dashboard/meta-controller` returns: `enabled`, `targets` (with current metric values + status), `recent_adjustments`, `pending_count`, `config` (evaluation_window, cooldown_cycles, max_adjustments_per_sleep). Show target status (ok/low/high), recent adjustments list, pending experiments count.
+2. **ExperimentHistoryPanel** — `/api/dashboard/experiment-history` returns: `experiments` (list with outcomes) + `confidence` data. Show experiment timeline with pass/fail/pending status.
+3. **MetricsPanel** — `/api/dashboard/metrics` returns: `snapshot` (current metric values) + `trends` (30-day daily for uptime, initiative_rate, emotional_range). Show current values + mini-charts or trend indicators.
+
+**For each panel, add:**
+- Component in `window/src/components/dashboard/`
+- API client function in `dashboard-api.ts`
+- TypeScript types in `types.ts`
+- Import + render in `dashboard/page.tsx` (System section)
+
+**Scope (files you may touch):**
+- `window/src/components/dashboard/MetaControllerPanel.tsx` (new)
+- `window/src/components/dashboard/ExperimentHistoryPanel.tsx` (new)
+- `window/src/components/dashboard/MetricsPanel.tsx` (new)
+- `window/src/lib/dashboard-api.ts`
+- `window/src/lib/types.ts`
+- `window/src/app/dashboard/page.tsx`
+**Scope (files you may NOT touch):**
+- `api/dashboard_routes.py` (endpoints already exist and work)
+- `heartbeat_server.py` (routes already registered)
+- `db.py`
+- `pipeline/*`
+**Tests:** Each panel renders without error. API client functions return correct types. Dashboard page loads with new panels visible.
+**Definition of done:** All three panels visible on dashboard, showing live data from their respective endpoints.
+
+---
+
+### TASK-097: Dashboard cleanup — vestigial energy_cost + API client consistency
+**Status:** BACKLOG
+**Priority:** Low
+**Description:** Two cleanup issues found in dashboard audit:
+
+1. **Vestigial `energy_cost` display** — `BodyPanel.tsx` and `ExternalActionsPanel.tsx` display `energy_cost` per action/rate-limit. These are static hardcoded values from `body/rate_limiter.py` config, never dynamically meaningful. Remove the display from both panels. Keep the TypeScript type fields (backend still serves them) but stop rendering them.
+2. **API client inconsistency** — `EvolutionPanel.tsx` calls `dashboardFetch('/api/dashboard/identity-evolution')` directly instead of using a typed `dashboardApi.getIdentityEvolution()` function. Every other panel uses the `dashboardApi` object. Add the missing function and update the panel to use it.
+3. **Stale ARCHITECTURE.md refs** — `ARCHITECTURE.md` still references `SceneCanvas.tsx`, `useSceneTransition.ts`, `scene-constants.ts` (deleted). Remove stale entries.
+
+**Scope (files you may touch):**
+- `window/src/components/dashboard/BodyPanel.tsx`
+- `window/src/components/dashboard/ExternalActionsPanel.tsx`
+- `window/src/components/dashboard/EvolutionPanel.tsx`
+- `window/src/lib/dashboard-api.ts`
+- `ARCHITECTURE.md`
+**Scope (files you may NOT touch):**
+- `window/src/lib/types.ts` (keep type fields, just stop displaying)
+- `api/dashboard_routes.py`
+- `body/rate_limiter.py`
+- `db.py`
+- `pipeline/*`
+**Tests:** All existing dashboard tests pass. Panels render without error. No `energy_cost` text visible in BodyPanel or ExternalActionsPanel.
+**Definition of done:** energy_cost removed from panel display. EvolutionPanel uses dashboardApi. ARCHITECTURE.md has no references to deleted files.
+
+---
+
 ```markdown
 ### TASK-XXX: Title
 **Status:** BACKLOG
