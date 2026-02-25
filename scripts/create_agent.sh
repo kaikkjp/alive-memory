@@ -40,15 +40,17 @@ fi
 
 echo "Creating agent: $AGENT_ID (port $PORT)"
 
-# Create directories
-mkdir -p "$AGENT_DIR/config"
+# Create directories — flat layout under $AGENT_DIR/
+# heartbeat_server.py reads AGENT_CONFIG_DIR and expects:
+#   {dir}/db/{agent_id}.db, {dir}/memory/, {dir}/identity.yaml, etc.
+# Container runs as appuser (UID 1000) — writable dirs need matching ownership.
 mkdir -p "$AGENT_DIR/db"
 mkdir -p "$AGENT_DIR/memory"
-mkdir -p "$AGENT_DIR/identity"
+chown -R 1000:1000 "$AGENT_DIR/db" "$AGENT_DIR/memory"
 
 # Create default identity.yaml if not present
-if [ ! -f "$AGENT_DIR/config/identity.yaml" ]; then
-    cat > "$AGENT_DIR/config/identity.yaml" <<'YAML'
+if [ ! -f "$AGENT_DIR/identity.yaml" ]; then
+    cat > "$AGENT_DIR/identity.yaml" <<'YAML'
 name: "New Agent"
 role: "An ALIVE agent"
 bio: |
@@ -72,28 +74,32 @@ YAML
 fi
 
 # Copy default alive_config.yaml if not present
-if [ ! -f "$AGENT_DIR/config/alive_config.yaml" ]; then
+if [ ! -f "$AGENT_DIR/alive_config.yaml" ]; then
     # Try to copy from repo, fall back to minimal
     REPO_CONFIG="$(dirname "$SCRIPT_DIR")/alive_config.yaml"
     if [ -f "$REPO_CONFIG" ]; then
-        cp "$REPO_CONFIG" "$AGENT_DIR/config/alive_config.yaml"
+        cp "$REPO_CONFIG" "$AGENT_DIR/alive_config.yaml"
         echo "  Copied alive_config.yaml from repo"
     else
         echo "  WARNING: No alive_config.yaml found — agent will use built-in defaults"
     fi
 fi
 
+# Generate a random server token (required by heartbeat_server.py startup check;
+# not actually used since managed agents don't accept terminal connections).
+SERVER_TOKEN="$(openssl rand -hex 32)"
+
 # Start container
+# Mount $AGENT_DIR as /agent-config (NOT /app/config — that would overlay
+# the Python config package and break imports like config.agent_identity).
 docker run -d \
     --name "alive-agent-${AGENT_ID}" \
     -p "${PORT}:8080" \
-    -v "$AGENT_DIR/config/:/app/config/:ro" \
-    -v "$AGENT_DIR/db/:/app/data/" \
-    -v "$AGENT_DIR/memory/:/app/data/memory/" \
-    -v "$AGENT_DIR/identity/:/app/identity/" \
+    -v "$AGENT_DIR/:/agent-config/" \
     -e "AGENT_ID=${AGENT_ID}" \
     -e "OPENROUTER_API_KEY=${API_KEY}" \
-    -e "AGENT_CONFIG_DIR=/app/config/" \
+    -e "AGENT_CONFIG_DIR=/agent-config/" \
+    -e "SHOPKEEPER_SERVER_TOKEN=${SERVER_TOKEN}" \
     --restart unless-stopped \
     --memory 512m \
     --cpus 0.5 \
@@ -131,4 +137,4 @@ echo "Agent '$AGENT_ID' created."
 echo "  Local:  http://127.0.0.1:${PORT}/api/state"
 echo "  Public: https://api.alive.kaikk.jp/${AGENT_ID}/state"
 echo "  Logs:   docker logs alive-agent-${AGENT_ID} -f"
-echo "  Config: $AGENT_DIR/config/"
+echo "  Config: $AGENT_DIR/"

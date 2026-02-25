@@ -257,7 +257,7 @@ export async function deleteApiKey(keyId: string, agentId: string): Promise<void
  * The live agent reads this file; writing it keeps auth in sync without restart.
  */
 export async function syncApiKeysToAgent(agentId: string): Promise<void> {
-  const agentsRoot = process.env.AGENTS_ROOT || '/data/agents';
+  const agentsRoot = process.env.AGENTS_ROOT || '/data/alive-agents';
   const keysPath = path.join(agentsRoot, agentId, 'api_keys.json');
 
   try {

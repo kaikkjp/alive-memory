@@ -10,7 +10,7 @@ import path from 'path';
 import * as db from '@/lib/manager-db';
 import { stopAgentContainer, startAgentContainer } from '@/lib/docker-client';
 
-const AGENTS_ROOT = process.env.AGENTS_ROOT || '/data/agents';
+const AGENTS_ROOT = process.env.AGENTS_ROOT || '/data/alive-agents';
 
 async function getManagerId(): Promise<string | null> {
   const h = await headers();
