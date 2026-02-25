@@ -76,6 +76,9 @@ export async function POST(request: Request) {
       }, { status: 502 });
     }
 
+    // Sync API keys to agent config dir so the live agent can authenticate
+    await db.syncApiKeysToAgent(agent.id);
+
     return NextResponse.json({
       agent,
       api_key: apiKey,
