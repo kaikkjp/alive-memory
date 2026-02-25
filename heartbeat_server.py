@@ -115,7 +115,17 @@ class ShopkeeperServer:
     """
 
     def __init__(self):
-        self.heartbeat = Heartbeat()
+        # ── Agent isolation (TASK-095 Phase 2) ──
+        # AGENT_ID: unique identifier for this agent instance (default: 'default')
+        # AGENT_CONFIG_DIR: root dir for per-agent config, DB, memory
+        self._agent_id = os.environ.get('AGENT_ID', 'default')
+        self._agent_config_dir = os.environ.get('AGENT_CONFIG_DIR', '').strip()
+        self._identity = None  # loaded in start() if config dir has identity.yaml
+
+        if self._agent_config_dir:
+            self._configure_agent_isolation()
+
+        self.heartbeat = Heartbeat(identity=self._identity)
         self.connections: dict[str, asyncio.StreamWriter] = {}  # visitor_id → writer
         self._server = None
         self._ws_server = None
@@ -135,6 +145,41 @@ class ShopkeeperServer:
         self._current_origin = ''  # set per-request in _handle_http
         self.host, self.port = _load_bind_address()
         self._server_token = os.environ.get(TOKEN_ENV_VAR, '').strip()
+
+    def _configure_agent_isolation(self):
+        """Set up isolated DB, memory, identity, and config for a per-agent instance."""
+        from db import connection as db_conn
+        from config.agent_identity import AgentIdentity
+
+        config_dir = self._agent_config_dir
+        agent_id = self._agent_id
+
+        # DB: {config_dir}/db/{agent_id}.db
+        db_dir = os.path.join(config_dir, 'db')
+        os.makedirs(db_dir, exist_ok=True)
+        db_path = os.path.join(db_dir, f'{agent_id}.db')
+        db_conn.set_db_path(db_path)
+        print(f"  [Agent] DB → {db_path}")
+
+        # Memory: {config_dir}/memory/
+        memory_dir = os.path.join(config_dir, 'memory')
+        os.makedirs(memory_dir, exist_ok=True)
+        os.environ['MEMORY_ROOT'] = memory_dir
+        print(f"  [Agent] Memory → {memory_dir}")
+
+        # Identity: {config_dir}/identity.yaml (optional)
+        identity_path = os.path.join(config_dir, 'identity.yaml')
+        if os.path.exists(identity_path):
+            self._identity = AgentIdentity.from_yaml(identity_path)
+            print(f"  [Agent] Identity → {identity_path}")
+        else:
+            print(f"  [Agent] Identity → default (no {identity_path})")
+
+        # Config override: {config_dir}/alive_config.yaml (optional)
+        config_path = os.path.join(config_dir, 'alive_config.yaml')
+        if os.path.exists(config_path):
+            os.environ['ALIVE_CONFIG'] = config_path
+            print(f"  [Agent] Config → {config_path}")
 
     async def start(self):
         """Initialize DB, seed, start heartbeat, TCP, WebSocket, and HTTP servers."""
