@@ -18,12 +18,19 @@ from typing import Optional
 
 
 class ApiKeyManager:
-    """Manages API key validation and rate limiting."""
+    """Manages API key validation and rate limiting.
+
+    Auto-reloads api_keys.json when the file changes on disk (checked at
+    most once per second to avoid stat() overhead on every request).
+    """
 
     def __init__(self, keys_path: Optional[str] = None):
         self._keys: dict[str, dict] = {}  # key → metadata
         self._rate_counters: dict[str, list[float]] = defaultdict(list)
         self._default_rate_limit = 60  # requests per minute
+        self._keys_path: Optional[str] = keys_path
+        self._last_mtime: float = 0.0
+        self._last_check: float = 0.0
         if keys_path and os.path.exists(keys_path):
             self._load_keys(keys_path)
 
@@ -33,16 +40,38 @@ class ApiKeyManager:
             data = json.load(f)
         if not isinstance(data, list):
             raise ValueError(f"api_keys.json must be a JSON array, got {type(data).__name__}")
+        new_keys: dict[str, dict] = {}
         for entry in data:
             key = entry.get('key', '')
             if key:
-                self._keys[key] = {
+                new_keys[key] = {
                     'name': entry.get('name', 'unnamed'),
                     'rate_limit': entry.get('rate_limit', self._default_rate_limit),
                 }
+        self._keys = new_keys
+        try:
+            self._last_mtime = os.path.getmtime(path)
+        except OSError:
+            pass
+
+    def _maybe_reload(self):
+        """Reload keys if the file changed. Checks mtime at most once/sec."""
+        if not self._keys_path:
+            return
+        now = time.monotonic()
+        if now - self._last_check < 1.0:
+            return
+        self._last_check = now
+        try:
+            mtime = os.path.getmtime(self._keys_path)
+            if mtime != self._last_mtime:
+                self._load_keys(self._keys_path)
+        except OSError:
+            pass
 
     def validate(self, key: str) -> Optional[dict]:
         """Validate an API key. Returns metadata dict or None if invalid."""
+        self._maybe_reload()
         return self._keys.get(key)
 
     def check_rate_limit(self, key: str) -> bool:

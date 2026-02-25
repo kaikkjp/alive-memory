@@ -30,7 +30,7 @@ function parseSimpleYaml(text: string): Record<string, string | string[]> {
   for (const line of text.split('\n')) {
     // Array item
     if (inArray && /^\s+-\s+/.test(line)) {
-      const val = line.replace(/^\s+-\s+/, '').replace(/^["']|["']$/g, '');
+      const val = yamlUnescape(line.replace(/^\s+-\s+/, '').replace(/^["']|["']$/g, ''));
       (result[currentKey] as string[]).push(val);
       continue;
     }
@@ -64,7 +64,7 @@ function parseSimpleYaml(text: string): Record<string, string | string[]> {
       result[key] = [];
       inArray = true;
     } else {
-      result[key] = rest.replace(/^["']|["']$/g, '');
+      result[key] = yamlUnescape(rest.replace(/^["']|["']$/g, ''));
     }
   }
 
@@ -81,6 +81,13 @@ function parseSimpleYaml(text: string): Record<string, string | string[]> {
  */
 function yamlEscape(s: string): string {
   return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+/**
+ * Unescape a YAML double-quoted scalar value.
+ */
+function yamlUnescape(s: string): string {
+  return s.replace(/\\"/g, '"').replace(/\\\\/g, '\\');
 }
 
 export async function GET(

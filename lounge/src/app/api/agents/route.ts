@@ -6,8 +6,7 @@
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import * as db from '@/lib/manager-db';
-import { isContainerRunning } from '@/lib/docker-client';
-import { createAgentContainer } from '@/lib/docker-client';
+import { isContainerRunning, createAgentContainer, destroyAgentContainer } from '@/lib/docker-client';
 import type { CreateAgentRequest } from '@/lib/types';
 
 async function getManagerId(): Promise<string | null> {
@@ -68,7 +67,8 @@ export async function POST(request: Request) {
     );
 
     if (!result.success) {
-      // Rollback: remove DB records since container failed
+      // Rollback: destroy container/data (may partially exist) + remove DB records
+      await destroyAgentContainer(agent.id, true);
       await db.deleteAgent(agent.id);
       return NextResponse.json({
         error: 'container failed to start',
