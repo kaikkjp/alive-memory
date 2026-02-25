@@ -51,10 +51,16 @@ const METRIC_NORMS: Record<string, MetricNorm> = {
   },
 };
 
+/**
+ * Fallback for metrics without an explicit METRIC_NORMS entry.
+ * Uses the display string as primary; shows raw value (no bar) to
+ * avoid misleading 0–1 assumptions on unknown-scale metrics.
+ */
 const DEFAULT_NORM: MetricNorm = {
   label: '',
-  normalize: (v) => Math.min(Math.max(v, 0), 1),
-  format: (v) => `${(v * 100).toFixed(0)}%`,
+  normalize: () => 0,
+  format: (v) => v.toLocaleString(),
+  noBar: true,
 };
 
 function barColor(frac: number): string {
