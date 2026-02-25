@@ -67,6 +67,15 @@ export async function POST(request: Request) {
       body.openrouter_key.trim()
     );
 
+    if (!result.success) {
+      // Rollback: remove DB records since container failed
+      await db.deleteAgent(agent.id);
+      return NextResponse.json({
+        error: 'container failed to start',
+        output: result.output,
+      }, { status: 502 });
+    }
+
     return NextResponse.json({
       agent,
       api_key: apiKey,

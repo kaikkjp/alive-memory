@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import * as db from '@/lib/manager-db';
+import { syncApiKeysToAgent } from '@/lib/manager-db';
 import type { CreateApiKeyRequest } from '@/lib/types';
 
 async function getManagerId(): Promise<string | null> {
@@ -60,6 +61,9 @@ export async function POST(
     const rateLimit = body.rate_limit || 60;
 
     const key = await db.createApiKey(id, name, rateLimit);
+
+    // Sync to live agent config
+    await syncApiKeysToAgent(id);
 
     // Return the full key only on creation (never shown again)
     return NextResponse.json({ api_key: key }, { status: 201 });

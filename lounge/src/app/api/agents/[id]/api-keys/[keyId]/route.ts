@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import * as db from '@/lib/manager-db';
+import { syncApiKeysToAgent } from '@/lib/manager-db';
 
 async function getManagerId(): Promise<string | null> {
   const h = await headers();
@@ -26,6 +27,11 @@ export async function DELETE(
     return NextResponse.json({ error: 'not found' }, { status: 404 });
   }
 
-  await db.deleteApiKey(keyId);
+  // Scope deletion to agent_id to prevent cross-tenant key revocation
+  await db.deleteApiKey(keyId, id);
+
+  // Sync to live agent config
+  await syncApiKeysToAgent(id);
+
   return NextResponse.json({ deleted: true });
 }

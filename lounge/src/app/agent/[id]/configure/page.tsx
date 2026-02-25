@@ -42,11 +42,11 @@ export default function ConfigurePage({
 
   async function fetchConfig() {
     try {
-      const res = await fetch(`/api/agents/${id}`);
+      const res = await fetch(`/api/agents/${id}/config`);
       if (res.ok) {
         const data = await res.json();
-        if (data.agent?.config) {
-          setConfig({ ...DEFAULT_CONFIG, ...data.agent.config });
+        if (data.config && Object.keys(data.config).length > 0) {
+          setConfig({ ...DEFAULT_CONFIG, ...data.config });
         }
       }
     } catch {

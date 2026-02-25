@@ -57,11 +57,13 @@ export async function middleware(request: NextRequest) {
       throw new Error('missing subject');
     }
 
-    // Attach manager info to headers for downstream routes
-    const response = NextResponse.next();
-    response.headers.set('x-manager-id', payload.sub);
-    response.headers.set('x-manager-name', (payload.name as string) || '');
-    return response;
+    // Attach manager info to request headers for downstream route handlers
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set('x-manager-id', payload.sub);
+    requestHeaders.set('x-manager-name', (payload.name as string) || '');
+    return NextResponse.next({
+      request: { headers: requestHeaders },
+    });
   } catch {
     // Invalid/expired token
     if (pathname.startsWith('/api/')) {

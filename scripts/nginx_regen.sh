@@ -16,7 +16,7 @@ if [[ "${1:-}" == "--dry-run" ]]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-OUTPUT="${SCRIPT_DIR}/../deploy/nginx-agents.conf"
+OUTPUT="/etc/nginx/conf.d/nginx-agents.conf"
 
 # Collect running agent containers and their ports
 declare -A AGENTS

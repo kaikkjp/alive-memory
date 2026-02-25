@@ -158,12 +158,13 @@ export async function createAgent(
 ): Promise<Agent> {
   const db = await getDb();
   // Generate a URL-safe agent ID from the name
-  const id = name
+  const slug = name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
-    .slice(0, 32)
-    + '-' + crypto.randomBytes(4).toString('hex');
+    .slice(0, 32);
+  const suffix = crypto.randomBytes(4).toString('hex');
+  const id = slug ? `${slug}-${suffix}` : `agent-${suffix}`;
 
   db.run(
     'INSERT INTO agents (id, name, manager_id, port, openrouter_key) VALUES (?, ?, ?, ?, ?)',
@@ -242,10 +243,31 @@ export async function createApiKey(
   return { id, agent_id: agentId, key, name, rate_limit: rateLimit, created_at: new Date().toISOString() };
 }
 
-export async function deleteApiKey(keyId: string): Promise<void> {
+export async function deleteApiKey(keyId: string, agentId: string): Promise<void> {
   const db = await getDb();
-  db.run('DELETE FROM api_keys WHERE id = ?', [keyId]);
+  db.run('DELETE FROM api_keys WHERE id = ? AND agent_id = ?', [keyId, agentId]);
   persist();
+}
+
+/**
+ * Sync all API keys for an agent to its api_keys.json config file.
+ * The live agent reads this file; writing it keeps auth in sync without restart.
+ */
+export async function syncApiKeysToAgent(agentId: string): Promise<void> {
+  const agentsRoot = process.env.AGENTS_ROOT || '/data/agents';
+  const keysPath = path.join(agentsRoot, agentId, 'api_keys.json');
+
+  try {
+    const keys = await listApiKeys(agentId);
+    const payload = keys.map((k) => ({
+      key: k.key,
+      name: k.name,
+      rate_limit: k.rate_limit,
+    }));
+    fs.writeFileSync(keysPath, JSON.stringify(payload, null, 2) + '\n');
+  } catch {
+    // Agent config dir may not exist yet (pre-container-start); skip silently
+  }
 }
 
 // ── Ownership check ──
