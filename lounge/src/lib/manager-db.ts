@@ -23,7 +23,10 @@ let _db: Database | null = null;
 async function getDb(): Promise<Database> {
   if (_db) return _db;
 
-  const SQL = await initSqlJs();
+  const SQL = await initSqlJs({
+    locateFile: (file: string) =>
+      path.join(process.cwd(), 'node_modules', 'sql.js', 'dist', file),
+  });
   const dir = path.dirname(DB_PATH);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
