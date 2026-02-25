@@ -161,6 +161,8 @@ class MockCortex:
             output = self._generate_reflect(context)
         elif call_site == "cortex_maintenance":
             output = self._generate_maintenance(context)
+        elif call_site == "taste_eval":
+            output = self._generate_taste_eval(context)
         else:
             output = self._generate_cortex(context)
 
@@ -344,6 +346,56 @@ class MockCortex:
                 "moment_count": self.rng.randint(2, 8),
                 "emotional_arc": "steady" if self.rng.random() > 0.5 else "rising",
             },
+        }
+
+    def _generate_taste_eval(self, ctx: dict) -> dict:
+        """Generate a mock taste evaluation with structured scores."""
+        # 7 dimension scores via gaussian
+        dims = [
+            "condition_accuracy", "rarity_authenticity", "price_fairness",
+            "historical_significance", "aesthetic_quality", "provenance",
+            "personal_resonance",
+        ]
+        scores = {}
+        for dim in dims:
+            score = max(0.0, min(10.0, self.rng.gauss(5.5, 1.8)))
+            scores[dim] = round(score, 1)
+
+        # Weighted average
+        weights = [0.20, 0.20, 0.20, 0.15, 0.15, 0.05, 0.05]
+        weighted = sum(scores[d] * w for d, w in zip(dims, weights))
+
+        # Decision based on score
+        if weighted > 6.5:
+            decision = "accept"
+        elif weighted < 4.0:
+            decision = "reject"
+        else:
+            decision = self.rng.choice(["reject", "watchlist", "watchlist"])
+
+        # Template features
+        feature_keys = self.rng.sample(
+            ["condition", "price_signal", "seller_history", "rarity_cue",
+             "market_trend", "photo_quality"],
+            k=self.rng.randint(3, 5),
+        )
+        features = {k: f"mock observation about {k}" for k in feature_keys}
+
+        # Template rationale
+        rationale_parts = [
+            f"The listing shows {self.rng.choice(['promising', 'mixed', 'concerning'])} signals.",
+            f"Price point {'aligns with' if weighted > 5 else 'diverges from'} expected range.",
+            f"Seller history {'supports' if self.rng.random() > 0.4 else 'raises questions about'} authenticity.",
+            f"Overall assessment: {'worth acquiring' if decision == 'accept' else 'pass for now'}.",
+        ]
+
+        return {
+            "scores": scores,
+            "weighted_score": round(weighted, 2),
+            "decision": decision,
+            "confidence": round(max(0.0, min(1.0, self.rng.gauss(0.65, 0.15))), 2),
+            "features": features,
+            "rationale": " ".join(rationale_parts),
         }
 
     def _pick_dialogue(self, ctx: dict) -> str:
