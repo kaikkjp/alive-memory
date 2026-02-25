@@ -6,6 +6,7 @@ const tabs = [
   { key: "lounge", label: "Lounge", href: (id: string) => `/agent/${id}/lounge` },
   { key: "configure", label: "Configure", href: (id: string) => `/agent/${id}/configure` },
   { key: "api-keys", label: "API Keys", href: (id: string) => `/agent/${id}/api-keys` },
+  { key: "docs", label: "Docs", href: (id: string) => `/agent/${id}/docs` },
 ];
 
 export default function AgentNav({
@@ -16,7 +17,7 @@ export default function AgentNav({
   active: string;
 }) {
   return (
-    <nav className="border-b border-[#262626] px-4">
+    <nav className="border-b border-[#1e1e1a] px-4">
       <div className="max-w-5xl mx-auto flex items-center gap-6 h-12">
         <Link
           href="/dashboard"
@@ -30,7 +31,7 @@ export default function AgentNav({
             href={tab.href(agentId)}
             className={`text-sm py-3 border-b-2 transition-colors ${
               active === tab.key
-                ? "border-[#3b82f6] text-white"
+                ? "border-[#d4a574] text-white"
                 : "border-transparent text-[#737373] hover:text-white"
             }`}
           >

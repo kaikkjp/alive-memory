@@ -81,9 +81,19 @@ async def build_perceptions(unread_events: list[Event], drives: DrivesState,
                     source_id=event.id if hasattr(event, 'id') else vid,
                 ))
 
+            # TASK-095 v2: Manager messages get trusted human framing
+            is_manager = event.payload.get('source') == 'manager'
+            if is_manager:
+                perc = Perception(
+                    p_type='manager_speech',
+                    source=event.source,
+                    ts=event.ts,
+                    content=f"Your trusted human speaks: \"{text}\"",
+                    features={**extract_features(text), 'is_manager': True},
+                    salience=calculate_salience(event, drives, visitor),
+                )
             # TASK-087: Digital channels get different perception type + framing
-            channel = _detect_channel(vid)
-            if channel:
+            elif (channel := _detect_channel(vid)):
                 name = visitor.name if visitor and visitor.name else vid
                 perc = Perception(
                     p_type='digital_message',

@@ -1267,6 +1267,27 @@ class ShopkeeperServer:
                 await dashboard_routes.handle_metrics(self, writer, authorization)
             elif path == '/api/dashboard/metrics/backfill' and method == 'POST':
                 await dashboard_routes.handle_metrics_backfill(self, writer, authorization)
+            # TASK-095 v2: Force sleep, whispers, memories, capabilities
+            elif path == '/api/dashboard/force-sleep' and method == 'POST':
+                await dashboard_routes.handle_force_sleep(self, writer, authorization)
+            elif path == '/api/dashboard/whispers' and method == 'GET':
+                await dashboard_routes.handle_get_whispers(self, writer, authorization)
+            elif path == '/api/dashboard/whispers' and method == 'POST':
+                await dashboard_routes.handle_create_whisper(self, writer, authorization, body_bytes)
+            elif path == '/api/dashboard/memories' and method == 'GET':
+                await dashboard_routes.handle_get_memories(self, writer, authorization)
+            elif path == '/api/dashboard/memories' and method == 'POST':
+                await dashboard_routes.handle_inject_memory(self, writer, authorization, body_bytes)
+            elif path == '/api/dashboard/memories' and method == 'DELETE':
+                await dashboard_routes.handle_delete_memory(self, writer, authorization, body_bytes)
+            elif path == '/api/dashboard/capabilities' and method == 'GET':
+                await dashboard_routes.handle_get_capabilities(self, writer, authorization)
+            elif path == '/api/dashboard/capabilities' and method == 'POST':
+                await dashboard_routes.handle_toggle_capability(self, writer, authorization, body_bytes)
+            elif path.startswith('/api/dashboard/memories/') and method == 'DELETE':
+                # Path-based memory delete: /api/dashboard/memories/:source_id
+                mem_id = path[len('/api/dashboard/memories/'):]
+                await dashboard_routes.handle_delete_memory_by_id(self, writer, authorization, mem_id)
             elif path == '/api/metrics/public' and method == 'GET':
                 await dashboard_routes.handle_metrics_public(self, writer)
             elif path == '/api/live' and method == 'GET':

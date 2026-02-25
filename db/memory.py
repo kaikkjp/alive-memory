@@ -1128,6 +1128,7 @@ async def insert_cold_embedding(
     ts: datetime,
     embedding: list[float],
     embed_model: str,
+    origin: str = 'organic',
 ) -> None:
     """Insert a vector embedding into cold_memory_vec.
 
@@ -1136,6 +1137,8 @@ async def insert_cold_embedding(
 
     Includes dedupe guard: skips insert if (source_type, source_id)
     already exists. This prevents double-embedding on retry.
+
+    Also inserts into cold_memory_origin lookup table (TASK-095 v2).
     """
     import sqlite_vec
 
@@ -1160,6 +1163,14 @@ async def insert_cold_embedding(
                VALUES (?, ?, ?, ?, ?, ?)""",
             (vec_blob, source_type, source_id, text_truncated, ts_iso, embed_model)
         )
+
+        # TASK-095 v2: Track origin in lookup table
+        await conn.execute(
+            """INSERT OR IGNORE INTO cold_memory_origin (source_id, origin)
+               VALUES (?, ?)""",
+            (source_id, origin)
+        )
+
         await conn.commit()
 
 
@@ -1218,8 +1229,11 @@ async def vector_search_cold_memory(
     """KNN search over cold_memory_vec.
 
     Returns nearest neighbors with source_type, source_id, text_content,
-    ts_iso, and distance. Optional timestamp exclusion for filtering out
-    today's entries.
+    ts_iso, distance, and origin. Optional timestamp exclusion for filtering
+    out today's entries.
+
+    Origin is looked up via post-query JOIN against cold_memory_origin
+    (TASK-095 v2) — vec0 KNN queries don't support inline JOINs.
     """
     import sqlite_vec
 
@@ -1239,13 +1253,28 @@ async def vector_search_cold_memory(
     rows = await cursor.fetchall()
 
     results = []
+    source_ids = []
     for r in rows:
         # Filter out entries from today if requested
         if exclude_after_iso and r['ts_iso'] >= exclude_after_iso:
             continue
         results.append(dict(r))
+        source_ids.append(r['source_id'])
         if len(results) >= limit:
             break
+
+    # TASK-095 v2: Batch-lookup origins from cold_memory_origin
+    if results and source_ids:
+        placeholders = ','.join('?' for _ in source_ids)
+        cursor = await conn.execute(
+            f"""SELECT source_id, origin FROM cold_memory_origin
+                WHERE source_id IN ({placeholders})""",
+            source_ids,
+        )
+        origin_rows = await cursor.fetchall()
+        origin_map = {r['source_id']: r['origin'] for r in origin_rows}
+        for result in results:
+            result['origin'] = origin_map.get(result['source_id'], 'organic')
 
     return results
 
@@ -1411,3 +1440,175 @@ async def get_recent_internal_conflicts(limit: int = 5) -> list[dict]:
     )
     rows = await cursor.fetchall()
     return [dict(r) for r in rows]
+
+
+# ── Cold Memory Origin (TASK-095 v2) ──
+
+async def get_cold_memories_by_origin(
+    origin: str,
+    limit: int = 50,
+    offset: int = 0,
+) -> list[dict]:
+    """Fetch cold memories filtered by origin ('organic' or 'manager_injected').
+
+    Returns text_content, source_type, source_id, ts_iso, and origin.
+    Ordered by ts_iso descending (newest first).
+    """
+    conn = await _connection.get_db()
+    cursor = await conn.execute(
+        """SELECT v.source_type, v.source_id, v.text_content, v.ts_iso,
+                  o.origin
+           FROM cold_memory_vec v
+           INNER JOIN cold_memory_origin o ON o.source_id = v.source_id
+           WHERE o.origin = ?
+           ORDER BY v.ts_iso DESC
+           LIMIT ? OFFSET ?""",
+        (origin, limit, offset),
+    )
+    rows = await cursor.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def get_organic_memories(limit: int = 50, offset: int = 0) -> list[dict]:
+    """Fetch organic (self-generated) cold memories. Read-only convenience wrapper."""
+    return await get_cold_memories_by_origin('organic', limit, offset)
+
+
+async def get_manager_memories() -> list[dict]:
+    """Fetch all manager-injected backstory memories."""
+    return await get_cold_memories_by_origin('manager_injected', limit=500, offset=0)
+
+
+async def inject_manager_memory(
+    text: str,
+    title: str = '',
+    embedding: Optional[list[float]] = None,
+    embed_model: str = 'text-embedding-3-small',
+) -> str:
+    """Inject a backstory memory from the manager.
+
+    Creates a cold memory with origin='manager_injected'.
+    If embedding is None, the memory is stored without vector search capability
+    (text-only, retrievable via get_manager_memories).
+
+    Returns the generated source_id.
+    """
+    source_id = f"mgr-{uuid.uuid4().hex[:12]}"
+    ts = clock.now_utc()
+
+    if embedding is not None:
+        # Full cold memory with vector embedding
+        await insert_cold_embedding(
+            source_type='manager_backstory',
+            source_id=source_id,
+            text_content=f"{title}: {text}" if title else text,
+            ts=ts,
+            embedding=embedding,
+            embed_model=embed_model,
+            origin='manager_injected',
+        )
+    else:
+        # Text-only storage: insert into origin table only, no vector
+        # Also store the text content in a regular table for retrieval
+        async with _write_lock:
+            conn = await _connection.get_db()
+            await conn.execute(
+                """INSERT OR IGNORE INTO cold_memory_origin (source_id, origin)
+                   VALUES (?, 'manager_injected')""",
+                (source_id,),
+            )
+            # Store in cold_memory_vec without embedding (nullable embedding)
+            # Actually, vec0 requires embedding. Use a zero vector as placeholder.
+            import sqlite_vec
+            zero_vec = sqlite_vec.serialize_float32([0.0] * 1536)
+            await conn.execute(
+                """INSERT INTO cold_memory_vec
+                   (embedding, source_type, source_id, text_content, ts_iso, embed_model)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (zero_vec, 'manager_backstory', source_id,
+                 (f"{title}: {text}" if title else text)[:500],
+                 ts.isoformat(), 'none'),
+            )
+            await conn.commit()
+
+    return source_id
+
+
+async def delete_manager_memory(source_id: str) -> bool:
+    """Delete a manager-injected backstory memory.
+
+    Returns True if deleted, False if not found or if origin is 'organic'
+    (organic memories cannot be deleted via this function).
+    """
+    conn = await _connection.get_db()
+
+    # Check origin — only allow deleting manager_injected memories
+    cursor = await conn.execute(
+        "SELECT origin FROM cold_memory_origin WHERE source_id = ?",
+        (source_id,),
+    )
+    row = await cursor.fetchone()
+    if not row or row['origin'] != 'manager_injected':
+        return False
+
+    async with _write_lock:
+        conn = await _connection.get_db()
+        # Delete from vec table
+        await conn.execute(
+            "DELETE FROM cold_memory_vec WHERE source_id = ?",
+            (source_id,),
+        )
+        # Delete from origin table
+        await conn.execute(
+            "DELETE FROM cold_memory_origin WHERE source_id = ?",
+            (source_id,),
+        )
+        await conn.commit()
+
+    return True
+
+
+# ── Pending Whispers (TASK-095 v2) ──
+
+async def create_whisper(
+    param_path: str,
+    old_value: Optional[str],
+    new_value: str,
+) -> int:
+    """Queue a config change as a pending whisper for the next sleep cycle.
+
+    Returns the whisper ID.
+    """
+    ts = clock.now_utc().isoformat()
+    conn = await _connection.get_db()
+    cursor = await conn.execute(
+        """INSERT INTO pending_whispers (param_path, old_value, new_value, created_at)
+           VALUES (?, ?, ?, ?)""",
+        (param_path, old_value, new_value, ts),
+    )
+    await conn.commit()
+    return cursor.lastrowid
+
+
+async def get_pending_whispers() -> list[dict]:
+    """Fetch all unprocessed whispers (processed_at IS NULL)."""
+    conn = await _connection.get_db()
+    cursor = await conn.execute(
+        """SELECT id, param_path, old_value, new_value, created_at
+           FROM pending_whispers
+           WHERE processed_at IS NULL
+           ORDER BY created_at ASC""",
+    )
+    rows = await cursor.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def mark_whisper_processed(whisper_id: int, dream_text: str) -> None:
+    """Mark a whisper as processed and store the dream perception text."""
+    ts = clock.now_utc().isoformat()
+    await _connection._exec_write(
+        """UPDATE pending_whispers
+           SET processed_at = ?, dream_text = ?
+           WHERE id = ?""",
+        (ts, dream_text, whisper_id),
+    )

@@ -421,6 +421,18 @@ async def select_actions(validated: ValidatedOutput, drives: DrivesState,
         capability = ACTION_REGISTRY[action_name]
 
         # Gate 2: Is it enabled?
+        # TASK-095 v2: Check identity's actions_enabled first (if present)
+        identity = context.get('identity')
+        if identity and hasattr(identity, 'actions_enabled'):
+            actions_enabled = identity.actions_enabled
+            if actions_enabled is not None:
+                # Explicit list (possibly empty) — filter by it
+                if action_name not in actions_enabled:
+                    decision.status = 'incapable'
+                    decision.suppression_reason = 'Not enabled for this agent'
+                    decisions.append(decision)
+                    continue
+            # actions_enabled is None → all allowed, fall through to registry check
         if not capability.enabled:
             decision.status = 'incapable'
             decision.suppression_reason = 'Cannot do this yet'

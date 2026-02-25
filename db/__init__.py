@@ -130,6 +130,16 @@ from db.memory import (
     validate_and_consume_chat_token,
     validate_chat_token,
     vector_search_cold_memory,
+    # TASK-095 v2: Cold memory origin
+    get_cold_memories_by_origin,
+    get_organic_memories,
+    get_manager_memories,
+    inject_manager_memory,
+    delete_manager_memory,
+    # TASK-095 v2: Pending whispers
+    create_whisper,
+    get_pending_whispers,
+    mark_whisper_processed,
 )
 
 # ── content ──

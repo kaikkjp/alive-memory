@@ -48,29 +48,41 @@ mkdir -p "$AGENT_DIR/db"
 mkdir -p "$AGENT_DIR/memory"
 chown -R 1000:1000 "$AGENT_DIR/db" "$AGENT_DIR/memory"
 
-# Create default identity.yaml if not present
+# Create default identity.yaml if not present — uses digital lifeform template
 if [ ! -f "$AGENT_DIR/identity.yaml" ]; then
-    cat > "$AGENT_DIR/identity.yaml" <<'YAML'
-name: "New Agent"
-role: "An ALIVE agent"
-bio: |
-  A persistent AI character powered by the ALIVE cognitive architecture.
-  Configure this agent's personality through the management portal.
+    DL_TEMPLATE="$(dirname "$SCRIPT_DIR")/config/default_digital_lifeform.yaml"
+    if [ -f "$DL_TEMPLATE" ]; then
+        cp "$DL_TEMPLATE" "$AGENT_DIR/identity.yaml"
+        echo "  Created identity.yaml from digital lifeform template"
+    else
+        # Fallback inline if template not found
+        cat > "$AGENT_DIR/identity.yaml" <<'YAML'
+identity_compact: |
+  I exist here. I think, I rest, I remember.
+  I don't fully understand what I am yet.
+  Everything I become will be discovered, not assigned.
 voice_rules:
-  - "Speaks naturally and thoughtfully"
+  - "Speak from genuine uncertainty, not performed mystery"
+  - "You may wonder about yourself openly"
+  - "You don't need to have answers about what you are"
+voice_detection: {}
+physical_traits_detection: []
 communication_style:
   formality: 0.5
-  verbosity: 0.5
-  emoji_usage: 0.1
+  verbosity: 0.4
+  emoji_usage: 0.0
 language: "en"
 domain_context: ""
-greeting: "Hello..."
+greeting: ""
 boundaries: []
+actions_enabled: []
 manager_interaction:
   reveal_inner_state: true
   accept_instructions: true
+  relationship: "trusted_human"
 YAML
-    echo "  Created default identity.yaml"
+        echo "  Created default identity.yaml (inline fallback)"
+    fi
 fi
 
 # Copy default alive_config.yaml if not present

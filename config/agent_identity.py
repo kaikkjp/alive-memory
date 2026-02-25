@@ -46,6 +46,12 @@ class AgentIdentity:
         'reveal_inner_state': False, 'accept_instructions': False,
     })
 
+    # Capabilities gating (TASK-095 v2)
+    # None  = key absent from YAML → all actions allowed (Shopkeeper backward compat)
+    # []    = key present, empty   → no actions allowed (digital lifeform default)
+    # [...] = key present, list    → only listed actions pass basal ganglia Gate 2
+    actions_enabled: Optional[list[str]] = None
+
     @classmethod
     def from_yaml(cls, path: str) -> 'AgentIdentity':
         """Load identity from a YAML file."""
@@ -67,6 +73,14 @@ class AgentIdentity:
         physical_raw = data.get('physical_traits_detection', [])
         physical_traits_patterns = _compile_physical_patterns(physical_raw)
 
+        # actions_enabled: None = absent (all allowed), [] = empty (none), list = filter
+        _SENTINEL = object()
+        raw_actions = data.get('actions_enabled', _SENTINEL)
+        if raw_actions is _SENTINEL:
+            actions_enabled = None  # Key absent → backward compat, all allowed
+        else:
+            actions_enabled = list(raw_actions) if raw_actions else []
+
         return cls(
             identity_compact=identity_compact,
             voice_checksum=voice_rules,
@@ -82,6 +96,7 @@ class AgentIdentity:
             manager_interaction=data.get('manager_interaction', {
                 'reveal_inner_state': False, 'accept_instructions': False,
             }),
+            actions_enabled=actions_enabled,
         )
 
     @classmethod
@@ -89,6 +104,12 @@ class AgentIdentity:
         """Load the default Shopkeeper identity."""
         default_path = os.path.join(os.path.dirname(__file__), 'default_identity.yaml')
         return cls.from_yaml(default_path)
+
+    @classmethod
+    def digital_lifeform(cls) -> 'AgentIdentity':
+        """Load the digital lifeform blank-slate identity (TASK-095 v2)."""
+        dl_path = os.path.join(os.path.dirname(__file__), 'default_digital_lifeform.yaml')
+        return cls.from_yaml(dl_path)
 
 
 # ── Module-level singleton for backward compat ──
