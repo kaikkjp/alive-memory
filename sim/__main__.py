@@ -33,8 +33,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--scenario", type=str, default="standard",
         help="Scenario: standard, social, stress, returning, isolation "
-             "(v2 Poisson-scheduled) or longitudinal, death_spiral, "
-             "visitor_flood, spam_attack, sleep_deprivation (v1 scripted)",
+             "(v2 Poisson-scheduled) or taste_formation (TASK-093) "
+             "or longitudinal, death_spiral, visitor_flood, "
+             "spam_attack, sleep_deprivation (v1 scripted)",
     )
     parser.add_argument(
         "--cycles", type=int, default=1000,
@@ -130,6 +131,19 @@ async def run_single(args) -> dict:
           f"{'PASS' if n2.passed else 'FAIL'}")
     print(f"[Sim] N4 Budget efficiency: {n4.overall_meaningful_pct:.1f}% meaningful, "
           f"${n4.total_budget_spent:.4f} spent")
+    # Taste formation experiment: run fail-fast scorer
+    if args.scenario == "taste_formation":
+        from sim.metrics.taste_scorer import fail_fast_scores
+        taste_evals = getattr(runner, "_taste_eval_cache", [])
+        taste_scores = fail_fast_scores(taste_evals, args.llm)
+        print(f"\n[Taste] Fail-fast scores (mode={args.llm}):")
+        for key, val in taste_scores.items():
+            if key.startswith("pass_"):
+                status = "PASS" if val else "FAIL"
+                print(f"  {key}: {status}")
+            else:
+                print(f"  {key}: {val}")
+
     print(f"[Sim] Results: {output_path}")
 
     return {

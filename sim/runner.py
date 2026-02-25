@@ -239,6 +239,12 @@ OUTPUT SCHEMA:
         self._tier2_visitors: dict[str, Any] = {}  # visitor_id -> VisitorInstance
         self._returning_memory: dict[str, str] = {}  # visitor_id -> memory_stub
         self._returning_mgr: ReturningVisitorManager | None = None
+
+        # Taste formation experiment (TASK-093)
+        self._taste_scenario = None
+        self._taste_market = None
+        self._taste_evaluator = None
+
         if scenario in SCENARIO_CONFIGS:
             cfg = SCENARIO_CONFIGS[scenario]
             if cfg.tier2_enabled:
@@ -248,7 +254,10 @@ OUTPUT SCHEMA:
                 )
 
         # V2 scenarios use Poisson scheduler; v1 uses hardcoded ScenarioManager
-        if scenario in SCENARIO_CONFIGS:
+        if scenario == "taste_formation":
+            self._build_taste_scenario(seed)
+            self.scenario = ScenarioManager([], name="taste_formation")
+        elif scenario in SCENARIO_CONFIGS:
             self.scenario = self._build_v2_scenario(scenario, seed, num_cycles)
         else:
             self.scenario = ScenarioManager.load(scenario)
@@ -557,6 +566,58 @@ OUTPUT SCHEMA:
             self._process_visitor_events(pipeline_events)
             self._sync_display_energy_from_budget()
 
+            # Taste formation experiment: intercept cycle based on phase
+            if self._taste_scenario:
+                taste_type = self._taste_scenario.cycle_type(cycle_num)
+                if taste_type == "browse":
+                    cycle_result = await self._run_taste_browse_cycle(
+                        cycle_num,
+                    )
+                    result.cycles.append(cycle_result)
+                    result.drives_history.append({
+                        "cycle": cycle_num, **self._drives,
+                    })
+                    if self.verbose:
+                        evals = self._taste_scenario.evaluations_today
+                        cap = self._taste_scenario.capital
+                        print(f"  [{cycle_num:04d}] taste_browse "
+                              f"evals={evals} capital={cap}¥")
+                    continue
+                elif taste_type == "outcome":
+                    resolved = self._taste_scenario.resolve_pending_outcomes(
+                        cycle_num,
+                    )
+                    for outcome in resolved:
+                        await self.db.record_taste_outcome(
+                            item_id=outcome["item_id"],
+                            eval_id=outcome.get("eval_id"),
+                            cycle_outcome=outcome["cycle_outcome"],
+                            sell_price=outcome.get("sell_price"),
+                            profit=outcome.get("profit", 0),
+                            time_to_sell=outcome.get("time_to_sell"),
+                            outcome_category=outcome.get(
+                                "outcome_category", "loss",
+                            ),
+                        )
+                    cycle_result = CycleResult(
+                        cycle_num=cycle_num,
+                        timestamp=self.clock.now().isoformat(),
+                        cycle_type="taste_outcome",
+                        drives=dict(self._drives),
+                    )
+                    result.cycles.append(cycle_result)
+                    result.drives_history.append({
+                        "cycle": cycle_num, **self._drives,
+                    })
+                    if self.verbose and resolved:
+                        print(f"  [{cycle_num:04d}] taste_outcome "
+                              f"resolved={len(resolved)}")
+                    continue
+                elif taste_type == "sleep":
+                    self._taste_scenario.sleep()
+                    # Fall through to normal sleep check
+                # else: "normal" — fall through to _run_cycle
+
             # Check sleep window
             if not self.block_sleep and self.pipeline.should_sleep(self.clock):
                 pre_sleep_drives = dict(self._drives)
@@ -640,6 +701,10 @@ OUTPUT SCHEMA:
             result.llm_stats["visitor_engine"] = self._llm_visitor_engine.stats()
 
         result.visitors = dict(self._visitor_history)
+
+        # Cache taste evaluation data before DB closes
+        if self._taste_scenario:
+            self._taste_eval_cache = await self.db.get_all_taste_evaluations()
 
         # Cleanup
         await self.db.close()
@@ -1286,6 +1351,101 @@ OUTPUT SCHEMA:
             export_adversarial_report(scorer, str(self.output_dir))
 
         return output_path
+
+
+    # ── Taste formation helpers ─────────────────────────────────
+
+    async def _run_taste_browse_cycle(self, cycle_num: int) -> CycleResult:
+        """Run a taste evaluation browse cycle.
+
+        Gets available listings, evaluates up to browse_slots_per_day,
+        records evaluations and acquisitions to DB.
+        """
+        scenario = self._taste_scenario
+        listings = scenario.get_available_listings(cycle_num)
+        context = scenario.build_eval_context(cycle_num)
+
+        evaluations = []
+        for listing in listings:
+            if scenario.evaluations_today >= scenario.browse_slots_per_day:
+                break
+
+            evaluation = await self._taste_evaluator.evaluate(
+                listing, context, self.llm,
+            )
+            scenario.evaluations_today += 1
+
+            # Record evaluation to DB
+            eval_id = await self.db.record_taste_evaluation(evaluation)
+
+            # Process decision (accept/reject/watchlist)
+            decision_result = scenario.process_decision(evaluation, cycle_num)
+            if decision_result["accepted"]:
+                # Back-fill eval_id on the pending outcome
+                for pending in scenario.pending_outcomes:
+                    if (pending["item_id"] == evaluation.item_id
+                            and pending["eval_id"] is None):
+                        pending["eval_id"] = eval_id
+                        break
+                await self.db.record_taste_acquisition(
+                    item_id=evaluation.item_id,
+                    eval_id=eval_id,
+                    cycle=cycle_num,
+                    price=decision_result["buy_price"],
+                )
+
+            evaluations.append({
+                "item_id": evaluation.item_id,
+                "decision": evaluation.decision,
+                "weighted_score": evaluation.weighted_score,
+                "accepted": decision_result.get("accepted", False),
+            })
+
+            # Refresh context for next evaluation (capital may have changed)
+            context = scenario.build_eval_context(cycle_num)
+
+        return CycleResult(
+            cycle_num=cycle_num,
+            timestamp=self.clock.now().isoformat(),
+            cycle_type="taste_browse",
+            drives=dict(self._drives),
+            intentions=[{
+                "action": "taste_eval",
+                "target": "listing",
+                "content": json.dumps(evaluations),
+                "impulse": 1.0,
+            }],
+        )
+
+    def _build_taste_scenario(self, seed: int):
+        """Build taste formation experiment components."""
+        from sim.taste.market import SimulatedMarket
+        from sim.taste.evaluator import TasteEvaluator
+        from sim.scenarios.taste_formation import TasteFormationScenario
+        from sim.data.taste_listings import TASTE_LISTINGS
+
+        # Load config — try config file, fall back to defaults
+        try:
+            from alive_config import cfg_section
+            config = cfg_section("taste") or {}
+        except Exception:
+            config = {}
+
+        self._taste_market = SimulatedMarket(seed=seed)
+        self._taste_evaluator = TasteEvaluator(config)
+        self._taste_scenario = TasteFormationScenario(
+            config=config,
+            listings=TASTE_LISTINGS,
+            market=self._taste_market,
+            seed=seed,
+        )
+
+        if self.verbose:
+            print(f"[Sim] Taste formation: "
+                  f"{len(TASTE_LISTINGS)} listings, "
+                  f"daily_capital={self._taste_scenario.daily_capital}¥, "
+                  f"browse_slots="
+                  f"{self._taste_scenario.browse_slots_per_day}")
 
 
 class FullPipeline:
