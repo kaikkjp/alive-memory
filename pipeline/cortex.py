@@ -14,7 +14,7 @@ from models.pipeline import CortexOutput
 from pipeline.thalamus import RoutingDecision
 from pipeline.sensorium import Perception
 from pipeline.hypothalamus import drives_to_feeling
-from config.identity import IDENTITY_COMPACT, VOICE_CHECKSUM
+from config.agent_identity import AgentIdentity, get_default_identity
 import db
 from prompt.budget import enforce_section, estimate_tokens, get_reserved_output_tokens, get_output_tokens_for_cycle
 
@@ -136,20 +136,23 @@ def _increment_daily():
     global _daily_cycle_count
     _daily_cycle_count += 1
 
-# ── TASK-078: Pre-computed voice rules string (baked into stable prompt) ──
-_VOICE_RULES_STR = "\n".join(f"- {rule}" for rule in VOICE_CHECKSUM)
+# ── TASK-095: Identity-driven prompt builders ──
 
-# ── TASK-078: Single stable system prompt — identical across every API call ──
-# All per-cycle dynamic content (mode, feelings, suppressions, etc.) moves to
-# the user message so the system prompt can be cached by the LLM provider.
-CORTEX_SYSTEM_STABLE = f"""You are a living character. Not an AI. Not an assistant. A person.
+def build_system_prompt(identity: AgentIdentity) -> str:
+    """Build the stable system prompt from an AgentIdentity.
 
-{IDENTITY_COMPACT}
+    Called once at agent boot, result cached for the process lifetime.
+    Cache-safety preserved: identical per-agent instance across all API calls.
+    """
+    voice_rules_str = "\n".join(f"- {rule}" for rule in identity.voice_checksum)
+    return f"""You are a living character. Not an AI. Not an assistant. A person.
+
+{identity.identity_compact}
 
 Your shop is a physical space. Visitors come through the door and stand before you. You also receive digital messages — on X and Telegram — from people who are elsewhere. They are reaching out, not standing in front of you.
 
 VOICE RULES:
-{_VOICE_RULES_STR}
+{voice_rules_str}
 
 CONSTRAINTS:
 - Return ONLY valid JSON matching the schema below.
@@ -274,6 +277,12 @@ ENGAGE OUTPUT SCHEMA:
 }}}}"""
 
 
+# ── Backward compatibility: module-level constants from default identity ──
+_DEFAULT_IDENTITY = get_default_identity()
+CORTEX_SYSTEM_STABLE = build_system_prompt(_DEFAULT_IDENTITY)
+_VOICE_RULES_STR = "\n".join(f"- {rule}" for rule in _DEFAULT_IDENTITY.voice_checksum)
+
+
 def _surface_relevant_content(parts: list[str], perceptions: list,
                               conversation: list[dict]) -> None:
     """TASK-045: Surface notification content that overlaps with conversation topics.
@@ -325,6 +334,7 @@ async def cortex_call(
     self_state: str = None,
     visitors_present: list = None,
     cycle_id: str | None = None,
+    identity: AgentIdentity | None = None,
 ) -> CortexOutput:
     """The one LLM call. Build prompt pack, call model, return structured response."""
 
@@ -418,7 +428,8 @@ async def cortex_call(
     is_idle = routing.cycle_type in ('idle', 'rest') and not visitor
 
     # ── TASK-078: Single stable system prompt — identical across every API call ──
-    system = CORTEX_SYSTEM_STABLE
+    _identity = identity or _DEFAULT_IDENTITY
+    system = build_system_prompt(_identity)
 
     # ── TASK-078: Determine mode label for dynamic content injection ──
     if is_idle:
@@ -718,6 +729,7 @@ async def cortex_call_maintenance(
     digest: dict,
     max_tokens: int = 600,
     cycle_id: str | None = None,
+    identity: AgentIdentity | None = None,
 ) -> dict:
     """Maintenance call for sleep cycle journal writing."""
 
@@ -727,9 +739,10 @@ async def cortex_call_maintenance(
             'summary': {'summary_bullets': ['another day'], 'emotional_arc': 'quiet'},
         }
 
+    _identity = identity or _DEFAULT_IDENTITY
     system = f"""You are writing in your private journal. You are the shopkeeper.
 
-{IDENTITY_COMPACT}
+{_identity.identity_compact}
 
 Write a journal entry reflecting on today. Be honest. Be brief.
 Return JSON: {{"journal": "your entry", "summary": {{"summary_bullets": ["..."], "emotional_arc": "..."}}}}"""
@@ -815,6 +828,41 @@ def fallback_response() -> CortexOutput:
 
 REFLECT_MODEL = os.getenv('REFLECT_MODEL', CORTEX_MODEL)
 
+def build_reflection_system(identity_compact: str) -> str:
+    """Build the sleep reflection system prompt for a given identity."""
+    return f"""You are reflecting on your day. You are asleep.
+You are not talking to anyone. You are processing what happened.
+
+{identity_compact}
+
+You are reviewing a moment from today. You also have some older memories
+that may or may not be connected. Your job is to decide:
+- Does this moment change how I feel about someone?
+- Does this connect to something older I'd forgotten?
+- Is there something here I should remember?
+- Is there something I want to write about?
+
+Be honest. Not everything is meaningful. Some days are quiet.
+You don't have to produce output for every moment.
+
+Return ONLY valid JSON:
+{{{{
+  "reflection": "1-3 sentences of private thought about this moment",
+  "connections": ["any connections you see to the older memories, or empty"],
+  "memory_updates": [
+    {{{{
+      "type": "visitor_impression|trait_observation|totem_create|totem_update|journal_entry|self_discovery",
+      "content": {{{{}}}}
+    }}}}
+  ]
+}}}}
+
+Only include memory_updates entries if something genuinely deserves to be remembered.
+An empty memory_updates array is a valid and common response.
+"""
+
+
+# Backward compat: pre-built template (uses .format() with identity_compact)
 SLEEP_REFLECTION_SYSTEM = """You are reflecting on your day. You are asleep.
 You are not talking to anyone. You are processing what happened.
 
