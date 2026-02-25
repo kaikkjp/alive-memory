@@ -72,6 +72,7 @@ from db.memory import (
     consume_chat_token,
     create_chat_token,
     create_visitor,
+    upsert_visitor,
     delete_processed_day_memory,
     delete_stale_day_memory,
     get_all_active_traits,
