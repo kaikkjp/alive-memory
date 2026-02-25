@@ -5,7 +5,15 @@
  */
 
 import { authManager } from './auth-manager';
-import type { ActionsPanelData, DriftData, DynamicAction, ExternalActionsData } from './types';
+import type {
+  ActionsPanelData,
+  DriftData,
+  DynamicAction,
+  ExternalActionsData,
+  ExperimentHistoryData,
+  MetaControllerData,
+  MetricsData,
+} from './types';
 
 const API_BASE =
   process.env.NEXT_PUBLIC_DASHBOARD_API_URL ?? '';
@@ -238,6 +246,21 @@ export const dashboardApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ channel, enabled }),
     });
+    return res.json();
+  },
+
+  async getMetaController(): Promise<MetaControllerData> {
+    const res = await dashboardFetch('/api/dashboard/meta-controller');
+    return res.json();
+  },
+
+  async getExperimentHistory(): Promise<ExperimentHistoryData> {
+    const res = await dashboardFetch('/api/dashboard/experiment-history');
+    return res.json();
+  },
+
+  async getMetrics(): Promise<MetricsData> {
+    const res = await dashboardFetch('/api/dashboard/metrics');
     return res.json();
   },
 };

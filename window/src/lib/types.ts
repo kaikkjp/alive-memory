@@ -428,6 +428,93 @@ export interface ExternalActionsData {
   recent_log: ExternalActionLogEntry[];
 }
 
+// ─── Dashboard: Meta-Controller (TASK-090/096) ───
+
+export interface MetaControllerTarget {
+  min: number | null;
+  max: number | null;
+  metric: string;
+  current: number | null;
+  status: 'ok' | 'low' | 'high' | 'unknown';
+  last_updated: string | null;
+}
+
+export interface MetaControllerConfig {
+  evaluation_window: number;
+  cooldown_cycles: number;
+  max_adjustments_per_sleep: number;
+}
+
+export interface MetaControllerData {
+  enabled: boolean;
+  targets: Record<string, MetaControllerTarget>;
+  recent_adjustments: MetaExperiment[];
+  pending_count: number;
+  config: MetaControllerConfig;
+}
+
+// ─── Dashboard: Experiment History (TASK-091/096) ───
+
+export interface MetaExperiment {
+  id: number;
+  cycle_at_change: number;
+  param_name: string;
+  old_value: number;
+  new_value: number;
+  reason: string | null;
+  target_metric: string | null;
+  metric_value_at_change: number | null;
+  metric_value_after: number | null;
+  outcome: 'pending' | 'improved' | 'degraded' | 'neutral' | 'reverted' | string;
+  evaluation_cycle: number | null;
+  side_effects: Array<Record<string, unknown>> | null;
+  confidence_at_change: number | null;
+  reverted_at_cycle: number | null;
+  created_at: string;
+}
+
+export interface MetaConfidence {
+  param_name: string;
+  target_metric: string;
+  attempts: number;
+  improved: number;
+  degraded: number;
+  neutral: number;
+  confidence: number;
+  avg_effect_size: number | null;
+  last_updated_cycle: number | null;
+}
+
+export interface ExperimentHistoryData {
+  experiments: MetaExperiment[];
+  confidence: MetaConfidence[];
+}
+
+// ─── Dashboard: Liveness Metrics (TASK-071/096) ───
+
+export interface MetricResult {
+  name: string;
+  value: number;
+  details: Record<string, unknown>;
+  display: string;
+}
+
+export interface MetricSnapshot {
+  timestamp: string;
+  period: string;
+  metrics: MetricResult[];
+}
+
+export interface MetricTrendPoint {
+  timestamp: string;
+  value: number;
+}
+
+export interface MetricsData {
+  snapshot: MetricSnapshot;
+  trends: Record<string, MetricTrendPoint[]>;
+}
+
 // ─── Dashboard: Drift Detection (TASK-062) ───
 
 export interface DriftMetrics {

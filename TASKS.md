@@ -1564,7 +1564,7 @@ No changes to engagement FSM, ACK path, or channel routing (already automatic vi
 ---
 
 ### TASK-096: Dashboard panels — meta-controller, experiment history, metrics
-**Status:** BACKLOG
+**Status:** DONE (2026-02-25)
 **Priority:** Medium
 **Description:** Three backend API endpoints added in TASK-071/090/091 have no corresponding frontend panels, API client functions, or TypeScript types. The data is served but invisible on the dashboard.
 
