@@ -127,7 +127,11 @@ class Heartbeat:
     SUPERVISOR_RESTART_MIN = 1
     SUPERVISOR_RESTART_MAX = 30
 
-    def __init__(self):
+    def __init__(self, identity=None):
+        # TASK-095: Per-agent identity (defaults to original Shopkeeper)
+        from config.agent_identity import AgentIdentity
+        self._identity: AgentIdentity = identity if identity is not None else AgentIdentity.default()
+
         self.running = False
         self.pending_microcycle = asyncio.Event()
         self._wake_event = asyncio.Event()  # wake loop without triggering microcycle
@@ -1343,6 +1347,7 @@ class Heartbeat:
             conversation, drives, visitor, gift_meta,
             self_state=self_state,
             cycle_id=cycle_id,
+            identity=self._identity,
         )
 
         # 9. Validate
