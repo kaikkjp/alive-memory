@@ -4,21 +4,67 @@ import { useState, useEffect } from 'react';
 import { dashboardApi } from '@/lib/dashboard-api';
 import type { MetricsData, MetricResult, MetricTrendPoint } from '@/lib/types';
 
-function metricColor(value: number): string {
-  if (value >= 0.7) return 'text-emerald-400';
-  if (value >= 0.4) return 'text-amber-400';
-  return 'text-red-400';
+/**
+ * Per-metric normalization.
+ *
+ * Backend metric values use different scales:
+ *   uptime        → raw cycle count (e.g. 5000)
+ *   initiative_rate → 0–100 (percentage)
+ *   emotional_range → 0–125 (unique mood-state bins out of 5^3)
+ *
+ * Each entry defines how to convert the raw value into a 0–1 fraction
+ * for bar display, what label to show, and a color threshold override.
+ */
+interface MetricNorm {
+  /** Human label */
+  label: string;
+  /** Convert raw value → 0..1 for bar width */
+  normalize: (value: number, details: Record<string, unknown>) => number;
+  /** Format the display value shown next to sparkline */
+  format: (value: number, details: Record<string, unknown>) => string;
+  /** true = this metric has no meaningful 0..1 bar (show value only) */
+  noBar?: boolean;
 }
 
-function metricBarColor(value: number): string {
-  if (value >= 0.7) return 'bg-emerald-500';
-  if (value >= 0.4) return 'bg-amber-500';
+const METRIC_NORMS: Record<string, MetricNorm> = {
+  uptime: {
+    label: 'Uptime',
+    normalize: () => 1, // always full — uptime is a count, not a fraction
+    format: (v, d) => {
+      const days = (d.days_alive as number) ?? 0;
+      return `${Math.round(v).toLocaleString()} cycles (${days}d)`;
+    },
+    noBar: true,
+  },
+  initiative_rate: {
+    label: 'Initiative',
+    normalize: (v) => Math.min(v / 100, 1), // 0–100% → 0–1
+    format: (v) => `${v.toFixed(1)}%`,
+  },
+  emotional_range: {
+    label: 'Emo. Range',
+    normalize: (v) => Math.min(v / 125, 1), // 0–125 bins → 0–1
+    format: (v, d) => {
+      const total = (d.total_possible as number) ?? 125;
+      return `${Math.round(v)}/${total}`;
+    },
+  },
+};
+
+const DEFAULT_NORM: MetricNorm = {
+  label: '',
+  normalize: (v) => Math.min(Math.max(v, 0), 1),
+  format: (v) => `${(v * 100).toFixed(0)}%`,
+};
+
+function barColor(frac: number): string {
+  if (frac >= 0.7) return 'bg-emerald-500';
+  if (frac >= 0.4) return 'bg-amber-500';
   return 'bg-red-500';
 }
 
 /**
- * Simple ASCII-style sparkline from trend data.
- * Returns a string of block characters showing the trend.
+ * Unicode block sparkline from trend points.
  */
 function sparkline(points: MetricTrendPoint[], width: number = 14): string {
   if (!points || points.length === 0) return '';
@@ -39,20 +85,12 @@ function trendDirection(points: MetricTrendPoint[]): { label: string; color: str
   const first = recent[0].value;
   const last = recent[recent.length - 1].value;
   const delta = last - first;
-  if (Math.abs(delta) < 0.01) return { label: '\u2192', color: 'text-neutral-500' }; // arrow right
-  if (delta > 0) return { label: '\u2191', color: 'text-emerald-400' }; // arrow up
-  return { label: '\u2193', color: 'text-red-400' }; // arrow down
+  // Use relative threshold for trend detection (1% of first value, min 0.5)
+  const threshold = Math.max(Math.abs(first) * 0.01, 0.5);
+  if (Math.abs(delta) < threshold) return { label: '\u2192', color: 'text-neutral-500' };
+  if (delta > 0) return { label: '\u2191', color: 'text-emerald-400' };
+  return { label: '\u2193', color: 'text-red-400' };
 }
-
-const METRIC_LABELS: Record<string, string> = {
-  uptime: 'Uptime',
-  initiative_rate: 'Initiative',
-  emotional_range: 'Emo. Range',
-  vocabulary_diversity: 'Vocab',
-  memory_utilization: 'Memory',
-  social_responsiveness: 'Social',
-  action_diversity: 'Actions',
-};
 
 export default function MetricsPanel() {
   const [data, setData] = useState<MetricsData | null>(null);
@@ -102,10 +140,12 @@ export default function MetricsPanel() {
         </span>
       </div>
 
-      {/* Metric bars */}
       <div className="space-y-3">
         {data.snapshot.metrics.map((m: MetricResult) => {
-          const pct = Math.round(m.value * 100);
+          const norm = METRIC_NORMS[m.name] || DEFAULT_NORM;
+          const details = m.details || {};
+          const frac = norm.normalize(m.value, details);
+          const formatted = norm.format(m.value, details);
           const trend = data.trends[m.name];
           const dir = trendDirection(trend);
           const spark = sparkline(trend);
@@ -114,7 +154,7 @@ export default function MetricsPanel() {
             <div key={m.name}>
               <div className="flex items-center justify-between text-xs font-mono mb-1">
                 <span className="text-neutral-400">
-                  {METRIC_LABELS[m.name] || m.name}
+                  {norm.label || m.name}
                 </span>
                 <div className="flex items-center gap-2">
                   {spark && (
@@ -125,17 +165,19 @@ export default function MetricsPanel() {
                   {dir.label && (
                     <span className={dir.color}>{dir.label}</span>
                   )}
-                  <span className={metricColor(m.value)}>
-                    {pct}%
+                  <span className="text-neutral-300">
+                    {formatted}
                   </span>
                 </div>
               </div>
-              <div className="h-2 bg-neutral-800 rounded overflow-hidden">
-                <div
-                  className={`h-full ${metricBarColor(m.value)} transition-all duration-500`}
-                  style={{ width: `${pct}%` }}
-                />
-              </div>
+              {!norm.noBar && (
+                <div className="h-2 bg-neutral-800 rounded overflow-hidden">
+                  <div
+                    className={`h-full ${barColor(frac)} transition-all duration-500`}
+                    style={{ width: `${Math.round(frac * 100)}%` }}
+                  />
+                </div>
+              )}
               {m.display && (
                 <p className="text-[10px] font-mono text-neutral-600 mt-0.5">{m.display}</p>
               )}
@@ -144,7 +186,6 @@ export default function MetricsPanel() {
         })}
       </div>
 
-      {/* Timestamp */}
       <div className="border-t border-neutral-700 pt-3 mt-4">
         <p className="text-xs font-mono text-neutral-600">
           Last snapshot: {new Date(data.snapshot.timestamp).toLocaleTimeString()}

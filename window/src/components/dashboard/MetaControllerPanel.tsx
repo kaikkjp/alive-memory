@@ -4,6 +4,35 @@ import { useState, useEffect } from 'react';
 import { dashboardApi } from '@/lib/dashboard-api';
 import type { MetaControllerData } from '@/lib/types';
 
+/**
+ * Known metric normalization divisors.
+ *
+ * Backend sends raw metric values alongside normalized 0–1 target bounds.
+ * The backend comparison is currently unit-inconsistent (raw vs normalized),
+ * so the frontend normalizes the current value for display.
+ */
+const METRIC_NORMALIZERS: Record<string, number> = {
+  initiative_rate: 100.0,   // raw 0–100 (percent) → 0.0–1.0
+  emotional_range: 125.0,   // raw 0–125 (5^3 bins) → 0.0–1.0
+};
+
+function normalizeCurrentValue(metricName: string, raw: number | null): number | null {
+  if (raw == null) return null;
+  const divisor = METRIC_NORMALIZERS[metricName];
+  return divisor ? raw / divisor : raw;
+}
+
+function computeStatus(
+  normalizedCurrent: number | null,
+  min: number | null,
+  max: number | null,
+): string {
+  if (normalizedCurrent == null) return 'unknown';
+  if (min != null && normalizedCurrent < min) return 'low';
+  if (max != null && normalizedCurrent > max) return 'high';
+  return 'ok';
+}
+
 function statusColor(status: string): string {
   switch (status) {
     case 'ok': return 'text-emerald-400';
@@ -106,24 +135,29 @@ export default function MetaControllerPanel() {
         <div className="mb-4">
           <h3 className="text-xs font-mono text-neutral-500 uppercase mb-2">Targets</h3>
           <div className="space-y-2">
-            {targetEntries.map(([name, target]) => (
-              <div key={name} className="flex items-center justify-between text-xs font-mono">
-                <div className="flex items-center gap-2">
-                  <div className={`w-1.5 h-1.5 rounded-full ${statusDot(target.status)}`} />
-                  <span className="text-neutral-300">{name}</span>
+            {targetEntries.map(([name, target]) => {
+              // Normalize raw current value to match the 0–1 target bounds
+              const normalized = normalizeCurrentValue(target.metric, target.current);
+              const correctedStatus = computeStatus(normalized, target.min, target.max);
+              return (
+                <div key={name} className="flex items-center justify-between text-xs font-mono">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-1.5 h-1.5 rounded-full ${statusDot(correctedStatus)}`} />
+                    <span className="text-neutral-300">{name}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-neutral-600">
+                      {target.min != null ? target.min.toFixed(2) : '?'}
+                      {' \u2013 '}
+                      {target.max != null ? target.max.toFixed(2) : '?'}
+                    </span>
+                    <span className={statusColor(correctedStatus)}>
+                      {normalized != null ? normalized.toFixed(3) : 'n/a'}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-neutral-600">
-                    {target.min != null ? target.min.toFixed(2) : '?'}
-                    {' - '}
-                    {target.max != null ? target.max.toFixed(2) : '?'}
-                  </span>
-                  <span className={statusColor(target.status)}>
-                    {target.current != null ? target.current.toFixed(3) : 'n/a'}
-                  </span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
