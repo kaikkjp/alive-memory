@@ -85,6 +85,20 @@ async def create_visitor(visitor_id: str) -> Visitor:
     return await get_visitor(visitor_id)
 
 
+async def upsert_visitor(visitor_id: str, name: str = 'Visitor') -> Visitor:
+    """Create visitor if not exists, or update name if it does."""
+    visitor = await get_visitor(visitor_id)
+    if visitor:
+        await update_visitor(visitor_id, name=name)
+        return await get_visitor(visitor_id)
+    now = clock.now_utc().isoformat()
+    await _connection._exec_write(
+        "INSERT OR IGNORE INTO visitors (id, name, visit_count, first_visit, last_visit) VALUES (?, ?, 1, ?, ?)",
+        (visitor_id, name, now, now)
+    )
+    return await get_visitor(visitor_id)
+
+
 async def update_visitor(visitor_id: str, **kwargs):
     if not kwargs:
         return
