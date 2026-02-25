@@ -40,6 +40,8 @@ from pipeline.ack import on_visitor_message, on_visitor_connect, on_visitor_disc
 from pipeline.enrich import fetch_url_metadata
 from pipeline.sanitize import sanitize_input
 from api import dashboard_routes
+from api.api_auth import ApiKeyManager
+from api import public_routes
 
 # Re-export dashboard auth functions for backward compatibility.
 # These now live in api.dashboard_routes but existing code/tests may
@@ -126,6 +128,13 @@ class ShopkeeperServer:
             self._configure_agent_isolation()
 
         self.heartbeat = Heartbeat(identity=self._identity)
+
+        # ── Public API (TASK-095 Phase 3) ──
+        api_keys_path = None
+        if self._agent_config_dir:
+            api_keys_path = os.path.join(self._agent_config_dir, 'api_keys.json')
+        self._api_key_manager = ApiKeyManager(api_keys_path)
+
         self.connections: dict[str, asyncio.StreamWriter] = {}  # visitor_id → writer
         self._server = None
         self._ws_server = None
@@ -1266,6 +1275,21 @@ class ShopkeeperServer:
                 await self._http_weather(writer)
             elif path == '/api/outdoor' and method == 'GET':
                 await self._http_outdoor(writer)
+            # ── Public API endpoints (API-key protected, TASK-095 Phase 3) ──
+            elif path == '/api/chat' and method == 'POST':
+                api_meta = self._check_api_key(authorization)
+                if api_meta is None:
+                    await self._http_json(writer, 401, {'error': 'invalid or missing API key'})
+                elif not self._api_key_manager.check_rate_limit(authorization.replace('Bearer ', '')):
+                    await self._http_json(writer, 429, {'error': 'rate limit exceeded'})
+                else:
+                    await public_routes.handle_chat(self, writer, body_bytes, api_meta)
+            elif path == '/api/public-state' and method == 'GET':
+                api_meta = self._check_api_key(authorization)
+                if api_meta is None:
+                    await self._http_json(writer, 401, {'error': 'invalid or missing API key'})
+                else:
+                    await public_routes.handle_public_state(self, writer, api_meta)
             else:
                 await self._http_json(writer, 404, {'error': 'not found'})
         except (asyncio.TimeoutError, ConnectionResetError, BrokenPipeError):
@@ -1473,6 +1497,19 @@ class ShopkeeperServer:
         headers.append('\r\n')
         writer.write(''.join(headers).encode())
         await writer.drain()
+
+    def _check_api_key(self, authorization: str) -> dict | None:
+        """Extract and validate API key from Authorization header.
+
+        Accepts: 'Bearer sk-...' or raw 'sk-...'
+        Returns key metadata dict or None if invalid.
+        """
+        key = authorization
+        if key.startswith('Bearer '):
+            key = key[7:]
+        if not key:
+            return None
+        return self._api_key_manager.validate(key)
 
     async def _http_json(self, writer: asyncio.StreamWriter,
                           status: int, body: dict):
