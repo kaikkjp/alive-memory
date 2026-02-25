@@ -178,8 +178,10 @@ class TestTasteIntegration:
         evals = getattr(runner, "_taste_eval_cache", [])
         assert len(evals) > 0
 
-        # Check that at least one acceptance happened (capital is high enough)
+        # At least one accept must have occurred so the outcome path was exercised.
+        # Mock scores ~ gauss(5.5, 1.8) with accept threshold 6.5 → ~29% accept rate.
+        # With 18 evals over 60 cycles and 100k capital, expect ≥1 accept deterministically.
         accepted = [e for e in evals if e.get("decision") == "accept"]
-        # With mock LLM and 100k capital, some should be accepted
-        # (mock scores center around 5.5 so some will exceed 6.5 threshold)
-        assert len(accepted) >= 0  # non-crash is the primary assertion
+        assert len(accepted) > 0, (
+            "No accepts recorded — outcome DB path was never exercised"
+        )
