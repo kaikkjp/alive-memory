@@ -11,13 +11,19 @@ interface Message {
   timestamp: string;
 }
 
+interface RecentAction {
+  action: string;
+  timestamp: string;
+  content?: string;
+}
+
 interface AgentState {
   status: string;
   mood?: { valence: number; arousal: number };
   energy?: number;
   engaged?: boolean;
   port?: number;
-  // Expanded drives from dashboard/drives
+  recent_actions?: RecentAction[];
   drives?: {
     curiosity: number;
     social_hunger: number;
@@ -43,9 +49,9 @@ function getMoodWord(valence: number, arousal: number): string {
 }
 
 function getMoodColor(valence: number): string {
-  if (valence > 0.2) return "#d4a574"; // warm
-  if (valence < -0.2) return "#8b9dc3"; // cool
-  return "#9a8c7a"; // neutral
+  if (valence > 0.2) return "#d4a574";
+  if (valence < -0.2) return "#8b9dc3";
+  return "#9a8c7a";
 }
 
 function getStateDescription(state: AgentState): string {
@@ -59,6 +65,21 @@ function getStateDescription(state: AgentState): string {
   return "Present";
 }
 
+function formatActionLabel(action: string): string {
+  const labels: Record<string, string> = {
+    write_journal: "Wrote in her journal",
+    browse_web: "Browsed the web",
+    post_x_draft: "Drafted a post",
+    read_content: "Read something",
+    speak: "Spoke",
+    sleep: "Rested for a while",
+    think: "Thought quietly",
+    recall: "Remembered something",
+    reflect: "Reflected on things",
+  };
+  return labels[action] || action.replace(/_/g, " ");
+}
+
 export default function LoungePage({
   params,
 }: {
@@ -69,7 +90,7 @@ export default function LoungePage({
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [agentState, setAgentState] = useState<AgentState | null>(null);
-  const [showSidebar, setShowSidebar] = useState(true);
+  const [showSidebar, setShowSidebar] = useState(false);
   const [showMemoryPanel, setShowMemoryPanel] = useState(false);
   const [sleeping, setSleeping] = useState(false);
   const [sleepConfirm, setSleepConfirm] = useState(false);
@@ -85,7 +106,6 @@ export default function LoungePage({
     }
   }, [id]);
 
-  // Poll agent state
   useEffect(() => {
     fetchState();
     const interval = setInterval(fetchState, 15000);
@@ -95,6 +115,17 @@ export default function LoungePage({
   useEffect(() => {
     messagesEnd.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Desktop: show sidebar by default
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    setShowSidebar(mq.matches);
+    function handler(e: MediaQueryListEvent) {
+      setShowSidebar(e.matches);
+    }
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
 
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
@@ -181,7 +212,6 @@ export default function LoungePage({
           ...m,
           { role: "system", text: msg, timestamp: new Date().toISOString() },
         ]);
-        // Poll for wake
         setTimeout(async () => {
           await fetchState();
           if (!data.queued) {
@@ -205,8 +235,10 @@ export default function LoungePage({
   }
 
   // Derive canvas props from agent state
-  const moodValence = agentState?.drives?.mood_valence ?? agentState?.mood?.valence ?? 0;
-  const moodArousal = agentState?.drives?.mood_arousal ?? agentState?.mood?.arousal ?? 0;
+  const moodValence =
+    agentState?.drives?.mood_valence ?? agentState?.mood?.valence ?? 0;
+  const moodArousal =
+    agentState?.drives?.mood_arousal ?? agentState?.mood?.arousal ?? 0;
   const energyVal = agentState?.drives?.energy ?? agentState?.energy ?? 0.5;
   const curiosityVal = agentState?.drives?.curiosity ?? 0.45;
   const socialVal = agentState?.drives?.social_hunger ?? 0.5;
@@ -277,10 +309,19 @@ export default function LoungePage({
             >
               Send
             </button>
+            {/* Mobile sidebar toggle */}
+            <button
+              type="button"
+              onClick={() => setShowSidebar(!showSidebar)}
+              className="md:hidden px-3 py-2.5 border border-[#262620] text-[#737373] hover:text-white rounded-lg text-sm transition-colors"
+              title="Toggle sidebar"
+            >
+              ☰
+            </button>
           </form>
         </div>
 
-        {/* State sidebar toggle */}
+        {/* Desktop sidebar toggle */}
         <button
           onClick={() => setShowSidebar(!showSidebar)}
           className="hidden md:flex items-center px-1 border-l border-[#1e1e1a] text-[#737373] hover:text-white transition-colors"
@@ -291,98 +332,119 @@ export default function LoungePage({
 
         {/* State sidebar — Inner World */}
         {showSidebar && (
-          <div className="hidden md:block w-72 border-l border-[#1e1e1a] overflow-y-auto bg-[#0a0a0f]">
-            <div className="p-4 space-y-5">
-              {/* State description */}
-              <div className="flex items-center gap-2">
-                <div
-                  className="w-2.5 h-2.5 rounded-full animate-pulse"
-                  style={{ backgroundColor: getMoodColor(moodValence) }}
-                />
-                <span className="text-sm font-medium">
-                  {agentState ? getStateDescription(agentState) : "Loading..."}
-                </span>
-              </div>
-
-              {/* Mood word */}
-              {agentState && (
-                <div>
-                  <span className="text-xs text-[#737373] block mb-1">Mood</span>
-                  <span
-                    className="text-sm capitalize"
-                    style={{ color: getMoodColor(moodValence) }}
+          <>
+            {/* Mobile overlay backdrop */}
+            <div
+              className="md:hidden fixed inset-0 bg-black/50 z-30"
+              onClick={() => setShowSidebar(false)}
+            />
+            <div className="fixed md:static right-0 top-0 h-full md:h-auto w-72 border-l border-[#1e1e1a] overflow-y-auto bg-[#0a0a0f] z-40">
+              <div className="p-4 space-y-5">
+                {/* Mobile close button */}
+                <div className="md:hidden flex justify-between items-center">
+                  <span className="text-xs text-[#737373] uppercase tracking-wider">
+                    Inner World
+                  </span>
+                  <button
+                    onClick={() => setShowSidebar(false)}
+                    className="text-[#737373] hover:text-white text-lg transition-colors"
                   >
-                    {getMoodWord(moodValence, moodArousal)}
-                  </span>
+                    &times;
+                  </button>
                 </div>
-              )}
 
-              {/* Energy */}
-              <div>
-                <div className="flex justify-between items-center mb-1.5">
-                  <span className="text-xs text-[#737373]">Energy</span>
-                  <span className="text-xs text-[#525252] font-mono">
-                    {(energyVal * 100).toFixed(0)}%
-                  </span>
-                </div>
-                <div className="h-1.5 bg-[#1e1e1a] rounded-full overflow-hidden">
+                {/* State description */}
+                <div className="flex items-center gap-2">
                   <div
-                    className="h-full rounded-full transition-all duration-1000"
-                    style={{
-                      width: `${energyVal * 100}%`,
-                      background: `linear-gradient(90deg, #9a8c7a, #d4a574)`,
-                    }}
+                    className="w-2.5 h-2.5 rounded-full animate-pulse"
+                    style={{ backgroundColor: getMoodColor(moodValence) }}
                   />
+                  <span className="text-sm font-medium">
+                    {agentState
+                      ? getStateDescription(agentState)
+                      : "Loading..."}
+                  </span>
                 </div>
-              </div>
 
-              {/* All drives */}
-              <div className="space-y-2">
-                <span className="text-xs text-[#737373] block">Drives</span>
-                <DriveBar label="Curiosity" value={curiosityVal} />
-                <DriveBar label="Social" value={socialVal} />
-                <DriveBar label="Expression" value={expressionVal} />
-                <DriveBar label="Rest need" value={restVal} />
-              </div>
+                {/* Mood word */}
+                {agentState && (
+                  <div>
+                    <span className="text-xs text-[#737373] block mb-1">
+                      Mood
+                    </span>
+                    <span
+                      className="text-sm capitalize"
+                      style={{ color: getMoodColor(moodValence) }}
+                    >
+                      {getMoodWord(moodValence, moodArousal)}
+                    </span>
+                  </div>
+                )}
 
-              {/* Mood dimensions */}
-              <div className="space-y-2">
-                <span className="text-xs text-[#737373] block">Affect</span>
-                <DriveBar
-                  label="Valence"
-                  value={(moodValence + 1) / 2}
-                  colorLeft="#8b9dc3"
-                  colorRight="#d4a574"
-                />
-                <DriveBar
-                  label="Arousal"
-                  value={(moodArousal + 1) / 2}
-                  colorLeft="#6b7c8b"
-                  colorRight="#c48b5a"
-                />
-              </div>
+                {/* Energy */}
+                <div>
+                  <span className="text-xs text-[#737373] block mb-1.5">
+                    Energy
+                  </span>
+                  <div className="h-1.5 bg-[#1e1e1a] rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-1000"
+                      style={{
+                        width: `${energyVal * 100}%`,
+                        background: `linear-gradient(90deg, #9a8c7a, #d4a574)`,
+                      }}
+                    />
+                  </div>
+                </div>
 
-              {/* Actions */}
-              <div className="pt-2 border-t border-[#1e1e1a] space-y-2">
-                {/* Rest Now */}
-                <button
-                  onClick={() => setSleepConfirm(true)}
-                  disabled={sleeping || agentState?.status === "offline"}
-                  className="w-full px-3 py-2 bg-[#1a1520]/80 hover:bg-[#252030] border border-[#2a2535] text-sm text-[#b0a0c0] rounded-lg transition-colors disabled:opacity-40"
-                >
-                  {sleeping ? "Dreaming..." : "Rest now"}
-                </button>
+                {/* Drives */}
+                <div className="space-y-2">
+                  <span className="text-xs text-[#737373] block">Drives</span>
+                  <DriveBar label="Curious" value={curiosityVal} />
+                  <DriveBar label="Social" value={socialVal} />
+                  <DriveBar label="Expressive" value={expressionVal} />
+                  <DriveBar label="Rest need" value={restVal} />
+                </div>
 
-                {/* View memories */}
-                <button
-                  onClick={() => setShowMemoryPanel(true)}
-                  className="w-full px-3 py-2 bg-[#12121a] hover:bg-[#1a1a24] border border-[#262620] text-sm text-[#9a8c7a] rounded-lg transition-colors"
-                >
-                  View memories
-                </button>
+                {/* Recent actions */}
+                {agentState?.recent_actions &&
+                  agentState.recent_actions.length > 0 && (
+                    <div>
+                      <span className="text-xs text-[#737373] block mb-2">
+                        Recent
+                      </span>
+                      <div className="space-y-1.5">
+                        {agentState.recent_actions.slice(0, 5).map((a, i) => (
+                          <p key={i} className="text-xs text-[#9a8c7a]">
+                            · {formatActionLabel(a.action)}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                {/* Actions */}
+                <div className="pt-2 border-t border-[#1e1e1a] space-y-2">
+                  {/* Rest Now */}
+                  <button
+                    onClick={() => setSleepConfirm(true)}
+                    disabled={sleeping || agentState?.status === "offline"}
+                    className="w-full px-3 py-2 bg-[#1a1520]/80 hover:bg-[#252030] border border-[#2a2535] text-sm text-[#b0a0c0] rounded-lg transition-colors disabled:opacity-40"
+                  >
+                    {sleeping ? "Dreaming..." : "Rest now"}
+                  </button>
+
+                  {/* View memories */}
+                  <button
+                    onClick={() => setShowMemoryPanel(true)}
+                    className="w-full px-3 py-2 bg-[#12121a] hover:bg-[#1a1a24] border border-[#262620] text-sm text-[#9a8c7a] rounded-lg transition-colors"
+                  >
+                    View memories
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
+          </>
         )}
       </div>
 
@@ -454,32 +516,21 @@ function ChatBubble({ message }: { message: Message }) {
 function DriveBar({
   label,
   value,
-  colorLeft,
-  colorRight,
 }: {
   label: string;
   value: number;
-  colorLeft?: string;
-  colorRight?: string;
 }) {
   const pct = Math.max(0, Math.min(100, value * 100));
-  const left = colorLeft || "#9a8c7a";
-  const right = colorRight || "#d4a574";
+  // Block character visualization
+  const filled = Math.round(pct / 20);
+  const empty = 5 - filled;
 
   return (
     <div className="flex items-center gap-2">
       <span className="text-xs text-[#9a8c7a] w-20 shrink-0">{label}</span>
-      <div className="flex-1 h-1 bg-[#1e1e1a] rounded-full overflow-hidden">
-        <div
-          className="h-full rounded-full transition-all duration-1000"
-          style={{
-            width: `${pct}%`,
-            background: `linear-gradient(90deg, ${left}, ${right})`,
-          }}
-        />
-      </div>
-      <span className="text-xs text-[#525252] font-mono w-7 text-right">
-        {value.toFixed(2)}
+      <span className="text-xs font-mono text-[#d4a574]/70 tracking-tight">
+        {"▓".repeat(filled)}
+        <span className="text-[#525252]">{"░".repeat(empty)}</span>
       </span>
     </div>
   );

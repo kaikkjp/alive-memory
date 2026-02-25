@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 
 interface Memory {
   source_id: string;
@@ -25,6 +25,7 @@ export default function MemoryPanel({ agentId, onClose }: MemoryPanelProps) {
   const [adding, setAdding] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   const fetchMemories = useCallback(async () => {
     try {
@@ -73,9 +74,10 @@ export default function MemoryPanel({ agentId, onClose }: MemoryPanelProps) {
   async function handleDelete(sourceId: string) {
     setDeleteConfirm(null);
     try {
-      const res = await fetch(`/api/agents/${agentId}/memories/${encodeURIComponent(sourceId)}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(
+        `/api/agents/${agentId}/memories/${encodeURIComponent(sourceId)}`,
+        { method: "DELETE" }
+      );
       if (res.ok) {
         await fetchMemories();
       }
@@ -95,6 +97,16 @@ export default function MemoryPanel({ agentId, onClose }: MemoryPanelProps) {
       return ts;
     }
   }
+
+  const filteredOrganic = useMemo(() => {
+    if (!search.trim()) return organic;
+    const q = search.toLowerCase();
+    return organic.filter(
+      (m) =>
+        m.text_content.toLowerCase().includes(q) ||
+        m.source_type.toLowerCase().includes(q)
+    );
+  }, [organic, search]);
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -219,13 +231,22 @@ export default function MemoryPanel({ agentId, onClose }: MemoryPanelProps) {
             </div>
           ) : (
             <div className="space-y-3">
-              {organic.length === 0 && (
+              {/* Search */}
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search memories..."
+                className="w-full px-3 py-2 bg-[#0a0a0f] border border-[#262620] rounded-lg text-sm focus:outline-none focus:border-[#d4a574] transition-colors"
+              />
+
+              {filteredOrganic.length === 0 && (
                 <p className="text-sm text-[#525252] italic">
-                  No organic memories yet. These form naturally through
-                  conversations and experiences.
+                  {search
+                    ? "No memories match your search."
+                    : "No organic memories yet. These form naturally through conversations and experiences."}
                 </p>
               )}
-              {organic.map((mem) => (
+              {filteredOrganic.map((mem) => (
                 <div
                   key={mem.source_id}
                   className="p-3 bg-[#12121a] border border-[#1e1e1a] rounded-lg"

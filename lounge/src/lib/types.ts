@@ -11,11 +11,13 @@ export interface Manager {
 export interface Agent {
   id: string;
   name: string;
+  role?: string;
   manager_id: string;
   port: number;
   status: 'running' | 'stopped' | 'error';
   created_at: string;
   updated_at: string;
+  cycle_count?: number;
 }
 
 export interface AgentConfig {

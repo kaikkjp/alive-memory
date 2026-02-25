@@ -56,7 +56,7 @@ export default function ConfigurePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const [tab, setTab] = useState<"personality" | "depths" | "capabilities">("personality");
+  const [tab, setTab] = useState<"surface" | "depths" | "capabilities">("surface");
   const [config, setConfig] = useState<IdentityConfig>(DEFAULT_CONFIG);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -239,7 +239,7 @@ export default function ConfigurePage({
         <div className="max-w-3xl mx-auto px-4 py-6">
           {/* Tab switcher */}
           <div className="flex gap-1 mb-6 bg-[#12121a] rounded-lg p-1 w-fit">
-            {(["personality", "depths", "capabilities"] as const).map((t) => (
+            {(["surface", "depths", "capabilities"] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -254,8 +254,8 @@ export default function ConfigurePage({
             ))}
           </div>
 
-          {/* Personality tab */}
-          {tab === "personality" && (
+          {/* Surface tab */}
+          {tab === "surface" && (
             <div className="space-y-5">
               <ConfigField
                 label="Identity"
@@ -307,30 +307,34 @@ export default function ConfigurePage({
                   placeholder={"never say 'as an AI'\ndon't use exclamation marks\nprefer short sentences"}
                 />
               </div>
-              <ConfigField
+              <TagInput
                 label="Boundaries"
-                description="Topics or behaviors the agent should refuse."
-                value={config.boundaries}
-                onChange={(v) => updateConfig("boundaries", v)}
-                multiline
-                rows={3}
+                description="Topics or behaviors the agent should refuse. Press Enter to add."
+                tags={config.boundaries ? config.boundaries.split("\n").filter(Boolean) : []}
+                onChange={(tags) => updateConfig("boundaries", tags.join("\n"))}
+                placeholder="e.g., no personal advice"
               />
 
               {/* Save bar */}
-              <div className="mt-8 pt-4 border-t border-[#262620] flex items-center gap-3">
-                <button
-                  onClick={() => setShowConfirm(true)}
-                  disabled={saving}
-                  className="px-5 py-2.5 bg-[#d4a574] hover:bg-[#c4955a] text-[#0a0a0a] disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
-                >
-                  {saving ? "Saving..." : "Save & Restart"}
-                </button>
-                {saved && (
-                  <span className="text-sm text-[#22c55e]">
-                    Saved. Agent restarting...
-                  </span>
-                )}
-                {error && <span className="text-sm text-[#ef4444]">{error}</span>}
+              <div className="mt-8 pt-4 border-t border-[#262620]">
+                <p className="text-xs text-[#737373] mb-3">
+                  Changes apply on her next thought cycle.
+                </p>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setShowConfirm(true)}
+                    disabled={saving}
+                    className="px-5 py-2.5 bg-[#d4a574] hover:bg-[#c4955a] text-[#0a0a0a] disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
+                  >
+                    {saving ? "Saving..." : "Save & Restart"}
+                  </button>
+                  {saved && (
+                    <span className="text-sm text-[#22c55e]">
+                      Saved. Agent restarting...
+                    </span>
+                  )}
+                  {error && <span className="text-sm text-[#ef4444]">{error}</span>}
+                </div>
               </div>
             </div>
           )}
@@ -557,6 +561,72 @@ function ConfigField({
           placeholder={placeholder}
         />
       )}
+    </div>
+  );
+}
+
+function TagInput({
+  label,
+  description,
+  tags,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  description?: string;
+  tags: string[];
+  onChange: (tags: string[]) => void;
+  placeholder?: string;
+}) {
+  const [input, setInput] = useState("");
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter" && input.trim()) {
+      e.preventDefault();
+      if (!tags.includes(input.trim())) {
+        onChange([...tags, input.trim()]);
+      }
+      setInput("");
+    }
+    if (e.key === "Backspace" && !input && tags.length > 0) {
+      onChange(tags.slice(0, -1));
+    }
+  }
+
+  function removeTag(index: number) {
+    onChange(tags.filter((_, i) => i !== index));
+  }
+
+  return (
+    <div>
+      <label className="block text-sm font-medium mb-1">{label}</label>
+      {description && (
+        <p className="text-xs text-[#737373] mb-2">{description}</p>
+      )}
+      <div className="flex flex-wrap gap-2 p-2 bg-[#12121a] border border-[#262620] rounded-lg min-h-[42px] focus-within:border-[#d4a574] transition-colors">
+        {tags.map((tag, i) => (
+          <span
+            key={i}
+            className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#262626] text-sm rounded-md"
+          >
+            {tag}
+            <button
+              onClick={() => removeTag(i)}
+              className="text-[#737373] hover:text-[#ef4444] text-xs ml-0.5 transition-colors"
+              type="button"
+            >
+              &times;
+            </button>
+          </span>
+        ))}
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={tags.length === 0 ? placeholder : ""}
+          className="flex-1 min-w-[120px] bg-transparent text-sm focus:outline-none py-1"
+        />
+      </div>
     </div>
   );
 }

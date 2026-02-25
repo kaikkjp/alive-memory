@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Agent } from "@/lib/types";
@@ -102,7 +102,11 @@ export default function DashboardPage() {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {agents.map((agent) => (
-              <AgentCard key={agent.id} agent={agent} />
+              <AgentCard
+                key={agent.id}
+                agent={agent}
+                onRefresh={fetchAgents}
+              />
             ))}
           </div>
         )}
@@ -111,7 +115,29 @@ export default function DashboardPage() {
   );
 }
 
-function AgentCard({ agent }: { agent: Agent }) {
+function AgentCard({
+  agent,
+  onRefresh,
+}: {
+  agent: Agent;
+  onRefresh: () => void;
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [menuOpen]);
+
   const statusConfig = {
     running: {
       dot: "bg-[#d4a574]",
@@ -131,33 +157,190 @@ function AgentCard({ agent }: { agent: Agent }) {
   };
 
   const status = statusConfig[agent.status] || statusConfig.stopped;
+  const isRunning = agent.status === "running";
+
+  async function handleStop() {
+    setActionLoading(true);
+    setMenuOpen(false);
+    try {
+      await fetch(`/api/agents/${agent.id}/stop`, { method: "POST" });
+      onRefresh();
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleStart() {
+    setActionLoading(true);
+    setMenuOpen(false);
+    try {
+      await fetch(`/api/agents/${agent.id}/start`, { method: "POST" });
+      onRefresh();
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleRestart() {
+    setActionLoading(true);
+    setMenuOpen(false);
+    try {
+      await fetch(`/api/agents/${agent.id}/stop`, { method: "POST" });
+      await new Promise((r) => setTimeout(r, 1000));
+      await fetch(`/api/agents/${agent.id}/start`, { method: "POST" });
+      onRefresh();
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleDelete() {
+    setActionLoading(true);
+    setDeleteConfirm(false);
+    setMenuOpen(false);
+    try {
+      await fetch(`/api/agents/${agent.id}`, { method: "DELETE" });
+      onRefresh();
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  const cycleText =
+    agent.cycle_count != null && agent.cycle_count > 0
+      ? `Alive for ${agent.cycle_count.toLocaleString()} cycles`
+      : "Not yet awakened";
 
   return (
-    <div className="p-5 bg-[#12121a] border border-[#1e1e1a] rounded-lg hover:border-[#d4a574]/30 transition-colors">
-      <div className="flex items-center gap-3 mb-3">
-        <div className="relative">
-          <div className={`w-2 h-2 rounded-full ${status.dot}`} />
-          {status.pulse && (
-            <div className={`absolute inset-0 w-2 h-2 rounded-full ${status.dot} animate-ping opacity-40`} />
-          )}
+    <>
+      <div
+        className={`p-5 bg-[#12121a] border border-[#1e1e1a] rounded-lg hover:border-[#d4a574]/30 transition-all hover:-translate-y-0.5 ${
+          actionLoading ? "opacity-60 pointer-events-none" : ""
+        }`}
+      >
+        <div className="flex items-start justify-between mb-1">
+          <div className="flex items-center gap-3">
+            <div className="relative mt-1">
+              <div className={`w-2 h-2 rounded-full ${status.dot}`} />
+              {status.pulse && (
+                <div
+                  className={`absolute inset-0 w-2 h-2 rounded-full ${status.dot} animate-ping opacity-40`}
+                />
+              )}
+            </div>
+            <h3 className="font-medium">{agent.name || "Unnamed"}</h3>
+          </div>
+
+          {/* ⋯ menu */}
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setMenuOpen(!menuOpen)}
+              className="p-1 text-[#525252] hover:text-[#a3a3a3] transition-colors text-lg leading-none"
+              title="Actions"
+            >
+              ⋯
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 top-8 w-40 bg-[#1a1a1a] border border-[#262620] rounded-lg shadow-xl py-1 z-20">
+                {isRunning ? (
+                  <>
+                    <MenuBtn onClick={handleRestart}>Restart</MenuBtn>
+                    <MenuBtn onClick={handleStop}>Stop</MenuBtn>
+                  </>
+                ) : (
+                  <MenuBtn onClick={handleStart}>Start</MenuBtn>
+                )}
+                <div className="border-t border-[#262620] my-1" />
+                <MenuBtn
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setDeleteConfirm(true);
+                  }}
+                  danger
+                >
+                  Delete
+                </MenuBtn>
+              </div>
+            )}
+          </div>
         </div>
-        <h3 className="font-medium">{agent.name || "Unnamed"}</h3>
+
+        {/* Role subtitle */}
+        {agent.role && (
+          <p className="text-xs text-[#9a8c7a] mb-2 ml-5">{agent.role}</p>
+        )}
+
+        {/* Status + cycles */}
+        <p className="text-xs text-[#737373] mb-1 ml-5">{status.label}</p>
+        <p className="text-xs text-[#525252] mb-4 ml-5">{cycleText}</p>
+
+        <div className="flex gap-2">
+          <Link
+            href={`/agent/${agent.id}/lounge`}
+            className="flex-1 text-center px-3 py-2 bg-[#d4a574] hover:bg-[#c4955a] text-[#0a0a0a] rounded-lg text-xs font-medium transition-colors"
+          >
+            Lounge
+          </Link>
+          <Link
+            href={`/agent/${agent.id}/configure`}
+            className="px-3 py-2 border border-[#262620] text-[#a3a3a3] hover:text-white hover:border-[#3a3a34] rounded-lg text-xs transition-colors"
+          >
+            Configure
+          </Link>
+        </div>
       </div>
-      <p className="text-xs text-[#737373] mb-4">{status.label}</p>
-      <div className="flex gap-2">
-        <Link
-          href={`/agent/${agent.id}/lounge`}
-          className="flex-1 text-center px-3 py-2 bg-[#d4a574] hover:bg-[#c4955a] text-[#0a0a0a] rounded-lg text-xs font-medium transition-colors"
-        >
-          Lounge
-        </Link>
-        <Link
-          href={`/agent/${agent.id}/configure`}
-          className="px-3 py-2 border border-[#262620] text-[#a3a3a3] hover:text-white hover:border-[#3a3a34] rounded-lg text-xs transition-colors"
-        >
-          Configure
-        </Link>
-      </div>
-    </div>
+
+      {/* Delete confirmation modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-[#1a1a1a] border border-[#262620] rounded-xl p-6 max-w-sm mx-4">
+            <h3 className="text-base font-semibold mb-2">
+              Delete {agent.name || "this agent"}?
+            </h3>
+            <p className="text-sm text-[#a3a3a3] mb-4">
+              This will permanently destroy the agent, all memories, journals,
+              and data. This cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setDeleteConfirm(false)}
+                className="px-4 py-2 text-sm text-[#737373] hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                className="px-4 py-2 bg-[#ef4444]/80 hover:bg-[#ef4444] text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                Delete forever
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function MenuBtn({
+  onClick,
+  children,
+  danger,
+}: {
+  onClick: () => void;
+  children: React.ReactNode;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full text-left px-3 py-1.5 text-sm transition-colors ${
+        danger
+          ? "text-[#ef4444] hover:bg-[#ef4444]/10"
+          : "text-[#a3a3a3] hover:bg-[#262626] hover:text-white"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
