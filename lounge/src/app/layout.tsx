@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Alive Lounge",
-  description: "Agent management portal",
+  title: "Alive — Private Lounge",
+  description: "Persistent AI character management",
 };
 
 export default function RootLayout({
@@ -25,7 +25,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#0a0a0a] text-[#e5e5e5] min-h-screen`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#0a0a0f] text-[#e5e5e5] min-h-screen`}
       >
         {children}
       </body>

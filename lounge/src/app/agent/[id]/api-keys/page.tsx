@@ -116,7 +116,7 @@ export default function ApiKeysPage({
                 setShowCreate(true);
                 setCreatedKey(null);
               }}
-              className="px-4 py-2 bg-[#3b82f6] hover:bg-[#2563eb] rounded-lg text-sm font-medium transition-colors"
+              className="px-4 py-2 bg-[#d4a574] hover:bg-[#c4955a] text-[#0a0a0a] rounded-lg text-sm font-medium transition-colors"
             >
               Create Key
             </button>
@@ -138,7 +138,7 @@ export default function ApiKeysPage({
           {showCreate && !createdKey && (
             <form
               onSubmit={handleCreate}
-              className="mb-6 bg-[#141414] border border-[#262626] rounded-lg p-4"
+              className="mb-6 bg-[#12121a] border border-[#262620] rounded-lg p-4"
             >
               <h3 className="text-sm font-medium mb-3">New API Key</h3>
               <div className="flex flex-col sm:flex-row gap-3">
@@ -146,7 +146,7 @@ export default function ApiKeysPage({
                   value={newKeyName}
                   onChange={(e) => setNewKeyName(e.target.value)}
                   placeholder="Key name (e.g., My App)"
-                  className="flex-1 px-3 py-2 bg-[#0a0a0a] border border-[#262626] rounded-lg text-sm focus:outline-none focus:border-[#3b82f6]"
+                  className="flex-1 px-3 py-2 bg-[#0a0a0a] border border-[#262620] rounded-lg text-sm focus:outline-none focus:border-[#d4a574]"
                 />
                 <div className="flex items-center gap-2">
                   <input
@@ -155,7 +155,7 @@ export default function ApiKeysPage({
                     type="number"
                     min="1"
                     max="1000"
-                    className="w-20 px-3 py-2 bg-[#0a0a0a] border border-[#262626] rounded-lg text-sm focus:outline-none focus:border-[#3b82f6]"
+                    className="w-20 px-3 py-2 bg-[#0a0a0a] border border-[#262620] rounded-lg text-sm focus:outline-none focus:border-[#d4a574]"
                   />
                   <span className="text-xs text-[#737373] whitespace-nowrap">
                     req/min
@@ -165,7 +165,7 @@ export default function ApiKeysPage({
                   <button
                     type="submit"
                     disabled={creating || !newKeyName.trim()}
-                    className="px-4 py-2 bg-[#3b82f6] hover:bg-[#2563eb] disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
+                    className="px-4 py-2 bg-[#d4a574] hover:bg-[#c4955a] text-[#0a0a0a] disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
                   >
                     {creating ? "Creating..." : "Create"}
                   </button>
@@ -195,10 +195,10 @@ export default function ApiKeysPage({
               </p>
             </div>
           ) : (
-            <div className="border border-[#262626] rounded-lg overflow-hidden">
+            <div className="border border-[#262620] rounded-lg overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-[#141414] text-[#737373] text-xs uppercase">
+                  <tr className="bg-[#12121a] text-[#737373] text-xs uppercase">
                     <th className="text-left px-4 py-3 font-medium">Name</th>
                     <th className="text-left px-4 py-3 font-medium">Key</th>
                     <th className="text-left px-4 py-3 font-medium hidden sm:table-cell">
@@ -212,7 +212,7 @@ export default function ApiKeysPage({
                 </thead>
                 <tbody className="divide-y divide-[#262626]">
                   {keys.map((k) => (
-                    <tr key={k.id} className="hover:bg-[#141414] transition-colors">
+                    <tr key={k.id} className="hover:bg-[#12121a] transition-colors">
                       <td className="px-4 py-3">{k.name}</td>
                       <td className="px-4 py-3 font-mono text-[#737373] text-xs">
                         {k.key}

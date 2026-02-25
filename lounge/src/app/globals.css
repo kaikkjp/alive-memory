@@ -1,15 +1,16 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0a0a0a;
+  --background: #0a0a0f;
   --foreground: #e5e5e5;
-  --card: #141414;
-  --card-border: #262626;
-  --accent: #3b82f6;
-  --accent-hover: #2563eb;
+  --card: #12121a;
+  --card-border: #1e1e1a;
+  --accent: #d4a574;
+  --accent-hover: #c4955a;
   --danger: #ef4444;
   --success: #22c55e;
   --muted: #737373;
+  --warm-muted: #9a8c7a;
 }
 
 @theme inline {
@@ -23,4 +24,12 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
 }

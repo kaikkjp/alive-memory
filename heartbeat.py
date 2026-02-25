@@ -161,6 +161,9 @@ class Heartbeat:
         self._last_loop_error: Optional[str] = None
         self._run_meta = get_run_metadata()
 
+        # TASK-095 v2: Queued sleep for force-sleep when engaged
+        self._sleep_queued: bool = False
+
         # TASK-057: Set X draft cooldown (30 min between posts at gate level)
         from pipeline.action_registry import ACTION_REGISTRY
         if 'post_x_draft' in ACTION_REGISTRY:
@@ -631,6 +634,20 @@ class Heartbeat:
                             await db.update_engagement_state(
                                 status='none', visitor_id=None, turn_count=0
                             )
+                            # TASK-095 v2: Execute queued sleep if pending
+                            if self._sleep_queued:
+                                try:
+                                    print("[Heartbeat] Executing queued sleep cycle")
+                                    await self._emit_stage('sleep', {'status': 'queued_sleep'})
+                                    from sleep import sleep_cycle
+                                    ran = await sleep_cycle()
+                                    if ran >= 0:
+                                        self._last_sleep_date = clock.now().strftime('%Y-%m-%d')
+                                    print(f"[Heartbeat] Queued sleep complete: {ran} moments")
+                                except Exception as e:
+                                    print(f"[Heartbeat] Queued sleep error: {e}")
+                                finally:
+                                    self._sleep_queued = False
                     await self._interruptible_sleep(30)
                     continue
 
@@ -1453,6 +1470,7 @@ class Heartbeat:
             'turn_count': engagement.turn_count,
             'mode': mode,
             'cycle_type': routing.cycle_type,
+            'identity': self._identity,  # TASK-095 v2: capabilities toggle
         }
 
         async with db.transaction():

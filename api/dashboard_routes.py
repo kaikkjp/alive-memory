@@ -1231,3 +1231,294 @@ async def handle_live_dashboard(server, writer):
         },
         'monologue': monologue,
     })
+
+
+# ── TASK-095 v2: Force Sleep, Whispers, Memories, Capabilities ──
+
+async def handle_force_sleep(server, writer: asyncio.StreamWriter,
+                             authorization: str):
+    """Handle POST /api/dashboard/force-sleep — trigger sleep cycle.
+
+    If not engaged: runs sleep immediately, returns results.
+    If engaged: queues sleep for after engagement ends.
+    """
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+
+    engagement = await db.get_engagement_state()
+    if engagement.status == 'engaged':
+        # Queue sleep for after conversation
+        server.heartbeat._sleep_queued = True
+        await server._http_json(writer, 200, {
+            'queued': True,
+            'reason': 'in conversation',
+            'message': 'Will rest after current conversation.',
+        })
+        return
+
+    # Not engaged — run immediately
+    try:
+        from sleep import sleep_cycle
+        from sleep.whisper import process_whispers
+        whispers = await db.get_pending_whispers()
+        ran = await sleep_cycle()
+        if ran >= 0:
+            server.heartbeat._last_sleep_date = clock.now().strftime('%Y-%m-%d')
+        await server._http_json(writer, 200, {
+            'queued': False,
+            'processed': ran,
+            'whispers_applied': len(whispers),
+        })
+    except Exception as e:
+        await server._http_json(writer, 500, {'error': f'sleep failed: {e}'})
+
+
+async def handle_get_whispers(server, writer: asyncio.StreamWriter,
+                              authorization: str):
+    """Handle GET /api/dashboard/whispers — list pending whispers."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+
+    pending = await db.get_pending_whispers()
+    await server._http_json(writer, 200, {'whispers': pending})
+
+
+async def handle_create_whisper(server, writer: asyncio.StreamWriter,
+                                authorization: str, body_bytes: bytes):
+    """Handle POST /api/dashboard/whispers — create a pending whisper."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+
+    try:
+        body = json.loads(body_bytes)
+    except (json.JSONDecodeError, ValueError):
+        await server._http_json(writer, 400, {'error': 'invalid JSON'})
+        return
+
+    param_path = body.get('param_path', '').strip()
+    new_value = body.get('new_value')
+    if not param_path or new_value is None:
+        await server._http_json(writer, 400, {
+            'error': 'param_path and new_value required',
+        })
+        return
+
+    # Look up current value for perception generation
+    try:
+        from db.parameters import p_or
+        old_value = str(p_or(param_path, 0.0))
+    except Exception:
+        old_value = None
+
+    whisper_id = await db.create_whisper(
+        param_path=param_path,
+        old_value=old_value,
+        new_value=str(new_value),
+    )
+    await server._http_json(writer, 200, {
+        'whisper_id': whisper_id,
+        'param_path': param_path,
+        'old_value': old_value,
+        'new_value': str(new_value),
+    })
+
+
+async def handle_get_memories(server, writer: asyncio.StreamWriter,
+                              authorization: str):
+    """Handle GET /api/dashboard/memories — list memories by origin."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+
+    # Default: both origins
+    manager = await db.get_manager_memories()
+    organic = await db.get_organic_memories(limit=50)
+    await server._http_json(writer, 200, {
+        'backstory': manager,
+        'organic': organic,
+    })
+
+
+async def handle_inject_memory(server, writer: asyncio.StreamWriter,
+                               authorization: str, body_bytes: bytes):
+    """Handle POST /api/dashboard/memories — inject backstory memory."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+
+    try:
+        body = json.loads(body_bytes)
+    except (json.JSONDecodeError, ValueError):
+        await server._http_json(writer, 400, {'error': 'invalid JSON'})
+        return
+
+    text = body.get('text', '').strip()
+    title = body.get('title', '').strip()
+    if not text:
+        await server._http_json(writer, 400, {'error': 'text required'})
+        return
+
+    source_id = await db.inject_manager_memory(text=text, title=title)
+    await server._http_json(writer, 200, {
+        'source_id': source_id,
+        'title': title,
+        'text': text,
+        'origin': 'manager_injected',
+    })
+
+
+async def handle_delete_memory(server, writer: asyncio.StreamWriter,
+                               authorization: str, body_bytes: bytes):
+    """Handle DELETE /api/dashboard/memories — delete a backstory memory."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+
+    try:
+        body = json.loads(body_bytes)
+    except (json.JSONDecodeError, ValueError):
+        await server._http_json(writer, 400, {'error': 'invalid JSON'})
+        return
+
+    source_id = body.get('source_id', '').strip()
+    if not source_id:
+        await server._http_json(writer, 400, {'error': 'source_id required'})
+        return
+
+    deleted = await db.delete_manager_memory(source_id)
+    if deleted:
+        await server._http_json(writer, 200, {'deleted': True, 'source_id': source_id})
+    else:
+        await server._http_json(writer, 404, {
+            'error': 'not found or not deletable (organic memories cannot be deleted)',
+        })
+
+
+async def handle_get_capabilities(server, writer: asyncio.StreamWriter,
+                                  authorization: str):
+    """Handle GET /api/dashboard/capabilities — list actions with enabled state."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+
+    from pipeline.action_registry import ACTION_REGISTRY
+    identity = server.heartbeat._identity
+
+    capabilities = []
+    for name, cap in ACTION_REGISTRY.items():
+        # Determine if action is enabled based on identity's actions_enabled
+        if identity.actions_enabled is None:
+            enabled = cap.enabled  # Fall back to registry default
+        elif not identity.actions_enabled:
+            enabled = False  # Empty list = all blocked
+        else:
+            enabled = name in identity.actions_enabled
+
+        capabilities.append({
+            'name': name,
+            'description': cap.description,
+            'energy_cost': cap.energy_cost,
+            'enabled': enabled,
+        })
+
+    await server._http_json(writer, 200, {'capabilities': capabilities})
+
+
+async def handle_toggle_capability(server, writer: asyncio.StreamWriter,
+                                    authorization: str, body_bytes: bytes):
+    """Handle POST /api/dashboard/capabilities — toggle action enabled/disabled.
+
+    Updates identity.yaml on disk and reloads the frozen AgentIdentity.
+    """
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+
+    try:
+        body = json.loads(body_bytes)
+    except (json.JSONDecodeError, ValueError):
+        await server._http_json(writer, 400, {'error': 'invalid JSON'})
+        return
+
+    action_name = body.get('action', '').strip()
+    enabled = body.get('enabled')
+    if not action_name or enabled is None:
+        await server._http_json(writer, 400, {
+            'error': 'action and enabled required',
+        })
+        return
+
+    from pipeline.action_registry import ACTION_REGISTRY
+    if action_name not in ACTION_REGISTRY:
+        await server._http_json(writer, 404, {
+            'error': f'unknown action: {action_name}',
+        })
+        return
+
+    identity = server.heartbeat._identity
+
+    # Build updated actions list
+    if identity.actions_enabled is None:
+        # Was None (all allowed) — switch to explicit list from registry
+        current_enabled = list(ACTION_REGISTRY.keys())
+    else:
+        current_enabled = list(identity.actions_enabled)
+
+    if enabled and action_name not in current_enabled:
+        current_enabled.append(action_name)
+    elif not enabled and action_name in current_enabled:
+        current_enabled.remove(action_name)
+
+    # Persist: update identity.yaml on disk and reload frozen identity
+    import yaml
+    config_dir = server._agent_config_dir
+    if config_dir:
+        identity_path = os.path.join(config_dir, 'identity.yaml')
+    else:
+        identity_path = os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                                      'config', 'default_identity.yaml')
+
+    try:
+        with open(identity_path, 'r', encoding='utf-8') as f:
+            data = yaml.safe_load(f) or {}
+        data['actions_enabled'] = current_enabled
+        with open(identity_path, 'w', encoding='utf-8') as f:
+            yaml.dump(data, f, default_flow_style=False, allow_unicode=True)
+
+        # Reload frozen identity
+        from config.agent_identity import AgentIdentity
+        server.heartbeat._identity = AgentIdentity.from_yaml(identity_path)
+    except Exception as e:
+        await server._http_json(writer, 500, {
+            'error': f'failed to update identity: {e}',
+        })
+        return
+
+    await server._http_json(writer, 200, {
+        'action': action_name,
+        'enabled': bool(enabled),
+        'actions_enabled': current_enabled,
+    })
+
+
+async def handle_delete_memory_by_id(server, writer: asyncio.StreamWriter,
+                                      authorization: str, source_id: str):
+    """Handle DELETE /api/dashboard/memories/:id — delete backstory by path param."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+
+    if not source_id:
+        await server._http_json(writer, 400, {'error': 'source_id required'})
+        return
+
+    deleted = await db.delete_manager_memory(source_id)
+    if deleted:
+        await server._http_json(writer, 200, {'deleted': True, 'source_id': source_id})
+    else:
+        await server._http_json(writer, 404, {
+            'error': 'not found or not deletable (organic memories cannot be deleted)',
+        })

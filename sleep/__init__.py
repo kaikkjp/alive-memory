@@ -50,6 +50,7 @@ from sleep.wake import (  # noqa: F401
 from sleep.meta_controller import run_meta_controller, evaluate_experiments, request_correction  # noqa: F401
 from sleep.consolidation import run_consolidation  # noqa: F401
 from sleep.nap import nap_consolidate  # noqa: F401
+from sleep.whisper import process_whispers, translate_whisper  # noqa: F401
 
 COLD_SEARCH_ENABLED = os.getenv('COLD_SEARCH_ENABLED', 'false').lower() == 'true'
 
@@ -65,6 +66,12 @@ async def sleep_cycle() -> int:
     if engagement.status == 'engaged':
         print("[Sleep] Deferred — currently engaged with a visitor.")
         return -1
+
+    # 0.5. Whisper phase — integrate pending config changes as dream perceptions
+    # Runs BEFORE consolidation so perceptions are available as dream context.
+    dream_perceptions = await process_whispers()
+    if dream_perceptions:
+        print(f"[Sleep] {len(dream_perceptions)} whisper(s) woven into dreams")
 
     # 1-2. Consolidation (moment reflection, journal writes, daily summary)
     processed_count = await run_consolidation()

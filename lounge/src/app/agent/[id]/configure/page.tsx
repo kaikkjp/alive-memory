@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, use, useCallback } from "react";
 import AgentNav from "@/components/AgentNav";
 
 interface IdentityConfig {
@@ -12,6 +12,23 @@ interface IdentityConfig {
   boundaries: string;
 }
 
+interface Capability {
+  name: string;
+  description: string;
+  energy_cost: number;
+  enabled: boolean;
+}
+
+interface DepthSlider {
+  group: string;
+  label: string;
+  param_path: string;
+  min: number;
+  max: number;
+  default: number;
+  value: number;
+}
+
 const DEFAULT_CONFIG: IdentityConfig = {
   identity_compact: "",
   voice_rules: [],
@@ -21,13 +38,25 @@ const DEFAULT_CONFIG: IdentityConfig = {
   boundaries: "",
 };
 
+const DEPTH_SLIDERS: Omit<DepthSlider, "value">[] = [
+  { group: "Inner Drives", label: "Curiosity", param_path: "hypothalamus.equilibria.diversive_curiosity", min: 0.2, max: 0.8, default: 0.40 },
+  { group: "Inner Drives", label: "Social hunger", param_path: "hypothalamus.equilibria.social_hunger", min: 0.3, max: 0.9, default: 0.45 },
+  { group: "Inner Drives", label: "Expression need", param_path: "hypothalamus.equilibria.expression_need", min: 0.2, max: 0.8, default: 0.35 },
+  { group: "Inner Drives", label: "Mood valence", param_path: "hypothalamus.equilibria.mood_valence", min: -0.85, max: 0.5, default: 0.05 },
+  { group: "Morning Reset", label: "Wake energy", param_path: "sleep.morning.energy", min: 0.5, max: 1.0, default: 1.0 },
+  { group: "Morning Reset", label: "Wake curiosity", param_path: "sleep.morning.curiosity", min: 0.2, max: 0.8, default: 0.5 },
+  { group: "Morning Reset", label: "Wake social", param_path: "sleep.morning.social_hunger", min: 0.2, max: 0.8, default: 0.5 },
+  { group: "Voice", label: "Formality", param_path: "communication_style.formality", min: 0.0, max: 1.0, default: 0.5 },
+  { group: "Voice", label: "Verbosity", param_path: "communication_style.verbosity", min: 0.0, max: 1.0, default: 0.4 },
+];
+
 export default function ConfigurePage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const [tab, setTab] = useState<"personality" | "behavior">("personality");
+  const [tab, setTab] = useState<"personality" | "depths" | "capabilities">("personality");
   const [config, setConfig] = useState<IdentityConfig>(DEFAULT_CONFIG);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -35,10 +64,46 @@ export default function ConfigurePage({
   const [error, setError] = useState("");
   const [showConfirm, setShowConfirm] = useState(false);
 
+  // Depths state
+  const [depths, setDepths] = useState<DepthSlider[]>([]);
+  const [depthsDirty, setDepthsDirty] = useState(false);
+  const [depthsSaving, setDepthsSaving] = useState(false);
+  const [depthsSaved, setDepthsSaved] = useState(false);
+
+  // Capabilities state
+  const [capabilities, setCapabilities] = useState<Capability[]>([]);
+  const [capsLoading, setCapsLoading] = useState(false);
+
   useEffect(() => {
     fetchConfig();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  const fetchCapabilities = useCallback(async () => {
+    setCapsLoading(true);
+    try {
+      const res = await fetch(`/api/agents/${id}/capabilities`);
+      if (res.ok) {
+        const data = await res.json();
+        setCapabilities(data.capabilities || []);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setCapsLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    if (tab === "capabilities") fetchCapabilities();
+  }, [tab, fetchCapabilities]);
+
+  useEffect(() => {
+    if (tab === "depths") {
+      // Initialize depths with defaults
+      setDepths(DEPTH_SLIDERS.map((s) => ({ ...s, value: s.default })));
+    }
+  }, [tab]);
 
   async function fetchConfig() {
     try {
@@ -83,8 +148,70 @@ export default function ConfigurePage({
     }
   }
 
+  async function handleSaveDepths() {
+    setDepthsSaving(true);
+    setDepthsSaved(false);
+
+    const changed = depths.filter(
+      (s) => Math.abs(s.value - s.default) > 0.001
+    );
+
+    try {
+      for (const slider of changed) {
+        await fetch(`/api/agents/${id}/whispers`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            param_path: slider.param_path,
+            new_value: slider.value.toString(),
+          }),
+        });
+      }
+      setDepthsSaved(true);
+      setDepthsDirty(false);
+      setTimeout(() => setDepthsSaved(false), 3000);
+    } catch {
+      setError("Failed to queue changes");
+    } finally {
+      setDepthsSaving(false);
+    }
+  }
+
+  async function handleToggleCapability(name: string, enabled: boolean) {
+    // Optimistic update
+    setCapabilities((caps) =>
+      caps.map((c) => (c.name === name ? { ...c, enabled } : c))
+    );
+
+    try {
+      const res = await fetch(`/api/agents/${id}/capabilities`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: name, enabled }),
+      });
+      if (!res.ok) {
+        // Revert
+        setCapabilities((caps) =>
+          caps.map((c) => (c.name === name ? { ...c, enabled: !enabled } : c))
+        );
+      }
+    } catch {
+      // Revert
+      setCapabilities((caps) =>
+        caps.map((c) => (c.name === name ? { ...c, enabled: !enabled } : c))
+      );
+    }
+  }
+
   function updateConfig(field: keyof IdentityConfig, value: string | string[]) {
     setConfig((prev) => ({ ...prev, [field]: value }));
+  }
+
+  function updateDepth(index: number, value: number) {
+    setDepths((prev) =>
+      prev.map((s, i) => (i === index ? { ...s, value } : s))
+    );
+    setDepthsDirty(true);
   }
 
   if (loading) {
@@ -98,6 +225,12 @@ export default function ConfigurePage({
     );
   }
 
+  // Group depths by group name
+  const depthGroups: Record<string, DepthSlider[]> = {};
+  for (const d of depths) {
+    (depthGroups[d.group] ??= []).push(d);
+  }
+
   return (
     <div className="flex flex-col h-screen">
       <AgentNav agentId={id} active="configure" />
@@ -105,29 +238,23 @@ export default function ConfigurePage({
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto px-4 py-6">
           {/* Tab switcher */}
-          <div className="flex gap-1 mb-6 bg-[#141414] rounded-lg p-1 w-fit">
-            <button
-              onClick={() => setTab("personality")}
-              className={`px-4 py-2 rounded-md text-sm transition-colors ${
-                tab === "personality"
-                  ? "bg-[#262626] text-white"
-                  : "text-[#737373] hover:text-white"
-              }`}
-            >
-              Personality
-            </button>
-            <button
-              onClick={() => setTab("behavior")}
-              className={`px-4 py-2 rounded-md text-sm transition-colors ${
-                tab === "behavior"
-                  ? "bg-[#262626] text-white"
-                  : "text-[#737373] hover:text-white"
-              }`}
-            >
-              Behavior
-            </button>
+          <div className="flex gap-1 mb-6 bg-[#12121a] rounded-lg p-1 w-fit">
+            {(["personality", "depths", "capabilities"] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={`px-4 py-2 rounded-md text-sm capitalize transition-colors ${
+                  tab === t
+                    ? "bg-[#262626] text-white"
+                    : "text-[#737373] hover:text-white"
+                }`}
+              >
+                {t}
+              </button>
+            ))}
           </div>
 
+          {/* Personality tab */}
           {tab === "personality" && (
             <div className="space-y-5">
               <ConfigField
@@ -176,7 +303,7 @@ export default function ConfigurePage({
                     )
                   }
                   rows={5}
-                  className="w-full px-3 py-2 bg-[#141414] border border-[#262626] rounded-lg text-sm focus:outline-none focus:border-[#3b82f6] transition-colors resize-y font-mono"
+                  className="w-full px-3 py-2 bg-[#12121a] border border-[#262620] rounded-lg text-sm focus:outline-none focus:border-[#d4a574] transition-colors resize-y font-mono"
                   placeholder={"never say 'as an AI'\ndon't use exclamation marks\nprefer short sentences"}
                 />
               </div>
@@ -188,52 +315,141 @@ export default function ConfigurePage({
                 multiline
                 rows={3}
               />
-            </div>
-          )}
 
-          {tab === "behavior" && (
-            <div className="space-y-6">
-              <p className="text-sm text-[#737373]">
-                Behavior tuning controls will be available in a future update.
-                Current defaults provide a balanced personality profile.
-              </p>
-              <div className="space-y-4">
-                <BehaviorPreview label="Curiosity" value={0.6} />
-                <BehaviorPreview label="Sociability" value={0.5} />
-                <BehaviorPreview label="Assertiveness" value={0.4} />
-                <BehaviorPreview label="Patience" value={0.7} />
-                <BehaviorPreview label="Playfulness" value={0.5} />
+              {/* Save bar */}
+              <div className="mt-8 pt-4 border-t border-[#262620] flex items-center gap-3">
+                <button
+                  onClick={() => setShowConfirm(true)}
+                  disabled={saving}
+                  className="px-5 py-2.5 bg-[#d4a574] hover:bg-[#c4955a] text-[#0a0a0a] disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
+                >
+                  {saving ? "Saving..." : "Save & Restart"}
+                </button>
+                {saved && (
+                  <span className="text-sm text-[#22c55e]">
+                    Saved. Agent restarting...
+                  </span>
+                )}
+                {error && <span className="text-sm text-[#ef4444]">{error}</span>}
               </div>
-              <p className="text-xs text-[#737373]">
-                These values are read-only previews. Edit your agent&apos;s
-                alive_config.yaml directly for advanced tuning.
-              </p>
             </div>
           )}
 
-          {/* Save bar */}
-          <div className="mt-8 pt-4 border-t border-[#262626] flex items-center gap-3">
-            <button
-              onClick={() => setShowConfirm(true)}
-              disabled={saving || tab === "behavior"}
-              className="px-5 py-2.5 bg-[#3b82f6] hover:bg-[#2563eb] disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
-            >
-              {saving ? "Saving..." : "Save & Restart"}
-            </button>
-            {saved && (
-              <span className="text-sm text-[#22c55e]">
-                Saved. Agent restarting...
-              </span>
-            )}
-            {error && <span className="text-sm text-[#ef4444]">{error}</span>}
-          </div>
+          {/* Depths tab */}
+          {tab === "depths" && (
+            <div className="space-y-6">
+              <div className="bg-[#12121a] border border-[#262620] rounded-lg p-4">
+                <p className="text-sm text-[#a3a3a3]">
+                  These changes take effect during her next sleep cycle. You can
+                  trigger rest from the Lounge.
+                </p>
+              </div>
+
+              {Object.entries(depthGroups).map(([group, sliders]) => (
+                <div key={group}>
+                  <h3 className="text-sm font-medium text-[#d4a574] mb-3">
+                    {group}
+                  </h3>
+                  <div className="space-y-4">
+                    {sliders.map((slider) => {
+                      const globalIndex = depths.indexOf(slider);
+                      return (
+                        <DepthSliderControl
+                          key={slider.param_path}
+                          slider={slider}
+                          onChange={(v) => updateDepth(globalIndex, v)}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+
+              {/* Save bar */}
+              <div className="pt-4 border-t border-[#262620] flex items-center gap-3">
+                <button
+                  onClick={handleSaveDepths}
+                  disabled={depthsSaving || !depthsDirty}
+                  className="px-5 py-2.5 bg-[#6b5b8a] hover:bg-[#7b6b9a] text-white disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
+                >
+                  {depthsSaving ? "Queuing..." : "Queue changes"}
+                </button>
+                {depthsSaved && (
+                  <span className="text-sm text-[#22c55e]">
+                    Queued. Changes integrate during next rest.
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Capabilities tab */}
+          {tab === "capabilities" && (
+            <div className="space-y-4">
+              <div className="bg-[#12121a] border border-[#262620] rounded-lg p-4">
+                <p className="text-sm text-[#a3a3a3]">
+                  Toggle which actions the agent can take. Changes take effect
+                  immediately.
+                </p>
+              </div>
+
+              {capsLoading ? (
+                <p className="text-sm text-[#737373]">Loading capabilities...</p>
+              ) : capabilities.length === 0 ? (
+                <p className="text-sm text-[#525252]">
+                  No capabilities registered.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {capabilities.map((cap) => (
+                    <div
+                      key={cap.name}
+                      className="flex items-center justify-between p-3 bg-[#12121a] border border-[#1e1e1a] rounded-lg"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-mono text-[#d4d4d4]">
+                            {cap.name}
+                          </span>
+                          {cap.energy_cost > 0 && (
+                            <span className="text-xs text-[#525252]">
+                              {cap.energy_cost.toFixed(2)} energy
+                            </span>
+                          )}
+                        </div>
+                        {cap.description && (
+                          <p className="text-xs text-[#737373] mt-0.5 truncate">
+                            {cap.description}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        onClick={() =>
+                          handleToggleCapability(cap.name, !cap.enabled)
+                        }
+                        className={`ml-3 w-10 h-5 rounded-full transition-colors relative shrink-0 ${
+                          cap.enabled ? "bg-[#d4a574]" : "bg-[#262626]"
+                        }`}
+                      >
+                        <div
+                          className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                            cap.enabled ? "left-5" : "left-0.5"
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
       {/* Confirmation modal */}
       {showConfirm && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-[#1a1a1a] border border-[#262626] rounded-xl p-6 max-w-md mx-4">
+          <div className="bg-[#1a1a1a] border border-[#262620] rounded-xl p-6 max-w-md mx-4">
             <h3 className="text-lg font-semibold mb-2">Restart Agent?</h3>
             <p className="text-sm text-[#a3a3a3] mb-5">
               Saving will restart your agent. Active conversations will be
@@ -248,7 +464,7 @@ export default function ConfigurePage({
               </button>
               <button
                 onClick={handleSave}
-                className="px-4 py-2 bg-[#3b82f6] hover:bg-[#2563eb] rounded-lg text-sm font-medium transition-colors"
+                className="px-4 py-2 bg-[#d4a574] hover:bg-[#c4955a] text-[#0a0a0a] rounded-lg text-sm font-medium transition-colors"
               >
                 Save & Restart
               </button>
@@ -256,6 +472,45 @@ export default function ConfigurePage({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function DepthSliderControl({
+  slider,
+  onChange,
+}: {
+  slider: DepthSlider;
+  onChange: (v: number) => void;
+}) {
+  const range = slider.max - slider.min;
+  const defaultPct = ((slider.default - slider.min) / range) * 100;
+  const changed = Math.abs(slider.value - slider.default) > 0.001;
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-1">
+        <span className="text-sm text-[#a3a3a3]">{slider.label}</span>
+        <span className={`text-xs font-mono ${changed ? "text-[#d4a574]" : "text-[#525252]"}`}>
+          {slider.value.toFixed(2)}
+        </span>
+      </div>
+      <div className="relative">
+        <input
+          type="range"
+          min={slider.min}
+          max={slider.max}
+          step={0.01}
+          value={slider.value}
+          onChange={(e) => onChange(parseFloat(e.target.value))}
+          className="w-full h-2 bg-[#262626] rounded-full appearance-none cursor-pointer accent-[#d4a574] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#d4a574]"
+        />
+        {/* Default marker */}
+        <div
+          className="absolute top-1/2 -translate-y-1/2 w-0.5 h-4 bg-[#525252] pointer-events-none"
+          style={{ left: `${defaultPct}%` }}
+        />
+      </div>
     </div>
   );
 }
@@ -278,7 +533,7 @@ function ConfigField({
   placeholder?: string;
 }) {
   const cls =
-    "w-full px-3 py-2 bg-[#141414] border border-[#262626] rounded-lg text-sm focus:outline-none focus:border-[#3b82f6] transition-colors resize-y";
+    "w-full px-3 py-2 bg-[#12121a] border border-[#262620] rounded-lg text-sm focus:outline-none focus:border-[#d4a574] transition-colors resize-y";
 
   return (
     <div>
@@ -302,24 +557,6 @@ function ConfigField({
           placeholder={placeholder}
         />
       )}
-    </div>
-  );
-}
-
-function BehaviorPreview({ label, value }: { label: string; value: number }) {
-  const pct = value * 100;
-  return (
-    <div>
-      <div className="flex justify-between text-sm mb-1">
-        <span className="text-[#a3a3a3]">{label}</span>
-        <span className="text-[#737373]">{value.toFixed(1)}</span>
-      </div>
-      <div className="h-2 bg-[#262626] rounded-full overflow-hidden">
-        <div
-          className="h-full bg-[#3b82f6]/50 rounded-full"
-          style={{ width: `${pct}%` }}
-        />
-      </div>
     </div>
   );
 }

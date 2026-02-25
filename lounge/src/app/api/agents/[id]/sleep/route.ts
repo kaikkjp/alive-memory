@@ -1,21 +1,20 @@
 /**
- * GET /api/agents/:id/status — Expanded state proxy.
+ * TASK-095 v2: Force sleep endpoint.
  *
- * TASK-095 v2: Enhanced to include drives, mood, recent actions
- * from agent's /api/dashboard/drives endpoint.
+ * POST /api/agents/:id/sleep — Trigger sleep cycle (or queue if engaged)
  */
 
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import * as db from '@/lib/manager-db';
-import { getAgentStatus, getAgentHealth, dashboardGet } from '@/lib/agent-client';
+import { getAgentHealth, dashboardPost } from '@/lib/agent-client';
 
 async function getManagerId(): Promise<string | null> {
   const h = await headers();
   return h.get('x-manager-id');
 }
 
-export async function GET(
+export async function POST(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -35,38 +34,20 @@ export async function GET(
     return NextResponse.json({ error: 'not found' }, { status: 404 });
   }
 
-  // Check basic health first
   const healthy = await getAgentHealth(agent.port);
   if (!healthy) {
-    return NextResponse.json({
-      status: 'offline',
-      port: agent.port,
-    });
+    return NextResponse.json({ error: 'agent offline' }, { status: 502 });
   }
 
-  // Get API key for proxying
   const keys = await db.listApiKeys(id);
   if (keys.length === 0) {
-    return NextResponse.json({
-      status: 'active',
-      port: agent.port,
-    });
+    return NextResponse.json({ error: 'no api key' }, { status: 500 });
   }
 
-  const apiKey = keys[0].key;
-
-  // Fetch public state (basic)
-  const publicState = await getAgentStatus(agent.port, apiKey);
-
-  // Try to get expanded state from dashboard/drives
-  const drives = await dashboardGet(agent.port, apiKey, 'drives');
-
-  // Merge into expanded response
-  const result = {
-    ...(publicState || { status: 'active' }),
-    ...(drives ? { drives } : {}),
-    port: agent.port,
-  };
+  const result = await dashboardPost(agent.port, keys[0].key, 'force-sleep');
+  if (!result) {
+    return NextResponse.json({ error: 'agent not responding' }, { status: 502 });
+  }
 
   return NextResponse.json(result);
 }

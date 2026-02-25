@@ -75,11 +75,19 @@ async def handle_chat(server, writer, body_bytes: bytes, api_key_meta: dict):
     # Log conversation
     await db.append_conversation(visitor_id, 'visitor', text)
 
+    # TASK-095 v2: Tag manager messages in event payload
+    # If source='manager' in request body, sensorium will frame it as
+    # trusted human speech instead of regular visitor speech.
+    event_payload = {'text': text}
+    request_source = body.get('source', '').strip()
+    if request_source == 'manager' and api_key_meta.get('is_dashboard'):
+        event_payload['source'] = 'manager'
+
     # Create and process speech event
     speech_event = Event(
         event_type='visitor_speech',
         source=f'visitor:{visitor_id}',
-        payload={'text': text},
+        payload=event_payload,
     )
     engagement = await db.get_engagement_state()
     ack_result = await on_visitor_message(speech_event, engagement)

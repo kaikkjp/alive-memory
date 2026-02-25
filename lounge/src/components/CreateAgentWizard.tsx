@@ -44,26 +44,26 @@ export default function CreateAgentWizard({ onCreated, onCancel }: Props) {
   }
 
   return (
-    <div className="mb-8 p-6 bg-[#141414] border border-[#262626] rounded-lg">
+    <div className="mb-8 p-6 bg-[#12121a] border border-[#262620] rounded-lg">
       <div className="flex items-center gap-4 mb-6">
         <StepDot active={step >= 1} label="1" />
-        <div className="flex-1 h-px bg-[#262626]" />
+        <div className="flex-1 h-px bg-[#262620]" />
         <StepDot active={step >= 2} label="2" />
-        <div className="flex-1 h-px bg-[#262626]" />
+        <div className="flex-1 h-px bg-[#262620]" />
         <StepDot active={step >= 3} label="3" />
       </div>
 
       {step === 1 && (
         <div>
-          <h3 className="font-semibold mb-1">Name your agent</h3>
-          <p className="text-[#737373] text-sm mb-4">
-            Choose a name and optional role for your character.
+          <h3 className="font-semibold mb-1">Who are they?</h3>
+          <p className="text-[#9a8c7a] text-sm mb-4">
+            Give them a name — or let them discover one.
           </p>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Luna the Librarian"
-            className="w-full px-4 py-3 bg-[#0a0a0a] border border-[#262626] rounded-lg text-sm focus:outline-none focus:border-[#3b82f6] mb-4"
+            placeholder="They can name themselves"
+            className="w-full px-4 py-3 bg-[#0a0a0f] border border-[#262620] rounded-lg text-sm focus:outline-none focus:border-[#d4a574] mb-4"
             autoFocus
           />
           <div className="flex gap-3 justify-end">
@@ -75,8 +75,7 @@ export default function CreateAgentWizard({ onCreated, onCancel }: Props) {
             </button>
             <button
               onClick={() => setStep(2)}
-              disabled={!name.trim()}
-              className="px-4 py-2 bg-[#3b82f6] hover:bg-[#2563eb] disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
+              className="px-4 py-2 bg-[#d4a574] hover:bg-[#c4955a] text-[#0a0a0a] disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
             >
               Next
             </button>
@@ -86,16 +85,16 @@ export default function CreateAgentWizard({ onCreated, onCancel }: Props) {
 
       {step === 2 && (
         <div>
-          <h3 className="font-semibold mb-1">OpenRouter API Key</h3>
-          <p className="text-[#737373] text-sm mb-4">
-            Your agent needs an LLM to think. Paste your OpenRouter API key.
+          <h3 className="font-semibold mb-1">Give them a voice</h3>
+          <p className="text-[#9a8c7a] text-sm mb-4">
+            This key powers their thinking. They&apos;ll use it to process thoughts, form memories, and speak.
           </p>
           <input
             type="password"
             value={openrouterKey}
             onChange={(e) => setOpenrouterKey(e.target.value)}
             placeholder="sk-or-v1-..."
-            className="w-full px-4 py-3 bg-[#0a0a0a] border border-[#262626] rounded-lg text-sm focus:outline-none focus:border-[#3b82f6] mb-2"
+            className="w-full px-4 py-3 bg-[#0a0a0f] border border-[#262620] rounded-lg text-sm focus:outline-none focus:border-[#d4a574] mb-2"
             autoFocus
           />
           <p className="text-[#737373] text-xs mb-4">
@@ -104,7 +103,7 @@ export default function CreateAgentWizard({ onCreated, onCancel }: Props) {
               href="https://openrouter.ai/keys"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[#3b82f6] hover:underline"
+              className="text-[#d4a574] hover:underline"
             >
               openrouter.ai/keys
             </a>
@@ -122,9 +121,9 @@ export default function CreateAgentWizard({ onCreated, onCancel }: Props) {
             <button
               onClick={handleCreate}
               disabled={loading || !openrouterKey.trim()}
-              className="px-4 py-2 bg-[#3b82f6] hover:bg-[#2563eb] disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
+              className="px-4 py-2 bg-[#d4a574] hover:bg-[#c4955a] text-[#0a0a0a] disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
             >
-              {loading ? "Creating..." : "Create Agent"}
+              {loading ? "Bringing to life..." : "Bring to life"}
             </button>
           </div>
         </div>
@@ -132,14 +131,16 @@ export default function CreateAgentWizard({ onCreated, onCancel }: Props) {
 
       {step === 3 && (
         <div>
-          <h3 className="font-semibold mb-1">Agent created</h3>
+          <h3 className="font-semibold mb-1">They&apos;re alive</h3>
+          <p className="text-[#9a8c7a] text-sm mb-2">
+            They&apos;ll start with nothing — no actions, no memories, no form. Everything they become will be discovered.
+          </p>
           <p className="text-[#737373] text-sm mb-4">
-            Your agent is starting up. Here is your API key — save it now, it
-            will not be shown again.
+            Save this API key now. It won&apos;t be shown again.
           </p>
 
           {createdKey && (
-            <div className="p-3 bg-[#0a0a0a] border border-[#262626] rounded-lg mb-4 font-mono text-xs break-all">
+            <div className="p-3 bg-[#0a0a0f] border border-[#262620] rounded-lg mb-4 font-mono text-xs break-all text-[#d4a574]">
               {createdKey}
             </div>
           )}
@@ -147,9 +148,9 @@ export default function CreateAgentWizard({ onCreated, onCancel }: Props) {
           <div className="flex gap-3 justify-end">
             <button
               onClick={onCreated}
-              className="px-4 py-2 bg-[#3b82f6] hover:bg-[#2563eb] rounded-lg text-sm font-medium transition-colors"
+              className="px-4 py-2 bg-[#d4a574] hover:bg-[#c4955a] text-[#0a0a0a] rounded-lg text-sm font-medium transition-colors"
             >
-              Go to Dashboard
+              Enter the Lounge
             </button>
           </div>
         </div>
@@ -163,8 +164,8 @@ function StepDot({ active, label }: { active: boolean; label: string }) {
     <div
       className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium ${
         active
-          ? "bg-[#3b82f6] text-white"
-          : "bg-[#262626] text-[#737373]"
+          ? "bg-[#d4a574] text-[#0a0a0a]"
+          : "bg-[#262620] text-[#737373]"
       }`}
     >
       {label}

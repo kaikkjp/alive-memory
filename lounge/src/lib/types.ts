@@ -53,3 +53,67 @@ export interface CreateApiKeyRequest {
   name: string;
   rate_limit?: number;
 }
+
+// ── TASK-095 v2: Soul Features ──
+
+export interface DriveState {
+  value: number;
+  label: string;
+  equilibrium?: number;
+}
+
+export interface AgentDrives {
+  energy: number;
+  curiosity: DriveState;
+  social_hunger: DriveState;
+  expression_need: DriveState;
+  rest_need: DriveState;
+  mood_valence: number;
+  mood_arousal: number;
+}
+
+export interface ExpandedAgentStatus extends AgentStatus {
+  drives?: AgentDrives;
+  recent_actions?: Array<{
+    action: string;
+    timestamp: string;
+    content?: string;
+  }>;
+  mood_word?: string;
+  state_description?: string;
+}
+
+export interface Whisper {
+  id: number;
+  param_path: string;
+  old_value?: string;
+  new_value: string;
+  created_at: string;
+  processed_at?: string;
+  dream_text?: string;
+}
+
+export interface CreateWhisperRequest {
+  param_path: string;
+  new_value: string;
+}
+
+export interface Memory {
+  source_id: string;
+  text_content: string;
+  origin: 'organic' | 'manager_injected';
+  ts_iso?: string;
+  source_type?: string;
+}
+
+export interface InjectMemoryRequest {
+  text: string;
+  title?: string;
+}
+
+export interface ActionCapability {
+  name: string;
+  enabled: boolean;
+  description?: string;
+  energy_cost?: number;
+}
