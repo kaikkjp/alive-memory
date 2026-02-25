@@ -17,5 +17,5 @@ declare module 'sql.js' {
 
   export type { Database, QueryExecResult, SqlJsStatic };
 
-  export default function initSqlJs(): Promise<SqlJsStatic>;
+  export default function initSqlJs(config?: { locateFile?: (file: string) => string }): Promise<SqlJsStatic>;
 }
