@@ -1175,15 +1175,14 @@ async def handle_live_dashboard(server, writer):
 
     # ─── Last Sleep ───
     cursor = await conn.execute(
-        """SELECT ts FROM cycle_log
-           WHERE mode IN ('sleep', 'nap')
-           ORDER BY ts DESC LIMIT 1"""
+        """SELECT created_at FROM daily_summaries
+           ORDER BY created_at DESC LIMIT 1"""
     )
     sleep_row = await cursor.fetchone()
     last_sleep = None
-    if sleep_row and sleep_row['ts']:
+    if sleep_row and sleep_row['created_at']:
         try:
-            sleep_dt = datetime.fromisoformat(sleep_row['ts'].replace('Z', '+00:00'))
+            sleep_dt = datetime.fromisoformat(sleep_row['created_at'].replace('Z', '+00:00'))
             if sleep_dt.tzinfo is None:
                 sleep_dt = sleep_dt.replace(tzinfo=timezone.utc)
             hours_ago = (clock.now_utc() - sleep_dt).total_seconds() / 3600
