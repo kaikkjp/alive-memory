@@ -1,9 +1,0 @@
-[MODEL_PIN] MODEL_EXPECTED=qwen/qwen3.5-397b-a17b runtime=qwen/qwen3.5-397b-a17b
-{
-  "run_summary": "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/memoryagentbench_full/20260220T163814Z/run_summary.json",
-  "summary": {
-    "total": 13,
-    "succeeded": 0,
-    "failed": 13
-  }
-}

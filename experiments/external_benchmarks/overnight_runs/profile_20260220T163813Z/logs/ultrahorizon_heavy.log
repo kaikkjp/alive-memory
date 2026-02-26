@@ -1,5 +1,0 @@
-[MODEL_PIN] MODEL_EXPECTED=qwen/qwen3.5-397b-a17b runtime=qwen/qwen3.5-397b-a17b
-{
-  "summary_json": "/Users/user/Documents/Tokyo-Arc/product/alive/experiments/external_benchmarks/ultrahorizon_scaled/20260220T163814Z_seq_steps50_n32_s42/run_summary.json",
-  "returncode": 1
-}
