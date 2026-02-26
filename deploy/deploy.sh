@@ -35,10 +35,13 @@ bash scripts/prepare_assets.sh
 echo "[deploy] Stopping shopkeeper service (freeing RAM for build)..."
 sudo systemctl stop shopkeeper
 
+# Always restart the service, even if the build fails
+trap 'echo "[deploy] Ensuring shopkeeper service is running..."; sudo systemctl start shopkeeper' EXIT
+
 # ─── Build frontend ───
 echo "[deploy] Building frontend..."
 cd window
-rm -rf node_modules .next
+rm -rf node_modules .next out
 npm ci --silent
 NEXT_PUBLIC_SITE_URL="https://${DOMAIN}" \
 NODE_OPTIONS="--max-old-space-size=1536" \
@@ -53,8 +56,10 @@ cd ..
 #   sudo nginx -t && sudo systemctl reload nginx
 
 # ─── Restart service ───
+# (trap above ensures this runs even on build failure, but we also start explicitly)
 echo "[deploy] Starting shopkeeper service..."
 sudo systemctl start shopkeeper
+trap - EXIT
 
 # ─── Health check (initial grace period + retries) ───
 echo "[deploy] Waiting for service to start..."
