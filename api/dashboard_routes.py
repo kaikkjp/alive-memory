@@ -1551,3 +1551,175 @@ async def handle_delete_memory_by_id(server, writer: asyncio.StreamWriter,
         await server._http_json(writer, 404, {
             'error': 'not found or not deletable (organic memories cannot be deleted)',
         })
+
+
+# ─── TASK-095 v3.1 Batch 1: Inner Voice, Feed Drops, Streams ───
+
+async def handle_inner_voice(server, writer: asyncio.StreamWriter,
+                             authorization: str, query_params: dict):
+    """Handle GET /api/dashboard/inner-voice — recent internal monologue entries."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+
+    limit = int(query_params.get('limit', ['20'])[0])
+    before = query_params.get('before', [None])[0]
+    limit = min(limit, 100)  # cap
+
+    entries = await db.get_inner_voice_history(limit=limit, before=before)
+    await server._http_json(writer, 200, entries)
+
+
+async def handle_feed_drop(server, writer: asyncio.StreamWriter,
+                           authorization: str, body_bytes: bytes):
+    """Handle POST /api/dashboard/feed/drop — manager drops content into the feed."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+
+    try:
+        body = json.loads(body_bytes)
+    except (json.JSONDecodeError, ValueError):
+        await server._http_json(writer, 400, {'error': 'invalid json'})
+        return
+
+    title = body.get('title', '').strip()
+    url = body.get('url', '').strip()
+    text = body.get('text', '').strip()
+
+    if not url and not text:
+        await server._http_json(writer, 400, {'error': 'url or text required'})
+        return
+
+    content = url or text
+    source_type = 'manager_drop'
+
+    from feed_ingester import compute_pool_fingerprint
+    fingerprint = compute_pool_fingerprint('manager', source_type, content)
+
+    inserted = await db.add_to_content_pool(
+        fingerprint=fingerprint,
+        source_type=source_type,
+        source_channel='manager',
+        content=content,
+        title=title or content[:80],
+        salience_base=0.8,
+    )
+
+    if inserted:
+        await server._http_json(writer, 200, {
+            'inserted': True,
+            'title': title or content[:80],
+            'content': content,
+        })
+    else:
+        await server._http_json(writer, 200, {
+            'inserted': False,
+            'reason': 'duplicate (already in pool)',
+        })
+
+
+async def handle_feed_drops_list(server, writer: asyncio.StreamWriter,
+                                  authorization: str, query_params: dict):
+    """Handle GET /api/dashboard/feed/drops — list manager-dropped content."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+
+    limit = int(query_params.get('limit', ['50'])[0])
+    limit = min(limit, 200)
+
+    drops = await db.get_manager_drops(limit=limit)
+    await server._http_json(writer, 200, drops)
+
+
+async def handle_feed_streams_list(server, writer: asyncio.StreamWriter,
+                                    authorization: str):
+    """Handle GET /api/dashboard/feed/streams — list configured RSS feeds."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+
+    feeds = await db.get_agent_feeds()
+    await server._http_json(writer, 200, feeds)
+
+
+async def handle_feed_streams_create(server, writer: asyncio.StreamWriter,
+                                      authorization: str, body_bytes: bytes):
+    """Handle POST /api/dashboard/feed/streams — add a new RSS feed."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+
+    try:
+        body = json.loads(body_bytes)
+    except (json.JSONDecodeError, ValueError):
+        await server._http_json(writer, 400, {'error': 'invalid json'})
+        return
+
+    url = body.get('url', '').strip()
+    if not url:
+        await server._http_json(writer, 400, {'error': 'url required'})
+        return
+
+    label = body.get('label', '').strip() or None
+    poll_interval = int(body.get('poll_interval_minutes', 60))
+
+    try:
+        feed_id = await db.create_agent_feed(url=url, label=label,
+                                              poll_interval=poll_interval)
+        await server._http_json(writer, 200, {
+            'id': feed_id,
+            'url': url,
+            'label': label,
+            'active': True,
+        })
+    except Exception as e:
+        if 'UNIQUE' in str(e):
+            await server._http_json(writer, 409, {'error': 'feed URL already exists'})
+        else:
+            await server._http_json(writer, 500, {'error': str(e)})
+
+
+async def handle_feed_streams_update(server, writer: asyncio.StreamWriter,
+                                      authorization: str, body_bytes: bytes,
+                                      feed_id: int):
+    """Handle PATCH /api/dashboard/feed/streams/:id — toggle active, update label."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+
+    try:
+        body = json.loads(body_bytes)
+    except (json.JSONDecodeError, ValueError):
+        await server._http_json(writer, 400, {'error': 'invalid json'})
+        return
+
+    updates = {}
+    if 'active' in body:
+        updates['active'] = 1 if body['active'] else 0
+    if 'label' in body:
+        updates['label'] = body['label']
+    if 'poll_interval_minutes' in body:
+        updates['poll_interval_minutes'] = int(body['poll_interval_minutes'])
+
+    if not updates:
+        await server._http_json(writer, 400, {'error': 'no fields to update'})
+        return
+
+    await db.update_agent_feed(feed_id, **updates)
+    await server._http_json(writer, 200, {'updated': True, 'id': feed_id})
+
+
+async def handle_feed_streams_delete(server, writer: asyncio.StreamWriter,
+                                      authorization: str, feed_id: int):
+    """Handle DELETE /api/dashboard/feed/streams/:id — remove an RSS feed."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+
+    deleted = await db.delete_agent_feed(feed_id)
+    if deleted:
+        await server._http_json(writer, 200, {'deleted': True, 'id': feed_id})
+    else:
+        await server._http_json(writer, 404, {'error': 'feed not found'})

@@ -88,6 +88,12 @@ def _setup_db_mocks(threads=None):
     _mock_db.get_active_threads = AsyncMock(return_value=threads or [])
     _mock_db.get_recent_events = AsyncMock(return_value=[])
     _mock_db.get_budget_remaining = AsyncMock(return_value={'budget': 5.0, 'spent': 0, 'remaining': 5.0})
+    _mock_db.get_last_cycle_log = AsyncMock(return_value={
+        'body_state': 'sitting', 'gaze': 'forward', 'expression': 'neutral',
+        'internal_monologue': None, 'actions': [], 'next_cycle_hints': [],
+        'dialogue': None, 'mode': 'idle', 'routing_focus': 'idle',
+    })
+    _mock_db.count_cycle_logs = AsyncMock(return_value=100)
 
 
 # ── Tests ──

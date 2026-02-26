@@ -22,7 +22,7 @@ import signal
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import unquote, urlsplit
+from urllib.parse import parse_qs, unquote, urlsplit
 from dotenv import load_dotenv
 
 import clock
@@ -1171,7 +1171,9 @@ class ShopkeeperServer:
             parts = request_text.split()
             method = parts[0] if parts else 'GET'
             raw_path = parts[1] if len(parts) > 1 else '/'
-            path = urlsplit(raw_path).path
+            parsed_url = urlsplit(raw_path)
+            path = parsed_url.path
+            query_string = parsed_url.query
 
             # Enforce body size limit
             if content_length > self._MAX_BODY_BYTES:
@@ -1290,6 +1292,25 @@ class ShopkeeperServer:
                 # Path-based memory delete: /api/dashboard/memories/:source_id
                 mem_id = path[len('/api/dashboard/memories/'):]
                 await dashboard_routes.handle_delete_memory_by_id(self, writer, authorization, mem_id)
+            # TASK-095 v3.1 Batch 1: Inner voice, feed drops, streams
+            elif path == '/api/dashboard/inner-voice' and method == 'GET':
+                query_params = parse_qs(query_string)
+                await dashboard_routes.handle_inner_voice(self, writer, authorization, query_params)
+            elif path == '/api/dashboard/feed/drop' and method == 'POST':
+                await dashboard_routes.handle_feed_drop(self, writer, authorization, body_bytes)
+            elif path == '/api/dashboard/feed/drops' and method == 'GET':
+                query_params = parse_qs(query_string)
+                await dashboard_routes.handle_feed_drops_list(self, writer, authorization, query_params)
+            elif path == '/api/dashboard/feed/streams' and method == 'GET':
+                await dashboard_routes.handle_feed_streams_list(self, writer, authorization)
+            elif path == '/api/dashboard/feed/streams' and method == 'POST':
+                await dashboard_routes.handle_feed_streams_create(self, writer, authorization, body_bytes)
+            elif path.startswith('/api/dashboard/feed/streams/') and method == 'PATCH':
+                stream_id = int(path[len('/api/dashboard/feed/streams/'):])
+                await dashboard_routes.handle_feed_streams_update(self, writer, authorization, body_bytes, stream_id)
+            elif path.startswith('/api/dashboard/feed/streams/') and method == 'DELETE':
+                stream_id = int(path[len('/api/dashboard/feed/streams/'):])
+                await dashboard_routes.handle_feed_streams_delete(self, writer, authorization, stream_id)
             elif path == '/api/metrics/public' and method == 'GET':
                 await dashboard_routes.handle_metrics_public(self, writer)
             elif path == '/api/live' and method == 'GET':
@@ -1513,7 +1534,7 @@ class ShopkeeperServer:
         allowed = _cors_origin_for(getattr(self, '_current_origin', ''))
         headers = [
             'HTTP/1.1 204 No Content\r\n',
-            'Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n',
+            'Access-Control-Allow-Methods: GET, POST, PATCH, DELETE, OPTIONS\r\n',
             'Access-Control-Allow-Headers: Content-Type, Authorization\r\n',
             'Access-Control-Max-Age: 86400\r\n',
             'Content-Length: 0\r\n',

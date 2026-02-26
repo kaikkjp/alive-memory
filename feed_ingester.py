@@ -196,6 +196,27 @@ async def run_feed_ingestion() -> int:
         except Exception as e:
             logger.warning("Feed source error: %s — %s", source, e)
 
+    # Ingest from DB-configured agent feeds (TASK-095 v3.1)
+    try:
+        db_feeds = await db.get_agent_feeds()
+        for feed in db_feeds:
+            if not feed['active']:
+                continue
+            try:
+                count = await ingest_from_rss(feed['url'], [])
+                total += count
+                await db.update_agent_feed(
+                    feed['id'],
+                    items_fetched=feed['items_fetched'] + count,
+                    last_fetched_at=datetime.now(timezone.utc).isoformat(),
+                )
+                if count > 0:
+                    logger.info("Ingested %d items from DB feed %s", count, feed['url'])
+            except Exception as e:
+                logger.warning("[FeedIngester] DB feed %s error: %s", feed['url'], e)
+    except Exception as e:
+        logger.warning("[FeedIngester] Failed to load DB feeds: %s", e)
+
     # Enrich newly added URL items via markdown.new
     await _enrich_unseen_urls()
 

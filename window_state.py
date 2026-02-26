@@ -11,6 +11,7 @@ No LLM calls. All deterministic.
 from datetime import datetime, timezone, timedelta
 
 import db
+from api.organism import compute_organism_params
 from pipeline.scene import build_scene_layers, get_time_of_day, resolve_sprite_state, resolve_time_of_day
 
 JST = timezone(timedelta(hours=9))
@@ -120,6 +121,24 @@ async def build_initial_state(clock_now: datetime = None,
     sprite_state = resolve_sprite_state(drives, engagement, room, [])
     time_of_day = resolve_time_of_day()
 
+    # Lounge fields (TASK-095 v3.1 Batch 1)
+    is_sleeping = room.shop_status == 'closed'
+    last_cycle = await db.get_last_cycle_log()
+    drives_dict = {
+        'curiosity': drives.curiosity,
+        'social_hunger': drives.social_hunger,
+        'expression_need': drives.expression_need,
+    }
+    organism_params = compute_organism_params(
+        drives=drives_dict,
+        mood_valence=drives.mood_valence,
+        mood_arousal=drives.mood_arousal,
+        energy=drives.energy,
+        is_sleeping=is_sleeping,
+        is_dreaming=False,
+        is_thinking=False,
+    )
+
     return {
         'type': 'scene_update',
         'layers': layers.to_dict(),
@@ -142,6 +161,18 @@ async def build_initial_state(clock_now: datetime = None,
             'sprite_state': sprite_state,
             'time_of_day': time_of_day,
         },
+        'drives': drives_dict,
+        'mood': {
+            'valence': drives.mood_valence,
+            'arousal': drives.mood_arousal,
+        },
+        'energy': drives.energy,
+        'inner_voice': (last_cycle.get('internal_monologue') or None) if last_cycle else None,
+        'organism_params': organism_params,
+        'engagement_state': engagement.status,
+        'current_action': (last_cycle.get('routing_focus') or 'idle') if last_cycle else 'idle',
+        'is_sleeping': is_sleeping,
+        'cycle_count': await db.count_cycle_logs(),
         'chat_history': chat_history or [],
         'timestamp': clock_now.isoformat(),
     }
@@ -183,6 +214,26 @@ async def build_cycle_broadcast(
     sprite_state = resolve_sprite_state(drives, engagement, room, recent_event_dicts, focus=focus)
     time_of_day = resolve_time_of_day()
 
+    # Lounge fields (TASK-095 v3.1 Batch 1)
+    is_sleeping = shop_status == 'closed'
+    is_thinking = (cycle_log.get('gaze') == 'away_thinking'
+                   or (engagement.status != 'engaged'
+                       and cycle_log.get('routing_focus') not in (None, 'idle')))
+    drives_dict = {
+        'curiosity': drives.curiosity,
+        'social_hunger': drives.social_hunger,
+        'expression_need': drives.expression_need,
+    }
+    organism_params = compute_organism_params(
+        drives=drives_dict,
+        mood_valence=drives.mood_valence,
+        mood_arousal=drives.mood_arousal,
+        energy=drives.energy,
+        is_sleeping=is_sleeping,
+        is_dreaming=False,
+        is_thinking=is_thinking,
+    )
+
     return {
         'type': 'scene_update',
         'layers': layers.to_dict(),
@@ -207,6 +258,18 @@ async def build_cycle_broadcast(
             'sprite_state': sprite_state,
             'time_of_day': time_of_day,
         },
+        'drives': drives_dict,
+        'mood': {
+            'valence': drives.mood_valence,
+            'arousal': drives.mood_arousal,
+        },
+        'energy': drives.energy,
+        'inner_voice': cycle_log.get('internal_monologue') or None,
+        'organism_params': organism_params,
+        'engagement_state': engagement.status,
+        'current_action': cycle_log.get('routing_focus'),
+        'is_sleeping': is_sleeping,
+        'cycle_count': await db.count_cycle_logs(),
         'timestamp': clock_now.isoformat(),
     }
 

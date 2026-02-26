@@ -58,7 +58,7 @@ async def get_last_cycle_log() -> dict | None:
     conn = await _connection.get_db()
     cursor = await conn.execute(
         """SELECT body_state, gaze, expression, internal_monologue,
-                  actions, next_cycle_hints, dialogue, mode
+                  actions, next_cycle_hints, dialogue, mode, routing_focus
            FROM cycle_log ORDER BY ts DESC LIMIT 1"""
     )
     row = await cursor.fetchone()
@@ -74,6 +74,7 @@ async def get_last_cycle_log() -> dict | None:
         'next_cycle_hints': raw_hints if isinstance(raw_hints, list) else [],
         'dialogue': row['dialogue'],
         'mode': row['mode'],
+        'routing_focus': row['routing_focus'] if 'routing_focus' in row.keys() else None,
     }
 
 
@@ -91,6 +92,52 @@ async def get_last_creative_cycle() -> Optional[dict]:
         'dialogue': row['dialogue'],
         'internal_monologue': row['internal_monologue'],
     }
+
+
+# ─── Inner Voice History ───
+
+async def get_inner_voice_history(limit: int = 20, before: str = None) -> list[dict]:
+    """Fetch recent internal monologue entries from cycle_log.
+
+    Args:
+        limit: Max entries to return.
+        before: ISO timestamp — only return entries before this time.
+
+    Returns:
+        List of dicts with text, timestamp, cycle_id, cycle_type.
+    """
+    conn = await _connection.get_db()
+    if before:
+        cursor = await conn.execute(
+            """SELECT id, internal_monologue, ts, mode
+               FROM cycle_log
+               WHERE internal_monologue IS NOT NULL
+                 AND internal_monologue != ''
+                 AND ts < ?
+               ORDER BY ts DESC
+               LIMIT ?""",
+            (before, limit),
+        )
+    else:
+        cursor = await conn.execute(
+            """SELECT id, internal_monologue, ts, mode
+               FROM cycle_log
+               WHERE internal_monologue IS NOT NULL
+                 AND internal_monologue != ''
+               ORDER BY ts DESC
+               LIMIT ?""",
+            (limit,),
+        )
+    rows = await cursor.fetchall()
+    return [
+        {
+            'text': row['internal_monologue'],
+            'timestamp': row['ts'],
+            'cycle_id': str(row['id']),
+            'cycle_type': row['mode'] or 'idle',
+        }
+        for row in rows
+    ]
 
 
 # ─── Count Utilities ───

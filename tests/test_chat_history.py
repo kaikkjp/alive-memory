@@ -157,21 +157,24 @@ class TestBuildInitialStateWithHistory:
             {'type': 'chat_response', 'content': 'Welcome!'},
         ]
 
+        from models.state import DrivesState, RoomState, EngagementState
         with patch('window_state.db') as mock_db:
-            mock_db.get_drives_state = AsyncMock(return_value=MagicMock(
-                curiosity=0.5, creativity=0.5, energy=0.5,
-                social=0.5, knowledge=0.5, autonomy=0.5,
+            mock_db.get_drives_state = AsyncMock(return_value=DrivesState(
+                social_hunger=0.5, curiosity=0.5, expression_need=0.3,
+                rest_need=0.2, energy=0.8, mood_valence=0.5, mood_arousal=0.3,
             ))
-            mock_db.get_room_state = AsyncMock(return_value=MagicMock(
-                weather='clear', shop_status='open', time_of_day='afternoon',
+            mock_db.get_room_state = AsyncMock(return_value=RoomState(
+                weather='clear', shop_status='open',
             ))
-            mock_db.get_engagement_state = AsyncMock(return_value=MagicMock(
-                status='none', visitor_id=None,
+            mock_db.get_engagement_state = AsyncMock(return_value=EngagementState(
+                status='none',
             ))
             mock_db.get_recent_text_fragments = AsyncMock(return_value=[])
             mock_db.get_shelf_assignments = AsyncMock(return_value=[])
             mock_db.get_active_threads = AsyncMock(return_value=[])
             mock_db.get_budget_remaining = AsyncMock(return_value={'remaining': 10})
+            mock_db.get_last_cycle_log = AsyncMock(return_value=None)
+            mock_db.count_cycle_logs = AsyncMock(return_value=0)
 
             with patch('window_state.build_scene_layers', new_callable=AsyncMock) as mock_layers, \
                  patch('window_state.resolve_sprite_state', return_value='focused'), \
@@ -190,21 +193,24 @@ class TestBuildInitialStateWithHistory:
         """build_initial_state with no chat_history returns empty list."""
         from window_state import build_initial_state
 
+        from models.state import DrivesState, RoomState, EngagementState
         with patch('window_state.db') as mock_db:
-            mock_db.get_drives_state = AsyncMock(return_value=MagicMock(
-                curiosity=0.5, creativity=0.5, energy=0.5,
-                social=0.5, knowledge=0.5, autonomy=0.5,
+            mock_db.get_drives_state = AsyncMock(return_value=DrivesState(
+                social_hunger=0.5, curiosity=0.5, expression_need=0.3,
+                rest_need=0.2, energy=0.8, mood_valence=0.5, mood_arousal=0.3,
             ))
-            mock_db.get_room_state = AsyncMock(return_value=MagicMock(
-                weather='clear', shop_status='open', time_of_day='afternoon',
+            mock_db.get_room_state = AsyncMock(return_value=RoomState(
+                weather='clear', shop_status='open',
             ))
-            mock_db.get_engagement_state = AsyncMock(return_value=MagicMock(
-                status='none', visitor_id=None,
+            mock_db.get_engagement_state = AsyncMock(return_value=EngagementState(
+                status='none',
             ))
             mock_db.get_recent_text_fragments = AsyncMock(return_value=[])
             mock_db.get_shelf_assignments = AsyncMock(return_value=[])
             mock_db.get_active_threads = AsyncMock(return_value=[])
             mock_db.get_budget_remaining = AsyncMock(return_value={'remaining': 10})
+            mock_db.get_last_cycle_log = AsyncMock(return_value=None)
+            mock_db.count_cycle_logs = AsyncMock(return_value=0)
 
             with patch('window_state.build_scene_layers', new_callable=AsyncMock) as mock_layers, \
                  patch('window_state.resolve_sprite_state', return_value='focused'), \

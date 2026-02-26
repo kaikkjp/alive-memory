@@ -731,6 +731,84 @@ async def save_content_for_later(pool_id: str):
     )
 
 
+# ── Agent Feeds ──
+
+async def get_agent_feeds() -> list[dict]:
+    """Get all configured agent RSS feeds."""
+    conn = await _connection.get_db()
+    cursor = await conn.execute(
+        "SELECT * FROM agent_feeds ORDER BY created_at DESC"
+    )
+    rows = await cursor.fetchall()
+    return [dict(row) for row in rows]
+
+
+async def create_agent_feed(url: str, label: str = None,
+                             poll_interval: int = 60) -> int:
+    """Create a new agent RSS feed. Returns the new feed ID."""
+    conn = await _connection.get_db()
+    cursor = await conn.execute(
+        """INSERT INTO agent_feeds (url, label, poll_interval_minutes)
+           VALUES (?, ?, ?)""",
+        (url, label, poll_interval)
+    )
+    await conn.commit()
+    return cursor.lastrowid
+
+
+async def update_agent_feed(feed_id: int, **kwargs):
+    """Update an agent feed. Accepts active, label, poll_interval_minutes, etc."""
+    if not kwargs:
+        return
+    sets = ', '.join(f'{k} = ?' for k in kwargs)
+    values = list(kwargs.values()) + [feed_id]
+    await _connection._exec_write(
+        f"UPDATE agent_feeds SET {sets} WHERE id = ?",
+        tuple(values)
+    )
+
+
+async def delete_agent_feed(feed_id: int) -> bool:
+    """Delete an agent feed. Returns True if deleted."""
+    conn = await _connection.get_db()
+    cursor = await conn.execute(
+        "DELETE FROM agent_feeds WHERE id = ?",
+        (feed_id,)
+    )
+    await conn.commit()
+    return cursor.rowcount > 0
+
+
+# ── Manager Drops ──
+
+async def get_manager_drops(limit: int = 50) -> list[dict]:
+    """Get content pool items dropped by the manager, with consumption status."""
+    conn = await _connection.get_db()
+    cursor = await conn.execute(
+        """SELECT id, title, content, source_type, status,
+                  added_at, consumed_at, consumption_output
+           FROM content_pool
+           WHERE source_channel = 'manager'
+           ORDER BY added_at DESC
+           LIMIT ?""",
+        (limit,)
+    )
+    rows = await cursor.fetchall()
+    return [
+        {
+            'id': row['id'],
+            'title': row['title'],
+            'content': row['content'],
+            'source_type': row['source_type'],
+            'status': row['status'],
+            'added_at': row['added_at'],
+            'consumed_at': row['consumed_at'],
+            'consumption_output': row['consumption_output'],
+        }
+        for row in rows
+    ]
+
+
 async def expire_saved_items(max_age_hours: float = 48.0):
     """Remove saved status from items saved more than max_age_hours ago."""
     cutoff = (clock.now_utc() - timedelta(hours=max_age_hours)).isoformat()
