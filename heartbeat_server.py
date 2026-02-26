@@ -1306,10 +1306,18 @@ class ShopkeeperServer:
             elif path == '/api/dashboard/feed/streams' and method == 'POST':
                 await dashboard_routes.handle_feed_streams_create(self, writer, authorization, body_bytes)
             elif path.startswith('/api/dashboard/feed/streams/') and method == 'PATCH':
-                stream_id = int(path[len('/api/dashboard/feed/streams/'):])
+                try:
+                    stream_id = int(path[len('/api/dashboard/feed/streams/'):])
+                except ValueError:
+                    await self._http_json(writer, 400, {'error': 'invalid stream id'})
+                    return
                 await dashboard_routes.handle_feed_streams_update(self, writer, authorization, body_bytes, stream_id)
             elif path.startswith('/api/dashboard/feed/streams/') and method == 'DELETE':
-                stream_id = int(path[len('/api/dashboard/feed/streams/'):])
+                try:
+                    stream_id = int(path[len('/api/dashboard/feed/streams/'):])
+                except ValueError:
+                    await self._http_json(writer, 400, {'error': 'invalid stream id'})
+                    return
                 await dashboard_routes.handle_feed_streams_delete(self, writer, authorization, stream_id)
             elif path == '/api/metrics/public' and method == 'GET':
                 await dashboard_routes.handle_metrics_public(self, writer)
