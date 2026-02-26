@@ -1175,7 +1175,7 @@ async def handle_live_dashboard(server, writer):
 
     # ─── Last Sleep ───
     cursor = await conn.execute(
-        """SELECT created_at FROM daily_summaries
+        """SELECT created_at, emotional_arc, summary_bullets FROM daily_summaries
            ORDER BY created_at DESC LIMIT 1"""
     )
     sleep_row = await cursor.fetchone()
@@ -1186,8 +1186,12 @@ async def handle_live_dashboard(server, writer):
             if sleep_dt.tzinfo is None:
                 sleep_dt = sleep_dt.replace(tzinfo=timezone.utc)
             hours_ago = (clock.now_utc() - sleep_dt).total_seconds() / 3600
+            import json as _json
+            bullets = _json.loads(sleep_row['summary_bullets']) if sleep_row['summary_bullets'] else {}
             last_sleep = {
                 'hoursAgo': round(hours_ago, 1),
+                'emotionalArc': sleep_row['emotional_arc'] or '',
+                'momentCount': bullets.get('moment_count', 0),
             }
         except (ValueError, TypeError):
             pass

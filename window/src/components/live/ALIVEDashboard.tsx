@@ -43,6 +43,8 @@ interface LiveMemory {
 
 interface LiveSleep {
   hoursAgo: number;
+  emotionalArc: string;
+  momentCount: number;
 }
 
 interface LiveVisitors {
@@ -555,7 +557,9 @@ export default function ALIVEDashboard() {
                 ◌ Last Sleep {state.lastSleep ? `· ${Math.round(state.lastSleep.hoursAgo)}h ago` : ''}
               </div>
               <div style={{ fontSize: 13, color: '#666', fontStyle: 'italic' }}>
-                {state.lastSleep ? 'Consolidation data not yet tracked' : 'No sleep recorded'}
+                {state.lastSleep
+                  ? `${state.lastSleep.momentCount} moment${state.lastSleep.momentCount !== 1 ? 's' : ''} consolidated · ${state.lastSleep.emotionalArc || '—'}`
+                  : 'No sleep recorded'}
               </div>
             </div>
 
