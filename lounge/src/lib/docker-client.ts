@@ -11,8 +11,9 @@ import path from 'path';
 
 const exec = promisify(execFile);
 
-// Project root is one level up from lounge/
-const PROJECT_ROOT = path.resolve(process.cwd(), '..');
+// ALIVE_ENGINE_DIR points to the engine repo root (where scripts/ lives).
+// Falls back to parent of cwd for dev (lounge/ lives inside the repo).
+const PROJECT_ROOT = process.env.ALIVE_ENGINE_DIR || path.resolve(process.cwd(), '..');
 const SCRIPTS = path.join(PROJECT_ROOT, 'scripts');
 
 export interface DockerResult {
