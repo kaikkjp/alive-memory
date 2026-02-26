@@ -1,16 +1,16 @@
 /**
- * TASK-095 v2: Whisper queue endpoints.
- * TASK-095 v3.1 Batch 2 (2C): Added DELETE for canceling pending whispers.
+ * RSS stream management endpoints.
  *
- * GET    /api/agents/:id/whispers — List pending whispers
- * POST   /api/agents/:id/whispers — Create a new whisper (queue config change)
- * DELETE /api/agents/:id/whispers — Cancel a pending whisper { whisper_id }
+ * TASK-095 v3.1 Batch 2 (2G): Proxy for per-agent RSS feed configuration.
+ *
+ * GET  /api/agents/:id/feed/streams — List configured RSS feeds
+ * POST /api/agents/:id/feed/streams — Add a new RSS feed { url, label }
  */
 
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import * as db from '@/lib/manager-db';
-import { getAgentHealth, dashboardGet, dashboardPost, dashboardDelete } from '@/lib/agent-client';
+import { getAgentHealth, dashboardFetchRaw } from '@/lib/agent-client';
 
 async function getManagerId(): Promise<string | null> {
   const h = await headers();
@@ -47,12 +47,16 @@ export async function GET(
     return NextResponse.json({ error: 'no api key' }, { status: 500 });
   }
 
-  const result = await dashboardGet(agent.port, keys[0].key, 'whispers');
-  if (!result) {
+  const { data, status } = await dashboardFetchRaw(agent.port, keys[0].key, 'GET', 'feed/streams');
+
+  if (status === 0) {
     return NextResponse.json({ error: 'agent not responding' }, { status: 502 });
   }
+  if (status >= 400) {
+    return NextResponse.json({ error: data ?? 'engine error' }, { status });
+  }
 
-  return NextResponse.json(result);
+  return NextResponse.json(data ?? { streams: [] });
 }
 
 export async function POST(
@@ -76,9 +80,9 @@ export async function POST(
   }
 
   const body = await request.json();
-  if (!body.param_path || body.new_value === undefined) {
+  if (!body.url) {
     return NextResponse.json(
-      { error: 'param_path and new_value are required' },
+      { error: 'url is required' },
       { status: 400 }
     );
   }
@@ -93,65 +97,18 @@ export async function POST(
     return NextResponse.json({ error: 'no api key' }, { status: 500 });
   }
 
-  const result = await dashboardPost(agent.port, keys[0].key, 'whispers', {
-    param_path: body.param_path,
-    new_value: body.new_value,
+  const { data, status } = await dashboardFetchRaw(agent.port, keys[0].key, 'POST', 'feed/streams', {
+    url: body.url,
+    ...(body.label ? { label: body.label } : {}),
+    ...(body.poll_interval ? { poll_interval: body.poll_interval } : {}),
   });
 
-  if (!result) {
+  if (status === 0) {
     return NextResponse.json({ error: 'agent not responding' }, { status: 502 });
   }
-
-  return NextResponse.json(result, { status: 201 });
-}
-
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const managerId = await getManagerId();
-  if (!managerId) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  if (status >= 400) {
+    return NextResponse.json({ error: data ?? 'engine error' }, { status });
   }
 
-  const { id } = await params;
-  const owns = await db.agentBelongsToManager(id, managerId);
-  if (!owns) {
-    return NextResponse.json({ error: 'not found' }, { status: 404 });
-  }
-
-  const agent = await db.getAgent(id);
-  if (!agent) {
-    return NextResponse.json({ error: 'not found' }, { status: 404 });
-  }
-
-  const body = await request.json();
-  if (!body.whisper_id) {
-    return NextResponse.json(
-      { error: 'whisper_id is required' },
-      { status: 400 }
-    );
-  }
-
-  const healthy = await getAgentHealth(agent.port);
-  if (!healthy) {
-    return NextResponse.json({ error: 'agent offline' }, { status: 502 });
-  }
-
-  const keys = await db.listApiKeys(id);
-  if (keys.length === 0) {
-    return NextResponse.json({ error: 'no api key' }, { status: 500 });
-  }
-
-  const result = await dashboardDelete(
-    agent.port,
-    keys[0].key,
-    `whispers/${encodeURIComponent(body.whisper_id)}`
-  );
-
-  if (!result) {
-    return NextResponse.json({ error: 'agent not responding' }, { status: 502 });
-  }
-
-  return NextResponse.json(result);
+  return NextResponse.json(data, { status: 201 });
 }

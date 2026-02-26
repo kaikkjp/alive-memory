@@ -82,6 +82,32 @@ export async function dashboardPost(
 }
 
 /**
+ * Generic dashboard PATCH — proxy to agent's /api/dashboard/* endpoints.
+ */
+export async function dashboardPatch(
+  port: number,
+  apiKey: string,
+  path: string,
+  body?: Record<string, unknown>
+): Promise<Record<string, unknown> | null> {
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/api/dashboard/${path}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: body ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(DASHBOARD_TIMEOUT),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Generic dashboard DELETE — proxy to agent's /api/dashboard/* endpoints.
  */
 export async function dashboardDelete(
@@ -100,6 +126,56 @@ export async function dashboardDelete(
   } catch {
     return null;
   }
+}
+
+/**
+ * TASK-095 v3.1 Batch 4: Raw dashboard fetch with status code preservation.
+ *
+ * Unlike dashboardGet/Post/etc which collapse all non-2xx to null,
+ * this returns { data, status } so portal routes can distinguish
+ * 404 (endpoint not deployed) from 502 (agent unreachable).
+ */
+type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE';
+export interface DashboardRawResult {
+  data: unknown;
+  status: number; // 0 = network/timeout error
+}
+
+export async function dashboardFetchRaw(
+  port: number,
+  apiKey: string,
+  method: HttpMethod,
+  path: string,
+  body?: Record<string, unknown>
+): Promise<DashboardRawResult> {
+  try {
+    const hdrs: Record<string, string> = { Authorization: `Bearer ${apiKey}` };
+    if (body) hdrs['Content-Type'] = 'application/json';
+    const res = await fetch(`http://127.0.0.1:${port}/api/dashboard/${path}`, {
+      method,
+      headers: hdrs,
+      body: body ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(DASHBOARD_TIMEOUT),
+    });
+    if (!res.ok) return { data: null, status: res.status };
+    // Safe parse: 204/empty → null, non-JSON → null (preserves real status)
+    const text = await res.text();
+    if (!text) return { data: null, status: res.status };
+    try {
+      return { data: JSON.parse(text), status: res.status };
+    } catch {
+      return { data: null, status: res.status };
+    }
+  } catch {
+    return { data: null, status: 0 };
+  }
+}
+
+/**
+ * Get the WebSocket URL for an agent's lounge stream.
+ */
+export function getAgentWsUrl(port: number): string {
+  return `ws://127.0.0.1:${port}/ws/lounge`;
 }
 
 export async function getConversationHistory(

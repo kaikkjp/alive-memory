@@ -121,3 +121,108 @@ export interface ActionCapability {
   description?: string;
   energy_cost?: number;
 }
+
+// ── TASK-095 v3.1 Batch 2: Portal Backend ──
+
+export interface OrganismParams {
+  evolution_speed: number;
+  complexity: number;
+  stroke_alpha: number;
+  color_temp: number;
+  bg_darkness: number;
+  amplitude: number;
+  phase_offsets: [number, number, number];
+  dream_flare: boolean;
+  thinking_boost: boolean;
+}
+
+export interface InnerVoiceEntry {
+  text: string;
+  timestamp: string;
+  cycle_id?: string;
+  cycle_type?: string;
+}
+
+export interface FeedDrop {
+  id: number;
+  title: string;
+  content: string;
+  source_type: string;
+  status: string;
+  added_at: string;
+  consumed_at?: string;
+  consumption_output?: string;
+}
+
+export interface FeedStream {
+  id: number;
+  url: string;
+  label?: string;
+  active: boolean;
+  poll_interval_minutes: number;
+  last_fetched_at?: string;
+  items_fetched: number;
+  created_at: string;
+}
+
+export interface ChannelStatus {
+  channel: string;
+  enabled: boolean;
+  last_activity?: string;
+  message_count?: number;
+}
+
+export interface ExpandedLoungeState {
+  status: 'active' | 'inactive' | 'offline';
+  drives?: {
+    curiosity: number;
+    social_hunger: number;
+    expression_need: number;
+  };
+  mood?: { valence: number; arousal: number };
+  energy?: number;
+  engaged?: boolean;
+  inner_voice?: string | null;
+  organism_params?: OrganismParams;
+  engagement_state?: string;
+  current_action?: string;
+  is_sleeping?: boolean;
+  cycle_count?: number;
+  timestamp?: string;
+}
+
+// ── TASK-095 v3.1 Batch 4: Lounge Frontend ──
+
+export interface AgentStreamState {
+  drives: {
+    curiosity: number;
+    social_hunger: number;
+    expression_need: number;
+    rest_need: number;
+    energy: number;
+    mood_valence: number;
+    mood_arousal: number;
+  } | null;
+  mood: { valence: number; arousal: number } | null;
+  energy: number;
+  engagement_state: string;
+  is_sleeping: boolean;
+  is_dreaming: boolean;
+  cycle_count: number;
+  inner_voice: InnerVoiceEntry[];
+  recent_actions: Array<{ action: string; timestamp: string; content?: string }>;
+  current_action: string | null;
+  status: 'connected' | 'reconnecting' | 'offline' | 'error';
+  lastUpdate: string | null;
+}
+
+export interface ChatMessage {
+  role: 'user' | 'agent' | 'system';
+  text: string;
+  timestamp: string;
+}
+
+export interface CapabilityWithUsage extends ActionCapability {
+  usage_count?: number;
+  source?: 'builtin' | 'mcp';
+}
