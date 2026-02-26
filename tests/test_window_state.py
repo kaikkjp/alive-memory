@@ -38,6 +38,10 @@ _mock_scene.resolve_time_of_day = MagicMock(return_value='afternoon')
 sys.modules["pipeline.scene"] = _mock_scene
 
 from models.state import DrivesState, RoomState, EngagementState, Thread
+
+# Re-import window_state fresh with our mocks (avoids pollution from other test files)
+if 'window_state' in sys.modules:
+    del sys.modules['window_state']
 import window_state
 
 

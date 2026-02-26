@@ -1562,9 +1562,12 @@ async def handle_inner_voice(server, writer: asyncio.StreamWriter,
         await server._http_json(writer, 401, {'error': 'unauthorized'})
         return
 
-    limit = int(query_params.get('limit', ['20'])[0])
+    try:
+        limit = max(1, min(int(query_params.get('limit', ['20'])[0]), 100))
+    except (ValueError, TypeError):
+        await server._http_json(writer, 400, {'error': 'invalid limit'})
+        return
     before = query_params.get('before', [None])[0]
-    limit = min(limit, 100)  # cap
 
     entries = await db.get_inner_voice_history(limit=limit, before=before)
     await server._http_json(writer, 200, entries)
@@ -1626,8 +1629,11 @@ async def handle_feed_drops_list(server, writer: asyncio.StreamWriter,
         await server._http_json(writer, 401, {'error': 'unauthorized'})
         return
 
-    limit = int(query_params.get('limit', ['50'])[0])
-    limit = min(limit, 200)
+    try:
+        limit = max(1, min(int(query_params.get('limit', ['50'])[0]), 200))
+    except (ValueError, TypeError):
+        await server._http_json(writer, 400, {'error': 'invalid limit'})
+        return
 
     drops = await db.get_manager_drops(limit=limit)
     await server._http_json(writer, 200, drops)
@@ -1663,7 +1669,11 @@ async def handle_feed_streams_create(server, writer: asyncio.StreamWriter,
         return
 
     label = body.get('label', '').strip() or None
-    poll_interval = int(body.get('poll_interval_minutes', 60))
+    try:
+        poll_interval = max(1, int(body.get('poll_interval_minutes', 60)))
+    except (ValueError, TypeError):
+        await server._http_json(writer, 400, {'error': 'invalid poll_interval_minutes'})
+        return
 
     try:
         feed_id = await db.create_agent_feed(url=url, label=label,
@@ -1701,14 +1711,21 @@ async def handle_feed_streams_update(server, writer: asyncio.StreamWriter,
     if 'label' in body:
         updates['label'] = body['label']
     if 'poll_interval_minutes' in body:
-        updates['poll_interval_minutes'] = int(body['poll_interval_minutes'])
+        try:
+            updates['poll_interval_minutes'] = max(1, int(body['poll_interval_minutes']))
+        except (ValueError, TypeError):
+            await server._http_json(writer, 400, {'error': 'invalid poll_interval_minutes'})
+            return
 
     if not updates:
         await server._http_json(writer, 400, {'error': 'no fields to update'})
         return
 
-    await db.update_agent_feed(feed_id, **updates)
-    await server._http_json(writer, 200, {'updated': True, 'id': feed_id})
+    rows_changed = await db.update_agent_feed(feed_id, **updates)
+    if rows_changed == 0:
+        await server._http_json(writer, 404, {'error': 'feed not found'})
+    else:
+        await server._http_json(writer, 200, {'updated': True, 'id': feed_id})
 
 
 async def handle_feed_streams_delete(server, writer: asyncio.StreamWriter,

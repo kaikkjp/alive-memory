@@ -756,16 +756,19 @@ async def create_agent_feed(url: str, label: str = None,
     return cursor.lastrowid
 
 
-async def update_agent_feed(feed_id: int, **kwargs):
-    """Update an agent feed. Accepts active, label, poll_interval_minutes, etc."""
+async def update_agent_feed(feed_id: int, **kwargs) -> int:
+    """Update an agent feed. Returns number of rows changed."""
     if not kwargs:
-        return
+        return 0
     sets = ', '.join(f'{k} = ?' for k in kwargs)
     values = list(kwargs.values()) + [feed_id]
-    await _connection._exec_write(
+    conn = await _connection.get_db()
+    cursor = await conn.execute(
         f"UPDATE agent_feeds SET {sets} WHERE id = ?",
         tuple(values)
     )
+    await conn.commit()
+    return cursor.rowcount
 
 
 async def delete_agent_feed(feed_id: int) -> bool:
