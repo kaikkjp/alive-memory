@@ -51,7 +51,7 @@ export async function POST(request: Request) {
 
     // Create agent record
     const agentName = body.name?.trim() || 'Unnamed';
-    const agent = await db.createAgent(agentName, managerId, port, body.openrouter_key.trim());
+    const agent = await db.createAgent(agentName, managerId, port, body.openrouter_key.trim(), body.role?.trim(), body.bio?.trim());
 
     // Create initial API key
     const apiKey = await db.createApiKey(agent.id, 'default');

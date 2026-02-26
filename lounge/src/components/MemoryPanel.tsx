@@ -104,7 +104,7 @@ export default function MemoryPanel({ agentId, onClose }: MemoryPanelProps) {
     return organic.filter(
       (m) =>
         m.text_content.toLowerCase().includes(q) ||
-        m.source_type.toLowerCase().includes(q)
+        (m.source_type ?? '').toLowerCase().includes(q)
     );
   }, [organic, search]);
 

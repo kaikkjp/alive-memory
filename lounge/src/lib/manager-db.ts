@@ -53,6 +53,8 @@ async function getDb(): Promise<Database> {
     CREATE TABLE IF NOT EXISTS agents (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT '',
+      bio TEXT NOT NULL DEFAULT '',
       manager_id TEXT NOT NULL,
       port INTEGER NOT NULL,
       openrouter_key TEXT NOT NULL DEFAULT '',
@@ -119,32 +121,34 @@ export async function createManager(name: string, token: string): Promise<Manage
 export async function listAgents(managerId: string): Promise<Agent[]> {
   const db = await getDb();
   const result = db.exec(
-    'SELECT id, name, manager_id, port, created_at, updated_at FROM agents WHERE manager_id = ? ORDER BY created_at DESC',
+    'SELECT id, name, role, manager_id, port, created_at, updated_at FROM agents WHERE manager_id = ? ORDER BY created_at DESC',
     [managerId]
   );
   if (!result.length) return [];
   return result[0].values.map((row) => ({
     id: row[0] as string,
     name: row[1] as string,
-    manager_id: row[2] as string,
-    port: row[3] as number,
+    role: (row[2] as string) || undefined,
+    manager_id: row[3] as string,
+    port: row[4] as number,
     status: 'stopped' as const, // Status determined at runtime
-    created_at: row[4] as string,
-    updated_at: row[5] as string,
+    created_at: row[5] as string,
+    updated_at: row[6] as string,
   }));
 }
 
 export async function getAgent(id: string): Promise<Agent | null> {
   const db = await getDb();
   const result = db.exec(
-    'SELECT id, name, manager_id, port, created_at, updated_at FROM agents WHERE id = ?',
+    'SELECT id, name, role, manager_id, port, created_at, updated_at FROM agents WHERE id = ?',
     [id]
   );
   if (!result.length || !result[0].values.length) return null;
-  const [aid, name, manager_id, port, created_at, updated_at] = result[0].values[0];
+  const [aid, name, role, manager_id, port, created_at, updated_at] = result[0].values[0];
   return {
     id: aid as string,
     name: name as string,
+    role: (role as string) || undefined,
     manager_id: manager_id as string,
     port: port as number,
     status: 'stopped',
@@ -157,7 +161,9 @@ export async function createAgent(
   name: string,
   managerId: string,
   port: number,
-  openrouterKey: string
+  openrouterKey: string,
+  role?: string,
+  bio?: string
 ): Promise<Agent> {
   const db = await getDb();
   // Generate a URL-safe agent ID from the name
@@ -170,13 +176,14 @@ export async function createAgent(
   const id = slug ? `${slug}-${suffix}` : `agent-${suffix}`;
 
   db.run(
-    'INSERT INTO agents (id, name, manager_id, port, openrouter_key) VALUES (?, ?, ?, ?, ?)',
-    [id, name, managerId, port, openrouterKey]
+    'INSERT INTO agents (id, name, role, bio, manager_id, port, openrouter_key) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [id, name, role || '', bio || '', managerId, port, openrouterKey]
   );
   persist();
   return {
     id,
     name,
+    role: role || undefined,
     manager_id: managerId,
     port,
     status: 'stopped',

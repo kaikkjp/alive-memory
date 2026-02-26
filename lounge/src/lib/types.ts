@@ -49,6 +49,8 @@ export interface AgentStatus {
 export interface CreateAgentRequest {
   name: string;
   openrouter_key: string;
+  role?: string;
+  bio?: string;
 }
 
 export interface CreateApiKeyRequest {
