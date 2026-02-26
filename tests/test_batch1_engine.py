@@ -125,9 +125,14 @@ class TestOrganismParams:
 
 # ── Window state lounge field tests ──
 
-# Mock db and pipeline.scene before importing window_state
+# Mock db and pipeline.scene before importing window_state.
+# Save originals so teardown_module() can restore them.
+_saved_modules = {}
+for _mod_name in ('db', 'pipeline', 'pipeline.scene', 'window_state'):
+    if _mod_name in sys.modules:
+        _saved_modules[_mod_name] = sys.modules[_mod_name]
+
 _mock_db = MagicMock()
-_original_db = sys.modules.get("db")
 sys.modules["db"] = _mock_db
 
 _mock_scene = MagicMock()
@@ -155,6 +160,15 @@ from models.state import DrivesState, RoomState, EngagementState
 if 'window_state' in sys.modules:
     del sys.modules['window_state']
 import window_state
+
+
+def teardown_module():
+    """Restore sys.modules to pre-mock state so later tests aren't polluted."""
+    for mod_name in ('db', 'pipeline', 'pipeline.scene', 'window_state'):
+        if mod_name in _saved_modules:
+            sys.modules[mod_name] = _saved_modules[mod_name]
+        else:
+            sys.modules.pop(mod_name, None)
 
 
 def _make_drives():
