@@ -762,12 +762,15 @@ async def update_agent_feed(feed_id: int, **kwargs) -> int:
         return 0
     sets = ', '.join(f'{k} = ?' for k in kwargs)
     values = list(kwargs.values()) + [feed_id]
+    sql = f"UPDATE agent_feeds SET {sets} WHERE id = ?"
+    params = tuple(values)
     conn = await _connection.get_db()
-    cursor = await conn.execute(
-        f"UPDATE agent_feeds SET {sets} WHERE id = ?",
-        tuple(values)
-    )
-    await conn.commit()
+    if _connection._tx_depth.get() > 0:
+        cursor = await conn.execute(sql, params)
+    else:
+        async with _connection._write_lock:
+            cursor = await conn.execute(sql, params)
+            await conn.commit()
     return cursor.rowcount
 
 
