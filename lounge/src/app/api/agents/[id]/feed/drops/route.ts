@@ -1,16 +1,16 @@
 /**
- * TASK-095 v2: Whisper queue endpoints.
- * TASK-095 v3.1 Batch 2 (2C): Added DELETE for canceling pending whispers.
+ * Feed drop endpoints.
  *
- * GET    /api/agents/:id/whispers — List pending whispers
- * POST   /api/agents/:id/whispers — Create a new whisper (queue config change)
- * DELETE /api/agents/:id/whispers — Cancel a pending whisper { whisper_id }
+ * TASK-095 v3.1 Batch 2 (2G): Proxy for manual content injection.
+ *
+ * GET  /api/agents/:id/feed/drops — List manager drops with consumption status
+ * POST /api/agents/:id/feed/drops — Drop content (URL or text) into agent's feed
  */
 
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import * as db from '@/lib/manager-db';
-import { getAgentHealth, dashboardGet, dashboardPost, dashboardDelete } from '@/lib/agent-client';
+import { getAgentHealth, dashboardFetchRaw } from '@/lib/agent-client';
 
 async function getManagerId(): Promise<string | null> {
   const h = await headers();
@@ -18,7 +18,7 @@ async function getManagerId(): Promise<string | null> {
 }
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const managerId = await getManagerId();
@@ -47,12 +47,22 @@ export async function GET(
     return NextResponse.json({ error: 'no api key' }, { status: 500 });
   }
 
-  const result = await dashboardGet(agent.port, keys[0].key, 'whispers');
-  if (!result) {
+  // Forward limit param
+  const url = new URL(request.url);
+  const limit = url.searchParams.get('limit');
+  let path = 'feed/drops';
+  if (limit) path += `?limit=${encodeURIComponent(limit)}`;
+
+  const { data, status } = await dashboardFetchRaw(agent.port, keys[0].key, 'GET', path);
+
+  if (status === 0) {
     return NextResponse.json({ error: 'agent not responding' }, { status: 502 });
   }
+  if (status >= 400) {
+    return NextResponse.json({ error: data ?? 'engine error' }, { status });
+  }
 
-  return NextResponse.json(result);
+  return NextResponse.json(data ?? { drops: [] });
 }
 
 export async function POST(
@@ -76,9 +86,9 @@ export async function POST(
   }
 
   const body = await request.json();
-  if (!body.param_path || body.new_value === undefined) {
+  if (!body.title || (!body.url && !body.text)) {
     return NextResponse.json(
-      { error: 'param_path and new_value are required' },
+      { error: 'title and either url or text are required' },
       { status: 400 }
     );
   }
@@ -93,65 +103,18 @@ export async function POST(
     return NextResponse.json({ error: 'no api key' }, { status: 500 });
   }
 
-  const result = await dashboardPost(agent.port, keys[0].key, 'whispers', {
-    param_path: body.param_path,
-    new_value: body.new_value,
+  const { data, status } = await dashboardFetchRaw(agent.port, keys[0].key, 'POST', 'feed/drop', {
+    title: body.title,
+    ...(body.url ? { url: body.url } : {}),
+    ...(body.text ? { text: body.text } : {}),
   });
 
-  if (!result) {
+  if (status === 0) {
     return NextResponse.json({ error: 'agent not responding' }, { status: 502 });
   }
-
-  return NextResponse.json(result, { status: 201 });
-}
-
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const managerId = await getManagerId();
-  if (!managerId) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  if (status >= 400) {
+    return NextResponse.json({ error: data ?? 'engine error' }, { status });
   }
 
-  const { id } = await params;
-  const owns = await db.agentBelongsToManager(id, managerId);
-  if (!owns) {
-    return NextResponse.json({ error: 'not found' }, { status: 404 });
-  }
-
-  const agent = await db.getAgent(id);
-  if (!agent) {
-    return NextResponse.json({ error: 'not found' }, { status: 404 });
-  }
-
-  const body = await request.json();
-  if (!body.whisper_id) {
-    return NextResponse.json(
-      { error: 'whisper_id is required' },
-      { status: 400 }
-    );
-  }
-
-  const healthy = await getAgentHealth(agent.port);
-  if (!healthy) {
-    return NextResponse.json({ error: 'agent offline' }, { status: 502 });
-  }
-
-  const keys = await db.listApiKeys(id);
-  if (keys.length === 0) {
-    return NextResponse.json({ error: 'no api key' }, { status: 500 });
-  }
-
-  const result = await dashboardDelete(
-    agent.port,
-    keys[0].key,
-    `whispers/${encodeURIComponent(body.whisper_id)}`
-  );
-
-  if (!result) {
-    return NextResponse.json({ error: 'agent not responding' }, { status: 502 });
-  }
-
-  return NextResponse.json(result);
+  return NextResponse.json(data, { status: 201 });
 }
