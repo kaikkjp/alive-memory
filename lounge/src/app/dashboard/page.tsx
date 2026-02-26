@@ -159,11 +159,18 @@ function AgentCard({
   const status = statusConfig[agent.status] || statusConfig.stopped;
   const isRunning = agent.status === "running";
 
+  const [actionError, setActionError] = useState<string | null>(null);
+
   async function handleStop() {
     setActionLoading(true);
     setMenuOpen(false);
+    setActionError(null);
     try {
-      await fetch(`/api/agents/${agent.id}/stop`, { method: "POST" });
+      const res = await fetch(`/api/agents/${agent.id}/stop`, { method: "POST" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setActionError(body.error || "Failed to stop");
+      }
       onRefresh();
     } finally {
       setActionLoading(false);
@@ -173,8 +180,13 @@ function AgentCard({
   async function handleStart() {
     setActionLoading(true);
     setMenuOpen(false);
+    setActionError(null);
     try {
-      await fetch(`/api/agents/${agent.id}/start`, { method: "POST" });
+      const res = await fetch(`/api/agents/${agent.id}/start`, { method: "POST" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setActionError(body.error || "Failed to start");
+      }
       onRefresh();
     } finally {
       setActionLoading(false);
@@ -184,10 +196,20 @@ function AgentCard({
   async function handleRestart() {
     setActionLoading(true);
     setMenuOpen(false);
+    setActionError(null);
     try {
-      await fetch(`/api/agents/${agent.id}/stop`, { method: "POST" });
+      const stopRes = await fetch(`/api/agents/${agent.id}/stop`, { method: "POST" });
+      if (!stopRes.ok) {
+        const body = await stopRes.json().catch(() => ({}));
+        setActionError(body.error || "Failed to stop");
+        return;
+      }
       await new Promise((r) => setTimeout(r, 1000));
-      await fetch(`/api/agents/${agent.id}/start`, { method: "POST" });
+      const startRes = await fetch(`/api/agents/${agent.id}/start`, { method: "POST" });
+      if (!startRes.ok) {
+        const body = await startRes.json().catch(() => ({}));
+        setActionError(body.error || "Failed to restart");
+      }
       onRefresh();
     } finally {
       setActionLoading(false);
@@ -198,8 +220,13 @@ function AgentCard({
     setActionLoading(true);
     setDeleteConfirm(false);
     setMenuOpen(false);
+    setActionError(null);
     try {
-      await fetch(`/api/agents/${agent.id}`, { method: "DELETE" });
+      const res = await fetch(`/api/agents/${agent.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setActionError(body.error || "Failed to delete");
+      }
       onRefresh();
     } finally {
       setActionLoading(false);
@@ -273,6 +300,10 @@ function AgentCard({
         {/* Status + cycles */}
         <p className="text-xs text-[#737373] mb-1 ml-5">{status.label}</p>
         <p className="text-xs text-[#525252] mb-4 ml-5">{cycleText}</p>
+
+        {actionError && (
+          <p className="text-xs text-red-400 mb-3 ml-5">{actionError}</p>
+        )}
 
         <div className="flex gap-2">
           <Link
