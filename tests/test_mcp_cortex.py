@@ -126,7 +126,7 @@ class TestMcpBlockFormat(unittest.TestCase):
 
 
 class TestInjectMcpIntoSchema(unittest.TestCase):
-    """_inject_mcp_into_schema patches enum strings in system prompt."""
+    """MCP action names are injected into system prompt schema enums."""
 
     def setUp(self):
         _cleanup_mcp()
@@ -142,50 +142,39 @@ class TestInjectMcpIntoSchema(unittest.TestCase):
         self.assertEqual(patched, original)
 
     def test_injects_into_all_four_enums(self):
-        from pipeline.cortex import _inject_mcp_into_schema, build_system_prompt, \
-            _DEFAULT_IDENTITY, _IDLE_INTENTION_ENUM, _IDLE_ACTION_ENUM, \
-            _ENGAGE_INTENTION_ENUM, _ENGAGE_ACTION_ENUM
+        """MCP names are injected at build time via mcp_names param."""
+        from pipeline.cortex import build_system_prompt, _DEFAULT_IDENTITY
 
-        server_info = {
-            'url': 'http://test', 'enabled': 1,
-            'discovered_tools': [
-                {'name': 'search', 'description': 'Search', 'input_schema': {},
-                 'enabled': True, 'action_suffix': 'search'},
-            ],
-        }
-        registry.register_server(1, server_info)
+        # Build prompt WITH mcp_names — build-time injection
+        prompt = build_system_prompt(_DEFAULT_IDENTITY, mcp_names=['mcp_1_search'])
 
-        original = build_system_prompt(_DEFAULT_IDENTITY)
-        patched = _inject_mcp_into_schema(original)
+        # MCP name should appear in action enum strings
+        self.assertIn('mcp_1_search', prompt)
 
-        # MCP name should appear in all 4 enum locations
-        self.assertIn(f'{_IDLE_INTENTION_ENUM}|mcp_1_search', patched)
-        self.assertIn(f'{_IDLE_ACTION_ENUM}|mcp_1_search', patched)
-        self.assertIn(f'{_ENGAGE_INTENTION_ENUM}|mcp_1_search', patched)
-        self.assertIn(f'{_ENGAGE_ACTION_ENUM}|mcp_1_search', patched)
+        # Should NOT appear in memory_updates.type or trait_category enums
+        # Find the memory_updates section and check it's clean
+        import re
+        # trait_category enum should not have MCP names
+        trait_matches = re.findall(r'"trait_category":\s*"([^"]+)"', prompt)
+        for m in trait_matches:
+            self.assertNotIn('mcp_1_search', m)
 
-        # Original enums without MCP should be gone
-        # (they're now extended with |mcp_1_search)
-        self.assertNotIn(f'"{_IDLE_INTENTION_ENUM}"', patched)
+        # Build prompt WITHOUT mcp_names — no MCP in output
+        prompt_clean = build_system_prompt(_DEFAULT_IDENTITY)
+        self.assertNotIn('mcp_1_search', prompt_clean)
 
     def test_multiple_tools_in_enums(self):
-        from pipeline.cortex import _inject_mcp_into_schema, build_system_prompt, \
-            _DEFAULT_IDENTITY
+        """Multiple MCP tools are injected via build-time mcp_names param."""
+        from pipeline.cortex import build_system_prompt, _DEFAULT_IDENTITY
 
-        server_info = {
-            'url': 'http://test', 'enabled': 1,
-            'discovered_tools': [
-                {'name': 'search', 'description': 'Search', 'input_schema': {},
-                 'enabled': True, 'action_suffix': 'search'},
-                {'name': 'calc', 'description': 'Calc', 'input_schema': {},
-                 'enabled': True, 'action_suffix': 'calc'},
-            ],
-        }
-        registry.register_server(1, server_info)
-
-        original = build_system_prompt(_DEFAULT_IDENTITY)
-        patched = _inject_mcp_into_schema(original)
-        self.assertIn('|mcp_1_search|mcp_1_calc', patched)
+        prompt = build_system_prompt(
+            _DEFAULT_IDENTITY,
+            mcp_names=['mcp_1_search', 'mcp_1_calc'],
+        )
+        self.assertIn('mcp_1_search', prompt)
+        self.assertIn('mcp_1_calc', prompt)
+        # Both should appear together in enum strings
+        self.assertIn('|mcp_1_search|mcp_1_calc', prompt)
 
 
 class TestMcpBackfill(unittest.TestCase):

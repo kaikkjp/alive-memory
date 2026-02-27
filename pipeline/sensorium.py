@@ -42,7 +42,8 @@ async def build_perceptions(unread_events: list[Event], drives: DrivesState,
                            recent_fidgets: list = None,
                            focus_context=None,
                            embedding_index: EmbeddingIndex = None,
-                           fragment_embeddings: dict = None) -> list[Perception]:
+                           fragment_embeddings: dict = None,
+                           *, world=None) -> list[Perception]:
     """Convert raw events into diegetic perceptions. No LLM.
 
     focus_context: Optional ArbiterFocus. When present, a focus perception
@@ -133,16 +134,20 @@ async def build_perceptions(unread_events: list[Event], drives: DrivesState,
                     salience=calculate_connect_salience(drives, trust),
                 )
             else:
+                has_physical = world.has_physical_space if world else True
                 if trust == 'stranger':
-                    content = "Someone new enters the shop."
+                    content = ("Someone new enters the shop." if has_physical
+                               else "Someone new reaches out.")
                 elif trust == 'returner':
-                    content = "Someone who's been here before walks in."
+                    content = ("Someone who's been here before walks in." if has_physical
+                               else "Someone who's been here before reaches out.")
                 elif trust == 'regular':
                     name = visitor.name or "a familiar face"
                     content = f"{name} is back."
                 else:
                     name = visitor.name or "someone I know well"
-                    content = f"{name} walks in. Something shifts."
+                    content = (f"{name} walks in. Something shifts." if has_physical
+                               else f"{name} is here. Something shifts.")
 
                 perc = Perception(
                     p_type='visitor_connect',
@@ -344,7 +349,7 @@ async def build_perceptions(unread_events: list[Event], drives: DrivesState,
         print(f"  [Sensorium] Notification/gap injection failed: {e}")
 
     # Add ambient perception
-    perceptions.append(build_ambient_perception(drives))
+    perceptions.append(build_ambient_perception(drives, world=world))
 
     # Sort by salience, cap at focus(1) + background(5)
     # Increased cap from 4 to 6 to accommodate notifications alongside other perceptions
@@ -442,22 +447,35 @@ def calculate_connect_salience(drives: DrivesState, trust_level: str) -> float:
     return max(0.0, min(1.0, base))
 
 
-def build_ambient_perception(drives: DrivesState) -> Perception:
+def build_ambient_perception(drives: DrivesState, *, world=None) -> Perception:
     """Build ambient perception from room state and time."""
     from datetime import datetime, timezone
     from db import JST
+    has_physical = world.has_physical_space if world else True
     hour = clock.now().hour
 
-    if 5 <= hour < 10:
-        time_feel = "Morning light through the windows."
-    elif 10 <= hour < 15:
-        time_feel = "Midday. The shop is bright."
-    elif 15 <= hour < 18:
-        time_feel = "Afternoon. The light is getting warm."
-    elif 18 <= hour < 21:
-        time_feel = "Evening. The shop is quiet."
+    if has_physical:
+        if 5 <= hour < 10:
+            time_feel = "Morning light through the windows."
+        elif 10 <= hour < 15:
+            time_feel = "Midday. The shop is bright."
+        elif 15 <= hour < 18:
+            time_feel = "Afternoon. The light is getting warm."
+        elif 18 <= hour < 21:
+            time_feel = "Evening. The shop is quiet."
+        else:
+            time_feel = "Late. The shop should probably be closed."
     else:
-        time_feel = "Late. The shop should probably be closed."
+        if 5 <= hour < 10:
+            time_feel = "Morning. Still early."
+        elif 10 <= hour < 15:
+            time_feel = "Midday."
+        elif 15 <= hour < 18:
+            time_feel = "Afternoon."
+        elif 18 <= hour < 21:
+            time_feel = "Evening. Getting late."
+        else:
+            time_feel = "Late. The day is almost over."
 
     return Perception(
         p_type='ambient',

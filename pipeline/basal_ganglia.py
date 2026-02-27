@@ -29,6 +29,9 @@ from pipeline.context_bands import compute_trigger_context
 from pipeline.habit_policy import evaluate_journal_habit
 
 
+# ── Cognitive primitives: always pass Gate 2 even with actions_enabled=[] ──
+_COGNITIVE_PRIMITIVES = frozenset({'idle', 'express_thought'})
+
 # ── Trust-based priority boost: loaded from self_parameters at call time ──
 _TRUST_LEVELS = ('stranger', 'returner', 'regular', 'familiar')
 
@@ -186,8 +189,15 @@ def _passes_drive_gate(action: str, drives: DrivesState) -> bool:
     return True
 
 
-async def _passes_shop_gate(action: str) -> bool:
-    """Check context gates that require DB lookups (e.g. shop status)."""
+async def _passes_shop_gate(action: str, *, identity=None) -> bool:
+    """Check context gates that require DB lookups (e.g. shop status).
+
+    Non-physical agents never fire open_shop/close_shop.
+    """
+    if identity and hasattr(identity, 'world'):
+        if not identity.world.has_physical_space:
+            return action not in ('close_shop', 'open_shop')
+
     if action == 'close_shop':
         try:
             room = await db.get_room_state()
@@ -217,7 +227,8 @@ def _record_habit_fire(action: str) -> None:
 
 
 async def check_habits(drives: DrivesState,
-                       engagement: EngagementState) -> MotorPlan | HabitBoost | None:
+                       engagement: EngagementState,
+                       *, identity=None) -> MotorPlan | HabitBoost | None:
     """Check if a strong habit should fire.
 
     Called BEFORE cortex. If a habit matches the current context with
@@ -261,7 +272,7 @@ async def check_habits(drives: DrivesState,
                 continue
 
             # Gate: context checks requiring DB (e.g. shop must be open)
-            if not await _passes_shop_gate(action):
+            if not await _passes_shop_gate(action, identity=identity):
                 continue
 
             # All gates passed — record fire and return
@@ -422,12 +433,14 @@ async def select_actions(validated: ValidatedOutput, drives: DrivesState,
 
         # Gate 2: Is it enabled?
         # TASK-095 v2: Check identity's actions_enabled first (if present)
+        # Cognitive primitives (idle, express_thought) always pass — they're
+        # internal/no-op actions required for the cognitive loop to function.
         identity = context.get('identity')
         if identity and hasattr(identity, 'actions_enabled'):
             actions_enabled = identity.actions_enabled
             if actions_enabled is not None:
                 # Explicit list (possibly empty) — filter by it
-                if action_name not in actions_enabled:
+                if action_name not in actions_enabled and action_name not in _COGNITIVE_PRIMITIVES:
                     decision.status = 'incapable'
                     decision.suppression_reason = 'Not enabled for this agent'
                     decisions.append(decision)
@@ -458,7 +471,7 @@ async def select_actions(validated: ValidatedOutput, drives: DrivesState,
                 continue
 
         # Gate 5: Shop status prerequisite (open_shop/close_shop)
-        if not await _passes_shop_gate(action_name):
+        if not await _passes_shop_gate(action_name, identity=identity):
             decision.status = 'suppressed'
             if action_name == 'open_shop':
                 decision.suppression_reason = 'Shop is already open'

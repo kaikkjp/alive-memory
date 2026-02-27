@@ -219,9 +219,11 @@ class Heartbeat:
 
     def _pick_fidget_behavior(self) -> tuple[str, str]:
         """Pick a fidget behavior while avoiding immediate repetition."""
-        choices = FIDGET_BEHAVIORS
+        world = self._identity.world if self._identity else None
+        source = list(world.fidgets) if world and world.fidgets else FIDGET_BEHAVIORS
+        choices = source
         if self._last_fidget_behavior:
-            filtered = [b for b in FIDGET_BEHAVIORS if b[0] != self._last_fidget_behavior]
+            filtered = [b for b in source if b[0] != self._last_fidget_behavior]
             if filtered:
                 choices = filtered
         behavior, description = random.choice(choices)
@@ -230,6 +232,20 @@ class Heartbeat:
         self._recent_fidgets.append((behavior, description, clock.now_utc()))
         self._recent_fidgets = self._recent_fidgets[-5:]  # keep last 5
         return behavior, description
+
+    def _idle_gaze_choices(self) -> list[str]:
+        """Gaze options for idle fidgets (no visitor)."""
+        world = self._identity.world if self._identity else None
+        if world and world.gaze_directions:
+            return [g for g in world.gaze_directions if g != 'at_visitor'] or list(world.gaze_directions)
+        return ['away_thinking', 'window', 'down']
+
+    def _silence_gaze_choices(self) -> list[str]:
+        """Gaze options for silence fidgets (visitor present but quiet)."""
+        world = self._identity.world if self._identity else None
+        if world and world.gaze_directions:
+            return list(world.gaze_directions)
+        return ['at_object', 'away_thinking', 'window', 'down']
 
     def set_stage_callback(self, cb: StageCallback):
         """Set a callback that fires after each pipeline stage."""
@@ -552,7 +568,10 @@ class Heartbeat:
                 if self._should_sleep():
                     try:
                         await self._emit_stage('sleep', {'status': 'entering_sleep'})
-                        ran = await sleep_cycle()
+                        ran = await sleep_cycle(
+                            identity_compact=self._identity.identity_compact if self._identity else '',
+                            has_physical=self._identity.world.has_physical_space if self._identity else True,
+                        )
                         if ran >= 0:
                             self._last_sleep_date = clock.now().date().isoformat()
                             try:
@@ -639,7 +658,10 @@ class Heartbeat:
                                 try:
                                     print("[Heartbeat] Executing queued sleep cycle")
                                     await self._emit_stage('sleep', {'status': 'queued_sleep'})
-                                    ran = await sleep_cycle()  # uses module-level import (line 35)
+                                    ran = await sleep_cycle(
+                                        identity_compact=self._identity.identity_compact if self._identity else '',
+                                        has_physical=self._identity.world.has_physical_space if self._identity else True,
+                                    )
                                     if ran >= 0:
                                         self._last_sleep_date = clock.now().strftime('%Y-%m-%d')
                                     print(f"[Heartbeat] Queued sleep complete: {ran} moments")
@@ -734,7 +756,8 @@ class Heartbeat:
             stale_threshold = 2400 if self._ambient_fetch_ok else 300
             if elapsed > stale_threshold:
                 try:
-                    ambient = await fetch_ambient_context()
+                    _hp = self._identity.world.has_physical_space if self._identity else True
+                    ambient = await fetch_ambient_context(has_physical=_hp)
                     self._last_ambient_fetch_ts = clock.now_utc()
                     if ambient:
                         self._ambient_fetch_ok = True
@@ -795,7 +818,7 @@ class Heartbeat:
                     payload={
                         'expression': 'neutral',
                         'body_state': behavior,
-                        'gaze': random.choice(['away_thinking', 'window', 'down']),
+                        'gaze': random.choice(self._idle_gaze_choices()),
                     },
                 )
                 await db.append_event(body_event)
@@ -929,7 +952,7 @@ class Heartbeat:
                 payload={
                     'expression': 'neutral',
                     'body_state': behavior,
-                    'gaze': random.choice(['at_object', 'away_thinking', 'window', 'down']),
+                    'gaze': random.choice(self._silence_gaze_choices()),
                 },
             )
             await db.append_event(body_event)
@@ -1031,6 +1054,7 @@ class Heartbeat:
         perceptions = await build_perceptions(
             unread, drives, self._recent_fidgets,
             focus_context=focus_context,
+            world=self._identity.world if self._identity else None,
         )
 
         # For ambient cycles during engagement, inject silence perception
@@ -1094,7 +1118,9 @@ class Heartbeat:
         })
 
         # 5. Thalamus: route
-        routing = await route(perceptions, drives, engagement, visitor)
+        _hp = self._identity.world.has_physical_space if self._identity else True
+        routing = await route(perceptions, drives, engagement, visitor,
+                              has_physical=_hp)
 
         # ── Mode binding: arbiter focus overrides Thalamus unless visitor/digital is primary ──
         # TASK-087: digital_* types get the same protection as visitor_*
@@ -1153,7 +1179,8 @@ class Heartbeat:
         }
 
         # ── Habit check: reflexive habits auto-fire, generative habits boost ──
-        habit_result = await check_habits(drives, engagement)
+        habit_result = await check_habits(drives, engagement,
+                                          identity=self._identity)
         habit_boost = None  # set if generative habit matched
         if isinstance(habit_result, HabitBoost):
             habit_boost = habit_result
@@ -1352,6 +1379,8 @@ class Heartbeat:
         self_state = await assemble_self_context_cached(
             visitor=visitor,
             habit_boost=habit_boost,
+            world=self._identity.world if self._identity else None,
+            identity_compact=self._identity.identity_compact if self._identity else '',
         )
 
         # 8. Cortex (THE LLM CALL)
@@ -1374,7 +1403,8 @@ class Heartbeat:
             turn_count=engagement.turn_count,
             trust_level=visitor.trust_level if visitor else 'stranger',
         )
-        validated = validate(cortex_output, val_state)
+        validated = validate(cortex_output, val_state,
+                             world=self._identity.world if self._identity else None)
 
         # Pass pool_id through for executor pool status tracking
         if focus_context and focus_context.payload and focus_context.payload.get('pool_id'):

@@ -16,10 +16,12 @@ from models.pipeline import (
 _recent_openings: list[str] = []
 
 
-def validate(cortex_output: CortexOutput, state: ValidatorState) -> ValidatedOutput:
+def validate(cortex_output: CortexOutput, state: ValidatorState,
+             *, world=None) -> ValidatedOutput:
     """Stage 1: Schema. Stage 2: Physics + Policy + Entropy."""
 
     result = ValidatedOutput.from_cortex(cortex_output)
+    has_physical = world.has_physical_space if world else True
 
     approved_actions: list[ActionRequest] = []
     dropped_actions: list[DroppedAction] = []
@@ -31,13 +33,16 @@ def validate(cortex_output: CortexOutput, state: ValidatorState) -> ValidatedOut
 
     # Stage 2: Engagement gate — block "alone" actions during conversation
     engaged_cycles = {'engage', 'micro'}
-    alone_actions = {'write_journal', 'post_x_draft', 'rearrange', 'close_shop'}
+    if has_physical:
+        alone_actions = {'write_journal', 'post_x_draft', 'rearrange', 'close_shop'}
+    else:
+        alone_actions = {'write_journal', 'post_x_draft'}
 
     # end_engagement is ALWAYS allowed during engaged cycles — it's the exit action
     exit_actions = {'end_engagement'}
 
-    # Stage 2: Physics (hand state)
-    hands_required = {'write_journal', 'rearrange', 'post_x_draft'}
+    # Stage 2: Physics (hand state) — non-physical agents have no hands
+    hands_required = {'write_journal', 'rearrange', 'post_x_draft'} if has_physical else set()
 
     for action in result.actions:
         # end_engagement — guard against premature exits

@@ -11,7 +11,8 @@ import db
 from db.parameters import p
 
 
-async def nap_consolidate(top_n: int = None) -> int:
+async def nap_consolidate(top_n: int = None,
+                          *, identity_compact: str = '') -> int:
     """Nap consolidation — process top moments mid-day.
 
     Fetches the top N unprocessed day moments by salience, runs the same
@@ -43,7 +44,8 @@ async def nap_consolidate(top_n: int = None) -> int:
 
         try:
             hot_ctx = await gather_hot_context(moment)
-            reflection = await sleep_reflect(moment, hot_ctx, cold_echoes=[])
+            reflection = await sleep_reflect(moment, hot_ctx, cold_echoes=[],
+                                             identity_compact=identity_compact)
 
             async with db.transaction():
                 reflection_text = reflection.get('reflection', '')

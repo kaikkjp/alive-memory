@@ -55,7 +55,8 @@ from sleep.whisper import process_whispers, translate_whisper  # noqa: F401
 COLD_SEARCH_ENABLED = os.getenv('COLD_SEARCH_ENABLED', 'false').lower() == 'true'
 
 
-async def sleep_cycle() -> int:
+async def sleep_cycle(*, identity_compact: str = '',
+                      has_physical: bool = True) -> int:
     """Daily consolidation. Runs 03:00-06:00 JST.
 
     Returns number of moments consolidated (>=0) if ran, -1 if deferred.
@@ -74,7 +75,8 @@ async def sleep_cycle() -> int:
         print(f"[Sleep] {len(dream_perceptions)} whisper(s) woven into dreams")
 
     # 1-2. Consolidation (moment reflection, journal writes, daily summary)
-    processed_count = await run_consolidation()
+    processed_count = await run_consolidation(
+        identity_compact=identity_compact, has_physical=has_physical)
     if processed_count == -1:
         return -1
 

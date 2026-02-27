@@ -234,14 +234,18 @@ async def update_drives(
 
 
 def drives_to_feeling(d: DrivesState,
-                      epistemic_curiosities: list[EpistemicCuriosity] = None) -> str:
+                      epistemic_curiosities: list[EpistemicCuriosity] = None,
+                      *, has_physical: bool = True) -> str:
     """Translate numeric drives into diegetic feeling text for Cortex."""
 
     parts = []
 
     # Social
     if d.social_hunger > cfg('hypothalamus.feeling_social_high', 0.8):
-        parts.append("I feel deeply lonely. The shop has been too quiet.")
+        if has_physical:
+            parts.append("I feel deeply lonely. The shop has been too quiet.")
+        else:
+            parts.append("I feel deeply lonely. It has been too quiet.")
     elif d.social_hunger > cfg('hypothalamus.feeling_social_mid', 0.6):
         parts.append("I could use some company.")
     elif d.social_hunger < cfg('hypothalamus.feeling_social_low', 0.2):

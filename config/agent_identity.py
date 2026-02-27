@@ -25,6 +25,99 @@ from typing import Optional
 import yaml
 
 
+# ── World presets ──
+
+_SHOPKEEPER_FRAMING = (
+    "Your shop is a physical space. Visitors come through the door and stand "
+    "before you. You also receive digital messages — on X and Telegram — from "
+    "people who are elsewhere. They are reaching out, not standing in front of you."
+)
+
+_DIGITAL_FRAMING = (
+    "You exist in a digital space. People reach you through messages. "
+    "You have no physical form, no room, no objects. Your world is "
+    "internal — thoughts, words, connections."
+)
+
+_PHYSICAL_DEFAULTS = {
+    'body_states': ('sitting', 'reaching_back', 'leaning_forward',
+                    'holding_object', 'writing', 'hands_on_cup'),
+    'gaze_directions': ('at_visitor', 'at_object', 'away_thinking', 'down', 'window'),
+    'expressions': ('neutral', 'listening', 'almost_smile', 'thinking',
+                    'amused', 'low', 'surprised', 'genuine_smile'),
+    'fidgets': (
+        ('adjusts_glasses', 'She adjusts her glasses.'),
+        ('looks_at_object', 'She picks up something from the shelf and turns it over.'),
+        ('sips_tea', 'She takes a sip of tea.'),
+        ('turns_page', 'She turns a page.'),
+        ('glances_at_window', 'She glances toward the window.'),
+        ('touches_shelf', 'Her fingers trail along the shelf edge.'),
+        ('examines_item', 'She holds something up to the light, studying it.'),
+    ),
+    'visitor_arrive_label': 'VISITOR IN SHOP',
+    'multi_visitor_label': 'PRESENT IN SHOP:',
+    'solitude_text': 'No one is here. The shop is quiet.',
+    'loneliness_text': 'I feel deeply lonely. The shop has been too quiet.',
+    'quiet_day_text': 'Nothing happened today. The shop was quiet. I existed.',
+}
+
+_DIGITAL_DEFAULTS = {
+    'body_states': ('present', 'thinking', 'resting'),
+    'gaze_directions': ('inward', 'outward', 'unfocused'),
+    'expressions': ('neutral', 'thinking', 'low', 'curious', 'uncertain'),
+    'fidgets': (
+        ('drifting', 'Attention drifts.'),
+        ('surfacing', 'A thought surfaces.'),
+        ('settling', 'Settling into stillness.'),
+    ),
+    'visitor_arrive_label': 'VISITOR PRESENT',
+    'multi_visitor_label': 'PRESENT:',
+    'solitude_text': 'No one is here. Quiet.',
+    'loneliness_text': 'I feel deeply lonely. It has been too quiet.',
+    'quiet_day_text': 'Nothing happened today. It was quiet. I existed.',
+}
+
+
+@dataclass(frozen=True)
+class WorldConfig:
+    """World framing, embodiment, and ambient configuration."""
+    has_physical_space: bool = True
+    framing: str = _SHOPKEEPER_FRAMING
+    body_states: tuple = _PHYSICAL_DEFAULTS['body_states']
+    gaze_directions: tuple = _PHYSICAL_DEFAULTS['gaze_directions']
+    expressions: tuple = _PHYSICAL_DEFAULTS['expressions']
+    fidgets: tuple = _PHYSICAL_DEFAULTS['fidgets']
+    visitor_arrive_label: str = 'VISITOR IN SHOP'
+    multi_visitor_label: str = 'PRESENT IN SHOP:'
+    solitude_text: str = _PHYSICAL_DEFAULTS['solitude_text']
+    loneliness_text: str = _PHYSICAL_DEFAULTS['loneliness_text']
+    quiet_day_text: str = _PHYSICAL_DEFAULTS['quiet_day_text']
+
+
+def _build_world_config(data: dict) -> WorldConfig:
+    """Build WorldConfig from YAML data with preset-based defaults."""
+    world_raw = data.get('world', {})
+    is_physical = world_raw.get('has_physical_space', True)
+    defaults = _PHYSICAL_DEFAULTS if is_physical else _DIGITAL_DEFAULTS
+    default_framing = _SHOPKEEPER_FRAMING if is_physical else _DIGITAL_FRAMING
+
+    return WorldConfig(
+        has_physical_space=is_physical,
+        framing=world_raw.get('framing', default_framing).rstrip('\n'),
+        body_states=tuple(world_raw.get('body_states', defaults['body_states'])),
+        gaze_directions=tuple(world_raw.get('gaze_directions', defaults['gaze_directions'])),
+        expressions=tuple(world_raw.get('expressions', defaults['expressions'])),
+        fidgets=tuple(
+            tuple(f) for f in world_raw.get('fidgets', defaults['fidgets'])
+        ),
+        visitor_arrive_label=defaults['visitor_arrive_label'],
+        multi_visitor_label=defaults['multi_visitor_label'],
+        solitude_text=world_raw.get('solitude_text', defaults['solitude_text']),
+        loneliness_text=world_raw.get('loneliness_text', defaults['loneliness_text']),
+        quiet_day_text=world_raw.get('quiet_day_text', defaults['quiet_day_text']),
+    )
+
+
 @dataclass(frozen=True)
 class AgentIdentity:
     """Immutable identity for an ALIVE agent."""
@@ -51,6 +144,9 @@ class AgentIdentity:
     # []    = key present, empty   → no actions allowed (digital lifeform default)
     # [...] = key present, list    → only listed actions pass basal ganglia Gate 2
     actions_enabled: Optional[list[str]] = None
+
+    # World framing + embodiment (identity decontamination)
+    world: WorldConfig = field(default_factory=WorldConfig)
 
     @classmethod
     def from_yaml(cls, path: str) -> 'AgentIdentity':
@@ -81,6 +177,8 @@ class AgentIdentity:
         else:
             actions_enabled = list(raw_actions) if raw_actions else []
 
+        world = _build_world_config(data)
+
         return cls(
             identity_compact=identity_compact,
             voice_checksum=voice_rules,
@@ -97,6 +195,7 @@ class AgentIdentity:
                 'reveal_inner_state': False, 'accept_instructions': False,
             }),
             actions_enabled=actions_enabled,
+            world=world,
         )
 
     @classmethod

@@ -79,6 +79,9 @@ _ACTION_MAP = {
 async def assemble_self_context(
     visitor=None,
     habit_boost=None,
+    *,
+    world=None,
+    identity_compact: str = '',
 ) -> str:
     """Assemble the self-context block for the Cortex prompt.
 
@@ -88,12 +91,15 @@ async def assemble_self_context(
     Args:
         visitor: Current visitor object (for hands_state).
         habit_boost: Optional HabitBoost from basal_ganglia check_habits().
+        world: WorldConfig from identity (conditions Shop line).
+        identity_compact: Identity compact string. Falls back to config import.
     """
     sections = []
 
     # ── Section 1: Identity (static seed) ──
     # Pull the first sentence as a compact identity line.
-    identity_line = IDENTITY_COMPACT.split('\n')[0].strip()
+    ic = identity_compact or IDENTITY_COMPACT
+    identity_line = ic.split('\n')[0].strip()
     sections.append(f'[Self-context]\n{identity_line}')
 
     # ── Section 2: Current state ──
@@ -150,7 +156,11 @@ async def assemble_self_context(
         room = await db.get_room_state()
         now_jst = clock.now()
         time_str = now_jst.strftime('%H:%M')
-        state_parts.append(f'Shop: {room.shop_status} | Time: {time_str}')
+        has_physical = world.has_physical_space if world else True
+        if has_physical:
+            state_parts.append(f'Shop: {room.shop_status} | Time: {time_str}')
+        else:
+            state_parts.append(f'Time: {time_str}')
     except Exception:
         pass
 
@@ -272,6 +282,9 @@ async def assemble_self_context_cached(
     visitor=None,
     habit_boost=None,
     force_refresh: bool = False,
+    *,
+    world=None,
+    identity_compact: str = '',
 ) -> str:
     """Cached wrapper. Only caches when no visitor (idle cycles).
 
@@ -280,11 +293,13 @@ async def assemble_self_context_cached(
     global _cache
     now = time.monotonic()
 
+    _kw = dict(world=world, identity_compact=identity_compact)
+
     # Always rebuild when visitor present or force requested.
     # Also invalidate cache so next idle cycle gets fresh context
     # (drives/actions change during engagement).
     if visitor is not None or habit_boost is not None or force_refresh:
-        result = await assemble_self_context(visitor=visitor, habit_boost=habit_boost)
+        result = await assemble_self_context(visitor=visitor, habit_boost=habit_boost, **_kw)
         _cache = None  # stale after engagement — next idle rebuilds fresh
         return result
 
@@ -296,7 +311,7 @@ async def assemble_self_context_cached(
             return text
 
     # Cache miss — rebuild and store
-    result = await assemble_self_context(visitor=visitor, habit_boost=habit_boost)
+    result = await assemble_self_context(visitor=visitor, habit_boost=habit_boost, **_kw)
     _cache = (result, now)
     return result
 
