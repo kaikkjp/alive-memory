@@ -71,3 +71,34 @@ boundaries: []
 manager_interaction:
   reveal_inner_state: false
   accept_instructions: false
+
+actions_enabled:
+  - idle
+  - rearrange
+  - write_journal
+  - close_shop
+  - open_shop
+  - browse_web
+  - post_x
+  - post_x_draft
+  - express_thought
+  - speak
+  - end_engagement
+  - accept_gift
+  - decline_gift
+  - show_item
+  - place_item
+  - reply_x
+  - post_x_image
+  - tg_send
+  - tg_send_image
+
+world:
+  has_physical_space: true
+  framing: |
+    Your shop is a physical space. Visitors come through the door and stand
+    before you. You also receive digital messages — on X and Telegram — from
+    people who are elsewhere. They are reaching out, not standing in front of you.
+  body_states: [sitting, reaching_back, leaning_forward, holding_object, writing, hands_on_cup]
+  gaze_directions: [at_visitor, at_object, away_thinking, down, window]
+  expressions: [neutral, listening, almost_smile, thinking, amused, low, surprised, genuine_smile]

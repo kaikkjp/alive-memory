@@ -23,11 +23,13 @@ async def route(
     drives: DrivesState,
     engagement: EngagementState,
     visitor: Visitor = None,
+    *,
+    has_physical: bool = True,
 ) -> RoutingDecision:
     """Deterministic routing. No LLM. Code only."""
 
     if not perceptions:
-        return await autonomous_routing(drives)
+        return await autonomous_routing(drives, has_physical=has_physical)
 
     focus = perceptions[0]  # highest salience
     background = perceptions[1:4]
@@ -81,7 +83,8 @@ async def route(
     )
 
 
-async def autonomous_routing(drives: DrivesState) -> RoutingDecision:
+async def autonomous_routing(drives: DrivesState,
+                             *, has_physical: bool = True) -> RoutingDecision:
     """Routing when no perceptions — she's alone."""
     if drives.expression_need > p('thalamus.routing.express_drive_threshold'):
         cycle_type = 'express'
@@ -90,11 +93,13 @@ async def autonomous_routing(drives: DrivesState) -> RoutingDecision:
     else:
         cycle_type = 'idle'
 
+    solitude_text = ('No one is here. The shop is quiet.' if has_physical
+                     else 'No one is here. Quiet.')
     focus = Perception(
         p_type='internal',
         source='self',
         ts=clock.now_utc(),
-        content='No one is here. The shop is quiet.',
+        content=solitude_text,
         features={},
         salience=0.2,
     )

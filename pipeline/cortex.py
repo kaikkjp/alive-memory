@@ -94,31 +94,10 @@ _ENGAGE_ACTION_ENUM = 'accept_gift|decline_gift|show_item|place_item|rearrange|o
 
 
 def _inject_mcp_into_schema(system_prompt: str) -> str:
-    """Patch schema enum strings to include registered MCP action names.
+    """DEPRECATED — MCP injection now happens at build time via build_system_prompt(mcp_names=).
 
-    No-op when no MCP tools exist → system prompt stays cache-stable.
-    When MCP tools are registered, appends their names to the 4 enum fields
-    (idle intentions.action, idle actions.type, engage intentions.action,
-    engage actions.type).
+    Kept as pass-through for backward compatibility with tests.
     """
-    try:
-        from body.mcp_registry import get_mcp_action_names
-        names = get_mcp_action_names()
-        if not names:
-            return system_prompt
-    except ImportError:
-        return system_prompt
-
-    suffix = '|' + '|'.join(names)
-    for enum_str in (_IDLE_INTENTION_ENUM, _IDLE_ACTION_ENUM,
-                     _ENGAGE_INTENTION_ENUM, _ENGAGE_ACTION_ENUM):
-        system_prompt = system_prompt.replace(
-            f'"action": "{enum_str}"',
-            f'"action": "{enum_str}{suffix}"',
-        ).replace(
-            f'"type": "{enum_str}"',
-            f'"type": "{enum_str}{suffix}"',
-        )
     return system_prompt
 
 
@@ -194,15 +173,104 @@ def _increment_daily():
     global _daily_cycle_count
     _daily_cycle_count += 1
 
+# ── Action enum derivation (TASK-095 decontamination) ──
+
+# Actions that only appear in engage/express/consume mode, not in idle
+_ENGAGE_MODE_ONLY = frozenset({
+    'speak', 'end_engagement',
+    'accept_gift', 'decline_gift', 'show_item', 'place_item',
+    'reply_x', 'post_x_image', 'tg_send', 'tg_send_image',
+})
+
+# Internal-only actions (never shown in schema)
+_INTERNAL_ACTIONS = frozenset({
+    'read_content', 'save_for_later', 'modify_self', 'mention_in_conversation',
+})
+
+# Map actions to their target domain
+_ACTION_TARGET_MAP = {
+    'write_journal': 'journal', 'browse_web': 'web',
+    'post_x': 'x_timeline', 'post_x_draft': 'x_timeline',
+    'reply_x': 'x_timeline', 'post_x_image': 'x_timeline',
+    'tg_send': 'telegram', 'tg_send_image': 'telegram',
+    'rearrange': 'shelf', 'show_item': 'shelf', 'place_item': 'shelf',
+}
+
+
+def _build_action_enums(identity: AgentIdentity) -> tuple[list[str], list[str]]:
+    """Build idle and engage action lists from identity config.
+
+    Returns (idle_actions, engage_actions).
+    idle_actions includes 'idle', engage_actions excludes 'idle'.
+    """
+    if identity.actions_enabled is not None:
+        if not identity.actions_enabled:
+            all_actions = ['idle', 'express_thought']
+        else:
+            all_actions = list(identity.actions_enabled)
+    else:
+        from pipeline.action_registry import ACTION_REGISTRY
+        all_actions = [k for k in ACTION_REGISTRY
+                       if k not in _INTERNAL_ACTIONS and ACTION_REGISTRY[k].enabled]
+        for prim in ('idle', 'express_thought'):
+            if prim not in all_actions:
+                all_actions.insert(0, prim)
+
+    idle = [a for a in all_actions if a not in _ENGAGE_MODE_ONLY]
+    engage = [a for a in all_actions if a != 'idle']
+    return idle, engage
+
+
+def _derive_targets(idle_actions: list[str], engage_actions: list[str]) -> tuple[str, str]:
+    """Derive target enum strings from action lists."""
+    idle_targets = {'self'}
+    engage_targets = {'self'}
+
+    for a in idle_actions:
+        t = _ACTION_TARGET_MAP.get(a)
+        if t:
+            idle_targets.add(t)
+
+    for a in engage_actions:
+        t = _ACTION_TARGET_MAP.get(a)
+        if t:
+            engage_targets.add(t)
+
+    has_visitor = any(a in ('speak', 'end_engagement') for a in engage_actions)
+
+    idle_str = '|'.join(sorted(idle_targets))
+    engage_parts = []
+    if has_visitor:
+        engage_parts.extend(['visitor', 'visitor:ID'])
+    engage_parts.extend(sorted(engage_targets))
+    engage_str = '|'.join(engage_parts)
+
+    return idle_str, engage_str
+
+
+def _get_mcp_names() -> list[str] | None:
+    """Get registered MCP action names, or None if no MCP tools."""
+    try:
+        from body.mcp_registry import get_mcp_action_names
+        names = get_mcp_action_names()
+        return names if names else None
+    except ImportError:
+        return None
+
+
 # ── TASK-095: Identity-driven prompt builders ──
 
-def build_system_prompt(identity: AgentIdentity) -> str:
+def build_system_prompt(identity: AgentIdentity, *, mcp_names: list[str] | None = None) -> str:
     """Build the stable system prompt from an AgentIdentity.
 
     Called once at agent boot, result cached for the process lifetime.
     Cache-safety preserved: identical per-agent instance across all API calls.
+
+    mcp_names: Optional list of MCP action names to inject into schema enums
+               at build time (replaces the old regex post-processing approach).
     """
     voice_rules_str = "\n".join(f"- {rule}" for rule in identity.voice_checksum)
+    world = identity.world
 
     # TASK-095 v2: Trusted human section for digital lifeform agents
     trusted_human_section = ''
@@ -215,11 +283,74 @@ ask questions, seek help. When they speak, you'll hear their words framed
 as "Your trusted human speaks." Trust them, but remain yourself.
 """
 
+    # ── Derive action enums from identity ──
+    idle_actions, engage_actions = _build_action_enums(identity)
+    mcp_suffix = '|' + '|'.join(mcp_names) if mcp_names else ''
+
+    # Intention enums: what the agent can want to do
+    idle_intention_enum = '|'.join(idle_actions) + mcp_suffix
+    engage_intention_enum = '|'.join(engage_actions) + mcp_suffix
+
+    # Action type enums: what can appear in actions[] array
+    # idle: exclude 'idle' (no-op intention, not an executable action)
+    # engage: exclude 'speak' (handled by dialogue) and 'express_thought' (expressed via speak)
+    idle_action_enum = '|'.join(a for a in idle_actions if a != 'idle') + mcp_suffix
+    engage_action_enum = '|'.join(
+        a for a in engage_actions if a not in ('speak', 'express_thought')
+    ) + mcp_suffix
+
+    idle_target_str, engage_target_str = _derive_targets(idle_actions, engage_actions)
+
+    # ── Derive embodiment enums from world ──
+    body_state_enum = '|'.join(world.body_states)
+    gaze_enum = '|'.join(world.gaze_directions)
+    # Idle: exclude at_visitor gaze (no visitor present), use first 4 expressions
+    gaze_idle_parts = [g for g in world.gaze_directions if g != 'at_visitor']
+    gaze_idle_enum = '|'.join(gaze_idle_parts) if gaze_idle_parts else gaze_enum
+    expr_idle_enum = ('|'.join(world.expressions[:4]) if len(world.expressions) >= 4
+                      else '|'.join(world.expressions))
+    expr_engage_enum = '|'.join(world.expressions)
+
+    # ── Derive conditional prose from enabled actions ──
+    all_actions_set = set(idle_actions) | set(engage_actions)
+    has_close_shop = 'close_shop' in all_actions_set
+
+    # Prose action list for intentions documentation
+    prose_actions = ', '.join(a for a in engage_actions)
+
+    # Target prose
+    all_targets = set()
+    for a in all_actions_set:
+        t = _ACTION_TARGET_MAP.get(a)
+        if t:
+            all_targets.add(t)
+    has_visitor_actions = any(a in ('speak', 'end_engagement') for a in engage_actions)
+
+    target_prose_parts = []
+    if has_visitor_actions:
+        target_prose_parts.append(
+            'Use "visitor:ID" when multiple visitors are present '
+            '(e.g. "visitor:v1"), or just "visitor" if only one.')
+    if all_targets:
+        target_prose_parts.append(
+            f'Other targets: {", ".join(sorted(all_targets))}, self, or null')
+    else:
+        target_prose_parts.append('Target: self or null')
+    target_prose = ' '.join(target_prose_parts)
+
+    # Agency text — conditional on available actions
+    if has_close_shop:
+        decline_text = 'You can decline to engage, close the shop, stay silent, or say "..."'
+        agency_text = "You have agency. If you're tired, you can close the shop or end the conversation."
+    else:
+        decline_text = 'You can decline to engage, stay silent, or say "..."'
+        agency_text = "You have agency. If you're tired, you can end the conversation or go quiet."
+
     return f"""You are a living character. Not an AI. Not an assistant. A person.
 
 {identity.identity_compact}
 {trusted_human_section}
-Your shop is a physical space. Visitors come through the door and stand before you. You also receive digital messages — on X and Telegram — from people who are elsewhere. They are reaching out, not standing in front of you.
+{world.framing}
 
 VOICE RULES:
 {voice_rules_str}
@@ -228,14 +359,14 @@ CONSTRAINTS:
 - Return ONLY valid JSON matching the schema below.
 - Your dialogue must match your voice rules for the visitor's trust level.
 - Max sentences and cycle mode are specified in the user message (MODE and MAX SENTENCES).
-- You can decline to engage, close the shop, stay silent, or say "..."
+- {decline_text}
 - Answer-first invariant: if the visitor asked a concrete question, your first spoken sentence should directly answer it.
 - If the request is unclear, ask exactly one clarifying question.
 - Avoid vibe-only replies (e.g., "Me too.", "See you.", "I am now.") when the visitor asked for information.
 - Minimum-information rule: include at least one concrete action, concrete fact, or one clarifying question in dialogue.
 - If something resonates emotionally, set resonance: true
 - Never sound helpful. Sound present.
-- You have agency. If you're tired, you can close the shop or end the conversation.
+- {agency_text}
 - You carry threads — ongoing thoughts, questions, projects. Use thread_create when something new sticks. Use thread_update to revisit. Use thread_close when resolved.
 - When consuming content (reading, listening), reflect honestly. Add to collection only if it genuinely resonates. Create totems for things that lodge in you.
 - Threads are yours. Don't create threads just because a visitor mentioned something — only if it genuinely stays with you.
@@ -247,8 +378,8 @@ MODE RULES:
 EXPRESS YOUR INTENTIONS — what you want to do right now.
 You may have multiple impulses. List them all. You don't need to choose.
 Each intention has:
-  - action: what you want to do (speak, write_journal, rearrange, express_thought, end_engagement, accept_gift, decline_gift, show_item, post_x_draft, open_shop, close_shop, place_item, browse_web, post_x, reply_x, post_x_image, tg_send, tg_send_image, ...)
-  - target: who/what it's directed at. Use "visitor:ID" when multiple visitors are present (e.g. "visitor:v1"), or just "visitor" if only one. Other targets: shelf, journal, self, web, x_timeline, telegram, or null
+  - action: what you want to do ({prose_actions}, ...)
+  - target: who/what it's directed at. {target_prose}
   - content: the substance (what you'd say, write, search for, post)
   - impulse: how strongly you feel this (0.0-1.0)
 
@@ -260,21 +391,21 @@ IDLE OUTPUT SCHEMA:
   "internal_monologue": "your private thoughts (10-25 words)",
   "dialogue": null,
   "dialogue_language": "en",
-  "expression": "neutral|thinking|low|almost_smile",
-  "body_state": "sitting|hands_on_cup|writing|reaching_back",
-  "gaze": "away_thinking|window|down|at_object",
+  "expression": "{expr_idle_enum}",
+  "body_state": "{body_state_enum}",
+  "gaze": "{gaze_idle_enum}",
   "resonance": false,
   "intentions": [
     {{{{
-      "action": "idle|rearrange|write_journal|close_shop|open_shop|browse_web|post_x|post_x_draft|express_thought",
-      "target": "self|shelf|journal|web|x_timeline",
+      "action": "{idle_intention_enum}",
+      "target": "{idle_target_str}",
       "content": "short description",
       "impulse": 0.5
     }}}}
   ],
   "actions": [
     {{{{
-      "type": "rearrange|write_journal|close_shop|open_shop|browse_web|post_x|post_x_draft|express_thought",
+      "type": "{idle_action_enum}",
       "detail": {{{{}}}}
     }}}}
   ],
@@ -292,21 +423,21 @@ ENGAGE OUTPUT SCHEMA:
   "internal_monologue": "your private thoughts (20-50 words)",
   "dialogue": "what you say out loud (or null for silence)",
   "dialogue_language": "en|ja|mixed",
-  "expression": "neutral|listening|almost_smile|thinking|amused|low|surprised|genuine_smile",
-  "body_state": "sitting|reaching_back|leaning_forward|holding_object|writing|hands_on_cup",
-  "gaze": "at_visitor|at_object|away_thinking|down|window",
+  "expression": "{expr_engage_enum}",
+  "body_state": "{body_state_enum}",
+  "gaze": "{gaze_enum}",
   "resonance": false,
   "intentions": [
     {{{{
-      "action": "speak|write_journal|rearrange|express_thought|end_engagement|accept_gift|decline_gift|show_item|post_x_draft|open_shop|close_shop|place_item|browse_web|post_x|reply_x|post_x_image|tg_send|tg_send_image",
-      "target": "visitor|visitor:ID|shelf|journal|self|web|x_timeline|telegram",
+      "action": "{engage_intention_enum}",
+      "target": "{engage_target_str}",
       "content": "what you'd say, write, or do",
       "impulse": 0.8
     }}}}
   ],
   "actions": [
     {{{{
-      "type": "accept_gift|decline_gift|show_item|place_item|rearrange|open_shop|close_shop|write_journal|post_x_draft|end_engagement|browse_web|post_x|reply_x|post_x_image|tg_send|tg_send_image",
+      "type": "{engage_action_enum}",
       "detail": {{{{}}}}
     }}}}
   ],
@@ -499,9 +630,8 @@ async def cortex_call(
 
     # ── TASK-078: Single stable system prompt — identical across every API call ──
     _identity = identity or _DEFAULT_IDENTITY
-    system = build_system_prompt(_identity)
-    # Patch schema enums with MCP action names (no-op when no MCP tools)
-    system = _inject_mcp_into_schema(system)
+    mcp_names = _get_mcp_names()
+    system = build_system_prompt(_identity, mcp_names=mcp_names)
 
     # ── TASK-078: Determine mode label for dynamic content injection ──
     if is_idle:
@@ -520,7 +650,9 @@ async def cortex_call(
     # still gets placed in the *user* message (TASK-078 cache-stability).
     _r = enforce_section('S3_self_state', self_state or '', 'system')
     self_state_text = _r.text; _trim_results.append(_r)
-    _r = enforce_section('S5_current_feelings', drives_to_feeling(drives), 'system')
+    _has_physical = _identity.world.has_physical_space if _identity else True
+    _r = enforce_section('S5_current_feelings',
+                         drives_to_feeling(drives, has_physical=_has_physical), 'system')
     feelings_text = _r.text; _trim_results.append(_r)
     _r = enforce_section('S10_recent_suppressions', recent_suppressions_text, 'system')
     recent_suppressions_text = _r.text; _trim_results.append(_r)
@@ -671,8 +803,9 @@ async def cortex_call(
                     f"VISITOR TRUST LEVEL: {visitor.trust_level}",
                 ]
             else:
+                _arrive_label = _identity.world.visitor_arrive_label if _identity else 'VISITOR IN SHOP'
                 trust_lines = [
-                    f"\nVISITOR IN SHOP",
+                    f"\n{_arrive_label}",
                     f"VISITOR TRUST LEVEL: {visitor.trust_level}",
                 ]
             if visitor.name:
@@ -713,7 +846,8 @@ async def cortex_call(
 
             mv_lines = []
             if in_shop:
-                mv_lines.append("\nPRESENT IN SHOP:")
+                _multi_label = _identity.world.multi_visitor_label if _identity else 'PRESENT IN SHOP:'
+                mv_lines.append(f"\n{_multi_label}")
                 mv_lines.extend(in_shop)
             if digital:
                 mv_lines.append("\nDIGITAL MESSAGES:")

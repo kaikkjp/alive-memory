@@ -12,7 +12,8 @@ from db.parameters import p
 from alive_config import cfg
 
 
-async def run_consolidation() -> int:
+async def run_consolidation(*, identity_compact: str = '',
+                            has_physical: bool = True) -> int:
     """Run the full consolidation phase of the sleep cycle.
 
     Returns number of moments consolidated (>=0) if successful, -1 if all
@@ -37,7 +38,10 @@ async def run_consolidation() -> int:
         # Quiet day — write minimal entry if no summary exists yet
         existing_summary = await db.get_daily_summary_for_today()
         if not existing_summary:
-            _quiet_text = "Nothing happened today. The shop was quiet. I existed."
+            if has_physical:
+                _quiet_text = "Nothing happened today. The shop was quiet. I existed."
+            else:
+                _quiet_text = "Nothing happened today. It was quiet. I existed."
             await db.insert_journal(
                 content=_quiet_text,
                 mood='still',
@@ -87,7 +91,8 @@ async def run_consolidation() -> int:
                     print(f"[Sleep] Cold search failed, proceeding without: {e}")
 
             # c. Reflect (LLM call)
-            reflection = await sleep_reflect(moment, hot_ctx, cold_echoes)
+            reflection = await sleep_reflect(moment, hot_ctx, cold_echoes,
+                                             identity_compact=identity_compact)
             all_reflections.append({
                 'moment': moment,
                 'reflection': reflection,

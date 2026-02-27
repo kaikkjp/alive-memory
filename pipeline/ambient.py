@@ -60,6 +60,17 @@ WEATHER_DIEGETIC = {
     ),
 }
 
+_WEATHER_DIEGETIC_DIGITAL = {
+    'clear': ("Clear skies outside.", 0.05),
+    'cloudy': ("Overcast.", 0.0),
+    'rain': ("Rain outside.", 0.02),
+    'snow': ("Snow outside. Everything muffled.", 0.03),
+    'fog': ("Fog. The outside world is hidden.", 0.01),
+    'storm': ("Thunder outside.", -0.05),
+    'hot': ("It's hot.", -0.02),
+    'cold': ("Cold.", 0.0),
+}
+
 
 # ── Season context (Tokyo-centric) ──
 
@@ -107,14 +118,14 @@ def _classify_wmo(wmo_code: int, temp_c: float) -> str:
     return 'cloudy'  # safe default
 
 
-async def fetch_ambient_context() -> Optional[AmbientContext]:
+async def fetch_ambient_context(*, has_physical: bool = True) -> Optional[AmbientContext]:
     """Fetch current weather from Open-Meteo (free, no API key).
 
     In simulation mode, returns deterministic weather instead.
     Returns AmbientContext or None on failure.
     """
     if clock.is_simulating():
-        return _simulated_weather(clock.now())
+        return _simulated_weather(clock.now(), has_physical=has_physical)
 
     import aiohttp
 
@@ -148,7 +159,8 @@ async def fetch_ambient_context() -> Optional[AmbientContext]:
         wmo_code = int(current['weather_code'])
 
         condition = _classify_wmo(wmo_code, temp_c)
-        return map_to_diegetic(condition, temp_c, humidity, wind_kph)
+        return map_to_diegetic(condition, temp_c, humidity, wind_kph,
+                               has_physical=has_physical)
 
     except (KeyError, IndexError, ValueError, TypeError) as e:
         logger.warning("[Ambient] Weather parse failed: %s", e)
@@ -156,11 +168,13 @@ async def fetch_ambient_context() -> Optional[AmbientContext]:
 
 
 def map_to_diegetic(condition: str, temp_c: float = 20.0,
-                    humidity: int = 50, wind_kph: float = 0.0) -> AmbientContext:
+                    humidity: int = 50, wind_kph: float = 0.0,
+                    *, has_physical: bool = True) -> AmbientContext:
     """Deterministic weather → feeling conversion."""
     from db import JST
 
-    diegetic_text, mood_nudge = WEATHER_DIEGETIC.get(
+    mapping = WEATHER_DIEGETIC if has_physical else _WEATHER_DIEGETIC_DIGITAL
+    diegetic_text, mood_nudge = mapping.get(
         condition, ("The weather outside.", 0.0)
     )
 
@@ -206,7 +220,7 @@ DAY_VARIATIONS = [
 ]
 
 
-def _simulated_weather(now_jst: datetime) -> AmbientContext:
+def _simulated_weather(now_jst: datetime, *, has_physical: bool = True) -> AmbientContext:
     """Deterministic weather based on time-of-day and day-of-week rotation."""
     hour = now_jst.hour
     day_index = now_jst.toordinal() % 7
@@ -231,4 +245,5 @@ def _simulated_weather(now_jst: datetime) -> AmbientContext:
     temp_c += temp_off
     humidity = max(20, min(95, humidity + hum_off))
 
-    return map_to_diegetic(condition, temp_c, humidity, wind_kph)
+    return map_to_diegetic(condition, temp_c, humidity, wind_kph,
+                           has_physical=has_physical)

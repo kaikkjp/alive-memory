@@ -77,10 +77,18 @@ actions_enabled:
             finally:
                 os.unlink(f.name)
 
-    def test_default_shopkeeper_allows_all(self):
-        """Default Shopkeeper identity should have actions_enabled=None."""
+    def test_default_shopkeeper_has_explicit_actions(self):
+        """Default Shopkeeper identity has an explicit actions_enabled list."""
         identity = AgentIdentity.default()
-        self.assertIsNone(identity.actions_enabled)
+        # Shopkeeper YAML now has an explicit frozen action set
+        self.assertIsNotNone(identity.actions_enabled)
+        self.assertIsInstance(identity.actions_enabled, list)
+        self.assertIn('idle', identity.actions_enabled)
+        self.assertIn('speak', identity.actions_enabled)
+        self.assertIn('write_journal', identity.actions_enabled)
+        self.assertIn('rearrange', identity.actions_enabled)
+        self.assertIn('close_shop', identity.actions_enabled)
+        self.assertIn('tg_send', identity.actions_enabled)
 
     def test_digital_lifeform_blocks_all(self):
         """Digital lifeform identity should have actions_enabled=[]."""
@@ -255,11 +263,16 @@ class TestCapabilitiesGate(unittest.IsolatedAsyncioTestCase):
 class TestBackwardCompat(unittest.TestCase):
     """Ensure existing Shopkeeper identity continues to work."""
 
-    def test_shopkeeper_identity_no_actions_enabled_field(self):
-        """Default identity.yaml (Shopkeeper) should not have actions_enabled key."""
+    def test_shopkeeper_identity_has_frozen_action_set(self):
+        """Default identity.yaml (Shopkeeper) has explicit actions_enabled list."""
         identity = AgentIdentity.default()
-        # actions_enabled should be None (absent from YAML = all allowed)
-        self.assertIsNone(identity.actions_enabled)
+        # Shopkeeper YAML now has an explicit frozen action set (19 actions)
+        self.assertIsNotNone(identity.actions_enabled)
+        self.assertEqual(len(identity.actions_enabled), 19)
+        # Core actions present
+        for action in ('idle', 'speak', 'write_journal', 'end_engagement',
+                       'rearrange', 'close_shop', 'open_shop', 'browse_web'):
+            self.assertIn(action, identity.actions_enabled)
 
 
 if __name__ == '__main__':

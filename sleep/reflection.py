@@ -66,7 +66,8 @@ def format_traits_for_sleep(traits: list) -> str:
     return "\n".join(lines)
 
 
-async def sleep_reflect(moment, hot_context: dict, cold_echoes: list) -> dict:
+async def sleep_reflect(moment, hot_context: dict, cold_echoes: list,
+                        *, identity_compact: str = '') -> dict:
     """One reflection per salient moment. LLM call via cortex_call_reflect."""
     parts = []
     parts.append(f"MOMENT FROM TODAY ({relative_time(moment.ts)}):")
@@ -93,7 +94,8 @@ async def sleep_reflect(moment, hot_context: dict, cold_echoes: list) -> dict:
                 parts.append(f"    Context: {echo['context'][:150]}")
 
     user_message = "\n".join(parts)
-    system = SLEEP_REFLECTION_SYSTEM.format(identity_compact=IDENTITY_COMPACT)
+    ic = identity_compact or IDENTITY_COMPACT
+    system = SLEEP_REFLECTION_SYSTEM.format(identity_compact=ic)
 
     # Late-bind through package so tests can patch sleep.cortex_call_reflect
     _call = sys.modules['sleep'].cortex_call_reflect
