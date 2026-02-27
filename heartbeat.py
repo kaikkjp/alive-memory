@@ -639,8 +639,7 @@ class Heartbeat:
                                 try:
                                     print("[Heartbeat] Executing queued sleep cycle")
                                     await self._emit_stage('sleep', {'status': 'queued_sleep'})
-                                    from sleep import sleep_cycle
-                                    ran = await sleep_cycle()
+                                    ran = await sleep_cycle()  # uses module-level import (line 35)
                                     if ran >= 0:
                                         self._last_sleep_date = clock.now().strftime('%Y-%m-%d')
                                     print(f"[Heartbeat] Queued sleep complete: {ran} moments")
