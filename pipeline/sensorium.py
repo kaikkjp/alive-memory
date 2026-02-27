@@ -189,10 +189,13 @@ async def build_perceptions(unread_events: list[Event], drives: DrivesState,
         elif event.event_type == 'ambient_discovery':
             title = event.payload.get('title', 'something')
             drop_type = event.payload.get('type', 'text')
+            has_physical = world.has_physical_space if world else True
             if drop_type == 'url':
-                content = f"Something appeared on the counter: {title}"
+                content = (f"Something appeared on the counter: {title}" if has_physical
+                           else f"Something arrived: {title}")
             else:
-                content = f'Something appeared on the counter: "{title}"'
+                content = (f'Something appeared on the counter: "{title}"' if has_physical
+                           else f'Something new: "{title}"')
             perc = Perception(
                 p_type='ambient_discovery',
                 source='world',

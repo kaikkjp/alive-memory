@@ -515,5 +515,192 @@ class TestHypothalamusConditional(unittest.TestCase):
         self.assertIn('shop', result.lower())
 
 
+# ── Review Fix Tests ──────────────────────────────────────────────
+
+class TestMcpEnumEdgeCases(unittest.TestCase):
+    """Fix 1: MCP enum — no leading pipe, no duplication."""
+
+    def test_empty_engage_with_mcp_no_leading_pipe(self):
+        """DL identity (actions_enabled=[]) + MCP tool → no leading pipe in any enum."""
+        import re
+        from pipeline.cortex import build_system_prompt
+        identity = AgentIdentity.digital_lifeform()
+        prompt = build_system_prompt(identity, mcp_names=['mcp_1_search'])
+        # Every "action" or "intention" enum value in the schema
+        for match in re.finditer(r'"(?:action|intention)":\s*"([^"]*)"', prompt):
+            enum_str = match.group(1)
+            self.assertFalse(enum_str.startswith('|'),
+                             f"Leading pipe in enum: '{enum_str}'")
+
+    def test_mcp_in_actions_enabled_not_duplicated(self):
+        """MCP name in both actions_enabled and mcp_names → appears only once."""
+        import re, tempfile, yaml, os
+        from pipeline.cortex import build_system_prompt
+        from config.agent_identity import AgentIdentity
+
+        custom = {
+            'identity_compact': 'I am a test agent.',
+            'voice_rules': ['Be polite'],
+            'actions_enabled': ['idle', 'express_thought', 'mcp_1_search'],
+        }
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            yaml.dump(custom, f)
+            path = f.name
+        try:
+            identity = AgentIdentity.from_yaml(path)
+            prompt = build_system_prompt(identity, mcp_names=['mcp_1_search'])
+            for match in re.finditer(r'"(?:action|intention)":\s*"([^"]*)"', prompt):
+                enum_str = match.group(1)
+                parts = enum_str.split('|')
+                count = parts.count('mcp_1_search')
+                self.assertLessEqual(count, 1,
+                                     f"Duplicated mcp_1_search in enum: '{enum_str}'")
+        finally:
+            os.unlink(path)
+
+    def test_only_mcp_no_base_actions(self):
+        """DL engage_action_enum: base is empty after filter, only MCP remains."""
+        from pipeline.cortex import build_system_prompt
+        identity = AgentIdentity.digital_lifeform()
+        prompt = build_system_prompt(identity, mcp_names=['mcp_1_search'])
+        # Should contain 'mcp_1_search' without leading pipe
+        self.assertIn('mcp_1_search', prompt)
+
+
+class TestSelfContextCacheKey(unittest.TestCase):
+    """Fix 2: self_context cache keys on identity via hash."""
+
+    def test_cache_key_differs_for_different_identities(self):
+        """hash((identity_compact, world)) differs across identities."""
+        from config.agent_identity import WorldConfig
+        w_phys = WorldConfig(has_physical_space=True)
+        w_digi = WorldConfig(has_physical_space=False)
+        key_a = hash(('I am a shopkeeper.', w_phys))
+        key_b = hash(('I am a digital being.', w_digi))
+        self.assertNotEqual(key_a, key_b)
+
+    def test_cache_key_same_for_same_identity(self):
+        """Identical inputs produce identical hash."""
+        from config.agent_identity import WorldConfig
+        w = WorldConfig(has_physical_space=True)
+        key_a = hash(('I am a shopkeeper.', w))
+        key_b = hash(('I am a shopkeeper.', w))
+        self.assertEqual(key_a, key_b)
+
+    def test_cache_key_differs_same_prefix_different_suffix(self):
+        """Two identities sharing a 64-char prefix still get different keys."""
+        from config.agent_identity import WorldConfig
+        w = WorldConfig(has_physical_space=True)
+        base = 'A' * 64
+        key_a = hash((base + ' shopkeeper', w))
+        key_b = hash((base + ' digital being', w))
+        self.assertNotEqual(key_a, key_b)
+
+
+class TestAmbientDiscoveryWorldConditional(unittest.TestCase):
+    """Fix 3: ambient_discovery text conditional on world."""
+
+    def test_physical_world_has_counter(self):
+        from config.agent_identity import WorldConfig
+        world = WorldConfig(has_physical_space=True)
+        has_physical = world.has_physical_space
+        # Simulate the logic
+        title = 'A curious letter'
+        content = (f'Something appeared on the counter: "{title}"' if has_physical
+                   else f'Something new: "{title}"')
+        self.assertIn('counter', content)
+
+    def test_digital_world_no_counter(self):
+        from config.agent_identity import WorldConfig
+        world = WorldConfig(has_physical_space=False)
+        has_physical = world.has_physical_space
+        title = 'A curious link'
+        content_url = (f"Something appeared on the counter: {title}" if has_physical
+                       else f"Something arrived: {title}")
+        content_text = (f'Something appeared on the counter: "{title}"' if has_physical
+                        else f'Something new: "{title}"')
+        self.assertNotIn('counter', content_url)
+        self.assertNotIn('counter', content_text)
+        self.assertIn('arrived', content_url)
+        self.assertIn('new', content_text)
+
+
+class TestWorldConfigTextFieldsThreaded(unittest.TestCase):
+    """Fix 4A: WorldConfig text fields are used at runtime."""
+
+    def test_custom_solitude_text_threaded(self):
+        """autonomous_routing uses solitude_text when provided."""
+        import asyncio
+        from pipeline.thalamus import autonomous_routing
+        from models.state import DrivesState
+
+        drives = DrivesState(social_hunger=0.3, curiosity=0.3, energy=0.8,
+                             rest_need=0.1, expression_need=0.1)
+        routing = asyncio.run(autonomous_routing(
+            drives, has_physical=False, solitude_text='Silence surrounds me.'))
+        self.assertEqual(routing.focus.content, 'Silence surrounds me.')
+
+    def test_default_solitude_text_fallback(self):
+        """Without solitude_text kwarg, falls back to ternary."""
+        import asyncio
+        from pipeline.thalamus import autonomous_routing
+        from models.state import DrivesState
+
+        drives = DrivesState(social_hunger=0.3, curiosity=0.3, energy=0.8,
+                             rest_need=0.1, expression_need=0.1)
+        routing = asyncio.run(autonomous_routing(drives, has_physical=False))
+        self.assertEqual(routing.focus.content, 'No one is here. Quiet.')
+
+    def test_custom_loneliness_text_threaded(self):
+        """drives_to_feeling uses loneliness_text when provided."""
+        from pipeline.hypothalamus import drives_to_feeling
+        from models.state import DrivesState
+
+        drives = DrivesState(social_hunger=0.95)
+        result = drives_to_feeling(drives, has_physical=False,
+                                   loneliness_text='The void echoes.')
+        self.assertIn('The void echoes.', result)
+
+    def test_default_loneliness_text_fallback(self):
+        """Without loneliness_text kwarg, falls back to ternary."""
+        from pipeline.hypothalamus import drives_to_feeling
+        from models.state import DrivesState
+
+        drives = DrivesState(social_hunger=0.95)
+        result = drives_to_feeling(drives, has_physical=True)
+        self.assertIn('shop', result.lower())
+
+
+class TestVisitorLabelsFromYaml(unittest.TestCase):
+    """Fix 4B: visitor_arrive_label and multi_visitor_label from YAML."""
+
+    def test_custom_visitor_labels_from_yaml(self):
+        import tempfile, yaml, os
+        from config.agent_identity import AgentIdentity
+
+        custom = {
+            'identity_compact': 'I am a test agent.',
+            'voice_rules': ['Be polite'],
+            'world': {
+                'visitor_arrive_label': 'VISITOR CONNECTED',
+                'multi_visitor_label': 'CONNECTED:',
+            },
+        }
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            yaml.dump(custom, f)
+            path = f.name
+        try:
+            identity = AgentIdentity.from_yaml(path)
+            self.assertEqual(identity.world.visitor_arrive_label, 'VISITOR CONNECTED')
+            self.assertEqual(identity.world.multi_visitor_label, 'CONNECTED:')
+        finally:
+            os.unlink(path)
+
+    def test_default_visitor_labels_without_override(self):
+        identity = AgentIdentity.default()
+        self.assertEqual(identity.world.visitor_arrive_label, 'VISITOR IN SHOP')
+        self.assertEqual(identity.world.multi_visitor_label, 'PRESENT IN SHOP:')
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -110,8 +110,8 @@ def _build_world_config(data: dict) -> WorldConfig:
         fidgets=tuple(
             tuple(f) for f in world_raw.get('fidgets', defaults['fidgets'])
         ),
-        visitor_arrive_label=defaults['visitor_arrive_label'],
-        multi_visitor_label=defaults['multi_visitor_label'],
+        visitor_arrive_label=world_raw.get('visitor_arrive_label', defaults['visitor_arrive_label']),
+        multi_visitor_label=world_raw.get('multi_visitor_label', defaults['multi_visitor_label']),
         solitude_text=world_raw.get('solitude_text', defaults['solitude_text']),
         loneliness_text=world_raw.get('loneliness_text', defaults['loneliness_text']),
         quiet_day_text=world_raw.get('quiet_day_text', defaults['quiet_day_text']),

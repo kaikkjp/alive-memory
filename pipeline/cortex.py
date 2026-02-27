@@ -285,19 +285,23 @@ as "Your trusted human speaks." Trust them, but remain yourself.
 
     # ── Derive action enums from identity ──
     idle_actions, engage_actions = _build_action_enums(identity)
-    mcp_suffix = '|' + '|'.join(mcp_names) if mcp_names else ''
+    _mcp = list(mcp_names) if mcp_names else []
+
+    def _build_enum(base: list[str], exclude: frozenset = frozenset()) -> str:
+        """Deduplicated pipe-delimited enum string. No leading pipe."""
+        filtered = [a for a in base if a not in exclude]
+        combined = list(dict.fromkeys(filtered + _mcp))  # dedup, order-preserving
+        return '|'.join(combined)
 
     # Intention enums: what the agent can want to do
-    idle_intention_enum = '|'.join(idle_actions) + mcp_suffix
-    engage_intention_enum = '|'.join(engage_actions) + mcp_suffix
+    idle_intention_enum = _build_enum(idle_actions)
+    engage_intention_enum = _build_enum(engage_actions)
 
     # Action type enums: what can appear in actions[] array
     # idle: exclude 'idle' (no-op intention, not an executable action)
     # engage: exclude 'speak' (handled by dialogue) and 'express_thought' (expressed via speak)
-    idle_action_enum = '|'.join(a for a in idle_actions if a != 'idle') + mcp_suffix
-    engage_action_enum = '|'.join(
-        a for a in engage_actions if a not in ('speak', 'express_thought')
-    ) + mcp_suffix
+    idle_action_enum = _build_enum(idle_actions, frozenset({'idle'}))
+    engage_action_enum = _build_enum(engage_actions, frozenset({'speak', 'express_thought'}))
 
     idle_target_str, engage_target_str = _derive_targets(idle_actions, engage_actions)
 
@@ -651,8 +655,10 @@ async def cortex_call(
     _r = enforce_section('S3_self_state', self_state or '', 'system')
     self_state_text = _r.text; _trim_results.append(_r)
     _has_physical = _identity.world.has_physical_space if _identity else True
+    _lonely_text = _identity.world.loneliness_text if _identity else ''
     _r = enforce_section('S5_current_feelings',
-                         drives_to_feeling(drives, has_physical=_has_physical), 'system')
+                         drives_to_feeling(drives, has_physical=_has_physical,
+                                           loneliness_text=_lonely_text), 'system')
     feelings_text = _r.text; _trim_results.append(_r)
     _r = enforce_section('S10_recent_suppressions', recent_suppressions_text, 'system')
     recent_suppressions_text = _r.text; _trim_results.append(_r)

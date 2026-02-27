@@ -13,7 +13,8 @@ from alive_config import cfg
 
 
 async def run_consolidation(*, identity_compact: str = '',
-                            has_physical: bool = True) -> int:
+                            has_physical: bool = True,
+                            quiet_day_text: str = '') -> int:
     """Run the full consolidation phase of the sleep cycle.
 
     Returns number of moments consolidated (>=0) if successful, -1 if all
@@ -38,10 +39,9 @@ async def run_consolidation(*, identity_compact: str = '',
         # Quiet day — write minimal entry if no summary exists yet
         existing_summary = await db.get_daily_summary_for_today()
         if not existing_summary:
-            if has_physical:
-                _quiet_text = "Nothing happened today. The shop was quiet. I existed."
-            else:
-                _quiet_text = "Nothing happened today. It was quiet. I existed."
+            _quiet_text = (quiet_day_text
+                          or ('Nothing happened today. The shop was quiet. I existed.' if has_physical
+                              else 'Nothing happened today. It was quiet. I existed.'))
             await db.insert_journal(
                 content=_quiet_text,
                 mood='still',
