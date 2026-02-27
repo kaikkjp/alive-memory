@@ -571,6 +571,7 @@ class Heartbeat:
                         ran = await sleep_cycle(
                             identity_compact=self._identity.identity_compact if self._identity else '',
                             has_physical=self._identity.world.has_physical_space if self._identity else True,
+                            quiet_day_text=self._identity.world.quiet_day_text if self._identity else '',
                         )
                         if ran >= 0:
                             self._last_sleep_date = clock.now().date().isoformat()
@@ -661,6 +662,7 @@ class Heartbeat:
                                     ran = await sleep_cycle(
                                         identity_compact=self._identity.identity_compact if self._identity else '',
                                         has_physical=self._identity.world.has_physical_space if self._identity else True,
+                                        quiet_day_text=self._identity.world.quiet_day_text if self._identity else '',
                                     )
                                     if ran >= 0:
                                         self._last_sleep_date = clock.now().strftime('%Y-%m-%d')
@@ -1119,8 +1121,9 @@ class Heartbeat:
 
         # 5. Thalamus: route
         _hp = self._identity.world.has_physical_space if self._identity else True
+        _sol = self._identity.world.solitude_text if self._identity else ''
         routing = await route(perceptions, drives, engagement, visitor,
-                              has_physical=_hp)
+                              has_physical=_hp, solitude_text=_sol)
 
         # ── Mode binding: arbiter focus overrides Thalamus unless visitor/digital is primary ──
         # TASK-087: digital_* types get the same protection as visitor_*

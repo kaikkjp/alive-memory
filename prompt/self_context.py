@@ -274,7 +274,7 @@ async def assemble_self_context(
 
 # ── TASK-076: Self-context cache for idle cycles ──
 
-_cache: tuple[str, float] | None = None
+_cache: tuple[str, float, int] | None = None  # (text, timestamp, cache_key_hash)
 _CACHE_TTL = 300  # 5 minutes
 
 
@@ -289,11 +289,15 @@ async def assemble_self_context_cached(
     """Cached wrapper. Only caches when no visitor (idle cycles).
 
     Engaged cycles always rebuild fresh (visitor context changes per turn).
+    Cache is keyed on identity fingerprint to prevent cross-agent leaks.
     """
     global _cache
     now = time.monotonic()
 
     _kw = dict(world=world, identity_compact=identity_compact)
+
+    # Cache key: hash of full identity + world so different agents never share cache
+    _cache_key = hash((identity_compact, world))
 
     # Always rebuild when visitor present or force requested.
     # Also invalidate cache so next idle cycle gets fresh context
@@ -305,14 +309,14 @@ async def assemble_self_context_cached(
 
     # Check cache for idle cycles
     if _cache is not None:
-        text, ts = _cache
-        if now - ts < _CACHE_TTL:
+        text, ts, key = _cache
+        if now - ts < _CACHE_TTL and key == _cache_key:
             print(f'  [SelfContext] cache hit ({now - ts:.0f}s old)')
             return text
 
     # Cache miss — rebuild and store
     result = await assemble_self_context(visitor=visitor, habit_boost=habit_boost, **_kw)
-    _cache = (result, now)
+    _cache = (result, now, _cache_key)
     return result
 
 
