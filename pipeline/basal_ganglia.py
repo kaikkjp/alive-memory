@@ -645,6 +645,12 @@ def _backfill_action_detail(decision: ActionDecision) -> None:
     if decision.action == 'tg_send_image' and not detail.get('caption'):
         detail['caption'] = content
 
+    # MCP tools: map freeform content → arguments dict
+    if decision.action.startswith('mcp_') and not detail.get('arguments'):
+        mcp_content = detail.get('content') or detail.get('text', '')
+        if mcp_content:
+            detail['arguments'] = {'query': mcp_content}
+
     content_actions = {'read_content', 'save_for_later', 'mention_in_conversation'}
     if decision.action in content_actions and not detail.get('content_id'):
         content_id = _extract_content_id_from_content(content)

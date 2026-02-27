@@ -268,6 +268,19 @@ from db.meta_experiments import (
     get_drifted_params,
 )
 
+# ── mcp ──
+from db.mcp import (
+    get_mcp_servers,
+    get_mcp_server,
+    get_mcp_server_by_url,
+    create_mcp_server,
+    update_mcp_server,
+    delete_mcp_server,
+    update_mcp_tool_enabled,
+    log_mcp_tool_usage,
+    get_mcp_tool_usage_counts,
+)
+
 # ── social ──
 from db.social import (
     approve_draft,

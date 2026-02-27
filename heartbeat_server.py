@@ -212,6 +212,13 @@ class ShopkeeperServer:
         # Initialize database
         await db.init_db()
 
+        # Restore MCP server registrations (runtime-only, non-fatal)
+        try:
+            from body.mcp_registry import load_from_db as mcp_load_from_db
+            await mcp_load_from_db()
+        except Exception as e:
+            print(f"  [MCP] Registry restore failed (non-fatal): {e}")
+
         # Clear stale visitor presence from previous session
         await db.clear_all_visitors_present()
 
@@ -1319,6 +1326,45 @@ class ShopkeeperServer:
                     await self._http_json(writer, 400, {'error': 'invalid stream id'})
                     return
                 await dashboard_routes.handle_feed_streams_delete(self, writer, authorization, stream_id)
+            # TASK-095 v3.1 Batch 3: MCP server management
+            elif path == '/api/dashboard/mcp/servers' and method == 'GET':
+                await dashboard_routes.handle_mcp_servers_list(self, writer, authorization)
+            elif path == '/api/dashboard/mcp/connect' and method == 'POST':
+                await dashboard_routes.handle_mcp_connect(self, writer, authorization, body_bytes)
+            elif path.startswith('/api/dashboard/mcp/') and '/tools/' in path and method == 'PATCH':
+                # /api/dashboard/mcp/:id/tools/:suffix
+                remainder = path[len('/api/dashboard/mcp/'):]
+                parts = remainder.split('/tools/', 1)
+                if len(parts) == 2:
+                    try:
+                        mcp_server_id = int(parts[0])
+                    except ValueError:
+                        await self._http_json(writer, 400, {'error': 'invalid server id'})
+                        return
+                    tool_suffix = parts[1]
+                    await dashboard_routes.handle_mcp_tool_toggle(
+                        self, writer, authorization, body_bytes,
+                        mcp_server_id, tool_suffix)
+                else:
+                    await self._http_json(writer, 400, {'error': 'invalid path'})
+            elif path.startswith('/api/dashboard/mcp/') and method == 'PATCH':
+                # /api/dashboard/mcp/:id (server toggle)
+                try:
+                    mcp_server_id = int(path[len('/api/dashboard/mcp/'):])
+                except ValueError:
+                    await self._http_json(writer, 400, {'error': 'invalid server id'})
+                    return
+                await dashboard_routes.handle_mcp_server_toggle(
+                    self, writer, authorization, body_bytes, mcp_server_id)
+            elif path.startswith('/api/dashboard/mcp/') and method == 'DELETE':
+                # /api/dashboard/mcp/:id (server delete)
+                try:
+                    mcp_server_id = int(path[len('/api/dashboard/mcp/'):])
+                except ValueError:
+                    await self._http_json(writer, 400, {'error': 'invalid server id'})
+                    return
+                await dashboard_routes.handle_mcp_server_delete(
+                    self, writer, authorization, mcp_server_id)
             elif path == '/api/metrics/public' and method == 'GET':
                 await dashboard_routes.handle_metrics_public(self, writer)
             elif path == '/api/live' and method == 'GET':

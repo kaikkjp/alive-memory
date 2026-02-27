@@ -64,6 +64,23 @@ def _record_success():
     _circuit_open_until = 0.0
 
 
+def _get_mcp_action_block() -> str:
+    """Build description block for MCP tools in user message.
+
+    Injected into user message (not system prompt) for TASK-078 cache stability.
+    """
+    try:
+        from body.mcp_registry import get_mcp_action_descriptions
+        descs = get_mcp_action_descriptions()
+        if not descs:
+            return ''
+        lines = [f"- {name}: {desc}" for name, desc in descs]
+        return ("\n\nCONNECTED TOOLS (valid in intentions.action and actions.type):\n"
+                + "\n".join(lines))
+    except ImportError:
+        return ''
+
+
 # ── Rumination Breaker (HOTFIX-003) ──
 # Track how many consecutive cycles each thread appears in cortex context.
 # After RUMINATION_THRESHOLD consecutive appearances, exponentially reduce
@@ -495,6 +512,11 @@ async def cortex_call(
 
     if x_posting_guidance_text:
         parts.append(f"\n{x_posting_guidance_text}")
+
+    # MCP connected tools (dynamic per-cycle, injected into user message for cache stability)
+    mcp_block = _get_mcp_action_block()
+    if mcp_block:
+        parts.append(mcp_block)
 
     if is_idle:
         # ── TASK-076: Minimal user message for idle cycles ──

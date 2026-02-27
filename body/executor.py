@@ -38,6 +38,18 @@ async def dispatch_action(action: ActionRequest, visitor_id: str = None,
 
     Returns an ActionResult in all cases — never raises.
     """
+    # MCP action dispatch
+    if action.type.startswith('mcp_'):
+        from body.mcp_executor import execute_mcp_action
+        try:
+            return await execute_mcp_action(action, visitor_id, monologue)
+        except Exception as e:
+            return ActionResult(
+                action=action.type, success=False,
+                error=f"{type(e).__name__}: {e}",
+                timestamp=clock.now_utc(),
+            )
+
     executor = EXECUTORS.get(action.type)
     if executor:
         try:
