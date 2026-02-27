@@ -1789,7 +1789,7 @@ async def handle_mcp_connect(server, writer: asyncio.StreamWriter,
 
     # Discover tools from the MCP server
     from body.mcp_registry import get_client, compute_action_suffixes, \
-        unregister_server, register_server
+        merge_action_suffixes, unregister_server, register_server
 
     client = get_client()
     try:
@@ -1803,15 +1803,14 @@ async def handle_mcp_connect(server, writer: asyncio.StreamWriter,
     if not name:
         name = server_info.name
 
-    # Compute action suffixes
-    tools_data, warnings = compute_action_suffixes(server_info.tools)
-    tools_json = json.dumps(tools_data)
-
     # Idempotent: check if server URL already registered
     existing = await db.get_mcp_server_by_url(url)
     if existing:
         server_id = existing['id']
-        # Reconnect: update tools and re-enable if disabled
+        # Reconnect: merge with existing suffixes to preserve tool identity
+        old_tools = existing.get('discovered_tools', [])
+        tools_data, warnings = merge_action_suffixes(server_info.tools, old_tools)
+        tools_json = json.dumps(tools_data)
         await db.update_mcp_server(server_id,
                                    name=name,
                                    enabled=1,
@@ -1822,6 +1821,9 @@ async def handle_mcp_connect(server, writer: asyncio.StreamWriter,
         if removed:
             _sync_actions_enabled_remove(server, removed)
     else:
+        # First connect: compute suffixes from scratch
+        tools_data, warnings = compute_action_suffixes(server_info.tools)
+        tools_json = json.dumps(tools_data)
         server_id = await db.create_mcp_server(name, url, tools_json)
 
     # Register in runtime ACTION_REGISTRY

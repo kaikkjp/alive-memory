@@ -31,11 +31,12 @@ def _normalize_tool_name(name: str) -> str:
     return result or 'tool'
 
 
-def compute_action_suffixes(tools: list[McpToolSchema]) -> list[dict]:
+def compute_action_suffixes(tools: list[McpToolSchema]) -> tuple[list[dict], list[str]]:
     """Compute stable action_suffix for each tool.
 
     Sort by raw name, normalize, deduplicate with _2/_3 suffixes.
     Called ONCE on first connect. Result persisted in DB.
+    For reconnect, use merge_action_suffixes() instead to preserve existing IDs.
     """
     # Sort by raw name for deterministic suffix assignment
     sorted_tools = sorted(tools, key=lambda t: t.name)
@@ -57,6 +58,77 @@ def compute_action_suffixes(tools: list[McpToolSchema]) -> list[dict]:
         count = suffix_counts.get(base, 0)
         suffix_counts[base] = count + 1
         suffix = base if count == 0 else f"{base}_{count + 1}"
+        result.append({
+            'name': tool.name,
+            'description': tool.description,
+            'input_schema': tool.input_schema,
+            'enabled': True,
+            'action_suffix': suffix,
+        })
+
+    return result, warnings
+
+
+def merge_action_suffixes(
+    new_tools: list[McpToolSchema],
+    existing_tools: list[dict],
+) -> tuple[list[dict], list[str]]:
+    """Merge new tool discovery with existing persisted suffixes.
+
+    Preserves existing suffix + enabled state for tools that still exist.
+    Only computes new suffixes for genuinely new tools (avoiding collisions).
+    Tools no longer present on the server are dropped.
+    """
+    warnings: list[str] = []
+
+    # Deduplicate new tools by raw name
+    seen_raw: dict[str, McpToolSchema] = {}
+    for tool in sorted(new_tools, key=lambda t: t.name):
+        if tool.name in seen_raw:
+            warnings.append(f"Duplicate tool name '{tool.name}' — using last definition")
+        seen_raw[tool.name] = tool
+
+    # Build lookup: raw_name → existing persisted entry
+    existing_by_name: dict[str, dict] = {}
+    existing_suffixes: set[str] = set()
+    for t in existing_tools:
+        name = t.get('name', '')
+        suffix = t.get('action_suffix', '')
+        if name and suffix:
+            existing_by_name[name] = t
+            existing_suffixes.add(suffix)
+
+    result = []
+    new_needing_suffix = []
+
+    # Phase 1: preserve existing suffix + enabled state for tools still present
+    for name in sorted(seen_raw.keys()):
+        tool = seen_raw[name]
+        if name in existing_by_name:
+            old = existing_by_name[name]
+            result.append({
+                'name': tool.name,
+                'description': tool.description,
+                'input_schema': tool.input_schema,
+                'enabled': old.get('enabled', True),
+                'action_suffix': old['action_suffix'],
+            })
+        else:
+            new_needing_suffix.append(tool)
+
+    # Phase 2: compute suffixes for genuinely new tools, avoiding collisions
+    used_suffixes = set(existing_suffixes)
+    for tool in new_needing_suffix:
+        base = _normalize_tool_name(tool.name)
+        # Find first available suffix
+        if base not in used_suffixes:
+            suffix = base
+        else:
+            n = 2
+            while f"{base}_{n}" in used_suffixes:
+                n += 1
+            suffix = f"{base}_{n}"
+        used_suffixes.add(suffix)
         result.append({
             'name': tool.name,
             'description': tool.description,

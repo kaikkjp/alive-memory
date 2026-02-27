@@ -95,7 +95,7 @@ class TestGetMcpActionBlock(unittest.TestCase):
 
 
 class TestMcpBlockFormat(unittest.TestCase):
-    """Verify output format of the MCP block."""
+    """Verify output format of the user-message MCP block."""
 
     def setUp(self):
         _cleanup_mcp()
@@ -103,7 +103,7 @@ class TestMcpBlockFormat(unittest.TestCase):
     def tearDown(self):
         _cleanup_mcp()
 
-    def test_format_has_enum_extension_and_tool_lines(self):
+    def test_format_has_header_and_tool_lines(self):
         from pipeline.cortex import _get_mcp_action_block
 
         server_info = {
@@ -117,19 +117,60 @@ class TestMcpBlockFormat(unittest.TestCase):
 
         result = _get_mcp_action_block()
         lines = result.strip().split('\n')
-        # First line: header with enum extension (pipe-delimited names)
-        header_line = lines[0]
-        self.assertIn('CONNECTED TOOLS', header_line)
-        self.assertIn('mcp_1_tool_a', header_line)
-        # Second line: "Use these exactly like built-in actions."
-        self.assertIn('built-in actions', lines[1])
-        # Third line: "- name: desc"
-        tool_line = lines[2]
-        self.assertTrue(tool_line.startswith('- mcp_1_tool_a:'))
+        # First line: header
+        self.assertIn('CONNECTED TOOLS', lines[0])
+        # Tool line: "- name: desc"
+        tool_lines = [l for l in lines if l.startswith('- mcp_')]
+        self.assertEqual(len(tool_lines), 1)
+        self.assertTrue(tool_lines[0].startswith('- mcp_1_tool_a:'))
 
-    def test_block_contains_pipe_enum_for_multiple_tools(self):
-        """Schema enum extension has all tool names pipe-delimited."""
-        from pipeline.cortex import _get_mcp_action_block
+
+class TestInjectMcpIntoSchema(unittest.TestCase):
+    """_inject_mcp_into_schema patches enum strings in system prompt."""
+
+    def setUp(self):
+        _cleanup_mcp()
+
+    def tearDown(self):
+        _cleanup_mcp()
+
+    def test_noop_when_no_mcp_tools(self):
+        from pipeline.cortex import _inject_mcp_into_schema, build_system_prompt, \
+            _DEFAULT_IDENTITY
+        original = build_system_prompt(_DEFAULT_IDENTITY)
+        patched = _inject_mcp_into_schema(original)
+        self.assertEqual(patched, original)
+
+    def test_injects_into_all_four_enums(self):
+        from pipeline.cortex import _inject_mcp_into_schema, build_system_prompt, \
+            _DEFAULT_IDENTITY, _IDLE_INTENTION_ENUM, _IDLE_ACTION_ENUM, \
+            _ENGAGE_INTENTION_ENUM, _ENGAGE_ACTION_ENUM
+
+        server_info = {
+            'url': 'http://test', 'enabled': 1,
+            'discovered_tools': [
+                {'name': 'search', 'description': 'Search', 'input_schema': {},
+                 'enabled': True, 'action_suffix': 'search'},
+            ],
+        }
+        registry.register_server(1, server_info)
+
+        original = build_system_prompt(_DEFAULT_IDENTITY)
+        patched = _inject_mcp_into_schema(original)
+
+        # MCP name should appear in all 4 enum locations
+        self.assertIn(f'{_IDLE_INTENTION_ENUM}|mcp_1_search', patched)
+        self.assertIn(f'{_IDLE_ACTION_ENUM}|mcp_1_search', patched)
+        self.assertIn(f'{_ENGAGE_INTENTION_ENUM}|mcp_1_search', patched)
+        self.assertIn(f'{_ENGAGE_ACTION_ENUM}|mcp_1_search', patched)
+
+        # Original enums without MCP should be gone
+        # (they're now extended with |mcp_1_search)
+        self.assertNotIn(f'"{_IDLE_INTENTION_ENUM}"', patched)
+
+    def test_multiple_tools_in_enums(self):
+        from pipeline.cortex import _inject_mcp_into_schema, build_system_prompt, \
+            _DEFAULT_IDENTITY
 
         server_info = {
             'url': 'http://test', 'enabled': 1,
@@ -142,9 +183,9 @@ class TestMcpBlockFormat(unittest.TestCase):
         }
         registry.register_server(1, server_info)
 
-        result = _get_mcp_action_block()
-        # Both tool names in pipe-delimited enum
-        self.assertIn('mcp_1_search|mcp_1_calc', result)
+        original = build_system_prompt(_DEFAULT_IDENTITY)
+        patched = _inject_mcp_into_schema(original)
+        self.assertIn('|mcp_1_search|mcp_1_calc', patched)
 
 
 class TestMcpBackfill(unittest.TestCase):

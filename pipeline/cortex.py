@@ -67,25 +67,59 @@ def _record_success():
 def _get_mcp_action_block() -> str:
     """Build description block for MCP tools in user message.
 
-    Injected into user message (not system prompt) for TASK-078 cache stability.
-    Explicitly extends the schema enums so the model treats these as valid values.
+    Tool descriptions live in user message (not system) for TASK-078 cache stability.
+    Schema enum injection happens separately via _inject_mcp_into_schema().
     """
     try:
         from body.mcp_registry import get_mcp_action_descriptions
         descs = get_mcp_action_descriptions()
         if not descs:
             return ''
-        names = [name for name, _ in descs]
         lines = [f"- {name}: {desc}" for name, desc in descs]
-        names_str = "|".join(names)
         return (
-            f"\n\nCONNECTED TOOLS — the schema enums for intentions.action "
-            f"and actions.type are extended with: {names_str}\n"
-            f"Use these exactly like built-in actions.\n"
+            "\n\nCONNECTED TOOLS (use exactly like built-in actions):\n"
             + "\n".join(lines)
         )
     except ImportError:
         return ''
+
+
+# ── Schema enum markers for MCP injection ──
+# These are the exact enum strings in the system prompt schemas.
+# _inject_mcp_into_schema() appends MCP action names to each.
+_IDLE_INTENTION_ENUM = 'idle|rearrange|write_journal|close_shop|open_shop|browse_web|post_x|post_x_draft|express_thought'
+_IDLE_ACTION_ENUM = 'rearrange|write_journal|close_shop|open_shop|browse_web|post_x|post_x_draft|express_thought'
+_ENGAGE_INTENTION_ENUM = 'speak|write_journal|rearrange|express_thought|end_engagement|accept_gift|decline_gift|show_item|post_x_draft|open_shop|close_shop|place_item|browse_web|post_x|reply_x|post_x_image|tg_send|tg_send_image'
+_ENGAGE_ACTION_ENUM = 'accept_gift|decline_gift|show_item|place_item|rearrange|open_shop|close_shop|write_journal|post_x_draft|end_engagement|browse_web|post_x|reply_x|post_x_image|tg_send|tg_send_image'
+
+
+def _inject_mcp_into_schema(system_prompt: str) -> str:
+    """Patch schema enum strings to include registered MCP action names.
+
+    No-op when no MCP tools exist → system prompt stays cache-stable.
+    When MCP tools are registered, appends their names to the 4 enum fields
+    (idle intentions.action, idle actions.type, engage intentions.action,
+    engage actions.type).
+    """
+    try:
+        from body.mcp_registry import get_mcp_action_names
+        names = get_mcp_action_names()
+        if not names:
+            return system_prompt
+    except ImportError:
+        return system_prompt
+
+    suffix = '|' + '|'.join(names)
+    for enum_str in (_IDLE_INTENTION_ENUM, _IDLE_ACTION_ENUM,
+                     _ENGAGE_INTENTION_ENUM, _ENGAGE_ACTION_ENUM):
+        system_prompt = system_prompt.replace(
+            f'"action": "{enum_str}"',
+            f'"action": "{enum_str}{suffix}"',
+        ).replace(
+            f'"type": "{enum_str}"',
+            f'"type": "{enum_str}{suffix}"',
+        )
+    return system_prompt
 
 
 # ── Rumination Breaker (HOTFIX-003) ──
@@ -466,6 +500,8 @@ async def cortex_call(
     # ── TASK-078: Single stable system prompt — identical across every API call ──
     _identity = identity or _DEFAULT_IDENTITY
     system = build_system_prompt(_identity)
+    # Patch schema enums with MCP action names (no-op when no MCP tools)
+    system = _inject_mcp_into_schema(system)
 
     # ── TASK-078: Determine mode label for dynamic content injection ──
     if is_idle:

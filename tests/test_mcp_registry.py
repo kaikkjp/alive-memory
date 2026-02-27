@@ -348,5 +348,77 @@ class TestLoadFromDb(unittest.IsolatedAsyncioTestCase):
         registry._servers.clear()
 
 
+class TestMergeActionSuffixes(unittest.TestCase):
+    """merge_action_suffixes preserves existing suffixes on reconnect."""
+
+    def test_preserves_existing_suffix(self):
+        """Tool that still exists keeps its persisted suffix."""
+        new_tools = [McpToolSchema(name='search', description='Search')]
+        existing = [{'name': 'search', 'description': 'Old Search',
+                     'action_suffix': 'search', 'enabled': True}]
+
+        result, _ = registry.merge_action_suffixes(new_tools, existing)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]['action_suffix'], 'search')
+        self.assertEqual(result[0]['description'], 'Search')  # updated description
+
+    def test_preserves_enabled_state(self):
+        """Disabled tool stays disabled after reconnect."""
+        new_tools = [McpToolSchema(name='search', description='Search')]
+        existing = [{'name': 'search', 'description': 'Search',
+                     'action_suffix': 'search', 'enabled': False}]
+
+        result, _ = registry.merge_action_suffixes(new_tools, existing)
+        self.assertFalse(result[0]['enabled'])
+
+    def test_new_tool_gets_suffix_avoiding_collision(self):
+        """New tool gets a suffix that doesn't collide with existing."""
+        new_tools = [
+            McpToolSchema(name='search', description='Search'),
+            McpToolSchema(name='Search', description='Search v2'),
+        ]
+        existing = [{'name': 'search', 'description': 'Search',
+                     'action_suffix': 'search', 'enabled': True}]
+
+        result, _ = registry.merge_action_suffixes(new_tools, existing)
+        suffixes = {r['action_suffix'] for r in result}
+        self.assertIn('search', suffixes)  # existing preserved
+        self.assertEqual(len(suffixes), 2)  # no collision
+        # The new tool should have search_2 (not search)
+        new_entry = [r for r in result if r['name'] == 'Search'][0]
+        self.assertEqual(new_entry['action_suffix'], 'search_2')
+
+    def test_removed_tool_dropped(self):
+        """Tool removed from server doesn't appear in result."""
+        new_tools = [McpToolSchema(name='search', description='Search')]
+        existing = [
+            {'name': 'search', 'description': 'Search',
+             'action_suffix': 'search', 'enabled': True},
+            {'name': 'calc', 'description': 'Calc',
+             'action_suffix': 'calc', 'enabled': True},
+        ]
+
+        result, _ = registry.merge_action_suffixes(new_tools, existing)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]['name'], 'search')
+
+    def test_suffix_stable_across_reorders(self):
+        """Even if server returns tools in different order, suffixes stay."""
+        existing = [
+            {'name': 'alpha', 'description': 'A', 'action_suffix': 'alpha', 'enabled': True},
+            {'name': 'beta', 'description': 'B', 'action_suffix': 'beta', 'enabled': True},
+        ]
+        # Server returns in reverse order
+        new_tools = [
+            McpToolSchema(name='beta', description='B new'),
+            McpToolSchema(name='alpha', description='A new'),
+        ]
+
+        result, _ = registry.merge_action_suffixes(new_tools, existing)
+        by_name = {r['name']: r for r in result}
+        self.assertEqual(by_name['alpha']['action_suffix'], 'alpha')
+        self.assertEqual(by_name['beta']['action_suffix'], 'beta')
+
+
 if __name__ == '__main__':
     unittest.main()
