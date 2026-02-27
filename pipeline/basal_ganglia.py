@@ -646,10 +646,10 @@ def _backfill_action_detail(decision: ActionDecision) -> None:
         detail['caption'] = content
 
     # MCP tools: map freeform content → arguments dict
+    # Use decision.content (the `content` local var), not detail fields
     if decision.action.startswith('mcp_') and not detail.get('arguments'):
-        mcp_content = detail.get('content') or detail.get('text', '')
-        if mcp_content:
-            detail['arguments'] = {'query': mcp_content}
+        if content:
+            detail['arguments'] = {'query': content}
 
     content_actions = {'read_content', 'save_for_later', 'mention_in_conversation'}
     if decision.action in content_actions and not detail.get('content_id'):

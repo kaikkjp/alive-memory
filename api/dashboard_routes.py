@@ -1817,7 +1817,10 @@ async def handle_mcp_connect(server, writer: asyncio.StreamWriter,
                                    enabled=1,
                                    discovered_tools=tools_json)
         # Re-register: clear stale → inject fresh
-        unregister_server(server_id)
+        # MUST prune old mcp_{id}_* names from actions_enabled first
+        removed = unregister_server(server_id)
+        if removed:
+            _sync_actions_enabled_remove(server, removed)
     else:
         server_id = await db.create_mcp_server(name, url, tools_json)
 

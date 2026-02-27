@@ -24,8 +24,15 @@ async def execute_mcp_action(action: ActionRequest, visitor_id: str = None,
     5. Return ActionResult
     """
     from body.mcp_registry import resolve_mcp_action, get_client, is_server_enabled
+    from pipeline.action_registry import ACTION_REGISTRY
 
     result = ActionResult(action=action.type, timestamp=clock.now_utc())
+
+    # Guard: action must be registered (not disabled at tool level)
+    if action.type not in ACTION_REGISTRY:
+        result.success = False
+        result.error = f"MCP tool {action.type} is disabled or not registered"
+        return result
 
     # 1. Resolve
     resolved = resolve_mcp_action(action.type)

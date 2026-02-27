@@ -68,15 +68,22 @@ def _get_mcp_action_block() -> str:
     """Build description block for MCP tools in user message.
 
     Injected into user message (not system prompt) for TASK-078 cache stability.
+    Explicitly extends the schema enums so the model treats these as valid values.
     """
     try:
         from body.mcp_registry import get_mcp_action_descriptions
         descs = get_mcp_action_descriptions()
         if not descs:
             return ''
+        names = [name for name, _ in descs]
         lines = [f"- {name}: {desc}" for name, desc in descs]
-        return ("\n\nCONNECTED TOOLS (valid in intentions.action and actions.type):\n"
-                + "\n".join(lines))
+        names_str = "|".join(names)
+        return (
+            f"\n\nCONNECTED TOOLS — the schema enums for intentions.action "
+            f"and actions.type are extended with: {names_str}\n"
+            f"Use these exactly like built-in actions.\n"
+            + "\n".join(lines)
+        )
     except ImportError:
         return ''
 

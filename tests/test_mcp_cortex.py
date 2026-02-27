@@ -103,7 +103,7 @@ class TestMcpBlockFormat(unittest.TestCase):
     def tearDown(self):
         _cleanup_mcp()
 
-    def test_format_is_dash_prefixed_lines(self):
+    def test_format_has_enum_extension_and_tool_lines(self):
         from pipeline.cortex import _get_mcp_action_block
 
         server_info = {
@@ -117,11 +117,113 @@ class TestMcpBlockFormat(unittest.TestCase):
 
         result = _get_mcp_action_block()
         lines = result.strip().split('\n')
-        # First line: header, subsequent lines: "- name: desc"
+        # First line: header with enum extension (pipe-delimited names)
         header_line = lines[0]
         self.assertIn('CONNECTED TOOLS', header_line)
-        tool_line = lines[1]
+        self.assertIn('mcp_1_tool_a', header_line)
+        # Second line: "Use these exactly like built-in actions."
+        self.assertIn('built-in actions', lines[1])
+        # Third line: "- name: desc"
+        tool_line = lines[2]
         self.assertTrue(tool_line.startswith('- mcp_1_tool_a:'))
+
+    def test_block_contains_pipe_enum_for_multiple_tools(self):
+        """Schema enum extension has all tool names pipe-delimited."""
+        from pipeline.cortex import _get_mcp_action_block
+
+        server_info = {
+            'url': 'http://test', 'enabled': 1,
+            'discovered_tools': [
+                {'name': 'search', 'description': 'Search', 'input_schema': {},
+                 'enabled': True, 'action_suffix': 'search'},
+                {'name': 'calc', 'description': 'Calc', 'input_schema': {},
+                 'enabled': True, 'action_suffix': 'calc'},
+            ],
+        }
+        registry.register_server(1, server_info)
+
+        result = _get_mcp_action_block()
+        # Both tool names in pipe-delimited enum
+        self.assertIn('mcp_1_search|mcp_1_calc', result)
+
+
+class TestMcpBackfill(unittest.TestCase):
+    """_backfill_action_detail maps decision.content → MCP arguments."""
+
+    def setUp(self):
+        _cleanup_mcp()
+
+    def tearDown(self):
+        _cleanup_mcp()
+
+    def test_mcp_backfill_uses_decision_content(self):
+        """P1 fix: backfill reads decision.content, not detail.content."""
+        from pipeline.basal_ganglia import _backfill_action_detail
+        from models.pipeline import ActionDecision
+
+        d = ActionDecision(action='mcp_1_search', content='find apples', detail={})
+        _backfill_action_detail(d)
+        self.assertEqual(d.detail.get('arguments'), {'query': 'find apples'})
+
+    def test_mcp_backfill_no_override_existing_arguments(self):
+        """If detail already has arguments, don't override."""
+        from pipeline.basal_ganglia import _backfill_action_detail
+        from models.pipeline import ActionDecision
+
+        existing = {'key': 'value'}
+        d = ActionDecision(action='mcp_1_search', content='find apples',
+                          detail={'arguments': existing})
+        _backfill_action_detail(d)
+        self.assertEqual(d.detail['arguments'], existing)
+
+    def test_mcp_backfill_empty_content_no_arguments(self):
+        """Empty content → no arguments injected."""
+        from pipeline.basal_ganglia import _backfill_action_detail
+        from models.pipeline import ActionDecision
+
+        d = ActionDecision(action='mcp_1_search', content='', detail={})
+        _backfill_action_detail(d)
+        self.assertNotIn('arguments', d.detail)
+
+
+class TestMcpExecutorToolGuard(unittest.TestCase):
+    """execute_mcp_action rejects disabled tools at executor level."""
+
+    def setUp(self):
+        _cleanup_mcp()
+
+    def tearDown(self):
+        _cleanup_mcp()
+
+    def test_disabled_tool_rejected_at_executor(self):
+        """P1 fix: tool not in ACTION_REGISTRY → rejected before dispatch."""
+        import asyncio
+        from body.mcp_executor import execute_mcp_action
+        from models.pipeline import ActionRequest
+
+        # Register server with one enabled tool, one disabled
+        server_info = {
+            'url': 'http://test', 'enabled': 1,
+            'discovered_tools': [
+                {'name': 'enabled_tool', 'description': 'OK', 'input_schema': {},
+                 'enabled': True, 'action_suffix': 'enabled_tool'},
+                {'name': 'disabled_tool', 'description': 'Nope', 'input_schema': {},
+                 'enabled': False, 'action_suffix': 'disabled_tool'},
+            ],
+        }
+        registry.register_server(1, server_info)
+
+        # The disabled tool is NOT in ACTION_REGISTRY
+        self.assertNotIn('mcp_1_disabled_tool', ACTION_REGISTRY)
+        # But it IS resolvable via _servers cache
+        resolved = registry.resolve_mcp_action('mcp_1_disabled_tool')
+        self.assertIsNotNone(resolved)
+
+        # Attempt to execute should fail at the ACTION_REGISTRY guard
+        req = ActionRequest(type='mcp_1_disabled_tool', detail={})
+        result = asyncio.run(execute_mcp_action(req))
+        self.assertFalse(result.success)
+        self.assertIn('disabled', result.error)
 
 
 if __name__ == '__main__':
