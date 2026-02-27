@@ -1437,6 +1437,9 @@ async def handle_get_capabilities(server, writer: asyncio.StreamWriter,
 
     capabilities = []
     for name, cap in ACTION_REGISTRY.items():
+        # MCP actions managed via /mcp/* endpoints, not /capabilities
+        if name.startswith('mcp_'):
+            continue
         # Determine if action is enabled based on identity's actions_enabled
         if identity.actions_enabled is None:
             enabled = cap.enabled  # Fall back to registry default
@@ -1448,7 +1451,7 @@ async def handle_get_capabilities(server, writer: asyncio.StreamWriter,
         capabilities.append({
             'name': name,
             'description': cap.description,
-            'energy_cost': cap.energy_cost,
+            'energy_cost': getattr(cap, 'energy_cost', 0.0),
             'enabled': enabled,
         })
 
@@ -1479,6 +1482,13 @@ async def handle_toggle_capability(server, writer: asyncio.StreamWriter,
         })
         return
 
+    # Guard: MCP actions must be toggled via /mcp endpoints, not /capabilities
+    if action_name.startswith('mcp_'):
+        await server._http_json(writer, 400, {
+            'error': 'Use /mcp/:id or /mcp/:id/tools/:suffix to toggle MCP actions',
+        })
+        return
+
     from pipeline.action_registry import ACTION_REGISTRY
     if action_name not in ACTION_REGISTRY:
         await server._http_json(writer, 404, {
@@ -1502,29 +1512,7 @@ async def handle_toggle_capability(server, writer: asyncio.StreamWriter,
         current_enabled.remove(action_name)
 
     # Persist: update identity.yaml on disk and reload frozen identity
-    import yaml
-    config_dir = server._agent_config_dir
-    if config_dir:
-        identity_path = os.path.join(config_dir, 'identity.yaml')
-    else:
-        identity_path = os.path.join(os.path.dirname(os.path.dirname(__file__)),
-                                      'config', 'default_identity.yaml')
-
-    try:
-        with open(identity_path, 'r', encoding='utf-8') as f:
-            data = yaml.safe_load(f) or {}
-        data['actions_enabled'] = current_enabled
-        with open(identity_path, 'w', encoding='utf-8') as f:
-            yaml.dump(data, f, default_flow_style=False, allow_unicode=True)
-
-        # Reload frozen identity
-        from config.agent_identity import AgentIdentity
-        server.heartbeat._identity = AgentIdentity.from_yaml(identity_path)
-    except Exception as e:
-        await server._http_json(writer, 500, {
-            'error': f'failed to update identity: {e}',
-        })
-        return
+    _persist_actions_enabled(server, current_enabled)
 
     await server._http_json(writer, 200, {
         'action': action_name,
@@ -1740,3 +1728,323 @@ async def handle_feed_streams_delete(server, writer: asyncio.StreamWriter,
         await server._http_json(writer, 200, {'deleted': True, 'id': feed_id})
     else:
         await server._http_json(writer, 404, {'error': 'feed not found'})
+
+
+# ─── TASK-095 v3.1 Batch 3: MCP Server Management ───
+
+async def handle_mcp_servers_list(server, writer: asyncio.StreamWriter,
+                                  authorization: str):
+    """Handle GET /api/dashboard/mcp/servers — list all MCP servers."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+
+    servers = await db.get_mcp_servers()
+    result = []
+    for srv in servers:
+        usage_counts = await db.get_mcp_tool_usage_counts(srv['id'])
+        tools = []
+        for tool in srv.get('discovered_tools', []):
+            tools.append({
+                'name': tool.get('name', ''),
+                'description': tool.get('description', ''),
+                'enabled': bool(tool.get('enabled', True)),
+                'action_suffix': tool.get('action_suffix', ''),
+                'usage_count': usage_counts.get(tool.get('name', ''), 0),
+            })
+        result.append({
+            'id': srv['id'],
+            'name': srv['name'],
+            'url': srv['url'],
+            'enabled': bool(srv['enabled']),
+            'connected_at': srv['connected_at'],
+            'tools': tools,
+        })
+
+    await server._http_json(writer, 200, result)
+
+
+async def handle_mcp_connect(server, writer: asyncio.StreamWriter,
+                             authorization: str, body_bytes: bytes):
+    """Handle POST /api/dashboard/mcp/connect — connect to an MCP server.
+
+    Idempotent by URL: if server already registered, reconnect (re-discover tools).
+    actions_enabled YAML sync happens here, not in the registry.
+    """
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+
+    try:
+        body = json.loads(body_bytes)
+    except (json.JSONDecodeError, ValueError):
+        await server._http_json(writer, 400, {'error': 'invalid JSON'})
+        return
+
+    url = (body.get('url') or '').strip()
+    name = (body.get('name') or '').strip()
+    if not url:
+        await server._http_json(writer, 400, {'error': 'url required'})
+        return
+
+    # Discover tools from the MCP server
+    from body.mcp_registry import get_client, compute_action_suffixes, \
+        unregister_server, register_server
+
+    client = get_client()
+    try:
+        server_info = await client.connect(url)
+    except Exception as e:
+        await server._http_json(writer, 502, {
+            'error': f'Failed to connect to MCP server: {e}',
+        })
+        return
+
+    if not name:
+        name = server_info.name
+
+    # Compute action suffixes
+    tools_data, warnings = compute_action_suffixes(server_info.tools)
+    tools_json = json.dumps(tools_data)
+
+    # Idempotent: check if server URL already registered
+    existing = await db.get_mcp_server_by_url(url)
+    if existing:
+        server_id = existing['id']
+        # Reconnect: update tools and re-enable if disabled
+        await db.update_mcp_server(server_id,
+                                   name=name,
+                                   enabled=1,
+                                   discovered_tools=tools_json)
+        # Re-register: clear stale → inject fresh
+        unregister_server(server_id)
+    else:
+        server_id = await db.create_mcp_server(name, url, tools_json)
+
+    # Register in runtime ACTION_REGISTRY
+    srv_data = await db.get_mcp_server(server_id)
+    registered = register_server(server_id, srv_data)
+
+    # Sync actions_enabled in identity YAML
+    _sync_actions_enabled_add(server, registered)
+
+    tools_response = []
+    for tool in tools_data:
+        tools_response.append({
+            'name': tool.get('name', ''),
+            'description': tool.get('description', ''),
+            'enabled': bool(tool.get('enabled', True)),
+            'action_suffix': tool.get('action_suffix', ''),
+        })
+
+    await server._http_json(writer, 200, {
+        'id': server_id,
+        'name': name,
+        'url': url,
+        'tools': tools_response,
+        'warnings': warnings,
+    })
+
+
+async def handle_mcp_server_toggle(server, writer: asyncio.StreamWriter,
+                                    authorization: str, body_bytes: bytes,
+                                    server_id: int):
+    """Handle PATCH /api/dashboard/mcp/:id — toggle server enabled/disabled."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+
+    try:
+        body = json.loads(body_bytes)
+    except (json.JSONDecodeError, ValueError):
+        await server._http_json(writer, 400, {'error': 'invalid JSON'})
+        return
+
+    enabled = body.get('enabled')
+    if enabled is None:
+        await server._http_json(writer, 400, {'error': 'enabled required'})
+        return
+
+    srv = await db.get_mcp_server(server_id)
+    if not srv:
+        await server._http_json(writer, 404, {'error': 'server not found'})
+        return
+
+    from body.mcp_registry import unregister_server, register_server
+
+    await db.update_mcp_server(server_id, enabled=1 if enabled else 0)
+
+    if not enabled:
+        removed = unregister_server(server_id)
+        _sync_actions_enabled_remove(server, removed)
+    else:
+        # Re-fetch after DB update and register
+        srv = await db.get_mcp_server(server_id)
+        registered = register_server(server_id, srv)
+        _sync_actions_enabled_add(server, registered)
+
+    await server._http_json(writer, 200, {
+        'id': server_id,
+        'enabled': bool(enabled),
+    })
+
+
+async def handle_mcp_server_delete(server, writer: asyncio.StreamWriter,
+                                    authorization: str, server_id: int):
+    """Handle DELETE /api/dashboard/mcp/:id — remove an MCP server.
+
+    DB-first: delete from DB (cascade usage), then unregister from runtime.
+    """
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+
+    srv = await db.get_mcp_server(server_id)
+    if not srv:
+        await server._http_json(writer, 404, {'error': 'server not found'})
+        return
+
+    from body.mcp_registry import unregister_server
+
+    # DB-first: durable state updated before runtime mutation
+    await db.delete_mcp_server(server_id)
+    removed = unregister_server(server_id)
+    _sync_actions_enabled_remove(server, removed)
+
+    await server._http_json(writer, 200, {'deleted': True, 'id': server_id})
+
+
+async def handle_mcp_tool_toggle(server, writer: asyncio.StreamWriter,
+                                  authorization: str, body_bytes: bytes,
+                                  server_id: int, tool_suffix: str):
+    """Handle PATCH /api/dashboard/mcp/:id/tools/:suffix — toggle tool."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+
+    try:
+        body = json.loads(body_bytes)
+    except (json.JSONDecodeError, ValueError):
+        await server._http_json(writer, 400, {'error': 'invalid JSON'})
+        return
+
+    enabled = body.get('enabled')
+    if enabled is None:
+        await server._http_json(writer, 400, {'error': 'enabled required'})
+        return
+
+    from body.mcp_registry import get_tool_by_suffix, suffix_to_action_name
+    from pipeline.action_registry import ACTION_REGISTRY
+
+    # Validate server exists
+    srv = await db.get_mcp_server(server_id)
+    if not srv:
+        await server._http_json(writer, 404, {'error': 'server not found'})
+        return
+
+    # Validate tool exists
+    tool = get_tool_by_suffix(server_id, tool_suffix)
+    if not tool:
+        # Cache miss — try reloading from DB
+        from body.mcp_registry import register_server
+        register_server(server_id, srv)
+        tool = get_tool_by_suffix(server_id, tool_suffix)
+        if not tool:
+            await server._http_json(writer, 404, {'error': 'tool not found'})
+            return
+
+    # Guard: can't enable a tool if parent server is disabled
+    if enabled and not srv.get('enabled', 1):
+        await server._http_json(writer, 409, {
+            'error': 'Cannot enable tool: parent server is disabled',
+        })
+        return
+
+    # Update DB
+    await db.update_mcp_tool_enabled(server_id, tool_suffix, bool(enabled))
+
+    action_name = suffix_to_action_name(server_id, tool_suffix)
+
+    if not enabled:
+        # Remove from ACTION_REGISTRY + actions_enabled
+        ACTION_REGISTRY.pop(action_name, None)
+        _sync_actions_enabled_remove(server, [action_name])
+    else:
+        # Add to ACTION_REGISTRY + actions_enabled
+        from pipeline.action_registry import ActionCapability
+        ACTION_REGISTRY[action_name] = ActionCapability(
+            name=action_name,
+            enabled=True,
+            cooldown_seconds=0,
+            description=tool['description'],
+        )
+        _sync_actions_enabled_add(server, [action_name])
+
+    await server._http_json(writer, 200, {
+        'server_id': server_id,
+        'tool_suffix': tool_suffix,
+        'enabled': bool(enabled),
+        'action_name': action_name,
+    })
+
+
+def _sync_actions_enabled_add(server, action_names: list[str]) -> None:
+    """Add MCP action names to identity's actions_enabled and persist."""
+    if not action_names:
+        return
+    identity = server.heartbeat._identity
+    if identity.actions_enabled is None:
+        return  # None means "all allowed" — no explicit list to update
+    current = list(identity.actions_enabled)
+    for name in action_names:
+        if name not in current:
+            current.append(name)
+    _persist_actions_enabled(server, current)
+
+
+def _sync_actions_enabled_remove(server, action_names: list[str]) -> None:
+    """Remove MCP action names from identity's actions_enabled and persist."""
+    if not action_names:
+        return
+    identity = server.heartbeat._identity
+    if identity.actions_enabled is None:
+        return  # None means "all allowed" — no explicit list to update
+    current = [n for n in identity.actions_enabled if n not in action_names]
+    _persist_actions_enabled(server, current)
+
+
+def _persist_actions_enabled(server, current_enabled: list[str]) -> None:
+    """Write actions_enabled to identity YAML and reload frozen identity.
+
+    Only writes to disk when an agent config dir is set (multi-agent mode).
+    For default Shopkeeper (no config dir), updates in-memory only.
+    """
+    import yaml
+    import os
+    config_dir = server._agent_config_dir
+    if not config_dir:
+        # Default Shopkeeper: update in-memory only, don't touch default_identity.yaml
+        identity = server.heartbeat._identity
+        try:
+            import dataclasses
+            server.heartbeat._identity = dataclasses.replace(
+                identity, actions_enabled=current_enabled
+            )
+        except TypeError:
+            # Frozen dataclass replacement failed — set directly (test mocks)
+            identity.actions_enabled = current_enabled
+        return
+
+    identity_path = os.path.join(config_dir, 'identity.yaml')
+
+    try:
+        with open(identity_path, 'r', encoding='utf-8') as f:
+            data = yaml.safe_load(f) or {}
+        data['actions_enabled'] = current_enabled
+        with open(identity_path, 'w', encoding='utf-8') as f:
+            yaml.dump(data, f, default_flow_style=False, allow_unicode=True)
+
+        from config.agent_identity import AgentIdentity
+        server.heartbeat._identity = AgentIdentity.from_yaml(identity_path)
+    except Exception as e:
+        print(f"  [MCP] Failed to persist actions_enabled: {e}")

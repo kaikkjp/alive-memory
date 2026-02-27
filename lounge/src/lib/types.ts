@@ -226,3 +226,21 @@ export interface CapabilityWithUsage extends ActionCapability {
   usage_count?: number;
   source?: 'builtin' | 'mcp';
 }
+
+// TASK-095 v3.1 Batch 3: MCP types
+export interface McpToolInfo {
+  name: string;
+  description: string;
+  enabled: boolean;
+  usage_count: number;
+  action_suffix: string;
+}
+
+export interface McpServer {
+  id: number;
+  name: string;
+  url: string;
+  enabled: boolean;
+  tools: McpToolInfo[];
+  connected_at: string;
+}
