@@ -1,4 +1,8 @@
-"""Heartbeat — the shopkeeper's heartbeat. Drives all cycles."""
+"""Heartbeat — the agent's heartbeat. Drives all cycles."""
+
+import os as _os, sys as _sys  # noqa: E401 — PYTHONPATH bootstrap must be first
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+del _os, _sys
 
 import asyncio
 import random

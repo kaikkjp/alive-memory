@@ -97,7 +97,7 @@ fi
 # Copy default alive_config.yaml if not present
 if [ ! -f "$AGENT_DIR/alive_config.yaml" ]; then
     # Try to copy from repo, fall back to minimal
-    REPO_CONFIG="$(dirname "$SCRIPT_DIR")/alive_config.yaml"
+    REPO_CONFIG="$(dirname "$SCRIPT_DIR")/engine/alive_config.yaml"
     if [ -f "$REPO_CONFIG" ]; then
         cp "$REPO_CONFIG" "$AGENT_DIR/alive_config.yaml"
         echo "  Copied alive_config.yaml from repo"

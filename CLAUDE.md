@@ -6,6 +6,18 @@
 
 A persistent AI character engine. Python 3.12+ backend, Next.js frontend. Single LLM call per cognitive cycle. SQLite database. Deployed on VPS via Docker.
 
+## Repository Structure
+
+The repo has a hard boundary between platform code and instance-specific code. See `BOUNDARY.md` for full details.
+
+- **`engine/`** — All platform Python code (heartbeat, pipeline, db, config, models, etc.)
+- **`demo/`** — Shopkeeper instance (identity YAML, prompts, frontend, nginx, content)
+- **`lounge/`** — Manager dashboard (Next.js, separate concern)
+- **`config/`** — Platform YAML templates (NOT a Python package — no `__init__.py`)
+- **`tests/`**, **`scripts/`**, **`deploy/`**, **`sim/`**, **`experiments/`** — stay at top level
+
+**The rule: `engine/` never imports from `demo/`.** Verify with `grep -r "from demo" engine/`.
+
 ## Before You Write Any Code
 
 1. **Read `ARCHITECTURE.md`** — understand what every module does
@@ -125,10 +137,10 @@ The operator pre-loads chains by setting multiple tasks to `READY` before a sess
 - Doc updates (`scripts/update_docs.py`)
 
 ### Prohibited sub-agent uses:
-- Modifying `pipeline/*` files (cognitive architecture — requires full context)
-- Changing `prompt_assembler.py` or `config/identity.py` (affects LLM behavior)
+- Modifying `engine/pipeline/*` files (cognitive architecture — requires full context)
+- Changing `engine/prompt_assembler.py` or `engine/config/identity.py` (affects LLM behavior)
 - Any change that affects LLM call content or frequency
-- `db.py` modifications (merge conflict risk)
+- `engine/db/` modifications (merge conflict risk)
 - Parallel edits to the same file
 
 ### General:
@@ -140,68 +152,68 @@ The operator pre-loads chains by setting multiple tasks to `READY` before a sess
 ## Critical Rules
 
 ### DO NOT touch these files unless your task explicitly requires it:
-- `db.py` — God module, 2600+ lines. Changes here risk breaking everything. If your task requires a new DB function, add it at the END of the file only. Full refactor is TASK-003 — do not attempt outside that task.
-- `heartbeat.py` — The brain's main loop. Extremely sensitive to race conditions. See `bugs-and-fixes.md` for examples of what goes wrong.
-- `config/identity.py` — Character soul. Changes alter her personality.
-- `config/prompts.yaml` — Visual identity. Changes alter her appearance.
-- `pipeline/cortex.py` — The LLM call. The most expensive code path ($). Test thoroughly.
+- `engine/db/` — Persistence package, ~3300 lines. Changes here risk breaking everything. If your task requires a new DB function, add it at the END of the relevant module. Full refactor is TASK-003 — do not attempt outside that task.
+- `engine/heartbeat.py` — The brain's main loop. Extremely sensitive to race conditions. See `bugs-and-fixes.md` for examples of what goes wrong.
+- `engine/config/identity.py` — Character soul. Changes alter her personality.
+- `demo/config/prompts.yaml` — Visual identity. Changes alter her appearance.
+- `engine/pipeline/cortex.py` — The LLM call. The most expensive code path ($). Test thoroughly.
 
 ### Pipeline modification rules:
 - Each pipeline stage has a single responsibility. Don't merge stages.
-- `pipeline/validator.py` checks format/schema ONLY. Character-rule enforcement is in the metacognitive monitor (`pipeline/output.py`).
-- `pipeline/sanitize.py` is pure logic. Keep it that way.
-- If you add a new pipeline stage, add it to the flow in `heartbeat.py` `run_cycle()` and document it in `ARCHITECTURE.md`.
+- `engine/pipeline/validator.py` checks format/schema ONLY. Character-rule enforcement is in the metacognitive monitor (`engine/pipeline/output.py`).
+- `engine/pipeline/sanitize.py` is pure logic. Keep it that way.
+- If you add a new pipeline stage, add it to the flow in `engine/heartbeat.py` `run_cycle()` and document it in `ARCHITECTURE.md`.
 - The cognitive pipeline is: Cortex → Validator → Basal Ganglia → Body → Output. Changes to this chain must be reflected across all stages simultaneously.
-- `pipeline/executor.py` is **DEPRECATED**. Use `pipeline/basal_ganglia.py` → `pipeline/body.py` → `pipeline/output.py`.
+- `engine/pipeline/executor.py` is **DEPRECATED**. Use `engine/pipeline/basal_ganglia.py` → `engine/pipeline/body.py` → `engine/pipeline/output.py`.
 
 ### Simulation safety rules:
-- **NEVER run simulation code against the production DB.** `db/connection.py` has a hard guard in `set_db_path()` that rejects filenames matching `shopkeeper.db` or `shopkeeper-prod.db`. Do not bypass this.
-- When using `simulate.py`, always use `--db` or `--output` to specify an isolated path. Default is `data/sim/` (safe).
+- **NEVER run simulation code against the production DB.** `engine/db/connection.py` has a hard guard in `set_db_path()` that rejects filenames matching `shopkeeper.db` or `shopkeeper-prod.db`. Do not bypass this.
+- When using `engine/simulate.py`, always use `--db` or `--output` to specify an isolated path. Default is `data/sim/` (safe).
 - The `sim/` module uses in-memory SQLite only — safe by construction.
 - On VPS: never run experiment scripts as root. Use the `shopkeeper` user. Root processes corrupt directory ownership and lock the DB. See INCIDENT-006 in `bugs-and-fixes.md`.
 
 ### Database rules:
-- All DB access goes through `db.py`. Never use raw aiosqlite elsewhere.
+- All DB access goes through `engine/db/`. Never use raw aiosqlite elsewhere.
 - New tables need a migration file in `migrations/`.
 - Use `async with db.transaction()` for multi-step writes.
-- All timestamps are UTC in storage, JST for display/logic (see `clock.py`).
+- All timestamps are UTC in storage, JST for display/logic (see `engine/clock.py`).
 
 ### Frontend rules:
-- Frontend lives in `window/`. It's a Next.js app.
+- Frontend lives in `demo/window/`. It's a Next.js app.
 - Backend communication: WebSocket (live updates) + HTTP REST (dashboard data).
-- WebSocket messages are defined by `window_state.py` on the backend.
-- If you change backend state shape, update `window/src/lib/types.ts`.
+- WebSocket messages are defined by `engine/window_state.py` on the backend.
+- If you change backend state shape, update `demo/window/src/lib/types.ts`.
 
 ## Common Tasks
 
 ### "Add a new action the shopkeeper can take"
-1. Add `ActionCapability` entry in `pipeline/action_registry.py`
-2. Add action type to cortex prompt in `prompt_assembler.py`
-3. Add validation rule in `pipeline/validator.py` (format/schema only)
-4. Add execution logic in `pipeline/body.py`
-5. Add any DB persistence in `db.py` (at end of file)
+1. Add `ActionCapability` entry in `engine/pipeline/action_registry.py`
+2. Add action type to cortex prompt in `engine/prompt_assembler.py`
+3. Add validation rule in `engine/pipeline/validator.py` (format/schema only)
+4. Add execution logic in `engine/pipeline/body.py`
+5. Add any DB persistence in `engine/db/` (at end of relevant module)
 6. Add test in `tests/`
 
 ### "Add a new dashboard panel"
-1. Create component in `window/src/components/dashboard/`
-2. Add API endpoint in `heartbeat_server.py` (in the dashboard routes section)
-3. Add API client function in `window/src/lib/dashboard-api.ts`
-4. Add panel to `window/src/app/dashboard/page.tsx`
-5. Add TypeScript types in `window/src/lib/types.ts`
+1. Create component in `demo/window/src/components/dashboard/`
+2. Add API endpoint in `engine/heartbeat_server.py` (in the dashboard routes section)
+3. Add API client function in `demo/window/src/lib/dashboard-api.ts`
+4. Add panel to `demo/window/src/app/dashboard/page.tsx`
+5. Add TypeScript types in `demo/window/src/lib/types.ts`
 
 ### "Fix a bug in the cognitive cycle"
 1. Read `bugs-and-fixes.md` for patterns of known race conditions
 2. The most common bug: ambient/silence cycles stealing visitor events from inbox
 3. Always check `self.pending_microcycle.is_set()` before running background cycles
-4. Test with `simulate.py` before testing live
+4. Test with `engine/simulate.py` before testing live
 
 ### "Add a new memory type"
-1. Define dataclass in `models/state.py`
-2. Add table creation in `db.py` `run_migrations()`
+1. Define dataclass in `engine/models/state.py`
+2. Add table creation in `engine/db/connection.py` `run_migrations()`
 3. Add migration file in `migrations/`
-4. Add recall logic in `pipeline/hippocampus.py`
-5. Add consolidation logic in `pipeline/hippocampus_write.py`
-6. Add to prompt context in `prompt_assembler.py`
+4. Add recall logic in `engine/pipeline/hippocampus.py`
+5. Add consolidation logic in `engine/pipeline/hippocampus_write.py`
+6. Add to prompt context in `engine/prompt_assembler.py`
 
 ## Code Style
 
@@ -231,17 +243,17 @@ python3 -m pytest tests/test_<module>.py -v --tb=short 2>&1 || true
 
 ```bash
 # Development (standalone)
-python terminal.py
+python engine/terminal.py
 
 # Development (server + client)
-python heartbeat_server.py    # Terminal 1
-python terminal.py --connect  # Terminal 2
+python engine/heartbeat_server.py    # Terminal 1
+python engine/terminal.py --connect  # Terminal 2
 
 # Tests
 python -m pytest tests/ -v
 
 # Simulation (no server needed)
-python simulate.py --cycles 10
+python engine/simulate.py --cycles 10
 ```
 
 ## Environment Variables
@@ -271,7 +283,7 @@ python simulate.py --cycles 10
 - Don't use `time.time()` or `datetime.now()` — use `clock.now()` for simulation compat
 - Don't add print statements without `[ModuleName]` prefix
 - Don't modify the character bible or identity without owner approval
-- Don't use `pipeline/executor.py` for new code — it's deprecated
+- Don't use `engine/pipeline/executor.py` for new code — it's deprecated
 - Don't pipe test output through `tail` or `head` in background tasks — use `--tb=short` flag instead
-- Don't run `simulate.py` or `experiments/*.py` without `--db` or `--output` pointing to an isolated path — see INCIDENT-006
+- Don't run `engine/simulate.py` or `experiments/*.py` without `--db` or `--output` pointing to an isolated path — see INCIDENT-006
 - Don't run experiment scripts as root on the VPS — use the `shopkeeper` user

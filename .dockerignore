@@ -15,9 +15,9 @@ venv/
 .claude/
 
 # Frontend build artifacts (rebuilt in nginx.Dockerfile)
-window/node_modules/
-window/.next/
-window/out/
+demo/window/node_modules/
+demo/window/.next/
+demo/window/out/
 
 # Docs, tests, deploy scripts not needed in runtime image
 docs/

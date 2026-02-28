@@ -23,9 +23,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os as _os
 import re
+import sys as _sys
 from collections import Counter
 from pathlib import Path
+
+# PYTHONPATH bootstrap — engine/ contains platform Python code (TASK-101)
+_sys.path.insert(0, _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))), 'engine'))
 
 
 class CachedCortex:

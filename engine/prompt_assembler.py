@@ -18,13 +18,44 @@ Flow:
 Nothing else in the codebase contains prompt text for image generation.
 """
 
+import os
 import yaml
 from pathlib import Path
 from typing import Optional
 
-# Resolve repo root from this file's location (prompt_assembler.py lives at repo root)
-_REPO_ROOT = Path(__file__).resolve().parent
-_DEFAULT_CONFIG = _REPO_ROOT / 'config' / 'prompts.yaml'
+# ── Path resolution for engine/demo split (TASK-101) ──
+# Pre-move: prompt_assembler.py is at repo root, config/prompts.yaml exists
+# Post-move: engine/prompt_assembler.py, prompts.yaml is at demo/config/
+_ENGINE_DIR = Path(__file__).resolve().parent          # engine/ or repo root
+_REPO_ROOT = _ENGINE_DIR.parent                         # repo root (if in engine/)
+
+
+def _find_prompts_yaml() -> Path:
+    """Locate prompts.yaml using search chain."""
+    # 1. Explicit env var
+    explicit = os.environ.get('AGENT_PROMPTS_YAML')
+    if explicit:
+        return Path(explicit)
+    # 2. AGENT_CONFIG_DIR (per-agent config)
+    config_dir = os.environ.get('AGENT_CONFIG_DIR')
+    if config_dir:
+        for sub in ('prompts.yaml', 'config/prompts.yaml'):
+            p = Path(config_dir) / sub
+            if p.exists():
+                return p
+    # 3. Module-relative config/ (pre-move layout)
+    local = _ENGINE_DIR / 'config' / 'prompts.yaml'
+    if local.exists():
+        return local
+    # 4. Repo root demo/config/ (post engine/demo split)
+    demo = _REPO_ROOT / 'demo' / 'config' / 'prompts.yaml'
+    if demo.exists():
+        return demo
+    # 5. Fallback to module-relative (will raise in load_config if missing)
+    return local
+
+
+_DEFAULT_CONFIG = _find_prompts_yaml()
 
 _CONFIG: dict = {}
 
@@ -33,15 +64,17 @@ def load_config(path: str | Path | None = None):
     """Load the prompt config. Called once at startup.
 
     Args:
-        path: Explicit path to prompts.yaml. Defaults to config/prompts.yaml
-              relative to the repo root (not CWD).
+        path: Explicit path to prompts.yaml. Checked in order:
+              AGENT_PROMPTS_YAML env → AGENT_CONFIG_DIR → config/prompts.yaml
+              → demo/config/prompts.yaml
     """
     global _CONFIG
     config_path = Path(path) if path else _DEFAULT_CONFIG
     if not config_path.exists():
         raise FileNotFoundError(
             f'Prompt config not found: {config_path}. '
-            f'Expected at {_DEFAULT_CONFIG} (repo root: {_REPO_ROOT})'
+            f'Set AGENT_PROMPTS_YAML or AGENT_CONFIG_DIR env var, or '
+            f'place prompts.yaml in config/ or demo/config/.'
         )
     with open(config_path) as f:
         _CONFIG = yaml.safe_load(f)

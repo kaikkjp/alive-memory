@@ -161,7 +161,7 @@ def _ie_config(
 
 @pytest.fixture
 def config_path():
-    return Path(__file__).parent.parent / "identity" / "evolution_config.json"
+    return Path(__file__).parent.parent / "engine" / "identity" / "evolution_config.json"
 
 
 @pytest.fixture
