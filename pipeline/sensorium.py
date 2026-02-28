@@ -135,18 +135,20 @@ async def build_perceptions(unread_events: list[Event], drives: DrivesState,
                 )
             else:
                 has_physical = world.has_physical_space if world else True
+                _enter = (world.visitor_enter_text if world and world.visitor_enter_text
+                          else ('enters the shop' if has_physical else 'reaches out'))
+                _return = (world.visitor_return_text if world and world.visitor_return_text
+                           else ('walks in' if has_physical else 'reaches out again'))
                 if trust == 'stranger':
-                    content = ("Someone new enters the shop." if has_physical
-                               else "Someone new reaches out.")
+                    content = f"Someone new {_enter}."
                 elif trust == 'returner':
-                    content = ("Someone who's been here before walks in." if has_physical
-                               else "Someone who's been here before reaches out.")
+                    content = f"Someone who's been here before {_return}."
                 elif trust == 'regular':
                     name = visitor.name or "a familiar face"
                     content = f"{name} is back."
                 else:
                     name = visitor.name or "someone I know well"
-                    content = (f"{name} walks in. Something shifts." if has_physical
+                    content = (f"{name} {_return}. Something shifts." if has_physical
                                else f"{name} is here. Something shifts.")
 
                 perc = Perception(
@@ -457,28 +459,26 @@ def build_ambient_perception(drives: DrivesState, *, world=None) -> Perception:
     has_physical = world.has_physical_space if world else True
     hour = clock.now().hour
 
-    if has_physical:
-        if 5 <= hour < 10:
-            time_feel = "Morning light through the windows."
-        elif 10 <= hour < 15:
-            time_feel = "Midday. The shop is bright."
-        elif 15 <= hour < 18:
-            time_feel = "Afternoon. The light is getting warm."
-        elif 18 <= hour < 21:
-            time_feel = "Evening. The shop is quiet."
-        else:
-            time_feel = "Late. The shop should probably be closed."
+    _midday = (world.midday_text if world and world.midday_text
+               else ('Midday. The shop is bright.' if has_physical else 'Midday.'))
+    _evening = (world.evening_text if world and world.evening_text
+                else ('Evening. The shop is quiet.' if has_physical else 'Evening. Getting late.'))
+    _late = (world.late_text if world and world.late_text
+             else ('Late. The shop should probably be closed.' if has_physical
+                   else 'Late. The day is almost over.'))
+
+    if 5 <= hour < 10:
+        time_feel = ("Morning light through the windows." if has_physical
+                     else "Morning. Still early.")
+    elif 10 <= hour < 15:
+        time_feel = _midday
+    elif 15 <= hour < 18:
+        time_feel = ("Afternoon. The light is getting warm." if has_physical
+                     else "Afternoon.")
+    elif 18 <= hour < 21:
+        time_feel = _evening
     else:
-        if 5 <= hour < 10:
-            time_feel = "Morning. Still early."
-        elif 10 <= hour < 15:
-            time_feel = "Midday."
-        elif 15 <= hour < 18:
-            time_feel = "Afternoon."
-        elif 18 <= hour < 21:
-            time_feel = "Evening. Getting late."
-        else:
-            time_feel = "Late. The day is almost over."
+        time_feel = _late
 
     return Perception(
         p_type='ambient',

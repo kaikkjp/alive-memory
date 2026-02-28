@@ -58,9 +58,7 @@ _GAZE_MAP = {
     'window': 'out the window',
 }
 
-_ACTION_MAP = {
-    'close_shop': 'closed the shop',
-    'open_shop': 'opened the shop',
+_ACTION_MAP_BASE = {
     'write_journal': 'wrote in your journal',
     'accept_gift': 'accepted a gift',
     'decline_gift': 'declined a gift',
@@ -72,6 +70,18 @@ _ACTION_MAP = {
     'browse_web': 'browsed the web',
     'express_thought': 'expressed a thought',
 }
+
+
+def _action_map(world=None) -> dict:
+    """Action map with world-conditional close/open labels."""
+    m = dict(_ACTION_MAP_BASE)
+    if world:
+        m['close_shop'] = world.close_action_text or 'closed the shop'
+        m['open_shop'] = world.open_action_text or 'opened the shop'
+    else:
+        m['close_shop'] = 'closed the shop'
+        m['open_shop'] = 'opened the shop'
+    return m
 
 
 # ── Main assembler ──
@@ -156,9 +166,9 @@ async def assemble_self_context(
         room = await db.get_room_state()
         now_jst = clock.now()
         time_str = now_jst.strftime('%H:%M')
-        has_physical = world.has_physical_space if world else True
-        if has_physical:
-            state_parts.append(f'Shop: {room.shop_status} | Time: {time_str}')
+        location_label = (world.location_label if world else 'Shop') or ''
+        if location_label:
+            state_parts.append(f'{location_label}: {room.shop_status} | Time: {time_str}')
         else:
             state_parts.append(f'Time: {time_str}')
     except Exception:
@@ -188,7 +198,7 @@ async def assemble_self_context(
             for a in recent_actions:
                 action_type = a.get('action', '')
                 if action_type not in seen:
-                    word = _ACTION_MAP.get(action_type, action_type.replace('_', ' '))
+                    word = _action_map(world).get(action_type, action_type.replace('_', ' '))
                     action_words.append(word)
                     seen.add(action_type)
             if action_words:

@@ -56,9 +56,17 @@ _PHYSICAL_DEFAULTS = {
     ),
     'visitor_arrive_label': 'VISITOR IN SHOP',
     'multi_visitor_label': 'PRESENT IN SHOP:',
+    'location_label': 'Shop',
     'solitude_text': 'No one is here. The shop is quiet.',
     'loneliness_text': 'I feel deeply lonely. The shop has been too quiet.',
     'quiet_day_text': 'Nothing happened today. The shop was quiet. I existed.',
+    'visitor_enter_text': 'enters the shop',
+    'visitor_return_text': 'walks in',
+    'midday_text': 'Midday. The shop is bright.',
+    'evening_text': 'Evening. The shop is quiet.',
+    'late_text': 'Late. The shop should probably be closed.',
+    'close_action_text': 'closed the shop',
+    'open_action_text': 'opened the shop',
 }
 
 _DIGITAL_DEFAULTS = {
@@ -72,9 +80,17 @@ _DIGITAL_DEFAULTS = {
     ),
     'visitor_arrive_label': 'VISITOR PRESENT',
     'multi_visitor_label': 'PRESENT:',
+    'location_label': '',
     'solitude_text': 'No one is here. Quiet.',
     'loneliness_text': 'I feel deeply lonely. It has been too quiet.',
     'quiet_day_text': 'Nothing happened today. It was quiet. I existed.',
+    'visitor_enter_text': 'reaches out',
+    'visitor_return_text': 'reaches out again',
+    'midday_text': 'Midday.',
+    'evening_text': 'Evening. Getting late.',
+    'late_text': 'Late. The day is almost over.',
+    'close_action_text': 'went offline',
+    'open_action_text': 'came online',
 }
 
 
@@ -89,9 +105,17 @@ class WorldConfig:
     fidgets: tuple = _PHYSICAL_DEFAULTS['fidgets']
     visitor_arrive_label: str = 'VISITOR IN SHOP'
     multi_visitor_label: str = 'PRESENT IN SHOP:'
+    location_label: str = 'Shop'
     solitude_text: str = _PHYSICAL_DEFAULTS['solitude_text']
     loneliness_text: str = _PHYSICAL_DEFAULTS['loneliness_text']
     quiet_day_text: str = _PHYSICAL_DEFAULTS['quiet_day_text']
+    visitor_enter_text: str = _PHYSICAL_DEFAULTS['visitor_enter_text']
+    visitor_return_text: str = _PHYSICAL_DEFAULTS['visitor_return_text']
+    midday_text: str = _PHYSICAL_DEFAULTS['midday_text']
+    evening_text: str = _PHYSICAL_DEFAULTS['evening_text']
+    late_text: str = _PHYSICAL_DEFAULTS['late_text']
+    close_action_text: str = _PHYSICAL_DEFAULTS['close_action_text']
+    open_action_text: str = _PHYSICAL_DEFAULTS['open_action_text']
 
 
 def _build_world_config(data: dict) -> WorldConfig:
@@ -112,9 +136,17 @@ def _build_world_config(data: dict) -> WorldConfig:
         ),
         visitor_arrive_label=world_raw.get('visitor_arrive_label', defaults['visitor_arrive_label']),
         multi_visitor_label=world_raw.get('multi_visitor_label', defaults['multi_visitor_label']),
+        location_label=world_raw.get('location_label', defaults['location_label']),
         solitude_text=world_raw.get('solitude_text', defaults['solitude_text']),
         loneliness_text=world_raw.get('loneliness_text', defaults['loneliness_text']),
         quiet_day_text=world_raw.get('quiet_day_text', defaults['quiet_day_text']),
+        visitor_enter_text=world_raw.get('visitor_enter_text', defaults['visitor_enter_text']),
+        visitor_return_text=world_raw.get('visitor_return_text', defaults['visitor_return_text']),
+        midday_text=world_raw.get('midday_text', defaults['midday_text']),
+        evening_text=world_raw.get('evening_text', defaults['evening_text']),
+        late_text=world_raw.get('late_text', defaults['late_text']),
+        close_action_text=world_raw.get('close_action_text', defaults['close_action_text']),
+        open_action_text=world_raw.get('open_action_text', defaults['open_action_text']),
     )
 
 

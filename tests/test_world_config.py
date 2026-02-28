@@ -326,7 +326,7 @@ class TestSelfContextNoShopLine(unittest.IsolatedAsyncioTestCase):
         mock_db.get_totem_context = AsyncMock(return_value='')
         mock_db.get_active_threads = AsyncMock(return_value=[])
 
-        digital_world = WorldConfig(has_physical_space=False)
+        digital_world = WorldConfig(has_physical_space=False, location_label='')
         result = await assemble_self_context(
             world=digital_world,
             identity_compact='I exist here. I think, I rest, I remember.',
@@ -395,7 +395,12 @@ class TestAmbientPerceptionDigital(unittest.TestCase):
         from models.state import DrivesState
 
         drives = DrivesState()
-        digital_world = WorldConfig(has_physical_space=False)
+        digital_world = WorldConfig(
+            has_physical_space=False,
+            midday_text=_DIGITAL_DEFAULTS['midday_text'],
+            evening_text=_DIGITAL_DEFAULTS['evening_text'],
+            late_text=_DIGITAL_DEFAULTS['late_text'],
+        )
         perception = build_ambient_perception(drives, world=digital_world)
 
         content_lower = perception.content.lower()
