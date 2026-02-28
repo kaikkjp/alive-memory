@@ -117,6 +117,30 @@ class WorldConfig:
     close_action_text: str = _PHYSICAL_DEFAULTS['close_action_text']
     open_action_text: str = _PHYSICAL_DEFAULTS['open_action_text']
 
+    # Auto-swap: when has_physical_space=False and a field still holds its
+    # physical default, replace it with the digital default.  Explicit overrides
+    # (value != physical default) are preserved.
+    _SWAPPABLE = (
+        'framing', 'body_states', 'gaze_directions', 'expressions', 'fidgets',
+        'visitor_arrive_label', 'multi_visitor_label', 'location_label',
+        'solitude_text', 'loneliness_text', 'quiet_day_text',
+        'visitor_enter_text', 'visitor_return_text',
+        'midday_text', 'evening_text', 'late_text',
+        'close_action_text', 'open_action_text',
+    )
+
+    def __post_init__(self):
+        if self.has_physical_space:
+            return
+        for fname in self._SWAPPABLE:
+            current = getattr(self, fname)
+            physical_default = _PHYSICAL_DEFAULTS.get(fname)
+            # framing uses module-level default, not dict
+            if fname == 'framing' and current == _SHOPKEEPER_FRAMING:
+                object.__setattr__(self, fname, _DIGITAL_FRAMING)
+            elif physical_default is not None and current == physical_default:
+                object.__setattr__(self, fname, _DIGITAL_DEFAULTS[fname])
+
 
 def _build_world_config(data: dict) -> WorldConfig:
     """Build WorldConfig from YAML data with preset-based defaults."""

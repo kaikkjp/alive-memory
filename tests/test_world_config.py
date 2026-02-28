@@ -326,7 +326,7 @@ class TestSelfContextNoShopLine(unittest.IsolatedAsyncioTestCase):
         mock_db.get_totem_context = AsyncMock(return_value='')
         mock_db.get_active_threads = AsyncMock(return_value=[])
 
-        digital_world = WorldConfig(has_physical_space=False, location_label='')
+        digital_world = WorldConfig(has_physical_space=False)
         result = await assemble_self_context(
             world=digital_world,
             identity_compact='I exist here. I think, I rest, I remember.',
@@ -395,12 +395,7 @@ class TestAmbientPerceptionDigital(unittest.TestCase):
         from models.state import DrivesState
 
         drives = DrivesState()
-        digital_world = WorldConfig(
-            has_physical_space=False,
-            midday_text=_DIGITAL_DEFAULTS['midday_text'],
-            evening_text=_DIGITAL_DEFAULTS['evening_text'],
-            late_text=_DIGITAL_DEFAULTS['late_text'],
-        )
+        digital_world = WorldConfig(has_physical_space=False)
         perception = build_ambient_perception(drives, world=digital_world)
 
         content_lower = perception.content.lower()
@@ -705,6 +700,108 @@ class TestVisitorLabelsFromYaml(unittest.TestCase):
         identity = AgentIdentity.default()
         self.assertEqual(identity.world.visitor_arrive_label, 'VISITOR IN SHOP')
         self.assertEqual(identity.world.multi_visitor_label, 'PRESENT IN SHOP:')
+
+
+class TestWorldConfigAutoSwap(unittest.TestCase):
+    """P2 fix: WorldConfig(has_physical_space=False) auto-swaps to digital defaults."""
+
+    def test_digital_direct_construction_no_shop(self):
+        """Direct WorldConfig(has_physical_space=False) gets digital defaults."""
+        w = WorldConfig(has_physical_space=False)
+        self.assertEqual(w.location_label, '')
+        self.assertNotIn('shop', w.midday_text.lower())
+        self.assertNotIn('shop', w.evening_text.lower())
+        self.assertNotIn('shop', w.late_text.lower())
+        self.assertNotIn('shop', w.visitor_enter_text.lower())
+        self.assertNotIn('shop', w.close_action_text.lower())
+        self.assertNotIn('shop', w.open_action_text.lower())
+
+    def test_physical_direct_construction_has_shop(self):
+        """Direct WorldConfig() keeps physical defaults."""
+        w = WorldConfig()
+        self.assertEqual(w.location_label, 'Shop')
+        self.assertIn('shop', w.midday_text.lower())
+
+    def test_explicit_override_preserved(self):
+        """Explicit value != physical default is kept even with has_physical_space=False."""
+        w = WorldConfig(has_physical_space=False, location_label='My Studio')
+        self.assertEqual(w.location_label, 'My Studio')
+
+    def test_digital_action_texts(self):
+        """Digital agent gets 'went offline' / 'came online' not 'closed the shop'."""
+        w = WorldConfig(has_physical_space=False)
+        self.assertEqual(w.close_action_text, 'went offline')
+        self.assertEqual(w.open_action_text, 'came online')
+
+
+class TestVisitorEnterTextEndToEnd(unittest.IsolatedAsyncioTestCase):
+    """End-to-end: visitor_enter_text applied in sensorium."""
+
+    async def test_custom_enter_text_from_yaml(self):
+        import tempfile, yaml, os
+        from config.agent_identity import AgentIdentity
+        from pipeline.sensorium import build_perceptions
+        from models.event import Event
+        from models.state import DrivesState
+        from unittest.mock import AsyncMock, MagicMock, patch
+        from datetime import datetime, timezone
+
+        custom = {
+            'identity_compact': 'I am a librarian.',
+            'voice_rules': ['Be quiet'],
+            'world': {
+                'has_physical_space': True,
+                'visitor_enter_text': 'enters the library',
+                'visitor_return_text': 'comes back to the reading room',
+            },
+        }
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            yaml.dump(custom, f)
+            path = f.name
+        try:
+            identity = AgentIdentity.from_yaml(path)
+            event = Event(
+                event_type='visitor_connect',
+                source='visitor:test-123',
+                ts=datetime.now(timezone.utc),
+                payload={},
+            )
+            mock_visitor = MagicMock(trust_level='stranger', name=None)
+            with patch('pipeline.sensorium.db') as mock_db:
+                mock_db.get_visitor = AsyncMock(return_value=mock_visitor)
+                percs = await build_perceptions(
+                    [event], DrivesState(), world=identity.world)
+            connect_perc = [p for p in percs if p.p_type == 'visitor_connect'][0]
+            self.assertIn('enters the library', connect_perc.content)
+            self.assertNotIn('shop', connect_perc.content.lower())
+        finally:
+            os.unlink(path)
+
+
+class TestActionTextEndToEnd(unittest.IsolatedAsyncioTestCase):
+    """End-to-end: close/open action text applied in self_context."""
+
+    async def test_digital_action_text_in_self_context(self):
+        from prompt.self_context import _action_map
+        from config.agent_identity import WorldConfig
+
+        digital_world = WorldConfig(has_physical_space=False)
+        m = _action_map(digital_world)
+        self.assertEqual(m['close_shop'], 'went offline')
+        self.assertEqual(m['open_shop'], 'came online')
+
+    async def test_custom_action_text(self):
+        from prompt.self_context import _action_map
+        from config.agent_identity import WorldConfig
+
+        custom_world = WorldConfig(
+            has_physical_space=True,
+            close_action_text='locked the doors',
+            open_action_text='unlocked the doors',
+        )
+        m = _action_map(custom_world)
+        self.assertEqual(m['close_shop'], 'locked the doors')
+        self.assertEqual(m['open_shop'], 'unlocked the doors')
 
 
 if __name__ == '__main__':
