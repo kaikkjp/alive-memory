@@ -819,9 +819,11 @@ class Heartbeat:
                 except Exception as e:
                     print(f"  [Heartbeat] Feed ingestion error: {e}")
 
-        # Let the arbiter decide focus
+        # Let the arbiter decide focus.
+        # Pass +1 so the arbiter sees the same phase as fidget/cortex/multiplier,
+        # which all use the post-increment value (incremented in the idle branch below).
         focus = await decide_cycle_focus(drives, self._arbiter_state,
-                                         idle_streak=self._consecutive_idle)
+                                         idle_streak=self._consecutive_idle + 1)
 
         cycle_log = {}
         if focus.channel == 'idle':
