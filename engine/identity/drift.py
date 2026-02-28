@@ -20,9 +20,11 @@ from models.event import Event
 # ─── Config ───
 
 _CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'drift_config.json')
-_DATA_DIR = os.environ.get('SHOPKEEPER_DATA_DIR',
-                           os.path.join(os.path.dirname(__file__), '..', '..', 'data'))
-_BASELINE_PATH = os.path.join(_DATA_DIR, 'self_model.json')
+_AGENT_CONFIG_DIR = os.environ.get('AGENT_CONFIG_DIR', '')
+_DATA_DIR = (os.path.join(_AGENT_CONFIG_DIR, 'db') if _AGENT_CONFIG_DIR
+             else os.environ.get('SHOPKEEPER_DATA_DIR',
+                                 os.path.join(os.path.dirname(__file__), '..', '..', 'data')))
+_BASELINE_PATH = os.path.join(_DATA_DIR, 'drift_baseline.json')
 
 _EPSILON = 0.01  # Avoid division by zero
 

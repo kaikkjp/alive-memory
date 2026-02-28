@@ -27,10 +27,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application source
 COPY . .
 
-# Non-root user
+# Non-root user — must own writable dirs inside image
 RUN adduser --disabled-password --no-create-home --gecos "" appuser \
     && mkdir -p /agent-config \
-    && chown -R appuser:appuser /agent-config
+    && chown -R appuser:appuser /agent-config /app/identity
 
 # Only expose HTTP — no terminal, no WebSocket for managed agents
 ENV SHOPKEEPER_HOST=0.0.0.0 \
