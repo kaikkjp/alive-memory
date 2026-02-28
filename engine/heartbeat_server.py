@@ -1380,6 +1380,15 @@ class ShopkeeperServer:
             elif path == '/api/outdoor' and method == 'GET':
                 await self._http_outdoor(writer)
             # ── Public API endpoints (API-key protected, TASK-095 Phase 3) ──
+            # TASK-104: Manager channel — bypasses engagement system
+            elif path == '/api/manager-message' and method == 'POST':
+                api_meta = self._check_api_key(authorization)
+                if api_meta is None:
+                    await self._http_json(writer, 401, {'error': 'invalid or missing API key'})
+                elif not self._api_key_manager.check_rate_limit(authorization.replace('Bearer ', '')):
+                    await self._http_json(writer, 429, {'error': 'rate limit exceeded'})
+                else:
+                    await public_routes.handle_manager_message(self, writer, body_bytes, api_meta)
             elif path == '/api/chat' and method == 'POST':
                 api_meta = self._check_api_key(authorization)
                 if api_meta is None:

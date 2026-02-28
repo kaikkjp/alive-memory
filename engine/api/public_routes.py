@@ -135,6 +135,85 @@ async def handle_chat(server, writer, body_bytes: bytes, api_key_meta: dict):
         })
 
 
+async def handle_manager_message(server, writer, body_bytes: bytes, api_key_meta: dict):
+    """Handle POST /api/manager-message — manager channel that bypasses engagement.
+
+    TASK-104: Manager messages go through a dedicated perception channel.
+    No engagement created, no visitor record, no ghost detection involvement.
+    The message enters the normal heartbeat cycle tagged as 'manager_message'.
+
+    Request body: {"message": "hello", "visitor_id": "optional-id"}
+    Response: {"response": "...", "visitor_id": "...", "timestamp": "..."}
+    """
+    try:
+        body = json.loads(body_bytes)
+    except (json.JSONDecodeError, ValueError):
+        await server._http_json(writer, 400, {'error': 'invalid JSON body'})
+        return
+
+    message = body.get('message', '').strip()
+    if not message:
+        await server._http_json(writer, 400, {'error': 'message field required'})
+        return
+
+    text = sanitize_input(message)
+    if not text:
+        await server._http_json(writer, 400, {'error': 'message was empty after sanitization'})
+        return
+
+    # Use provided visitor_id or generate one
+    visitor_id = body.get('visitor_id', '').strip()
+    if not visitor_id:
+        visitor_id = f"manager-{api_key_meta.get('name', 'anon')}-{uuid.uuid4().hex[:8]}"
+
+    # Ensure visitor exists (for conversation_log continuity)
+    visitor = await db.get_visitor(visitor_id)
+    if not visitor:
+        await db.upsert_visitor(visitor_id, name=api_key_meta.get('name', 'Manager'))
+
+    # Log conversation (so cortex sees history in U6)
+    await db.append_conversation(visitor_id, 'visitor', text)
+
+    # Create manager_message event — NOT visitor_speech.
+    # No engagement, no on_visitor_message(), no ghost detection.
+    manager_event = Event(
+        event_type='manager_message',
+        source=f'visitor:{visitor_id}',
+        payload={'text': text},
+    )
+    await db.append_event(manager_event)
+    await db.inbox_add(manager_event.id, priority=0.95)
+
+    # Trigger microcycle and wait for response (same as handle_chat).
+    server.heartbeat.subscribe_cycle_logs(visitor_id)
+    try:
+        await server.heartbeat.schedule_microcycle()
+        log = await _wait_for_dialogue(server.heartbeat, visitor_id, timeout=30)
+    finally:
+        server.heartbeat.unsubscribe_cycle_logs(visitor_id)
+
+    if log:
+        dialogue = log.get('dialogue', '')
+        await server._http_json(writer, 200, {
+            'response': dialogue if dialogue else None,
+            'visitor_id': visitor_id,
+            'timestamp': clock.now_utc().isoformat(),
+            'internal': {
+                'expression': log.get('expression'),
+                'body_state': log.get('body_state'),
+                'gaze': log.get('gaze'),
+            },
+        })
+    else:
+        await server._http_json(writer, 200, {
+            'response': None,
+            'status': 'timeout',
+            'message': 'Agent did not respond in time.',
+            'visitor_id': visitor_id,
+            'timestamp': clock.now_utc().isoformat(),
+        })
+
+
 async def handle_conversation_history(server, writer, body_bytes: bytes, api_key_meta: dict):
     """Handle POST /api/conversation-history — return past messages for a visitor.
 

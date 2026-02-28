@@ -1,11 +1,14 @@
 /**
  * POST /api/agents/:id/chat — Proxy chat to agent container (for lounge UI).
+ *
+ * TASK-104: Uses /api/manager-message endpoint which bypasses the engagement
+ * system. Manager messages don't create engagements or trigger ghost detection.
  */
 
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import * as db from '@/lib/manager-db';
-import { chatWithAgent } from '@/lib/agent-client';
+import { managerMessage } from '@/lib/agent-client';
 
 async function getManagerId(): Promise<string | null> {
   const h = await headers();
@@ -40,12 +43,11 @@ export async function POST(
 
   try {
     const body = await request.json();
-    const result = await chatWithAgent(
+    const result = await managerMessage(
       agent.port,
       keys[0].key,
       body.message,
-      body.visitor_id,
-      body.source
+      body.visitor_id
     );
 
     if (result) {

@@ -277,6 +277,21 @@ async def build_perceptions(unread_events: list[Event], drives: DrivesState,
                 )
                 perceptions.append(perc)
 
+        # TASK-104: Manager messages via dedicated channel (bypasses engagement)
+        elif event.event_type == 'manager_message':
+            text = event.payload.get('text', '')
+            if text:
+                perc = Perception(
+                    p_type='manager_speech',
+                    source=event.source,
+                    ts=event.ts,
+                    content=f"Your trusted human speaks: \"{text}\"",
+                    features={**extract_features(text), 'is_manager': True,
+                              'channel': 'manager'},
+                    salience=0.9,
+                )
+                perceptions.append(perc)
+
     # ── Notification injection (TASK-041) + gap detection (TASK-042) ──
     # Surface content titles from the feed as background perceptions.
     # Gap detection scores notifications against her memory for curiosity spikes.

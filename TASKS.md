@@ -1850,6 +1850,51 @@ No changes to engagement FSM, ACK path, or channel routing (already automatic vi
 
 ---
 
+### TASK-104: Manager Channel — Separate from Visitor Engagement
+**Status:** DONE (2026-03-01)
+**Priority:** P1
+**Branch:** `fix/manager-channel`
+**Description:** Lounge "private chat" sends manager messages through the visitor engagement system. The agent treats the manager as a visitor — creates engagement, expects WebSocket presence, ghost detection clears it. Manager messages need a separate perception channel: new `/api/manager-message` endpoint writes `manager_message` event type, sensorium perceives as manager input (high salience, `channel="manager"`), cortex responds via normal cycle, response retrievable via `/api/manager-response/{message_id}`. No engagement, no visitor record, no ghost detection.
+**Spec:** `tasks/TASK-104-manager-channel.md`
+**Scope (files you may touch):**
+- `engine/heartbeat_server.py` (new endpoints: POST `/api/manager-message`, GET `/api/manager-response/{id}`)
+- `engine/pipeline/sensorium.py` (handle `manager_message` event type)
+- `engine/prompt_assembler.py` (format manager messages with `[Manager note]:` prefix)
+- `engine/pipeline/body.py` or `engine/pipeline/output.py` (write manager response to retrievable location)
+- `lounge/src/components/` (update chat to call new endpoint, poll for response)
+**Scope (files you may NOT touch):**
+- `engine/pipeline/cortex.py`
+- `engine/heartbeat.py`
+- Visitor engagement system
+- Ghost detection
+**Tests:** Send via Lounge → no engagement created. Response retrievable via API. Ghost detection log clean. Window visitor chat still works normally.
+**Definition of done:** Manager messages bypass engagement system entirely. Lounge chat uses `/api/manager-message`. Agent responds with appropriate tone (not "welcome to the shop").
+
+---
+
+### TASK-105: Drive-Based Regulation — Remove Hard Caps + Social Sensitivity Trait
+**Status:** READY
+**Priority:** P2
+**Branch:** `feature/drive-regulation`
+**Depends on:** P1-6 energy feeling fix (must be live so budget-as-tiredness works)
+**Description:** Two overlapping rate-limiting systems fight: hard caps (journal 3/day, content reads, thread creation) and the drive system (expression_need, curiosity). Both active — drives say "journal" but cap says "hit 3 today." Remove per-action caps (keep X posting governor + real-dollar budget), let drives be the sole behavioral regulator. Also adds `social_sensitivity` personality trait (0.0–1.0) to scale social_hunger drift/relief with diminishing returns per session. Three parts: (A) remove caps, (B) add social sensitivity, (C) verify drive relief signals are wired before removing caps.
+**Spec:** `tasks/TASK-105-drive-regulation.md`
+**Scope (files you may touch):**
+- `engine/pipeline/hypothalamus.py` (social_sensitivity scaling, SessionTracker)
+- `engine/pipeline/body.py` (remove journal/content/thread caps)
+- `engine/pipeline/action_registry.py` (remove cap checks)
+- `engine/drives_to_feeling.py` or equivalent (personality-aware thresholds)
+- `engine/config/identity.py` or identity loader (parse social_sensitivity)
+- Identity YAML schema (add `personality.social_sensitivity` field)
+**Scope (files you may NOT touch):**
+- `engine/pipeline/cortex.py`
+- `engine/db/`
+- X posting governor (keep as-is)
+**Tests:** Agent with no caps journals 6-12 on day 1, tapers naturally. Introvert (0.2) shows "enough" after 3-4 messages, extrovert (0.8) after 8-9. Session decay resets after 10-min gap. Budget-as-cap: $1 budget → agent slows before 20 journals.
+**Definition of done:** Per-action caps removed (except X posting). Drive relief verified for all actions. social_sensitivity trait parsed and used. Existing agents default to 0.5 (neutral, identical behavior).
+
+---
+
 ```markdown
 ### TASK-XXX: Title
 **Status:** BACKLOG
