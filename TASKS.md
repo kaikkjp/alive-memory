@@ -34,8 +34,6 @@
 
 ---
 
----
-
 ### TASK-029: Drive history sparklines
 **Status:** BACKLOG
 **Priority:** Low
@@ -57,8 +55,6 @@
 - `sleep.py`
 **Tests:** Verify drive history endpoint returns time-series data. Sparklines render without layout shift.
 **Definition of done:** Each drive bar has an inline sparkline showing 72h trend. Data is sourced from per-cycle drive state history.
-
----
 
 ---
 
@@ -86,8 +82,6 @@
 
 ---
 
----
-
 ### TASK-031: Cost trend chart
 **Status:** BACKLOG
 **Priority:** Low
@@ -111,11 +105,9 @@
 
 ---
 
----
-
 ### TASK-048: Run 7-day experiment v2 — three-budget sweep
 
-**Status:** IN_PROGRESS (code changes done 2026-02-17; simulation runs pending)
+**Status:** DONE (2026-02-25 — Runs A & B complete; superseded by isolation ablation study)
 **Priority:** Critical (paper blocker)
 **Branch:** feat/experiment-v2
 
@@ -227,6 +219,342 @@ ORDER BY sim_day;
 
 ---
 
+### TASK-055: Extract pipeline parameters to self_parameters DB table
+**Status:** DONE (2026-02-18)
+**Priority:** High (infrastructure for TASK-056)
+**Complexity:** Large — touches every pipeline module
+**Branch:** `feat/self-parameters`
+**Depends on:** TASK-054
+**Description:** All ~50 cognitive architecture constants are hardcoded in Python files (drive equilibria, routing thresholds, salience weights, gate parameters, inhibition rates, sleep params). Extract them to a `self_parameters` DB table with bounds, modification tracking, and a per-cycle cached load. Required infrastructure for TASK-056 self-modification.
+**Scope (files you may touch):**
+- `db/parameters.py` (new — get_param, set_param, get_params_by_category, reset_param, get_modification_log)
+- `pipeline/hypothalamus.py` (replace hardcoded drive constants)
+- `pipeline/thalamus.py` (replace routing thresholds)
+- `pipeline/sensorium.py` (replace salience weights)
+- `pipeline/basal_ganglia.py` (replace gate parameters)
+- `pipeline/output.py` (replace inhibition parameters)
+- `sleep.py` (replace consolidation parameters)
+- `heartbeat.py` (load params at cycle start, pass through pipeline)
+- `migrations/` (new table + seed data)
+- `heartbeat_server.py` or `api/dashboard_routes.py` (new parameters endpoint)
+- `window/src/components/dashboard/ParametersPanel.tsx` (new)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `simulate.py`
+**Tests:**
+- Unit: `get_param` returns correct values
+- Unit: `set_param` enforces bounds (rejects out-of-range)
+- Unit: `reset_param` restores default
+- Integration: pipeline produces identical output with DB params vs old hardcoded values
+- Regression: run 50 cycles, verify behavior unchanged
+**Definition of done:** All ~50 pipeline constants in `self_parameters` table. Pipeline reads from DB (cached per cycle). Dashboard shows parameters with modification tracking. System behavior identical to pre-migration.
+
+---
+
+### TASK-056: Dynamic action registry + modify_self action
+**Status:** DONE (2026-02-19, Phase 5 complete — sleep auto-promote)
+**Priority:** High (the self-modification capability)
+**Complexity:** Large
+**Branch:** `feat/dynamic-actions`
+**Depends on:** TASK-055
+**Description:** Two problems: (A) She invents ~100 unique action names that don't exist (browse_web: 242, stand: 118, make_tea: 17, etc.) — all discarded as `incapable`, she never learns. (B) She has no conscious mechanism to adjust her own cognitive parameters. Fix both: dynamic action registry with alias/body_state/pending resolution, and a `modify_self` action gated behind reflection evidence.
+**Scope (files you may touch):**
+- `pipeline/basal_ganglia.py` (action resolution: static → dynamic alias → body_state → pending; modify_self gating)
+- `pipeline/output.py` (modify_self execution, self-modification logging)
+- `db/actions.py` (new — dynamic_actions CRUD)
+- `db/parameters.py` (extend with modification logging)
+- `sleep.py` (meta-sleep review phase — revert degraded modifications)
+- `heartbeat.py` (pass dynamic actions to pipeline)
+- `migrations/` (dynamic_actions table + seed data)
+- `window/src/components/dashboard/ActionsPanel.tsx` (new)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `simulate.py`
+**Tests:**
+- Unit: action resolution order (static → dynamic alias → body_state → pending)
+- Unit: browse_web resolves to read_content
+- Unit: stand creates body_state update
+- Unit: unknown action creates pending entry, promotes after 5 attempts
+- Unit: modify_self rejected without recent reflection evidence
+- Unit: modify_self respects parameter bounds
+- Unit: meta-sleep review reverts degraded modifications
+- Integration: run 100 cycles, verify dynamic actions accumulate and aliases work
+**Definition of done:** browse_web redirects to read_content. Physical actions update room_state. Unknown actions tracked and auto-promoted. modify_self works with reflection prerequisite. Nightly meta-review evaluates and can revert. Dashboard shows registry and modification history. She stops wasting 242 cycles on `incapable`.
+
+---
+
+### TASK-058: Production Visitor UI — Full Redesign
+**Status:** DONE (2026-02-18)
+**Priority:** High
+**Branch:** `feat/visitor-ui`
+**Spec:** `tasks/TASK-058-visitor-ui.md`
+**Description:** Replace the current `window/` Next.js app with the "Through the Glass" production visitor experience. A living scene — Tokyo antique shop at night, peering through the window. Activity stream, expression-driven character sprites, token-gated chat panel. Not a chatbot.
+**Scope (files you may touch):**
+- `window/` — full replacement (App Router, TypeScript, Tailwind, no component library)
+**Scope (files you may NOT touch):**
+- All Python backend files
+- `heartbeat_server.py` WebSocket endpoints (read-only — frontend consumes existing protocol)
+- `db.py`
+**Tests:** See acceptance criteria in `tasks/TASK-058-visitor-ui.md` (11 criteria).
+**Definition of done:** All 11 acceptance criteria pass. Visual tuning values in CSS custom properties. Works on iPhone Safari + Android Chrome.
+
+---
+
+### TASK-059: OpenRouter Multi-LLM Integration
+**Status:** DONE
+**Completed:** 2026-02-19
+**Priority:** High
+**Branch:** `feat/openrouter`
+**Spec:** `tasks/TASK-059-openrouter.md`
+**Description:** Route all LLM calls through OpenRouter so different models can power different parts of her cognition. Single API key, unified billing, 200+ models. Cognitive architecture is model-agnostic; only the API routing changes.
+**Scope (files you may touch):**
+- `llm/__init__.py` (new)
+- `llm/client.py` (new — OpenRouter HTTP client)
+- `llm/config.py` (new — model resolution: DB → env → default)
+- `llm/format.py` (new — Anthropic ↔ OpenAI format translation)
+- `llm/cost.py` (new — cost logging per call)
+- `pipeline/cortex.py` (replace Anthropic SDK call)
+- `sleep.py` (replace Anthropic SDK calls)
+- `pipeline/embed.py` (replace embedding call if applicable)
+- `requirements.txt` (add httpx, eventually remove anthropic)
+- `migrations/` (extend llm_costs table with model + call_site + latency_ms)
+- `tests/test_llm_format.py` (new)
+- `tests/test_llm_config.py` (new)
+- `tests/test_llm_cost.py` (new)
+**Scope (files you may NOT touch):**
+- `pipeline/prompt_assembler.py`
+- `pipeline/validator.py`
+- `pipeline/basal_ganglia.py`
+- `heartbeat.py` (unless needed for config loading)
+- `window/*`
+**Tests:** See testing section in `tasks/TASK-059-openrouter.md` (unit + integration + 50-cycle regression).
+**Definition of done:** All 9 criteria in spec — all LLM calls via OpenRouter, model configurable per call site, cost logging includes model/call_site/latency, Anthropic SDK no longer called directly, format translation transparent, 50-cycle regression passes.
+
+---
+
+### TASK-060: Self-Context Injection
+**Status:** DONE (2025-02-19)
+**Priority:** High
+**Complexity:** Medium
+**Branch:** `feat/self-context`
+**Depends on:** TASK-065 merge (budget must exist first), TASK-059, TASK-064
+**Blocks:** TASK-061 (self-model), TASK-062 (drift detection)
+**Spec:** `tasks/TASK-060-self-context.md`
+**Description:** Give the Shopkeeper awareness of her own state by injecting a structured self-context block into the LLM prompt each cycle. She currently has drives, memory, and scene context but no unified "here's who I am right now" snapshot. This is the foundation for 061-063 (identity evolution chain). Self-context is read-only in this task — she sees herself but doesn't modify herself yet (that's 061+).
+**Self-context block contents:**
+1. Identity summary — name, role, core traits (static seed, evolves in 061+)
+2. Current state snapshot — body state, energy, mood, active drives
+3. Recent behavioral summary — last N actions taken, any habits formed
+4. Temporal awareness — cycle count, time of day, time since last sleep
+**Scope (files you may touch):**
+- `prompt/self_context.py` (new — assembles the self-context block)
+- `pipeline/cortex.py` (post-059 — inject self-context into prompt assembly)
+**Scope (files you may NOT touch):**
+- `pipeline/basal_ganglia.py`
+- `simulate.py`
+**Rules:**
+- Self-context is read-only — she sees herself but doesn't modify herself yet (that's 061+)
+- Must fit within the token budget allocated by TASK-065
+- Content is assembled fresh each cycle, not cached
+- Format: structured text block, not JSON — the LLM reads it as natural language
+**Tests:**
+- Self-context block appears in prompt when enabled
+- Token count stays within budget allocation
+- Content accurately reflects current state (compare against actual drive/energy/mood values)
+- No behavioral change in output — this is additive context, not a directive
+**Definition of done:** Self-context block injected into every LLM prompt. Contains identity summary, current state, recent behavior, and temporal awareness. Respects TASK-065 token budget. Content is accurate and assembled fresh each cycle. Read-only — no self-modification capability yet.
+
+---
+
+### TASK-061: Persistent Self-Model
+**Status:** DONE (2026-02-19)
+**Priority:** High
+**Complexity:** Medium
+**Branch:** `feat/self-model`
+**Depends on:** TASK-060 (waived by operator)
+**Blocks:** TASK-062
+**Spec:** `tasks/TASK-061-self-model.md`
+**Description:** She maintains a structured representation of "who I am" that persists across cycles and updates incrementally based on observed behavior. TASK-060 gives her a per-cycle snapshot, but snapshots are stateless — she can't notice patterns in herself without a persistent baseline to compare against. The self-model is that baseline.
+**Self-model contents:**
+- Trait weights — derived from behavioral patterns, not declared (emergent, not seeded)
+- Behavioral signature — rolling averages of action frequencies, drive response patterns, sleep/wake rhythms
+- Relational stance — how she tends to engage with visitors (warm/guarded/curious), derived from conversation patterns
+- Self-narrative — short natural language summary she generates about herself, updated periodically (not every cycle)
+**Where it lives:**
+- `identity/self_model.json` — persisted to disk
+- Loaded at boot, updated at end of each wake cycle (not during sleep — sleep reads but doesn't write)
+**How it updates:**
+- After each cortex cycle, `self_model.update(cycle_data)` compares this cycle against rolling averages
+- Exponential moving average — recent behavior weights more, but change is gradual
+- Self-narrative regeneration triggers only when trait weights shift beyond a threshold (expensive LLM call, not every cycle)
+**What it does NOT do:**
+- No decision-making — the self-model is a mirror, not a controller
+- No direct influence on cortex prompt (060's job to inject it as context)
+- No evolution or acceptance of drift (that's 063)
+**Scope (files you may touch):**
+- `identity/self_model.py` (new — SelfModel class, update logic, persistence)
+- `identity/self_model.json` (new — persisted model state)
+- Cortex cycle end (add `self_model.update()` call)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py` (internal LLM call logic)
+- `pipeline/basal_ganglia.py`
+- `simulate.py`
+**Tests:**
+- Self-model file persists across restarts
+- Trait weights shift measurably after 20+ cycles of consistent behavior
+- Self-narrative updates only when threshold crossed
+- No performance impact on cycle time (update is fast, narrative regen is async/deferred)
+**Definition of done:** Self-model persists to disk and loads at boot. Trait weights are emergent from behavior, not seeded. Behavioral signature tracks rolling averages. Self-narrative regenerates only on threshold shift. No decision-making — read-only mirror of identity.
+
+---
+
+### TASK-062: Drift Detection
+**Status:** DONE (2026-02-19)
+**Priority:** High
+**Complexity:** Medium
+**Branch:** `feat/drift-detection`
+**Depends on:** TASK-061 (building with interface stub — self-model not yet implemented)
+**Blocks:** TASK-063
+**Spec:** `tasks/TASK-062-drift-detection.md`
+**Description:** Compare her current behavioral patterns against her self-model baseline. Detect when she's meaningfully diverging from her established identity. Drift is NOT deviation in a single cycle — it's a sustained divergence over N cycles (configurable, default ~20) where behavioral patterns consistently differ from the self-model baseline.
+**Metrics to compare:**
+- Action frequency distribution (current rolling window vs self-model signature)
+- Drive response patterns (how she responds to high hunger vs how she used to)
+- Conversation style metrics (response length, question frequency, emotional tone)
+- Sleep/wake rhythm deviation
+**Detection method:**
+- Per-metric drift score: `abs(current_rolling_avg - baseline) / baseline`
+- Composite drift score from individual scores
+- Threshold: `>0.3` = notable drift, `>0.5` = significant drift (configurable in `identity/drift_config.json`)
+**What happens when drift is detected:**
+- Drift event emitted (visible on dashboard, logged)
+- Drift summary injected into self-context (060's block): "I've been more withdrawn than usual for the past 15 cycles"
+- No automatic correction — drift is information, not a problem to solve. 063 decides what to do with it.
+**Scope (files you may touch):**
+- `identity/drift.py` (new — drift scoring, detection, event emission)
+- `identity/drift_config.json` (new — thresholds, window sizes)
+- Cycle end (add drift check after self-model update)
+- 060's self-context block (inject drift summary when active)
+- Dashboard: drift indicator in DrivesPanel or new panel
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `pipeline/basal_ganglia.py`
+- `simulate.py`
+**Tests:**
+- Force behavioral shift in test (suppress all social actions for 30 cycles) → drift detected
+- Return to normal behavior → drift score decreases
+- Dashboard shows drift event
+- Self-context includes drift summary when active
+**Definition of done:** Drift detection runs after each self-model update. Sustained divergence (not single-cycle noise) triggers drift events. Dashboard shows drift indicators. Self-context includes drift summary when active. No automatic correction.
+
+---
+
+### TASK-063: Identity Evolution (STUB)
+**Status:** DONE (2026-02-18)
+**Priority:** High
+**Complexity:** Large
+**Branch:** `feat/identity-evolution`
+**Depends on:** TASK-062
+**Blocks:** Nothing (end of chain)
+**Spec:** `tasks/TASK-063-identity-evolution.md`
+**Description:** When drift is detected, she can choose to accept the change as genuine growth or correct back toward her baseline. **THIS IS A STUB SPEC.** Implementation is gated on resolving the philosophical question: who decides what "genuine growth" vs "unwanted drift" looks like?
+**The philosophical problem:**
+- If she always accepts drift → identity dissolves, she becomes whatever the LLM drifts toward
+- If she always corrects → she's frozen, can't grow
+- If we hardcode the criteria → we're deciding her identity for her, contradicting the ALIVE premise
+- If she decides → the decision itself is influenced by the current drift, creating circular dependency
+**Guard rails (non-negotiable regardless of implementation):**
+- Core safety traits cannot be evolved away (she can't drift into being hostile)
+- Evolution rate capped — no more than one trait update per sleep cycle
+- All evolution decisions logged with full context for operator review
+- Operator override: dashboard can force-correct or force-accept any drift
+**Scope (files you may touch):**
+- `identity/evolution.py` (new — stub with interface only)
+- `identity/evolution_config.json` (new — guard rail params)
+- No integration with cortex or cycle — disconnected until philosophical gate passes
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `pipeline/basal_ganglia.py`
+- `simulate.py`
+**Tests (for stub):**
+- Interface exists and is importable
+- Guard rail config loads
+- Calling any method raises NotImplementedError
+- Dashboard shows evolution status as "disabled — pending review"
+**Definition of done:** Interface class exists with evaluate_drift/accept_drift/correct_drift/defer methods. All methods raise NotImplementedError. Guard rail config loads. Dashboard shows disabled status. No integration with live system.
+
+---
+
+### TASK-064: Sleep Phase Extraction
+**Status:** DONE (2026-02-19)
+**Priority:** Medium
+**Branch:** `refactor/sleep-phases`
+**Depends on:** TASK-059 merge (holds sleep.py — don't touch LLM call signatures)
+**Blocks:** TASK-065, TASK-060
+**Spec:** `tasks/TASK-064-sleep-phases.md`
+**Description:** Extract discrete sleep phases from `sleep.py` into separate, testable modules. Reduce `sleep.py` to an orchestrator that calls phase functions rather than containing all logic inline. TASK-059 is adding OpenRouter routing inside sleep's LLM calls, TASK-065 adds token budgeting, TASK-060+ adds self-context injection — if we don't decompose first, every future task compounds the bloat.
+**Scope (files you may touch):**
+- `sleep.py` (refactor — orchestrator only after this)
+- `sleep/` (new directory for extracted phases)
+- `tests/` (tests for each extracted phase)
+**Scope (files you may NOT touch):**
+- `pipeline/*`
+- `heartbeat.py`
+**Phases to extract (from current sleep.py):**
+1. Pre-sleep consolidation — memory gathering, moment reflection, journal writes, hot/cold context
+2. Nap consolidation — the lighter mid-cycle `nap_consolidate()` version
+3. Dream/reflection generation — `sleep_reflect()` LLM call + helpers (`gather_hot_context`, `format_traits_for_sleep`)
+4. Meta-sleep revert — `review_self_modifications()` + `review_trait_stability()` (the wellbeing heuristic)
+5. Wake transition — `reset_drives_for_morning()`, `flush_day_memory()`, `manage_thread_lifecycle()`, `cleanup_content_pool()`, daily summary, cold embedding
+**Rules:**
+- Each phase becomes a function/module in `sleep/`
+- `sleep.py` imports and calls them in sequence — no inline logic beyond orchestration
+- Preserve all existing behavior exactly — this is a refactor only, no behavior changes
+- Each phase must be independently testable
+- Don't touch the LLM call signatures — TASK-059 is changing those. Use whatever interface exists post-059 merge
+**Tests:**
+- All existing sleep tests pass unchanged
+- Each phase module has at least one unit test
+- sleep.py line count drops by >50%
+**Verification:**
+- `scope-check.sh TASK-064` clean
+- All existing sleep tests pass unchanged
+- sleep.py line count drops by >50%
+- Each phase module has at least one unit test
+**Definition of done:** `sleep.py` is a thin orchestrator. Each phase is an isolated, independently testable module in `sleep/`. Adding future phases (060 self-context review, 061 organ review, 062 loop cost review, 063 fitness review) is a single file + one line in the orchestrator.
+
+---
+
+### TASK-065: Prompt Token Budget
+**Status:** DONE (2026-02-19)
+**Priority:** Medium
+**Branch:** `feat/prompt-budget`
+**Depends on:** TASK-064 merge (sleep phases cleaned up), TASK-059 merge (prompt structure finalized)
+**Blocks:** TASK-060, TASK-061
+**Spec:** `tasks/TASK-065-prompt-budget.md`
+**Description:** Enforce token caps on each section of the LLM prompt to prevent context window bloat as features accumulate. TASK-060 through TASK-063 all inject new content into the prompt — without a budget, each addition creeps the token count up until we hit truncation or degraded output quality.
+**Design:**
+1. Define named prompt sections (system, memory, drives, scene, self_context, conversation_history)
+2. Each section gets a max token allocation in config
+3. Total budget = model context window minus reserved output tokens
+4. Before each LLM call, `budget.py` measures each section, truncates/summarizes any that exceed their cap (oldest-first for history, least-relevant-first for memory)
+5. Emit a warning log if any section hits its cap — visibility into what's getting cut
+**Scope (files you may touch):**
+- `prompt/budget.py` (new — token counting + section enforcement)
+- `pipeline/cortex.py` (post-059 — integrate budget checks before LLM call)
+- `prompt/budget_config.json` or similar (new — per-section limits)
+**Rules:**
+- Token counting must be fast — use tiktoken or character-estimate heuristic, not an LLM call
+- Truncation strategy per section type (configurable)
+- Never silently drop content — always log what was trimmed
+- Budget config must be tunable without code changes
+**Tests:**
+- Unit: section over budget → truncated to limit
+- Unit: total under budget → nothing touched
+- Integration: full prompt assembly stays within model context window
+- Log output shows trim events when triggered
+**Definition of done:** Every prompt section has a token budget. Total prompt size is bounded. Truncation is per-section with configurable strategy. All trims are logged. Budget config is external and tunable without code changes.
+
 ---
 
 ### TASK-066: Shop Window Fix
@@ -264,8 +592,6 @@ ORDER BY sim_day;
 
 ---
 
----
-
 ### TASK-067: Dashboard Overhaul
 **Status:** BACKLOG
 **Priority:** High — operator tool is unusable
@@ -295,8 +621,6 @@ ORDER BY sim_day;
 
 ---
 
----
-
 ### TASK-068: Behavioral Health Diagnostic
 **Status:** BACKLOG
 **Priority:** Medium
@@ -310,6 +634,111 @@ ORDER BY sim_day;
 **Definition of done:** `docs/DIAGNOSTIC-068.md` exists with all 7 check sections. Any agent can run it by reading the file and executing the queries/checks. Output format is standardized.
 
 ---
+
+### TASK-069: Real-World Body Actions — Web Browse + Telegram Shopfront + X Social
+**Status:** DONE (2026-02-19)
+**Priority:** High
+**Complexity:** Large
+**Branch:** `feat/real-body-actions`
+**Depends on:** TASK-059 (OpenRouter), TASK-064 (sleep phases)
+**Spec:** `tasks/TASK-069-real-body-actions.md`
+**Description:** The Shopkeeper's body currently fakes all external actions — `browse_web` resolves to reading from a pre-loaded content pool, `post_x_draft` queues for human review, and visitors can only reach her through a custom web UI. This task makes her actions real and opens her shop to the world via three channels: web window (existing), Telegram group (open shopfront), and X/Twitter (public voice). The body is an API gateway — the cortex never touches external services, body executors handle API calls, error handling, rate limits, and physical inhibitions. The cognitive pipeline is channel-agnostic.
+**Build order:**
+1. Body executor framework (`body/` package, registry, backward-compat)
+2. Channel router (source-based reply routing)
+3. Web browse executor (OpenRouter + web_search tool, Gemini Flash)
+4. Telegram adapter (bot polling, event injection, messaging, images)
+5. X client + executors (post, reply, media, mention fetch)
+6. Cortex prompt update (tell her what's real)
+7. Dashboard panel (toggle actions/channels, rate limits, kill switch)
+8. Integration test (50 cycles, all channels)
+**Scope (files to create):**
+- `body/__init__.py`, `body/executor.py`, `body/internal.py`, `body/web.py`
+- `body/x_social.py`, `body/x_client.py`, `body/telegram.py`, `body/tg_client.py`
+- `body/channels.py`, `body/rate_limiter.py`
+- `migrations/069_real_body_actions.sql`
+- `window/src/components/dashboard/ExternalActionsPanel.tsx`
+- Tests: `test_web_browse.py`, `test_x_social.py`, `test_telegram_adapter.py`, `test_tg_client.py`, `test_body_executor.py`, `test_channel_router.py`, `test_rate_limiter.py`
+**Scope (files to modify):**
+- `pipeline/body.py` — delegate to body/executor.py
+- `pipeline/action_registry.py` — add new actions
+- `pipeline/output.py` — handle results, activity broadcast
+- `pipeline/sensorium.py` — handle x_mention and tg_message events
+- `pipeline/cortex.py` — update action prompt section
+- `heartbeat_server.py` — TG polling, mention fetch, channel router init
+- `api/dashboard_routes.py` — external actions endpoints
+- `db/analytics.py` — extend cost logging
+- `db/memory.py` — visitor channel columns
+- `llm/client.py` — web_search tool support
+- `requirements.txt`
+**Scope (files NOT to touch):**
+- `pipeline/basal_ganglia.py`
+- `pipeline/hypothalamus.py`
+- `pipeline/thalamus.py`
+- `sleep.py`
+- `simulate.py`
+**Safety / Rate limits:**
+- browse_web: 20/hr, 100/day, energy 0.15, cooldown 3min
+- post_x: 12/hr, 50/day, energy 0.10, cooldown 5min
+- reply_x: 30/hr, 100/day, energy 0.08, cooldown 2min
+- post_x_image: 6/hr, 20/day, energy 0.20, cooldown 10min
+- tg_send: 60/hr, 500/day, energy 0.02, cooldown 5sec
+- tg_send_image: 20/hr, 100/day, energy 0.05, cooldown 30sec
+- Daily cost estimate: ~$0.75
+**Definition of done:** browse_web performs real web search. X posts/replies are live. Telegram bot polls messages as visitor events, replies in group, broadcasts activity. Channel router routes replies to originating channel. All external actions logged with cost tracking. Dashboard shows action/channel status with kill switch. Rate limits enforced. 50-cycle integration test passes.
+
+---
+
+### TASK-070: Conscious Memory — MD File Layer
+**Status:** DONE (2026-02-19)
+**Priority:** High
+**Complexity:** Large
+**Branch:** `feat/conscious-memory`
+**Depends on:** TASK-060 (self-context), TASK-064 (sleep phases), TASK-069 (real body actions write to memory)
+**Spec:** `tasks/TASK-070-conscious-memory.md`
+**Description:** Her memory pool contains entries like "Emotional tension — arousal 84% but valence only 22%." No human thinks this way. Split memory into two layers: conscious memory (MD files she can read/write — experiential, natural language, no numbers) and unconscious machinery (SQLite — drives, costs, parameters, cycle logs). The pipeline translates unconscious → conscious like a brain translates cortisol into "I feel stressed." She journals "something felt off tonight," not "arousal 0.84 valence 0.22."
+**Architecture:**
+- `memory/journal/{date}.md` — daily lived experiences
+- `memory/visitors/{source_key}.md` — everything she knows about each person
+- `memory/reflections/{date}-{phase}.md` — sleep reflections
+- `memory/browse/{date}-{slug}.md` — web search learnings
+- `memory/self/identity.md` — self-narrative (updated by sleep)
+- `memory/self/traits.md`, `memory/self/drift.md` — behavioral patterns
+- `memory/threads/{slug}.md` — long-running thought threads
+- `memory/collection/catalog.md` — collection notes
+**Key design rules:**
+- Waking: read + append only (no editing past entries, no deletions)
+- Sleep: read + write + annotate (can add notes, rewrite self/ files, archive old entries)
+- NO raw numbers, percentages, or drive values in any MD file ever
+- Translation layer converts drives → feelings before any conscious write
+- Hippocampus rewritten to grep MD files instead of querying SQLite memory tables
+**Migration phases:**
+1. Create `memory/` directory + file writers (append-only during waking)
+2. Translation layer (drives → feelings in self-context and journal writes)
+3. Replace hippocampus retrieval (MD files + grep instead of SQLite)
+4. Migrate sleep system (reflections, visitor annotations, identity rewrites → MD)
+5. Remove deprecated SQLite memory tables (keep operational tables)
+**Scope (files to create):**
+- `memory/` directory tree
+- `memory_writer.py` — MemoryWriter class
+- `memory_reader.py` — MemoryReader class + grep_memory()
+- `memory_translator.py` — numbers-to-feelings translation
+- Tests: `test_memory_writer.py`, `test_memory_reader.py`, `test_memory_translator.py`, `test_grep_recall.py`
+**Scope (files to modify):**
+- `pipeline/hippocampus.py` — rewrite retrieval to MD files + grep
+- `pipeline/output.py` — route writes to MD, translate internal_conflicts
+- `prompt/self_context.py` — translate drives to felt experience
+- `sleep.py` / `sleep/` phases — consolidation writes to MD
+- `pipeline/hippocampus_write.py` — visitor updates → MD
+- `pipeline/body.py` — journal_write appends to MD
+- `seed.py` — create initial memory/ structure
+**Scope (files NOT to touch):**
+- `pipeline/cortex.py` (prompt assembly unchanged — receives context from hippocampus)
+- `pipeline/basal_ganglia.py`
+- `pipeline/hypothalamus.py`
+- `db/state.py`, `db/analytics.py`, `db/events.py` (SQLite stays for operational data)
+- `simulate.py`
+**Definition of done:** Memory files created and populated from first cycle. Journal entries are natural language. Visitor memories in per-person MD files. NO raw numbers in any MD file. Internal conflicts translated to felt experience. Hippocampus retrieves via grep + file reads. Sleep writes reflections and annotates (never edits) existing entries. SQLite retains all operational data. 50-cycle test: no machine-readable state leaks into MD files. Files are human-readable.
 
 ---
 
@@ -352,6 +781,95 @@ ORDER BY sim_day;
 
 ---
 
+### HOTFIX-001: X Mention Poller — Rate Limit Backoff
+**Status:** DONE (2026-02-20)
+**Priority:** Critical
+**Branch:** `fix/x-poller-backoff`
+**Spec:** `tasks/hotfix-001-x-poller.md`
+**Description:** `XMentionPoller` polls X API every 120s. X Free tier allows 1 request per 15 minutes. First call succeeds, every subsequent call gets 429. The poller has been hammering 429 every 2 minutes for 11+ hours because `fetch_mentions()` catches 429 internally, returns `[]`, and the loop always sleeps `poll_interval` (120s) regardless of errors.
+**Fix:**
+1. Default `poll_interval` from 120 → 900 (15 min = X Free tier limit)
+2. On 429 response: raise `RateLimitError` with Retry-After value (not silently return `[]`)
+3. Polling loop: exponential backoff on RateLimitError (double retry_after, cap 1 hour)
+4. Reset interval to default on successful poll
+**Scope (files you may touch):**
+- `body/x_social.py`
+- `tests/test_x_executors.py` or `tests/test_x_poller.py` (new)
+**Scope (files you may NOT touch):**
+- Everything else
+**Tests:**
+- 429 response → RateLimitError raised with retry_after
+- Poller backs off after RateLimitError (interval doubled)
+- Poller resets interval after successful poll
+- Backoff caps at 3600s
+- Default poll_interval is 900
+**Definition of done:** Default poll interval is 900s. 429 triggers exponential backoff. Backoff caps at 1 hour. Successful poll resets interval.
+
+---
+
+### HOTFIX-002: Valence Death Spiral — Floor Bounce + Cortex Clamp
+**Status:** DONE (2026-02-20)
+**Priority:** Critical
+**Branch:** `fix/valence-spiral`
+**Spec:** `tasks/hotfix-002-valence-spiral.md`
+**Description:** Valence hit -1.0 and stayed there for 12+ hours. She became catatonic — outputting "..." every cycle, ignoring visitors, zero actions. Root cause: homeostatic spring (+0.013/cycle) is 10x too weak vs cortex mood-setting (-0.10 to -0.15/cycle). Cortex reads dark context → outputs val=-0.99 → valence stays at floor → dark memories surfaced → repeat forever.
+**Fix — Four mechanisms:**
+1. **Exponential spring at extremes** — past -0.5 distance, spring force gets 3-4x multiplier (rubber band, not linear)
+2. **Cortex valence clamp** — cortex cannot swing valence more than ±0.10 per cycle (mood inertia)
+3. **Hard floor at -0.85** — she's miserable but not catatonic, can still choose to act
+4. **Action success micro-boost** — completing any action gives +0.05 valence, dialogue gives +0.10
+**Scope (files you may touch):**
+- Drive/valence update logic (likely `pipeline/hypothalamus.py` or `pipeline/output.py`)
+- Action result processing (likely `pipeline/output.py`)
+- `tests/test_valence_recovery.py` (new)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`, `body/*`, `sleep.py`, `heartbeat_server.py`, `window/*`
+**Tests:**
+- Exponential spring at -1.0 is 3x+ stronger than at -0.3
+- Cortex clamp: proposed -1.0 from -0.5 → result >= -0.60
+- Hard floor: valence never below -0.85
+- Action success: +0.05 boost on completion
+- 50-cycle death spiral simulation stays at floor (doesn't breach)
+- Recovery with one action success shows upward trend
+**Definition of done:** Valence floor at -0.85. Cortex clamped ±0.10/cycle. Exponential spring at extremes. Action success boosts valence. Death spiral broken.
+
+---
+
+### HOTFIX-003: Thread Dedup + Rumination Breaker
+**Status:** DONE (2026-02-20)
+**Priority:** Critical
+**Branch:** `fix/thread-rumination`
+**Spec:** `tasks/hotfix-003-rumination.md`
+**Description:** She opened 6 separate "What is anti-pleasure?" threads with near-identical content. Each cycle, hippocampus surfaces the same negative thread, cortex ruminates on it, nothing breaks the loop. Two fixes: thread dedup (prevent duplicate threads) and rumination breaker (deprioritize threads after 5+ consecutive cycles in context).
+**Fix 1 — Thread dedup:**
+- Before creating new thread, check for existing open thread with same/similar topic
+- Exact match: merge content into existing thread
+- Fuzzy match (>60% word overlap): merge into existing thread
+- Closed threads don't block new ones on same topic
+- Sleep closes stale threads (>48h no updates)
+**Fix 2 — Rumination breaker:**
+- Track consecutive cycles each thread appears in context
+- After 5 consecutive cycles: salience reduced by 70%+ (exponential decay: 0.3^n)
+- Counter resets when thread drops out of context (can resurface later with fresh salience)
+**Scope (files you may touch):**
+- Thread creation logic (`pipeline/hippocampus_write.py` or `pipeline/output.py`)
+- Thread context selection (`pipeline/hippocampus.py`)
+- Sleep consolidation (`sleep.py` or `sleep/`)
+- `db/memory.py` — add `append_to_thread()` if needed
+- `tests/test_thread_dedup.py` (new)
+- `tests/test_rumination_breaker.py` (new)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`, `pipeline/hypothalamus.py`, `body/*`, `heartbeat_server.py`, `window/*`
+**Tests:**
+- Exact duplicate topic → returns existing thread
+- Fuzzy duplicate (>60% overlap) → merges
+- Different topics → separate threads
+- Closed thread doesn't block new one on same topic
+- Thread fades after 5 consecutive cycles (salience <0.3x)
+- Counter resets when thread drops out
+- Stale threads closed during sleep
+**Definition of done:** Cannot open duplicate threads. Rumination fades after 5 cycles. Thread counter resets on dropout. Stale threads auto-closed. "Anti-pleasure" scenario impossible.
+
 ---
 
 ### TASK-072: Research Simulation Framework
@@ -388,8 +906,6 @@ ORDER BY sim_day;
 **Scope (files to modify):** Pipeline files for clock injection (`datetime.now()` → `clock.now()`)
 **Scope (files NOT to touch):** `pipeline/cortex.py` internals, `db.py` schema
 **Definition of done:** Clock injection complete, all existing tests pass. SimulationRunner completes 1000-cycle scenario. Both baselines + all 6 ablation variants complete 1000 cycles. MockCortex deterministic with seed. CachedCortex caches correctly. Metrics computed, tables exported as CSV + LaTeX, figures as PDF. CLI runs any experiment with single command. End-to-end: `--experiment baselines --llm mock --cycles 100` completes in <60s.
-
----
 
 ---
 
@@ -436,8 +952,6 @@ ORDER BY sim_day;
 - `db.py`
 - `heartbeat.py`
 **Notes:** This is Experiment 3 from the paper spec (`briefs/TASK-072-research-simulation.md`). 10k cycles ≈ simulated weeks of character life — enough to show consolidation patterns, behavioral drift, and personality stability over time. Data feeds into longitudinal analysis for Figure 4.
-
----
 
 ---
 
@@ -498,10 +1012,50 @@ ORDER BY sim_day;
 
 ---
 
+### TASK-076: Cortex Prompt Optimization — Idle Latency Kill
+**Status:** DONE (2026-02-21)
+**Priority:** High
+**Spec:** `tasks/TASK-075-prompt-optimization.md`
+**Description:** Idle cycles take ~14s and consume ~2800 tokens when they should take 3-5s and ~1100 tokens. Root cause: full engage-grade system prompt + output schema + full output budget sent on every cycle regardless of type. Fix: two-tier system prompt (idle vs engage), cycle-aware output token budget, reduced user message sections on idle, temperature tuning, self-context caching.
+
+**Projected impact (idle cycles):**
+- System prompt: ~1300 → ~700 tokens (-46%)
+- Output cap: 1500 → 400 tokens (-73%)
+- Self-context DB calls: 5+ per cycle → 5+ per 5 min (-90%)
+- Estimated latency: ~14s → ~4-6s (-60%)
+- Estimated cost: ~$0.004 → ~$0.001 (-75%)
+- Engage cycles: **unchanged**
+
+**Scope (files you may touch):**
+- `pipeline/cortex.py` — add `CORTEX_SYSTEM_IDLE`, route by cycle type, cycle-aware tokens + temperature
+- `prompt/budget.py` — add `get_output_tokens_for_cycle()`
+- `prompt/budget_config.json` — add `reserved_output_tokens_by_cycle_type`
+- `prompt/self_context.py` — add caching layer + `invalidate_self_context_cache()`
+- `heartbeat.py` — use cached self_context, invalidate after sleep
+- `llm/client.py` — gate `json_schema` by model name (sim-only, optional)
+- `llm/schema.py` — new file, JSON schema for M2.5 sim (optional)
+
+**Scope (files you may NOT touch):**
+- `db.py`
+- `config/identity.py`
+- `pipeline/hippocampus.py`
+- `pipeline/hippocampus_write.py`
+- `pipeline/validator.py`
+- `pipeline/basal_ganglia.py`
+
+**Tests:**
+1. 10 idle cycles — measure latency, input tokens, output tokens, completion quality
+2. 5 engage cycles — verify full schema output, `memory_updates` populated, dialogue quality unchanged
+3. Transition: idle → visitor arrives → engage schema → visitor leaves → idle schema resumes
+4. Edge case: visitor arrives during idle (microcycle interrupt) → full schema on next cycle
+5. Sim: 100-cycle mock with M2.5 + `json_schema`, compare action diversity to baseline
+
+**Definition of done:** Idle cycles consistently under 6s and under 1200 input tokens. Engage cycles fully unaffected. All existing tests pass.
+
 ---
 
 ### TASK-077: Sim v2 — Visitor Model & Environment Redesign
-**Status:** IN_PROGRESS
+**Status:** DONE (2026-02-22)
 **Priority:** High
 **Spec:** `tasks/TASK-077-sim-v2-redesign.md`
 **Depends on:** TASK-074 (circuit breaker), TASK-075 (prompt optimization), budget-native energy fix
@@ -561,19 +1115,364 @@ ORDER BY sim_day;
 
 ---
 
-### TASK-099: YouTube/video-aware enrichment pipeline
-**Status:** BACKLOG
-**Priority:** Medium
-**Description:** The feed ingester enriches all URLs identically via markdown.new, which returns page chrome for YouTube videos instead of transcript content. Add YouTube transcript extraction via `youtube-transcript-api`, Jina Reader as universal fallback, and URL routing in `feed_ingester.py`.
+### TASK-078: Cache-Safe Cortex Prompt Refactor
+**Status:** DONE (2026-02-22)
+**Priority:** High
+**Branch:** `feat/task-078-cache-safe-cortex`
+**Depends on:** TASK-076 (prompt optimization)
+**Description:** Merge the two prompt constants (`CORTEX_SYSTEM` and `CORTEX_SYSTEM_IDLE`) into a single `CORTEX_SYSTEM_STABLE` f-string precomputed at module level. Bake in `IDENTITY_COMPACT` and `VOICE_CHECKSUM` so the system message is identical across every API call. Move all per-cycle dynamic content (mode, feelings, suppressions, etc.) to the user message. Mark the system message as cacheable via `cache_control` in `llm/client.py` for cortex calls, and add cache hit rate logging.
 **Scope (files you may touch):**
-- `pipeline/enrich.py` (new functions: `fetch_via_jina`, `fetch_youtube_transcript`, `enrich_youtube_url`)
-- `feed_ingester.py` (YouTube URL routing in `enrich_pool_item`)
-- `requirements.txt` (add `youtube-transcript-api`)
-- `tests/test_enrich.py`, `tests/test_feed_enrichment.py`
+- `pipeline/cortex.py`
+- `llm/client.py`
+- `tests/test_llm_client.py`
+- `TASKS.md`
 **Scope (files you may NOT touch):**
-- `pipeline/cortex.py`, `body/internal.py`, `pipeline/hypothalamus.py`, `heartbeat.py`, `db.py`, `config/identity.py`
-**Tests:** Unit tests for transcript formatting, Jina fallback, URL detection, graceful degradation. Integration: existing enrichment tests unchanged.
-**Definition of done:** YouTube URLs get transcript-based `enriched_text`. Non-YouTube enrichment unchanged. Jina Reader available as universal fallback.
+- `db.py`
+- `heartbeat.py`
+- `config/identity.py`
+- `pipeline/basal_ganglia.py`
+- `pipeline/validator.py`
+**Tests:**
+- Module loads: `python3 -c "import pipeline.cortex; print(len(pipeline.cortex.CORTEX_SYSTEM_STABLE))"`
+- No format placeholders: `python3 -c "import re, pipeline.cortex as c; print('OK' if not re.findall(r'\{[a-z_]+\}', c.CORTEX_SYSTEM_STABLE) else 'FAIL')"`
+- `python3 -m pytest tests/test_cortex_soak.py tests/test_cortex_timeout.py tests/test_llm_client.py -v --tb=short`
+**Definition of done:** Single stable system prompt with no format placeholders. All dynamic content in user message. Cache control header on cortex system message. Cache hit rate logged. All tests pass.
+
+---
+
+### TASK-079: Deploy Scripts Set Wrong API Key
+**Status:** DONE (2026-02-22)
+**Priority:** High
+**Description:** Runtime hard-requires `OPENROUTER_API_KEY` (heartbeat_server.py:142, terminal.py:933) but all deploy/setup scripts still set `ANTHROPIC_API_KEY`. A scripted deployment comes up with the wrong key and immediately fails startup checks. Reconcile by updating deploy scripts to set `OPENROUTER_API_KEY`, and update documentation to match.
+**Affected locations:**
+- `deploy/setup.sh:146,150` — prompts for and writes `ANTHROPIC_API_KEY`
+- `DEPLOY-NOW.sh:98` — writes `ANTHROPIC_API_KEY`
+- `README.md:20` — documents `ANTHROPIC_API_KEY` as required
+- `DEPLOY_VPS.md:25` — documents `ANTHROPIC_API_KEY`
+- `CLAUDE.md` env table — lists `ANTHROPIC_API_KEY`
+**Scope (files you may touch):**
+- `deploy/setup.sh`
+- `DEPLOY-NOW.sh`
+- `README.md`
+- `DEPLOY_VPS.md`
+- `CLAUDE.md` (env variable table only)
+**Scope (files you may NOT touch):**
+- `heartbeat_server.py`
+- `terminal.py`
+- `pipeline/*`
+- `db.py`
+**Tests:** After applying changes, grep entire repo for `ANTHROPIC_API_KEY` — should appear only in historical/fallback contexts, not as primary key. Grep for `OPENROUTER_API_KEY` — should appear in deploy scripts, docs, and runtime checks.
+**Definition of done:** Deploy scripts set `OPENROUTER_API_KEY`. All docs reference `OPENROUTER_API_KEY` as the required key. A fresh deploy using these scripts passes the startup API key check.
+
+---
+
+### TASK-080: browse_web Emits content_consumed for Failed Pool Inserts
+**Status:** DONE (2026-02-22)
+**Priority:** Medium
+**Description:** In `body/web.py`, the pool insert (`insert_pool_item`) is best-effort — failures are caught and swallowed (line 82). But the `content_consumed` event is emitted unconditionally (line 100) with the `content_id` that was never persisted. This produces dangling `content_id` references in analytics/drive updates. Compare with `body/internal.py:245-248` (`read_content`), which validates pool item existence before emitting consumption events. Fix: gate the `content_consumed` event on pool insert success.
+**Scope (files you may touch):**
+- `body/web.py`
+- `tests/test_web_browse.py`
+**Scope (files you may NOT touch):**
+- `body/internal.py`
+- `pipeline/*`
+- `db.py`
+**Tests:**
+- Pool insert failure → no `content_consumed` event emitted, `db.append_event` not called
+- Pool insert success → `content_consumed` event emitted as before
+- MD memory write still attempted regardless of pool insert outcome
+**Definition of done:** `content_consumed` event is only emitted when `insert_pool_item` succeeds. MD memory writes are unaffected. Existing success-path tests still pass.
+
+---
+
+### TASK-081: test_web_browse Non-Hermetic — Leaks MagicMock Files to Repo
+**Status:** DONE (2026-02-22)
+**Priority:** Medium
+**Description:** Test fixture in `tests/test_web_browse.py` mocks `clock.now_utc` (line 19) but not `clock.now()`. Production code at `body/web.py:92` calls `clock.now().strftime(...)` for the browse filename, which falls through to the unmocked `MagicMock.now()` — producing filenames like `<MagicMock name='clock.now().strftime()' id='...'>`. The `memory_writer` path also isn't mocked, so real files are written to `data/memory/browse/`. This is visible in the repo's untracked files (170+ MagicMock-named artifacts).
+**Fix:**
+1. Mock `clock.now()` in the fixture to return a proper `datetime` (alongside existing `clock.now_utc` mock)
+2. Mock `memory_writer.get_memory_writer` (or `writer.append_browse`) to prevent real file I/O
+3. Clean up existing `data/memory/browse/<MagicMock...>` artifacts (add to `.gitignore` if `data/memory/browse/` isn't already excluded)
+**Scope (files you may touch):**
+- `tests/test_web_browse.py`
+- `.gitignore` (add `data/memory/browse/` if not present)
+**Scope (files you may NOT touch):**
+- `body/web.py`
+- `memory_writer.py`
+- `pipeline/*`
+**Tests:** Run `python3 -m pytest tests/test_web_browse.py -v` — all pass, no new files created in `data/memory/browse/`.
+**Definition of done:** `clock.now()` returns a real datetime in test fixture. Memory writer is mocked. No filesystem side effects from test runs. Existing MagicMock artifacts cleaned up.
+
+---
+
+### TASK-082: HabitPolicy — Journaling as Homeostatic Reflex
+**Status:** DONE (2026-02-22)
+**Priority:** High (blocks full ablation suite)
+**Spec:** `tasks/TASK-082-habit-policy.md`
+**Description:** `write_journal` was selected 0 times across 1000 real-LLM cycles. Policy/utility gap — journaling has no immediate feedback and is dominated by visible actions when visitors are present. Fix at the controller layer: add `HabitPolicy` to basal ganglia that proposes `write_journal` as a high-priority candidate when drive conditions are met (expression_need > 0.6, cooldown elapsed, no recent visitor). LLM still generates content; action selection is driven by controller.
+**Scope (files you may touch):**
+- `pipeline/habit_policy.py` (new)
+- `pipeline/basal_ganglia.py`
+- `pipeline/hypothalamus.py`
+- `sleep.py` or `sleep/` consolidation phase
+- `db.py` (4 helper queries — at END of file only)
+- `tests/test_habit_policy.py` (new)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `pipeline/validator.py`
+- `pipeline/hippocampus.py`
+- `heartbeat.py`
+- `simulate.py`
+- `window/*`
+**Tests:** 8 unit tests in `tests/test_habit_policy.py` — see spec.
+**Definition of done:** `write_journal` appears 5–25× per 1000-cycle standard scenario. expression_need no longer pins at max. N2 loop resistance still passes. All 8 unit tests pass.
+
+---
+
+### TASK-083: Adversarial Returning Visitors
+**Status:** DONE (2026-02-22)
+**Priority:** Medium (paper defensibility, not blocking ablation)
+**Spec:** `tasks/TASK-083-adversarial-visitors.md`
+**Depends on:** TASK-077 (sim v2), PR #3 returning visitors
+**Description:** The `returning` scenario only tests friendly recall — easy to dismiss as handcrafted. Adversarial visitors test whether memory actually works under stress. Three types: `doppelganger` (same name, different person — does she disambiguate?), `preference_drift` (returning visitor who explicitly changes taste — does she update?), `conflict` (returning visitor who disputes a prior transaction — does she handle without blindly overwriting?). Pass/fail scored per episode, aggregated for paper. Target: >70% overall pass rate.
+**Scope (files you may touch):**
+- `sim/visitors/archetypes.py`
+- `sim/visitors/returning.py`
+- `sim/visitors/templates/`
+- `sim/metrics/memory_score.py`
+- `sim/reports/`
+- `tests/test_adversarial_visitors.py` (new)
+**Scope (files you may NOT touch):**
+- `pipeline/*`
+- `db.py`
+- `heartbeat.py`
+- `simulate.py`
+**Tests:** Unit tests for all 3 scoring rules in `tests/test_adversarial_visitors.py` — see spec.
+**Definition of done:** 3 adversarial visitor types integrated into `returning` scenario. `AdversarialEpisode` evaluation runs per episode. `adversarial_episodes.json` emitted alongside other metric reports. >70% overall pass rate in a standard run.
+
+---
+
+### TASK-084: Wire adversarial visitors into simulation runner
+**Status:** DONE (2026-02-23)
+**Priority:** High (P1 — TASK-083 features are dead code without this)
+**Depends on:** TASK-083 (adversarial visitors)
+**Description:** TASK-083 added adversarial visitor types (doppelganger, preference_drift, conflict) with scoring and reporting, but they are not wired into the simulation run path. Two gaps: (1) `sim/runner.py` never calls `schedule_adversarial()` so doppelganger traffic is never injected, and (2) `SimulationRunner.export()` never calls `export_adversarial_report()` so `adversarial_episodes.json` is never produced. Wire both into the runner.
+**Scope (files you may touch):**
+- `sim/runner.py`
+- `tests/test_runner*.py`
+**Scope (files you may NOT touch):**
+- `pipeline/*`
+- `db.py`
+- `heartbeat.py`
+**Tests:** Integration test confirming adversarial arrivals appear in simulation runs and `adversarial_episodes.json` is emitted on export.
+**Definition of done:** Running a `returning` scenario produces doppelganger/drift/conflict episodes in the run, and `adversarial_episodes.json` is written alongside other metric reports.
+
+---
+
+### TASK-085: Public Live Dashboard
+**Status:** DONE (2026-02-23)
+**Priority:** High
+**Branch:** `feat/live-dashboard`
+**Spec:** `tasks/cowork-brief-live-dashboard.md`
+**Description:** Ship a public-facing live dashboard at `/live` showing the Shopkeeper's real-time cognitive state. Single `/api/live` endpoint (no auth) returns all dashboard state. Frontend polls every 30s. Design component provided in `tasks/shopkeeper-dashboard.jsx`.
+**Data sources:** drives_state, engagement_state, room_state, cycle_log, events, threads, visitors, llm_costs, inhibitions, monologue from cortex output.
+**Scope (files you may touch):**
+- `api/dashboard_routes.py` (add `handle_live_dashboard` — public, no auth)
+- `heartbeat_server.py` (add `/api/live` route)
+- `window/src/app/live/page.tsx` (new)
+- `window/src/components/live/ALIVEDashboard.tsx` (new — converted from JSX)
+- `window/src/lib/types.ts` (add LiveDashboardData type)
+**Scope (files you may NOT touch):**
+- `pipeline/*`
+- `db.py`
+- `heartbeat.py`
+- `config/identity.py`
+- Existing `/dashboard` or `/` pages
+**Tests:** Visit `/live` — loads with real data, drives update on poll, uptime ticks, recent actions show correct timestamps, mood bar renders for negative valence.
+**Definition of done:** `/live` page loads with live data from `/api/live`. No auth required. Polls every 30s. Uptime ticks locally. All sections populated from real DB state.
+
+---
+
+### TASK-086: SimContentPool — Feed for Simulated Inner Life
+**Status:** DONE (2026-02-23)
+**Priority:** Critical (blocks meaningful isolation/standard ablation results)
+**Depends on:** None (independent of TASK-079)
+**Spec:** `tasks/TASK-086-sim-content-pool.md`
+**Description:** In production, the Shopkeeper has an RSS content feed driving curiosity → reflection → journaling → threads. In the sim, this entire loop is severed — feed ingestion is skipped, no `content_pool` table, no notifications. Result: in isolation she has zero external stimulus, burns through budget on hollow cycles, then sleeps indefinitely. Fix: create `sim/content_pool.py` with 100 curated content items mirroring her production RSS feed, surface items as notifications matching production format, wire into `sim/runner.py`.
+**Scope (files you may touch):**
+- `sim/data/content_pool_data.py` (new — 100 curated content items)
+- `sim/content_pool.py` (new — `SimContentPool` class)
+- `sim/runner.py` (wire notifications into cycle perception, handle `read_content` consumption)
+- `sim/db.py` (add `content_pool` table if needed for tracking)
+**Scope (files you may NOT touch):**
+- `pipeline/*`
+- `db.py`
+- `heartbeat.py`
+- `config/identity.py`
+- `simulate.py`
+**Tests:**
+- SimContentPool surfaces ~50 items per 100 waking cycles
+- Consumed items return full summary
+- Pool resets when all items consumed
+- Notifications match production format
+**Definition of done:** Isolation run completes 1000 cycles with <200 sleep cycles. At least 5 `read_content` actions. At least 3 journals. At least 2 new threads created from consumed content. Content pool provides meaningful external stimulus throughout simulation.
+
+---
+
+### TASK-088: Isolation Ablation Fixes — Frozen Drives, Speak Gate, Seen Count
+**Status:** DONE (2026-02-23)
+**Priority:** High (blocks paper claims)
+**Spec:** `tasks/TASK-isolation-fixes.md`
+**Description:** Five fixes for issues found in isolation ablation runs:
+1. **Unfreeze curiosity** — curiosity was pinned to 0.5 by strong homeostatic pull (0.02 coeff). Now action-responsive: reading drops it, idle raises it. Weak pull (0.005) to 0.45.
+2. **Unfreeze mood_arousal** — arousal was pinned to 0.3 by strong pull (0.05 coeff). Now action-responsive: active actions raise it, idle lowers it. Weak pull (0.01) to 0.35.
+3. **Fix expression_need decay** — expression_need decay was too small (-0.05) to offset accumulation. Bumped to -0.15 for expressive actions. Reading now builds expression (+0.04).
+4. **Gate speak when no visitor** — sim runner didn't filter speak/greet/farewell/show_item actions during isolation. Now converts to express_thought and suppresses dialogue.
+5. **Fix seen_count telemetry** — seen_ids set was cleared on pool reset, making seen_count < consumed_count (impossible). Added monotonic _total_seen counter.
+**Scope (files you may touch):**
+- `sim/runner.py` (homeostatic drift + speak gate)
+- `sim/llm/mock.py` (drive update computation)
+- `sim/content_pool.py` (seen_count tracking)
+
+---
+
+### TASK-089: Extract All Constants to alive_config.yaml
+**Status:** DONE (2026-02-23)
+**Priority:** Critical (blocks ablation rerun and paper)
+**Spec:** `tasks/TASK-config-extraction.md`
+**Description:** Every tuning change currently requires a code commit. Extract all ~50 hardcoded behavioral constants (drive equilibria, routing thresholds, habit policies, gating rules, circuit breaker params, sleep params, budget caps) to a single `alive_config.yaml` file with a Python loader singleton. Enables config-only tuning, grid search / parameter sweeps, and "Table 2: Configuration Parameters" for the paper.
+**Build order:**
+1. Create `alive_config.yaml` (all constants) + `config.py` (loader + singleton)
+2. Rewire `pipeline/hypothalamus.py` — all 7 drive constants from config
+3. Rewire `pipeline/basal_ganglia.py` — action gating + circuit breaker from config
+4. Rewire `pipeline/habit_policy.py` — habit thresholds from config
+5. Rewire `sleep.py` — sleep constants from config
+6. Rewire `pipeline/cortex.py` + `llm/client.py` — token caps + budget from config
+7. Add `--config` CLI flag to `sim/__main__.py`
+8. Fix `seen_count` telemetry (seen_count >= consumed_count always)
+9. Create `experiments/configs/` with variant configs for sweeps
+**Scope (files you may touch):**
+- `alive_config.yaml` (new — all constants)
+- `config.py` (new — loader + singleton)
+- `pipeline/hypothalamus.py`
+- `pipeline/basal_ganglia.py`
+- `pipeline/habit_policy.py`
+- `pipeline/cortex.py`
+- `llm/client.py`
+- `sleep.py`
+- `sim/__main__.py`
+- `sim/metrics/` (seen_count fix)
+- `experiments/configs/` (new — variant configs)
+**Scope (files you may NOT touch):**
+- `db.py`
+- `heartbeat.py`
+- `config/identity.py`
+- `pipeline/validator.py`
+- `pipeline/hippocampus.py`
+- `pipeline/hippocampus_write.py`
+**Tests:**
+- 100-cycle isolation run with default config: curiosity/arousal/expression oscillate, speak=0, seen>=consumed
+- Diff a run between `default.yaml` and `high_curiosity.yaml` — drives should differ
+- All existing tests pass unchanged
+**Definition of done:** All ~50 pipeline constants in `alive_config.yaml`. Pipeline reads from config singleton. `--config` flag works for sim. Variant configs enable parameter sweeps. `seen_count >= consumed_count` always. Re-run full 3-seed isolation ablation for paper numbers.
+
+---
+
+### TASK-090: Meta-Controller — Metric-Driven Self-Tuning
+**Status:** DONE (2026-02-23)
+**Priority:** High
+**Depends on:** TASK-089 (config yaml), TASK-055 (self_parameters), TASK-056 (modify_self), TASK-061 (self-model), TASK-062 (drift detection)
+**Blocks:** TASK-091 (closed-loop evaluation), TASK-092 (identity evolution)
+**Spec:** `tasks/TASK-090-meta-controller.md`
+**Description:** Closes the loop between behavioral metrics and parameter adjustment. New sleep phase reads M1-M10 metrics over a configurable window, compares against target ranges defined in `alive_config.yaml`, and proposes bounded parameter adjustments. Implements Tier 2 of the three-tier self-regulation hierarchy (Tier 1: operator hard floor, Tier 2: metric-driven homeostasis, Tier 3: conscious modify_self). Max 2 adjustments per sleep cycle. All changes logged in `meta_experiments` table. Character-aligned events emitted for cortex awareness. Dashboard shows targets, current metrics, and recent adjustments.
+**Build order:**
+1. Config schema extension — `meta_controller` section in `alive_config.yaml`
+2. `meta_experiments` table + CRUD in `db/meta_experiments.py`
+3. Metric collection bridge (adapter for M1-M10)
+4. Core algorithm in `sleep/meta_controller.py`
+5. Wire as sleep Phase 4
+6. Event emission → sensorium perception
+7. Dashboard section
+8. Tests (13 unit + 2 integration)
+**Scope (files you may touch):**
+- `sleep/meta_controller.py` (new)
+- `db/meta_experiments.py` (new)
+- `migrations/090_meta_experiments.sql` (new)
+- `alive_config.yaml`
+- `config.py`
+- `sleep.py` or `sleep/__init__.py`
+- `pipeline/sensorium.py` (perception for adjustment events only)
+- `api/dashboard_routes.py`
+- `window/src/components/dashboard/`
+- `tests/test_meta_controller.py` (new)
+- `tests/test_meta_experiments_db.py` (new)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `pipeline/basal_ganglia.py`
+- `pipeline/hippocampus.py`
+- `heartbeat.py`
+- `config/identity.py`
+**Tests:** 13 unit tests (metric below/above/in target, hard floor enforcement, cooldown, priority ordering, disabled mode, experiment logging, event emission) + 2 integration tests (sleep phase runs, config actually changes).
+**Definition of done:** Meta-controller runs as sleep phase. Reads metrics, compares against targets, proposes bounded adjustments. Hard floor and self_parameters bounds enforced. Changes logged. Events emitted. Dashboard shows status. 500-cycle sim with bad config → corrects within 3 sleep cycles.
+
+---
+
+### TASK-091: Closed-Loop Self-Evaluation
+**Status:** DONE (2026-02-23)
+**Priority:** High
+**Depends on:** TASK-090 (meta-controller)
+**Blocks:** TASK-092 (identity evolution)
+**Spec:** `tasks/TASK-091-closed-loop-evaluation.md`
+**Description:** TASK-090 adjusts parameters but never checks if adjustments worked. This task adds evaluation: after sufficient cycles, compare target metric before vs after. Classify outcomes (improved/degraded/neutral/side_effect). Revert degraded changes. Build confidence scores per param→metric link — high confidence means the meta-controller can act faster, low confidence means it backs off. Adaptive cooldown scales with confidence. Side effect detection catches unexpected metric coupling.
+**Build order:**
+1. Evaluation sub-phase in `sleep/meta_controller.py`
+2. `meta_confidence` table + CRUD
+3. Side effect detection
+4. Adaptive cooldown
+5. Revert mechanism
+6. Character-aligned perceptions for outcomes
+7. Dashboard experiment history
+8. Tests (10 unit + 2 integration)
+**Scope (files you may touch):**
+- `sleep/meta_controller.py`
+- `db/meta_experiments.py`
+- `migrations/091_meta_confidence.sql` (new)
+- `pipeline/sensorium.py` (perceptions for revert/improvement events)
+- `api/dashboard_routes.py`
+- `window/src/components/dashboard/`
+- `tests/test_meta_evaluation.py` (new)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `pipeline/basal_ganglia.py`
+- `heartbeat.py`
+- `config/identity.py`
+**Tests:** 10 unit tests (outcome classification, revert, confidence tracking, adaptive cooldown, side effects, too-early skip) + 2 integration tests (full adjust→evaluate→keep loop, bad adjustment→evaluate→revert loop).
+**Definition of done:** Experiments evaluated after sufficient cycles. Degraded/side_effect adjustments reverted. Confidence tracked. Low-confidence links deprioritized. Dashboard shows history. 1000-cycle sim demonstrates both keep and revert paths.
+
+---
+
+### TASK-092: Identity Evolution — Implement the Philosophical Gate
+**Status:** DONE (2026-02-24)
+**Priority:** Medium
+**Depends on:** TASK-090 (meta-controller), TASK-091 (closed-loop evaluation)
+**Spec:** `tasks/TASK-092-identity-evolution.md`
+**Description:** Replaces TASK-063's `NotImplementedError` stubs with the three-tier resolution. When drift is detected (TASK-062): (1) if caused by conscious modify_self within protection window → defer; (2) if meta-controller already handling → defer; (3) if gradual baseline shift → accept as organic growth, update self-model; (4) if sudden drift with stable baseline → correct via meta-controller. Conscious overrides get 500-cycle protection window (configurable). Guard rails from TASK-063 enforced: safety traits immutable, one update per sleep, all decisions logged, operator override via dashboard.
+**Scope (files you may touch):**
+- `identity/evolution.py`
+- `alive_config.yaml` (add `identity_evolution` section)
+- `sleep/meta_controller.py` (add `request_correction()`)
+- `pipeline/output.py` (tag modify_self as `source: conscious`)
+- `db/meta_experiments.py`
+- `api/dashboard_routes.py`
+- `window/src/components/dashboard/`
+- `tests/test_identity_evolution.py` (new)
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py`
+- `pipeline/basal_ganglia.py`
+- `heartbeat.py`
+- `config/identity.py`
+**Tests:** 7 tests — conscious override protected, protection expiry, organic growth accepted, sudden drift corrected, meta-controller pending defers, guard rails block safety traits, one update per sleep.
+**Definition of done:** evolution.py stubs replaced. Three-tier logic operational. Conscious protection window works. Organic growth accepted. Sudden drift corrected. Guard rails enforced. Dashboard shows live evolution status.
 
 ---
 
@@ -582,184 +1481,374 @@ ORDER BY sim_day;
 ### TASK-054: Fix inhibition self_assessment trigger
 **Status:** DONE (2026-02-18)
 **Branch:** `fix/inhibition-self-assessment` (merged PR #56)
-**Description:** Excluded `self_assessment`, `mood_decline`, and `repetition` from inhibition triggers; added cycle count guard. Cleared existing broken inhibitions via migration.
+**Description:** Excluded `self_assessment`, `mood_decline`, and `repetition` from inhibition triggers; added cycle count guard. Cleared existing broken inhibitions via migration. She journals and expresses thoughts freely when alone.
 
-### TASK-055: Extract pipeline parameters to self_parameters DB table
+### TASK-057: Enable X/Twitter social channel
 **Status:** DONE (2026-02-18)
-**Branch:** `feat/self-parameters`
-**Description:** All ~50 cognitive architecture constants are hardcoded in Python files (drive equilibria, routing thresholds, salience weights, gate parameters, inhibition rates, sleep params). Extract them to a `sel
+**Branch:** `feat/x-social` (merged PR #55)
+**Description:** Enabled `post_x_draft` with human-review queue. She drafts → operator approves → posts to X → replies become visitor events. Dashboard shows pending drafts with approve/reject.
 
-### TASK-056: Dynamic action registry + modify_self action
+### TASK-058B: Broadcast WebSocket Room Backend
 **Status:** DONE (2026-02-19)
-**Branch:** `feat/dynamic-actions`
-**Description:** Two problems: (A) She invents ~100 unique action names that don't exist (browse_web: 242, stand: 118, make_tea: 17, etc.) — all discarded as `incapable`, she never learns. (B) She has no conscious mec
-
-### TASK-058: Production Visitor UI — Full Redesign
-**Status:** DONE (2026-02-18)
-**Branch:** `feat/visitor-ui`
-**Description:** Replace the current `window/` Next.js app with the "Through the Glass" production visitor experience. A living scene — Tokyo antique shop at night, peering through the window. Activity stream, express
-
-### TASK-059: OpenRouter Multi-LLM Integration
-**Status:** DONE
-**Branch:** `feat/openrouter`
-**Description:** Route all LLM calls through OpenRouter so different models can power different parts of her cognition. Single API key, unified billing, 200+ models. Cognitive architecture is model-agnostic; only the
-
-### TASK-060: Self-Context Injection
-**Status:** DONE (2026-02-19)
-**Branch:** `feat/self-context`
-**Description:** Give the Shopkeeper awareness of her own state by injecting a structured self-context block into the LLM prompt each cycle. She currently has drives, memory, and scene context but no unified "here's w
-
-### TASK-061: Persistent Self-Model
-**Status:** DONE (2026-02-19)
-**Branch:** `feat/self-model`
-**Description:** She maintains a structured representation of "who I am" that persists across cycles and updates incrementally based on observed behavior. TASK-060 gives her a per-cycle snapshot, but snapshots are sta
-
-### TASK-062: Drift Detection
-**Status:** DONE (2026-02-19)
-**Branch:** `feat/drift-detection`
-**Description:** Compare her current behavioral patterns against her self-model baseline. Detect when she's meaningfully diverging from her established identity. Drift is NOT deviation in a single cycle — it's a susta
-
-### TASK-063: Identity Evolution (STUB)
-**Status:** DONE (2026-02-18)
-**Branch:** `feat/identity-evolution`
-**Description:** When drift is detected, she can choose to accept the change as genuine growth or correct back toward her baseline. **THIS IS A STUB SPEC.** Implementation is gated on resolving the philosophical quest
-
-### TASK-064: Sleep Phase Extraction
-**Status:** DONE (2026-02-19)
-**Branch:** `refactor/sleep-phases`
-**Description:** Extract discrete sleep phases from `sleep.py` into separate, testable modules. Reduce `sleep.py` to an orchestrator that calls phase functions rather than containing all logic inline. TASK-059 is addi
-
-### TASK-065: Prompt Token Budget
-**Status:** DONE (2026-02-19)
-**Branch:** `feat/prompt-budget`
-**Description:** Enforce token caps on each section of the LLM prompt to prevent context window bloat as features accumulate. TASK-060 through TASK-063 all inject new content into the prompt — without a budget, each a
-
-### TASK-069: Real-World Body Actions — Web Browse + Telegram Shopfront + X Social
-**Status:** DONE (2026-02-19)
-**Branch:** `feat/real-body-actions`
-**Description:** The Shopkeeper's body currently fakes all external actions — `browse_web` resolves to reading from a pre-loaded content pool, `post_x_draft` queues for human review, and visitors can only reach her th
-
-### TASK-070: Conscious Memory — MD File Layer
-**Status:** DONE (2026-02-19)
-**Branch:** `feat/conscious-memory`
-**Description:** Her memory pool contains entries like "Emotional tension — arousal 84% but valence only 22%." No human thinks this way. Split memory into two layers: conscious memory (MD files she can read/write — ex
-
-### TASK-076: Cortex Prompt Optimization — Idle Latency Kill
-**Status:** DONE (2026-02-21)
-**Description:** Idle cycles take ~14s and consume ~2800 tokens when they should take 3-5s and ~1100 tokens. Root cause: full engage-grade system prompt + output schema + full output budget sent on every cycle regardl
-
-### TASK-078: Cache-Safe Cortex Prompt Refactor
-**Status:** DONE (2026-02-22)
-**Branch:** `feat/task-078-cache-safe-cortex`
-**Description:** Merge the two prompt constants (`CORTEX_SYSTEM` and `CORTEX_SYSTEM_IDLE`) into a single `CORTEX_SYSTEM_STABLE` f-string precomputed at module level. Bake in `IDENTITY_COMPACT` and `VOICE_CHECKSUM` so
-
-### TASK-079: Deploy Scripts Set Wrong API Key
-**Status:** DONE (2026-02-22)
-**Description:** Runtime hard-requires `OPENROUTER_API_KEY` (heartbeat_server.py:142, terminal.py:933) but all deploy/setup scripts still set `ANTHROPIC_API_KEY`. A scripted deployment comes up with the wrong key and
-
-### TASK-080: browse_web Emits content_consumed for Failed Pool Inserts
-**Status:** DONE (2026-02-22)
-**Description:** In `body/web.py`, the pool insert (`insert_pool_item`) is best-effort — failures are caught and swallowed (line 82). But the `content_consumed` event is emitted unconditionally (line 100) with the `co
-
-### TASK-081: test_web_browse Non-Hermetic — Leaks MagicMock Files to Repo
-**Status:** DONE (2026-02-22)
-**Description:** Test fixture in `tests/test_web_browse.py` mocks `clock.now_utc` (line 19) but not `clock.now()`. Production code at `body/web.py:92` calls `clock.now().strftime(...)` for the browse filename, which f
-
-### TASK-082: HabitPolicy — Journaling as Homeostatic Reflex
-**Status:** DONE (2026-02-22)
-**Description:** `write_journal` was selected 0 times across 1000 real-LLM cycles. Policy/utility gap — journaling has no immediate feedback and is dominated by visible actions when visitors are present. Fix at the co
-
-### TASK-083: Adversarial Returning Visitors
-**Status:** DONE (2026-02-22)
-**Description:** The `returning` scenario only tests friendly recall — easy to dismiss as handcrafted. Adversarial visitors test whether memory actually works under stress. Three types: `doppelganger` (same name, diff
-
-### TASK-084: Wire adversarial visitors into simulation runner
-**Status:** DONE (2026-02-23)
-**Description:** TASK-083 added adversarial visitor types (doppelganger, preference_drift, conflict) with scoring and reporting, but they are not wired into the simulation run path. Two gaps: (1) `sim/runner.py` never
-
-### TASK-085: Public Live Dashboard
-**Status:** DONE (2026-02-23)
-**Branch:** `feat/live-dashboard`
-**Description:** Ship a public-facing live dashboard at `/live` showing the Shopkeeper's real-time cognitive state. Single `/api/live` endpoint (no auth) returns all dashboard state. Frontend polls every 30s. Design c
-
-### TASK-086: SimContentPool — Feed for Simulated Inner Life
-**Status:** DONE (2026-02-23)
-**Description:** In production, the Shopkeeper has an RSS content feed driving curiosity → reflection → journaling → threads. In the sim, this entire loop is severed — feed ingestion is skipped, no `content_pool` tabl
-
-### TASK-088: Isolation Ablation Fixes — Frozen Drives, Speak Gate, Seen Count
-**Status:** DONE (2026-02-23)
-**Description:** Five fixes for issues found in isolation ablation runs:
-
-### TASK-089: Extract All Constants to alive_config.yaml
-**Status:** DONE (2026-02-23)
-**Description:** Every tuning change currently requires a code commit. Extract all ~50 hardcoded behavioral constants (drive equilibria, routing thresholds, habit policies, gating rules, circuit breaker params, sleep
-
-### TASK-090: Meta-Controller — Metric-Driven Self-Tuning
-**Status:** DONE (2026-02-23)
-**Description:** Closes the loop between behavioral metrics and parameter adjustment. New sleep phase reads M1-M10 metrics over a configurable window, compares against target ranges defined in `alive_config.yaml`, and
-
-### TASK-091: Closed-Loop Self-Evaluation
-**Status:** DONE (2026-02-23)
-**Description:** TASK-090 adjusts parameters but never checks if adjustments worked. This task adds evaluation: after sufficient cycles, compare target metric before vs after. Classify outcomes (improved/degraded/neut
-
-### TASK-092: Identity Evolution — Implement the Philosophical Gate
-**Status:** DONE (2026-02-24)
-**Description:** Replaces TASK-063's `NotImplementedError` stubs with the three-tier resolution. When drift is detected (TASK-062): (1) if caused by conscious modify_self within protection window → defer; (2) if meta-
-
-### TASK-093: Taste Formation Experiment
-**Status:** DONE (2026-02-22)
-**Description:** Taste formation experiment — MVP core loop. Enables the shopkeeper to develop and maintain aesthetic preferences through structured experimentation.
-
-### TASK-095: Multi-Agent Platform + MCP Integration
-**Status:** DONE (2026-02-26)
-**Description:** Identity decontamination via WorldConfig parametric refactor, MCP integration connecting external tool servers to cognitive pipeline, private lounge with inner voice stream, Docker agent factory, manager portal, public API with key auth, deployment guide. 7-phase rollout.
-
-### TASK-098: Lounge Conversation Persistence
-**Status:** DONE (2026-02-26)
-**Description:** Persist lounge conversations across page reloads. Stable visitor ID in localStorage + conversation history loading on mount.
-
-### HOTFIX-001: X Mention Poller — Rate Limit Backoff
-**Status:** DONE (2026-02-20)
-**Branch:** `fix/x-poller-backoff`
-**Description:** `XMentionPoller` polls X API every 120s. X Free tier allows 1 request per 15 minutes. First call succeeds, every subsequent call gets 429. The poller has been hammering 429 every 2 minutes for 11+ hou
-
-### HOTFIX-002: Valence Death Spiral — Floor Bounce + Cortex Clamp
-**Status:** DONE (2026-02-20)
-**Branch:** `fix/valence-spiral`
-**Description:** Valence hit -1.0 and stayed there for 12+ hours. She became catatonic — outputting "..." every cycle, ignoring visitors, zero actions. Root cause: homeostatic spring (+0.013/cycle) is 10x too weak vs
-
-### HOTFIX-003: Thread Dedup + Rumination Breaker
-**Status:** DONE (2026-02-20)
-**Branch:** `fix/thread-rumination`
-**Description:** She opened 6 separate "What is anti-pleasure?" threads with near-identical content. Each cycle, hippocampus surfaces the same negative thread, cortex ruminates on it, nothing breaks the loop. Two fixe
-
-### TASK-073: HOTFIX-004 — Telegram/X adapters don't wake heartbeat loop
-**Status:** DONE (2026-02-20)
-**Description:** Telegram and X mention adapters inject visitor events into the inbox but never call `schedule_microcycle()`, leaving the heartbeat loop asleep for minutes to hours (65-minute hang on 2026-02-20). Fixed by passing heartbeat reference to both adapters.
-
-### TASK-087: Channel-aware perception — distinguish digital messages from in-shop visitors
-**Status:** DONE (2026-02-23)
-**Branch:** `feat/task-087-channel-aware-perception`
-**Description:** Added channel-awareness: new `digital_message` perception type for `tg_`/`x_` sources, split U7/U9 into "present in shop" vs "digital messages", identity nudge in CORTEX_SYSTEM_STABLE.
-
-### TASK-087b: Wire digital perception types into thalamus + heartbeat
-**Status:** DONE (2026-02-23)
-**Branch:** `feat/task-087-channel-aware-perception`
-**Description:** Wired `digital_message`/`digital_connect`/`digital_disconnect` into thalamus routing and heartbeat focus capping. Without this, Telegram/X messages were silently routed as idle.
-
-### TASK-096: Dashboard panels — meta-controller, experiment history, metrics
-**Status:** DONE (2026-02-25)
-**Description:** Added MetaControllerPanel, ExperimentHistoryPanel, and MetricsPanel frontend components with API client functions and TypeScript types.
-
-### TASK-097: Dashboard cleanup — vestigial energy_cost + API client consistency
-**Status:** DONE (2026-02-25)
-**Description:** Removed vestigial `energy_cost` display from BodyPanel/ExternalActionsPanel. Added `dashboardApi.getIdentityEvolution()`. Removed stale ARCHITECTURE.md refs.
+**Branch:** `feat/broadcast-room`
+**Description:** Backend broadcast room for the TASK-058 visitor UI. Multiple visitors connect via token auth, all see all chat messages and her replies as a shared stream. Connection registry tracks visitors, broadcasts presence on join/leave. Chat history buffer (50 msgs, cleared on sleep) served on connect. Dedup prevents double display of dialogue. Weather API endpoints added (wttr.in cached 10min).
+**Scope:** `heartbeat_server.py`, `window_state.py`, `tests/test_broadcast_ws.py` (new), `tests/test_visitor_names.py` (new), `tests/test_chat_history.py` (new), `tests/test_weather_api.py` (new)
 
 ---
 
 ## How to Add a Task
 
 Copy this template and add it above the "Completed Tasks" section:
+
+### TASK-073: HOTFIX-004 — Telegram/X adapters don't wake heartbeat loop
+**Status:** DONE
+**Priority:** High
+**Description:** Telegram and X mention adapters inject visitor events into the inbox but never call `schedule_microcycle()`, leaving the heartbeat loop asleep for minutes to hours. Production VPS showed 65-minute hang on 2026-02-20. See `bugs-and-fixes.md` HOTFIX-004 for full diagnosis.
+
+Three changes:
+1. `TelegramAdapter` needs a heartbeat reference; call `schedule_microcycle()` after injecting a message event.
+2. `XMentionPoller` needs a heartbeat reference; call `schedule_microcycle()` once after processing a batch of mentions.
+3. `heartbeat_server.py` must pass the heartbeat instance when constructing both adapters.
+
+**Scope (files you may touch):**
+- `body/telegram.py`
+- `body/x_social.py`
+- `heartbeat_server.py` (adapter construction only, lines ~185-210)
+
+**Scope (files you may NOT touch):**
+- `heartbeat.py` (no changes needed — `schedule_microcycle` already exists)
+- `db.py`
+- `pipeline/*`
+
+**Tests:** Add or update tests verifying that `schedule_microcycle` is called when a Telegram message or X mention is processed.
+**Definition of done:** After a Telegram or X message arrives, `pending_microcycle` is set and the heartbeat loop wakes immediately. No more multi-minute delays for external channel messages.
+**Completed:** 2026-02-20
+
+---
+
+### TASK-087: Channel-aware perception — distinguish digital messages from in-shop visitors
+**Status:** DONE (2026-02-23)
+**Priority:** Medium
+**Branch:** `feat/task-087-channel-aware-perception`
+**Description:** X and Telegram messages are perceived identically to web UI visitors. The shopkeeper has no way to know whether someone is standing in her shop or texting from afar. Add channel-awareness at three layers:
+1. **Sensorium**: New `digital_message` perception type for `tg_`/`x_` visitor sources. Reframe content as "A message on [platform] from [name]" instead of treating them as present in the shop.
+2. **Cortex context**: Split U7/U9 into "present in shop" vs "digital messages" so the LLM has spatial awareness.
+3. **Identity nudge**: One static line in CORTEX_SYSTEM_STABLE about physical space vs digital messages.
+No changes to engagement FSM, ACK path, or channel routing (already automatic via `body/channels.py`).
+**Completed:**
+- `pipeline/sensorium.py` — `_detect_channel()`, new perception types for all 3 event types
+- `pipeline/cortex.py` — identity nudge in CORTEX_SYSTEM_STABLE, U7/U9 split
+- `tests/test_sensorium_channels.py` — 17 tests, all pass
+
+---
+
+### TASK-087b: Wire digital perception types into thalamus + heartbeat
+**Status:** DONE (2026-02-23)
+**Priority:** High — TASK-087 is broken in production without this
+**Branch:** `feat/task-087-channel-aware-perception` (continue from TASK-087)
+**Description:** TASK-087 introduced `digital_message`, `digital_connect`, `digital_disconnect` perception types but three downstream consumers only check for `visitor_*` p_types. Without these fixes, Telegram/X messages silently break in production (routed as idle, never engage).
+**Three fixes:**
+1. **`pipeline/thalamus.py` (critical):** `route()` lines 36-43 check `focus.p_type == 'visitor_speech'` etc. `digital_message` falls through to idle — she never engages with Telegram/X messages. Fix: add `digital_message` → engage, `digital_connect` → engage/idle (same salience threshold), `digital_disconnect` → idle.
+2. **`heartbeat.py:905` (moderate):** Focus capping uses `not p.p_type.startswith('visitor_')`. Digital perceptions get salience capped to 0.3 when arbiter focus is active. Fix: also check `startswith('digital_')`.
+3. **`heartbeat.py:931` (moderate):** Mode binding override uses same `startswith('visitor_')` check. Arbiter overrides engage mode for digital messages. Fix: same — also check `startswith('digital_')`.
+**Scope (files you may touch):**
+- `pipeline/thalamus.py`
+- `heartbeat.py`
+- `tests/test_thalamus.py` or new test file
+**Scope (files you may NOT touch):**
+- `pipeline/sensorium.py` (already done in TASK-087)
+- `pipeline/cortex.py` (already done in TASK-087)
+**Tests:** Verify thalamus routes `digital_message` to engage. Verify heartbeat focus capping preserves digital perception salience.
+**Definition of done:** Telegram/X messages trigger engage mode. All existing tests pass. Merge both TASK-087 + TASK-087b together.
+
+---
+
+### TASK-096: Dashboard panels — meta-controller, experiment history, metrics
+**Status:** DONE (2026-02-25)
+**Priority:** Medium
+**Description:** Three backend API endpoints added in TASK-071/090/091 have no corresponding frontend panels, API client functions, or TypeScript types. The data is served but invisible on the dashboard.
+
+**Missing panels:**
+1. **MetaControllerPanel** — `/api/dashboard/meta-controller` returns: `enabled`, `targets` (with current metric values + status), `recent_adjustments`, `pending_count`, `config` (evaluation_window, cooldown_cycles, max_adjustments_per_sleep). Show target status (ok/low/high), recent adjustments list, pending experiments count.
+2. **ExperimentHistoryPanel** — `/api/dashboard/experiment-history` returns: `experiments` (list with outcomes) + `confidence` data. Show experiment timeline with pass/fail/pending status.
+3. **MetricsPanel** — `/api/dashboard/metrics` returns: `snapshot` (current metric values) + `trends` (30-day daily for uptime, initiative_rate, emotional_range). Show current values + mini-charts or trend indicators.
+
+**For each panel, add:**
+- Component in `window/src/components/dashboard/`
+- API client function in `dashboard-api.ts`
+- TypeScript types in `types.ts`
+- Import + render in `dashboard/page.tsx` (System section)
+
+**Scope (files you may touch):**
+- `window/src/components/dashboard/MetaControllerPanel.tsx` (new)
+- `window/src/components/dashboard/ExperimentHistoryPanel.tsx` (new)
+- `window/src/components/dashboard/MetricsPanel.tsx` (new)
+- `window/src/lib/dashboard-api.ts`
+- `window/src/lib/types.ts`
+- `window/src/app/dashboard/page.tsx`
+**Scope (files you may NOT touch):**
+- `api/dashboard_routes.py` (endpoints already exist and work)
+- `heartbeat_server.py` (routes already registered)
+- `db.py`
+- `pipeline/*`
+**Tests:** Each panel renders without error. API client functions return correct types. Dashboard page loads with new panels visible.
+**Definition of done:** All three panels visible on dashboard, showing live data from their respective endpoints.
+
+---
+
+### TASK-097: Dashboard cleanup — vestigial energy_cost + API client consistency
+**Status:** DONE (2026-02-25)
+**Priority:** Low
+**Description:** Two cleanup issues found in dashboard audit:
+
+1. **Vestigial `energy_cost` display** — `BodyPanel.tsx` and `ExternalActionsPanel.tsx` display `energy_cost` per action/rate-limit. These are static hardcoded values from `body/rate_limiter.py` config, never dynamically meaningful. Remove the display from both panels. Keep the TypeScript type fields (backend still serves them) but stop rendering them.
+2. **API client inconsistency** — `EvolutionPanel.tsx` calls `dashboardFetch('/api/dashboard/identity-evolution')` directly instead of using a typed `dashboardApi.getIdentityEvolution()` function. Every other panel uses the `dashboardApi` object. Add the missing function and update the panel to use it.
+3. **Stale ARCHITECTURE.md refs** — `ARCHITECTURE.md` still references `SceneCanvas.tsx`, `useSceneTransition.ts`, `scene-constants.ts` (deleted). Remove stale entries.
+
+**Scope (files you may touch):**
+- `window/src/components/dashboard/BodyPanel.tsx`
+- `window/src/components/dashboard/ExternalActionsPanel.tsx`
+- `window/src/components/dashboard/EvolutionPanel.tsx`
+- `window/src/lib/dashboard-api.ts`
+- `ARCHITECTURE.md`
+**Scope (files you may NOT touch):**
+- `window/src/lib/types.ts` (keep type fields, just stop displaying)
+- `api/dashboard_routes.py`
+- `body/rate_limiter.py`
+- `db.py`
+- `pipeline/*`
+**Tests:** All existing dashboard tests pass. Panels render without error. No `energy_cost` text visible in BodyPanel or ExternalActionsPanel.
+**Definition of done:** energy_cost removed from panel display. EvolutionPanel uses dashboardApi. ARCHITECTURE.md has no references to deleted files.
+
+---
+
+### TASK-098: Lounge conversation persistence
+**Status:** DONE (2026-02-26)
+**Priority:** Medium
+**Description:** Lounge chat messages are stored in the agent's `conversation_log` SQLite table but lost on frontend reload. Two root causes:
+
+1. **Ephemeral visitor ID** — `visitorId = lounge-${Date.now()}` generates a new ID on every page load, so the backend treats each visit as a new person. Fix: store a stable visitor ID in localStorage, scoped per agent.
+2. **No history loading** — frontend initializes with `useState([])` and never fetches past messages. Fix: add a `/api/conversation-history` endpoint on the agent container, proxy it through the lounge API, and load previous messages on mount.
+
+**Scope (files you may touch):**
+- `lounge/src/app/agent/[id]/lounge/page.tsx` (stable visitor ID + load history on mount)
+- `lounge/src/app/api/agents/[id]/history/route.ts` (new — proxy route for conversation history)
+- `lounge/src/lib/agent-client.ts` (add `getConversationHistory()` method)
+- `api/public_routes.py` (add `/api/conversation-history` endpoint returning messages for a visitor_id)
+**Scope (files you may NOT touch):**
+- `db.py` (use existing `get_recent_conversation()` in `db/memory.py`)
+- `pipeline/*`
+- `heartbeat.py`
+- `config/identity.py`
+**Tests:** Conversation history loads on page refresh. Same visitor ID used across reloads for the same agent. New messages appear after old ones. Empty state still works for first visit.
+**Definition of done:** Manager can chat with an agent, refresh the page, and see the full conversation history. Visitor ID is stable per agent per browser.
+
+---
+
+### TASK-099: YouTube/video-aware enrichment pipeline
+**Status:** BACKLOG
+**Priority:** Medium
+**Description:** The feed ingester enriches all URLs identically via markdown.new, which works but returns page chrome (comments, sidebar, recommendations) for YouTube videos instead of the actual spoken content. Videos are the weakest content type — she "reads" YouTube page HTML rather than the transcript.
+
+**Goal:** When a content pool URL is a YouTube/video URL, extract the actual transcript + metadata and produce richer `enriched_text` for Cortex consumption. This makes `read_content` on video items dramatically better — she gets what was *said*, not what was *around* the video player.
+
+**Implementation steps:**
+
+1. **Add `youtube-transcript-api` dependency** to `requirements.txt` (optional section). Lightweight, no transitive deps. Used only in `pipeline/enrich.py`.
+
+2. **Add Jina Reader as a fallback enrichment source** in `pipeline/enrich.py`:
+   - New function `fetch_via_jina(url: str) -> str` — HTTP GET to `https://r.jina.ai/{url}`, same pattern as `fetch_via_markdown_new`. Returns markdown string.
+   - Update `fetch_readable_text()` fallback chain: markdown.new → Jina → raw HTML.
+   - This benefits ALL content types (articles too), not just video.
+
+3. **Add YouTube transcript extraction** in `pipeline/enrich.py`:
+   - New function `fetch_youtube_transcript(url: str) -> str` — extracts video ID from URL, calls `youtube_transcript_api` to get transcript, formats as markdown with timestamps.
+   - New function `fetch_youtube_metadata(url: str) -> dict` — extracts title, channel, description from page (reuse existing `fetch_url_metadata` or Jina).
+   - New composite function `enrich_youtube_url(url: str) -> str` — combines transcript + metadata into a single markdown document:
+     ```
+     # Video: {title}
+     **Channel:** {channel}
+     **Description:** {description}
+
+     ## Transcript
+     [00:00] First line of speech...
+     [01:23] Next segment...
+     ```
+
+4. **Add URL routing in `feed_ingester.py`**:
+   - In `enrich_pool_item()`, before calling `fetch_via_markdown_new`:
+     - Check if URL matches `youtube.com/watch` or `youtu.be/`
+     - If yes → call `enrich_youtube_url()` instead
+     - `detect_content_type()` will naturally return `'video'` from the transcript markers
+   - Non-YouTube URLs → existing flow unchanged
+
+5. **Update `detect_content_type()`** — no changes needed if transcript format includes timestamp lines and "Transcript" header (existing heuristics already catch these). Verify in tests.
+
+6. **Graceful degradation**: if `youtube-transcript-api` is not installed or transcript fetch fails (private video, no captions), fall back to existing markdown.new/Jina flow. Never crash.
+
+**Scope (files you may touch):**
+- `pipeline/enrich.py` (new functions: `fetch_via_jina`, `fetch_youtube_transcript`, `enrich_youtube_url`)
+- `feed_ingester.py` (YouTube URL routing in `enrich_pool_item`)
+- `requirements.txt` (add `youtube-transcript-api`)
+- `tests/test_enrich.py` (new or extended — test transcript formatting, Jina fallback, URL detection, graceful degradation)
+- `tests/test_feed_enrichment.py` (add YouTube enrichment test)
+
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py` (already handles `enriched_text` and `readable_text` generically — no changes needed)
+- `body/internal.py` (read_content executor already uses `enriched_text` from pool — no changes needed)
+- `pipeline/hypothalamus.py`
+- `heartbeat.py`
+- `db.py`
+- `config/identity.py`
+
+**Risks / gotchas:**
+- `youtube-transcript-api` can fail on private videos, age-restricted content, or videos with no captions. Must degrade gracefully → fall back to page markdown.
+- Jina Reader has rate limits on free tier. Use same rate-limiting pattern as markdown.new (dedup by URL via `get_enriched_text_for_url`).
+- Transcript text can be very long (1hr video = ~10k words). Truncate to `max_chars` (4000) same as existing `fetch_readable_text`.
+- Some YouTube videos have auto-generated captions only (lower quality). Still better than page HTML.
+- Don't add Jina API keys — free tier via plain HTTP GET is sufficient.
+
+**Tests:**
+- Unit: `fetch_youtube_transcript` returns formatted markdown with timestamps for a known video ID (mock the API)
+- Unit: `fetch_via_jina` returns markdown string (mock HTTP)
+- Unit: `enrich_youtube_url` combines transcript + metadata correctly
+- Unit: URL routing in `enrich_pool_item` dispatches YouTube URLs to new path
+- Unit: `detect_content_type` returns `'video'` for transcript-formatted markdown
+- Unit: Graceful degradation when `youtube-transcript-api` import fails
+- Unit: Graceful degradation when transcript fetch raises (private video)
+- Integration: existing `test_feed_enrichment.py` still passes (non-YouTube URLs unchanged)
+
+**Definition of done:** YouTube URLs in the content pool get transcript-based `enriched_text` instead of page-scrape HTML. `detect_content_type` correctly labels them as `'video'`. Non-YouTube enrichment is unchanged. All existing tests pass. Jina Reader available as universal fallback for all URL types.
+
+---
+
+### TASK-093: Taste Formation Experiment — MVP Core Loop
+**Status:** BACKLOG
+**Priority:** Medium
+**Description:** Build the minimum viable taste experiment: listings presented → evaluated with structured output → decision (accept/reject/watch) → market outcome. Run 200 cycles as fail-fast validation. Sim-only code — does NOT touch production.
+**Spec:** `tasks/TASK-093-cowork-brief.md`
+**Scope (files you may touch):**
+- `sim/` (new experiment files)
+- `tests/` (experiment tests)
+**Scope (files you may NOT touch):**
+- `pipeline/*` (production cognitive pipeline)
+- `heartbeat.py`
+- `db.py`
+- `config/identity.py`
+**Tests:** Experiment runs 200 cycles without crash. Evaluation output is structured JSON. Accept/reject decisions logged.
+**Definition of done:** Core loop runs end-to-end in simulation. Taste evaluations produce discriminative scores. 200-cycle run completes with logged results.
+
+---
+
+### TASK-094: Dead Code / Dead Field Cleanup
+**Status:** BACKLOG
+**Priority:** Low
+**Description:** Remove ~3,600 lines of dead code, unused types, and write-only fields across Python backend and TypeScript frontend. Zero behavioral change. Full test suite must pass before and after every wave.
+**Spec:** `tasks/TASK-094-cleanup-brief.md`
+**Scope (files you may touch):**
+- Multiple files across codebase (see spec for wave-by-wave breakdown)
+**Scope (files you may NOT touch):**
+- `config/identity.py`
+- `db.py` (structural changes only — dead column removal needs migration)
+**Tests:** Full test suite before and after each wave. Zero new failures.
+**Definition of done:** All identified dead code removed. All tests pass. No behavioral changes.
+
+---
+
+### TASK-095: Private Lounge — Multi-Agent Deployment Platform
+**Status:** DONE (2026-02-28)
+**Priority:** High
+**Description:** Shipped `alive.kaikk.jp` — hosted platform where agent managers create, configure, and deploy ALIVE agents. Each agent is an independent Docker container with isolated DB, identity config, and behavior config. Includes Manager Portal, Agent Runtime (Docker), and Public Agent API.
+**Spec:** `tasks/TASK-095-private-lounge.md`
+
+---
+
+### TASK-100: Idle Arc — Natural Response to Low Stimulus
+**Status:** BACKLOG
+**Priority:** Medium
+**Description:** Extended idle periods produce a flat loop. Implement a three-phase idle arc: DEEPEN (0-20 idle cycles, varied perceptions with thread depth), WANDER (21-40, topic shifts via curiosity-driven novelty injection), STILL (41+, cycle interval stretches, monologue thins to fragments/silence). Any external event resets to normal. Reuses existing `_consecutive_idle` counter.
+**Spec:** `tasks/TASK-099-idle-arc.md` (numbered 099 in spec, 100 here — 099 taken by YouTube enrichment)
+**Scope (files you may touch):**
+- `pipeline/thalamus.py` (perception ring buffer, idle-streak-aware selection)
+- `pipeline/cortex.py` (thread depth injection in idle prompt)
+- `pipeline/arbiter.py` (wander channel insertion)
+- `heartbeat.py` (variable cycle interval via multiplier)
+- `models/state.py` (idle_streak field if not already present)
+**Scope (files you may NOT touch):**
+- `sleep/*`
+- `body/*`
+- `config/*`
+- `db.py` / `migrations/`
+- `lounge/`
+**Tests:** Leave agent idle 2hr — verify phase transitions, cycle slowdown, monologue thinning. Send message at 90min — verify wake within one interval. Visitor conversations unaffected.
+**Definition of done:** Three-phase idle arc visible in logs. Cycle interval stretches in STILL. Monologue thins. Any stimulus resets to normal. No regression on visitor engagement.
+
+---
+
+### TASK-101: Repo Boundary — Decouple Platform from Shopkeeper Instance
+**Status:** BACKLOG
+**Priority:** High
+**Description:** Move all Shopkeeper-specific files into `demo/`. Rename platform code directory to `engine/`. Establish hard import boundary: `engine/` never imports from `demo/`, `demo/` can import from `engine/`, `lounge/` talks to `engine/` via API only. Fixes the context window problem — Claude Code sees shop references everywhere and assumes the entire system is a shopkeeper app.
+**Spec:** `tasks/TASK-101-repo-boundary.md`
+**Scope (files you may touch):**
+- All top-level Python modules → `engine/`
+- `config/default_identity.yaml` → `demo/config/`
+- `window/` → `demo/window/`
+- `deploy/Dockerfile.agent` (path updates)
+- `tests/conftest.py` (PYTHONPATH)
+- New: `BOUNDARY.md`, `demo/README.md`
+**Scope (files you may NOT touch):**
+- `lounge/` (already correct)
+- `migrations/` (shared schema)
+**Tests:** All tests pass with `PYTHONPATH=engine`. Engine starts. Lounge builds. No cross-boundary imports (`grep -r "from demo" engine/` returns nothing).
+**Definition of done:** `engine/` + `demo/` + `lounge/` directory structure. All tests pass. No cross-boundary imports. Deployment works.
+
+---
+
+### TASK-102: MCP Frontend — Lounge UI for MCP Server Management
+**Status:** BACKLOG
+**Priority:** Medium
+**Description:** Two parts: (1) React components in the Lounge for MCP server management — connect server, list servers, toggle server/tools, delete, usage stats. (2) Schema enum injection fix in cortex.py — MCP tools appear in prompt text but NOT in the JSON schema `enum` array, so the LLM can't actually choose them as structured output.
+**Spec:** `tasks/TASK-102-mcp-frontend.md`
+**Scope (files you may touch):**
+- `lounge/src/components/mcp/McpServersPanel.tsx` (new)
+- `lounge/src/components/mcp/McpServerCard.tsx` (new)
+- `lounge/src/components/mcp/McpConnectDialog.tsx` (new)
+- `lounge/src/components/mcp/McpEmptyState.tsx` (new)
+- Agent management page (add MCP tab/section)
+- `pipeline/cortex.py` (schema enum fix — replace hardcoded enum with `_build_action_enum()`)
+**Scope (files you may NOT touch):**
+- `body/mcp_*.py` (backend done)
+- `db/mcp.py` (DB layer done)
+- `api/dashboard_routes.py` (endpoints done)
+- Proxy route files (already exist)
+**Tests:** Connect server → tools appear. Toggle tool → disabled. Delete → confirmed + removed. Bad URL → error. Schema enum includes MCP actions. Existing capabilities unaffected.
+**Definition of done:** Managers can connect/manage MCP servers via Lounge UI. LLM can actually choose MCP actions via corrected schema enum. All existing tests pass.
+
+---
+
+### TASK-103: Pod Runtime — Programmatic Agent Lifecycle
+**Status:** BACKLOG
+**Priority:** Medium
+**Depends on:** TASK-101 (repo boundary), TASK-102 (MCP frontend)
+**Description:** Replace shell-script-based agent management with a Pod Supervisor — a long-running process that manages agent containers via API. Includes Pod registry (platform DB), health monitoring with auto-restart, resource limits (CPU/memory caps), auto nginx routing, and Lounge integration.
+**Spec:** `tasks/TASK-103-pod-runtime.md`
+**Scope (files you may touch):**
+- `supervisor/supervisor.py` (new)
+- `supervisor/registry.py` (new)
+- `supervisor/docker_manager.py` (new)
+- `supervisor/health_monitor.py` (new)
+- `supervisor/nginx_manager.py` (new)
+- `supervisor/api.py` (new)
+- `migrations/platform_001_pods.sql` (new)
+**Scope (files you may NOT touch):**
+- `pipeline/*`
+- `heartbeat.py`
+- `config/identity.py`
+**Tests:** Create Pod via API → container starts. Stop Pod → container stops. Health check detects dead Pod. Nginx routes updated on start/stop. Shell scripts still work as fallback.
+**Definition of done:** Pod Supervisor manages agent lifecycle via API. Health monitoring with auto-restart. Lounge uses supervisor API instead of shell scripts. Shopkeeper migrated to Pod #1.
+
+---
 
 ```markdown
 ### TASK-XXX: Title
