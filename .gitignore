@@ -38,7 +38,7 @@ identity/self_model.json
 
 # Generated/copied assets (reproduced by scripts, too large for git)
 assets/*.png
-window/public/assets/
+demo/window/public/assets/
 
 # Node / Next.js
 node_modules/
