@@ -23,10 +23,14 @@ import argparse
 import asyncio
 import json
 import math
+import os
 import sys
 import tempfile
 import time
 import uuid
+
+# PYTHONPATH bootstrap — engine/ contains platform Python code (TASK-101)
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'engine'))
 from collections import Counter
 from contextlib import contextmanager
 from datetime import datetime, timedelta
