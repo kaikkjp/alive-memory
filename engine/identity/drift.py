@@ -21,7 +21,7 @@ from models.event import Event
 
 _CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'drift_config.json')
 _DATA_DIR = os.environ.get('SHOPKEEPER_DATA_DIR',
-                           os.path.join(os.path.dirname(__file__), '..', 'data'))
+                           os.path.join(os.path.dirname(__file__), '..', '..', 'data'))
 _BASELINE_PATH = os.path.join(_DATA_DIR, 'self_model.json')
 
 _EPSILON = 0.01  # Avoid division by zero
