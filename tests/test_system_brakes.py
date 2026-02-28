@@ -236,7 +236,6 @@ class TestMoodBonusScaling:
         drives = _make_drives(mood_valence=0.0)
         body_output = BodyOutput(
             executed=[ActionResult(action='speak', success=True)],
-            energy_spent=0.1,
         )
         validated = ValidatedOutput(
             internal_monologue='test',
@@ -503,7 +502,7 @@ class TestEnergyBudgetEnforcement:
 
             mock_motor = MotorPlan(actions=[], suppressed=[])
             mock_select.return_value = mock_motor
-            mock_body.return_value = BodyOutput(executed=[], energy_spent=0)
+            mock_body.return_value = BodyOutput(executed=[])
             mock_output.return_value = CycleOutput()
 
             result = await mock_heartbeat.run_cycle('idle')

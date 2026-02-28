@@ -5,7 +5,7 @@ The scene is assembled client-side from pre-generated PNG layers.
 """
 
 import random
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, asdict
 from datetime import datetime, timedelta, timezone
 
 import clock
@@ -20,21 +20,13 @@ JST = timezone(timedelta(hours=9))
 class SceneLayers:
     background: str           # bg_tokyo_rain_afternoon.png
     shop: str                 # shop_warm_day.png
-    items: list[dict] = field(default_factory=list)  # [{sprite, x, y, width, height}]
     character: str = ''       # her_reading_calm_apronA.png
-    character_position: dict = field(default_factory=dict)  # {x, y, width, height}
-    foreground: list[str] = field(default_factory=list)
-    weather: str = 'clear'
-    scene_id: str = ''
 
     def to_dict(self) -> dict:
         return asdict(self)
 
 
 # ─── Constants ───
-
-# Character anchor position in the shop layout (pixels in 1536×1024 canvas)
-CHARACTER_ANCHOR = {'x': 280, 'y': 380, 'width': 200, 'height': 350}
 
 # Valid posture × mood combinations (from spec §1.5)
 VALID_COMBINATIONS = {
@@ -59,26 +51,6 @@ ACTIVITY_TO_POSTURE = {
     'idle':     'sitting',
 }
 
-# Shelf slot positions (pixel coordinates in 1536×1024 canvas)
-# Exact values will be calibrated after shop images are generated
-SHELF_SLOTS = {
-    'shelf_top_1':    {'x': 120, 'y': 180, 'width': 80, 'height': 80},
-    'shelf_top_2':    {'x': 220, 'y': 180, 'width': 80, 'height': 80},
-    'shelf_top_3':    {'x': 320, 'y': 180, 'width': 80, 'height': 80},
-    'shelf_top_4':    {'x': 420, 'y': 180, 'width': 80, 'height': 80},
-    'shelf_mid_1':    {'x': 120, 'y': 300, 'width': 80, 'height': 80},
-    'shelf_mid_2':    {'x': 220, 'y': 300, 'width': 80, 'height': 80},
-    'shelf_mid_3':    {'x': 320, 'y': 300, 'width': 80, 'height': 80},
-    'shelf_mid_4':    {'x': 420, 'y': 300, 'width': 80, 'height': 80},
-    'shelf_low_1':    {'x': 120, 'y': 420, 'width': 80, 'height': 80},
-    'shelf_low_2':    {'x': 220, 'y': 420, 'width': 80, 'height': 80},
-    'shelf_low_3':    {'x': 320, 'y': 420, 'width': 80, 'height': 80},
-    'shelf_low_4':    {'x': 420, 'y': 420, 'width': 80, 'height': 80},
-    'counter_left':   {'x': 100, 'y': 520, 'width': 100, 'height': 80},
-    'counter_center': {'x': 300, 'y': 520, 'width': 100, 'height': 80},
-    'counter_right':  {'x': 500, 'y': 520, 'width': 100, 'height': 80},
-    'window_sill':    {'x': 50,  'y': 350, 'width': 60, 'height': 60},
-}
 
 
 # ─── Time / Weather helpers ───
@@ -281,17 +253,7 @@ async def build_scene_layers(
     shelf_items: list[dict] | None = None,
     shop_status: str = 'open',
 ) -> SceneLayers:
-    """Build layer specification from current state. No LLM, no generation.
-
-    Args:
-        drives: Current drives state
-        ambient: Dict with weather info {'condition': 'rain', ...} or None
-        focus: Current focus object (has .channel attribute) or None
-        engagement: Current engagement state
-        clock_now: Current datetime
-        shelf_items: Pre-fetched shelf assignments or None (caller should provide)
-        shop_status: 'open' | 'closed' | 'resting'
-    """
+    """Build layer specification from current state. No LLM, no generation."""
     time_of_day = get_time_of_day(clock_now)
     weather = 'clear'
     if ambient and isinstance(ambient, dict):
@@ -304,21 +266,7 @@ async def build_scene_layers(
     lighting = get_shop_lighting(time_of_day, shop_status)
     shop = f'shop_{lighting}.png'
 
-    # Layer 2: Items
-    items = []
-    if shelf_items:
-        for item in shelf_items:
-            slot_info = SHELF_SLOTS.get(item.get('slot_id', ''))
-            if slot_info and item.get('sprite_filename'):
-                items.append({
-                    'sprite': item['sprite_filename'],
-                    'x': slot_info['x'],
-                    'y': slot_info['y'],
-                    'width': slot_info['width'],
-                    'height': slot_info['height'],
-                })
-
-    # Layer 3: Character
+    # Layer 2: Character
     activity = 'idle'
     if focus and hasattr(focus, 'channel'):
         activity = focus.channel or 'idle'
@@ -327,18 +275,8 @@ async def build_scene_layers(
 
     character = get_character_sprite(activity, drives, engagement.status, weather)
 
-    # Layer 4: Foreground
-    foreground = ['fg_counter_top.png']
-    if time_of_day in ('evening', 'night'):
-        foreground.append('fg_lantern_glow.png')
-
     return SceneLayers(
         background=background,
         shop=shop,
-        items=items,
         character=character,
-        character_position=CHARACTER_ANCHOR.copy(),
-        foreground=foreground,
-        weather=weather,
-        scene_id=f'scene_{clock_now.strftime("%Y%m%d_%H%M%S")}',
     )

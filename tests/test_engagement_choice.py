@@ -167,7 +167,7 @@ class TestEngagementOnSpeak:
         """When she speaks to a visitor for the first time, engagement begins."""
         validated = ValidatedOutput(
             dialogue='Welcome.',
-            dialogue_language='en',
+
             expression='warm',
             body_state='standing',
             gaze='at_visitor',
@@ -206,7 +206,7 @@ class TestEngagementOnSpeak:
         """When she speaks again, turn count increments but started_at is not reset."""
         validated = ValidatedOutput(
             dialogue='Tell me more.',
-            dialogue_language='en',
+
             expression='curious',
             body_state='leaning_forward',
             gaze='at_visitor',
@@ -245,7 +245,7 @@ class TestEngagementOnSpeak:
         """Silence (no dialogue or '...') doesn't trigger engagement."""
         validated = ValidatedOutput(
             dialogue='...',
-            dialogue_language='en',
+
             expression='neutral',
             body_state='sitting',
             gaze='at_window',

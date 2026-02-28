@@ -28,28 +28,19 @@ async def log_cycle(log: dict):
     trace_id = log.get('trace_id') or resolve_trace_id()
     await _connection._exec_write(
         """INSERT INTO cycle_log
-           (id, mode, drives, focus_salience, focus_type, routing_focus,
+           (id, mode, drives, focus_salience,
             token_budget, memory_count, internal_monologue, dialogue,
-            expression, body_state, gaze, actions, dropped,
-            next_cycle_hints, run_id, trace_id,
-            budget_usd_daily_cap, budget_spent_usd_today,
-            budget_remaining_usd_today, budget_mode, governor_decision, ts)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            expression, body_state, gaze, actions,
+            next_cycle_hints, run_id, trace_id, ts)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (log['id'], log['mode'], json.dumps(log.get('drives', {})),
-         log.get('focus_salience'), log.get('focus_type'),
-         log.get('routing_focus'), log.get('token_budget'),
+         log.get('focus_salience'), log.get('token_budget'),
          log.get('memory_count'), log.get('internal_monologue'),
          log.get('dialogue'), log.get('expression'),
          log.get('body_state', 'sitting'), log.get('gaze', 'at_visitor'),
-         json.dumps(log.get('actions', [])), json.dumps(log.get('dropped', [])),
+         json.dumps(log.get('actions', [])),
          json.dumps(log.get('next_cycle_hints', [])),
-         run_id, trace_id,
-         log.get('budget_usd_daily_cap'),
-         log.get('budget_spent_usd_today'),
-         log.get('budget_remaining_usd_today'),
-         log.get('budget_mode'),
-         json.dumps(log.get('governor_decision', {}), ensure_ascii=True),
-         now)
+         run_id, trace_id, now)
     )
 
 
@@ -347,24 +338,24 @@ async def log_action(cycle_id: str, action: str, status: str,
     resolved_cycle_id = resolve_cycle_id(cycle_id)
     resolved_run_id = resolve_run_id(run_id)
     resolved_trace_id = resolve_trace_id(trace_id)
-    eff_reason = reason or suppression_reason or error
     eff_action_type = action_type or action
     eff_payload_hash = action_payload_hash or hash_json({
         'action': action,
         'content': content,
         'target': target,
     })
+    eff_suppression = suppression_reason or reason or error
     await _connection._exec_write(
         """INSERT INTO action_log
            (id, cycle_id, action, status, source, impulse, priority,
-            content, target, suppression_reason, energy_cost, success, error,
-            created_at, timestamp_utc, run_id, action_type, channel, reason,
+            content, target, suppression_reason, success, error,
+            created_at, timestamp_utc, run_id, action_type, channel,
             cooldown_state, rate_limit_remaining, limiter_decision,
             action_payload_hash, target_id, trace_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (action_id, resolved_cycle_id, action, status, source, impulse, priority,
-         content, target, suppression_reason, energy_cost, success, error,
-         now, now, resolved_run_id, eff_action_type, channel, eff_reason,
+         content, target, eff_suppression, success, error,
+         now, now, resolved_run_id, eff_action_type, channel,
          cooldown_state, rate_limit_remaining, limiter_decision,
          eff_payload_hash, target_id or target, resolved_trace_id),
     )

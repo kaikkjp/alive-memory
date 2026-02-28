@@ -48,7 +48,6 @@ class CortexOutput:
     """What comes out of the LLM call (or fallback)."""
     internal_monologue: str = ''
     dialogue: Optional[str] = None
-    dialogue_language: str = 'en'
     expression: str = 'neutral'
     body_state: str = 'sitting'
     gaze: str = 'at_visitor'
@@ -104,7 +103,6 @@ class CortexOutput:
         return cls(
             internal_monologue=raw.get('internal_monologue', ''),
             dialogue=raw.get('dialogue'),
-            dialogue_language=raw.get('dialogue_language', 'en'),
             expression=raw.get('expression', 'neutral'),
             body_state=raw.get('body_state', 'sitting'),
             gaze=raw.get('gaze', 'at_visitor'),
@@ -139,7 +137,6 @@ class ValidatedOutput:
     # ── Cortex fields (copied from CortexOutput) ──
     internal_monologue: str = ''
     dialogue: Optional[str] = None
-    dialogue_language: str = 'en'
     expression: str = 'neutral'
     body_state: str = 'sitting'
     gaze: str = 'at_visitor'
@@ -174,7 +171,6 @@ class ValidatedOutput:
         return cls(
             internal_monologue=cortex.internal_monologue,
             dialogue=cortex.dialogue,
-            dialogue_language=cortex.dialogue_language,
             expression=cortex.expression,
             body_state=cortex.body_state,
             gaze=cortex.gaze,
@@ -196,7 +192,6 @@ class ValidatedOutput:
         d = {
             'internal_monologue': self.internal_monologue,
             'dialogue': self.dialogue,
-            'dialogue_language': self.dialogue_language,
             'expression': self.expression,
             'body_state': self.body_state,
             'gaze': self.gaze,
@@ -276,7 +271,6 @@ class ActionResult:
 class BodyOutput:
     """What the body did. Returned by execute_body()."""
     executed: list[ActionResult] = field(default_factory=list)
-    energy_spent: float = 0.0
     events_emitted: int = 0
 
 

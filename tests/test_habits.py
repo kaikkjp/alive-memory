@@ -41,7 +41,7 @@ def _make_motor_plan(decisions):
 
 
 def _make_body_output(results):
-    return BodyOutput(executed=results, energy_spent=0.1, events_emitted=0)
+    return BodyOutput(executed=results, events_emitted=0)
 
 
 def _make_drives(energy=0.5, mood_valence=0.0, expression_need=0.0,

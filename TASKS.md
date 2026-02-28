@@ -1741,7 +1741,7 @@ No changes to engagement FSM, ACK path, or channel routing (already automatic vi
 ---
 
 ### TASK-094: Dead Code / Dead Field Cleanup
-**Status:** BACKLOG
+**Status:** DONE (2026-02-28)
 **Priority:** Low
 **Description:** Remove ~3,600 lines of dead code, unused types, and write-only fields across Python backend and TypeScript frontend. Zero behavioral change. Full test suite must pass before and after every wave.
 **Spec:** `tasks/TASK-094-cleanup-brief.md`
