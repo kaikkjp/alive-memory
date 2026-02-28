@@ -1645,6 +1645,83 @@ No changes to engagement FSM, ACK path, or channel routing (already automatic vi
 
 ---
 
+### TASK-099: YouTube/video-aware enrichment pipeline
+**Status:** BACKLOG
+**Priority:** Medium
+**Description:** The feed ingester enriches all URLs identically via markdown.new, which works but returns page chrome (comments, sidebar, recommendations) for YouTube videos instead of the actual spoken content. Videos are the weakest content type — she "reads" YouTube page HTML rather than the transcript.
+
+**Goal:** When a content pool URL is a YouTube/video URL, extract the actual transcript + metadata and produce richer `enriched_text` for Cortex consumption. This makes `read_content` on video items dramatically better — she gets what was *said*, not what was *around* the video player.
+
+**Implementation steps:**
+
+1. **Add `youtube-transcript-api` dependency** to `requirements.txt` (optional section). Lightweight, no transitive deps. Used only in `pipeline/enrich.py`.
+
+2. **Add Jina Reader as a fallback enrichment source** in `pipeline/enrich.py`:
+   - New function `fetch_via_jina(url: str) -> str` — HTTP GET to `https://r.jina.ai/{url}`, same pattern as `fetch_via_markdown_new`. Returns markdown string.
+   - Update `fetch_readable_text()` fallback chain: markdown.new → Jina → raw HTML.
+   - This benefits ALL content types (articles too), not just video.
+
+3. **Add YouTube transcript extraction** in `pipeline/enrich.py`:
+   - New function `fetch_youtube_transcript(url: str) -> str` — extracts video ID from URL, calls `youtube_transcript_api` to get transcript, formats as markdown with timestamps.
+   - New function `fetch_youtube_metadata(url: str) -> dict` — extracts title, channel, description from page (reuse existing `fetch_url_metadata` or Jina).
+   - New composite function `enrich_youtube_url(url: str) -> str` — combines transcript + metadata into a single markdown document:
+     ```
+     # Video: {title}
+     **Channel:** {channel}
+     **Description:** {description}
+
+     ## Transcript
+     [00:00] First line of speech...
+     [01:23] Next segment...
+     ```
+
+4. **Add URL routing in `feed_ingester.py`**:
+   - In `enrich_pool_item()`, before calling `fetch_via_markdown_new`:
+     - Check if URL matches `youtube.com/watch` or `youtu.be/`
+     - If yes → call `enrich_youtube_url()` instead
+     - `detect_content_type()` will naturally return `'video'` from the transcript markers
+   - Non-YouTube URLs → existing flow unchanged
+
+5. **Update `detect_content_type()`** — no changes needed if transcript format includes timestamp lines and "Transcript" header (existing heuristics already catch these). Verify in tests.
+
+6. **Graceful degradation**: if `youtube-transcript-api` is not installed or transcript fetch fails (private video, no captions), fall back to existing markdown.new/Jina flow. Never crash.
+
+**Scope (files you may touch):**
+- `pipeline/enrich.py` (new functions: `fetch_via_jina`, `fetch_youtube_transcript`, `enrich_youtube_url`)
+- `feed_ingester.py` (YouTube URL routing in `enrich_pool_item`)
+- `requirements.txt` (add `youtube-transcript-api`)
+- `tests/test_enrich.py` (new or extended — test transcript formatting, Jina fallback, URL detection, graceful degradation)
+- `tests/test_feed_enrichment.py` (add YouTube enrichment test)
+
+**Scope (files you may NOT touch):**
+- `pipeline/cortex.py` (already handles `enriched_text` and `readable_text` generically — no changes needed)
+- `body/internal.py` (read_content executor already uses `enriched_text` from pool — no changes needed)
+- `pipeline/hypothalamus.py`
+- `heartbeat.py`
+- `db.py`
+- `config/identity.py`
+
+**Risks / gotchas:**
+- `youtube-transcript-api` can fail on private videos, age-restricted content, or videos with no captions. Must degrade gracefully → fall back to page markdown.
+- Jina Reader has rate limits on free tier. Use same rate-limiting pattern as markdown.new (dedup by URL via `get_enriched_text_for_url`).
+- Transcript text can be very long (1hr video = ~10k words). Truncate to `max_chars` (4000) same as existing `fetch_readable_text`.
+- Some YouTube videos have auto-generated captions only (lower quality). Still better than page HTML.
+- Don't add Jina API keys — free tier via plain HTTP GET is sufficient.
+
+**Tests:**
+- Unit: `fetch_youtube_transcript` returns formatted markdown with timestamps for a known video ID (mock the API)
+- Unit: `fetch_via_jina` returns markdown string (mock HTTP)
+- Unit: `enrich_youtube_url` combines transcript + metadata correctly
+- Unit: URL routing in `enrich_pool_item` dispatches YouTube URLs to new path
+- Unit: `detect_content_type` returns `'video'` for transcript-formatted markdown
+- Unit: Graceful degradation when `youtube-transcript-api` import fails
+- Unit: Graceful degradation when transcript fetch raises (private video)
+- Integration: existing `test_feed_enrichment.py` still passes (non-YouTube URLs unchanged)
+
+**Definition of done:** YouTube URLs in the content pool get transcript-based `enriched_text` instead of page-scrape HTML. `detect_content_type` correctly labels them as `'video'`. Non-YouTube enrichment is unchanged. All existing tests pass. Jina Reader available as universal fallback for all URL types.
+
+---
+
 ```markdown
 ### TASK-XXX: Title
 **Status:** BACKLOG
