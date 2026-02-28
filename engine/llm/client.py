@@ -22,8 +22,8 @@ OPENROUTER_BASE = "https://openrouter.ai/api/v1/chat/completions"
 
 _HEADERS_STATIC = {
     "Content-Type": "application/json",
-    "HTTP-Referer": "https://github.com/TriMinhPham/shopkeeper",
-    "X-Title": "The Shopkeeper",
+    "HTTP-Referer": "https://github.com/kaikk-jp/alive",
+    "X-Title": "ALIVE Engine",
 }
 
 
