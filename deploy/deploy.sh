@@ -18,6 +18,11 @@ echo "[deploy] Pulling latest code..."
 git fetch origin main
 git reset --hard origin/main
 
+# ─── Fix ownership (root-owned files from prior deploys break rm/write) ───
+echo "[deploy] Fixing file ownership..."
+sudo chown -R shopkeeper:shopkeeper "${APP_DIR}/demo/window/" 2>/dev/null || true
+sudo chown -R shopkeeper:shopkeeper "${APP_DIR}/assets/" 2>/dev/null || true
+
 # ─── Activate venv (so python3/pip resolve to .venv) ───
 source .venv/bin/activate
 

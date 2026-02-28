@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+  issues: write
+
 jobs:
   deploy:
     name: Deploy Shopkeeper
@@ -19,3 +23,72 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           fingerprint: ${{ secrets.VPS_HOST_FINGERPRINT }}
           script: bash /var/www/shopkeeper/deploy/deploy.sh
+
+  retry:
+    name: Retry Deploy
+    needs: deploy
+    if: failure()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Wait before retry
+        run: sleep 30
+
+      - name: Retry deploy via SSH
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: shopkeeper
+          key: ${{ secrets.VPS_SSH_KEY }}
+          fingerprint: ${{ secrets.VPS_HOST_FINGERPRINT }}
+          script: bash /var/www/shopkeeper/deploy/deploy.sh
+
+  notify-failure:
+    name: Notify Deploy Failure
+    needs: [deploy, retry]
+    if: ${{ always() && needs.deploy.result == 'failure' && needs.retry.result == 'failure' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Create failure issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const run = context.runId;
+            const sha = context.sha.substring(0, 7);
+            const url = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${run}`;
+            const commit_url = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/commit/${context.sha}`;
+
+            // Close previous deploy failure issues
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'deploy-failure',
+              state: 'open',
+            });
+            for (const issue of issues) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                state: 'closed',
+                state_reason: 'not_planned',
+              });
+            }
+
+            // Create new issue
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Deploy failed on ${sha} (tried 2x)`,
+              body: [
+                `Deploy failed **twice** for commit [${sha}](${commit_url}).`,
+                '',
+                `[View run logs](${url})`,
+                '',
+                'The deploy script retried once automatically and still failed.',
+                'Check the logs for the root cause.',
+              ].join('\n'),
+              labels: ['deploy-failure'],
+            });
