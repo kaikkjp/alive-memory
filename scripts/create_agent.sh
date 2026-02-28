@@ -43,12 +43,8 @@ echo "Creating agent: $AGENT_ID (port $PORT)"
 # Create directories — flat layout under $AGENT_DIR/
 # heartbeat_server.py reads AGENT_CONFIG_DIR and expects:
 #   {dir}/db/{agent_id}.db, {dir}/memory/, {dir}/identity.yaml, etc.
-# Container runs as appuser (UID 1000) — writable dirs need matching ownership.
 mkdir -p "$AGENT_DIR/db"
 mkdir -p "$AGENT_DIR/memory"
-# Chown entire agent dir — container runs as appuser (UID 1000) and needs
-# write access to identity.yaml (for capability toggles), api_keys.json, etc.
-chown -R 1000:1000 "$AGENT_DIR"
 
 # Create default identity.yaml if not present — uses digital lifeform template
 if [ ! -f "$AGENT_DIR/identity.yaml" ]; then
@@ -107,6 +103,10 @@ if [ ! -f "$AGENT_DIR/alive_config.yaml" ]; then
         echo "  WARNING: No alive_config.yaml found — agent will use built-in defaults"
     fi
 fi
+
+# Chown entire agent dir AFTER all files are created — container runs as
+# appuser (UID 1000) and needs write access to identity.yaml, api_keys.json, etc.
+chown -R 1000:1000 "$AGENT_DIR"
 
 # Generate a random server token (required by heartbeat_server.py startup check;
 # not actually used since managed agents don't accept terminal connections).
