@@ -14,6 +14,8 @@ strong habits bypass cortex entirely.
 import json
 import random
 from collections import Counter
+from dataclasses import dataclass, field
+from datetime import datetime
 
 import clock
 import db
@@ -31,6 +33,114 @@ from pipeline.habit_policy import evaluate_journal_habit
 
 # ── Cognitive primitives: always pass Gate 2 even with actions_enabled=[] ──
 _COGNITIVE_PRIMITIVES = frozenset({'idle', 'express_thought'})
+
+
+# ── Circuit Breaker (TASK-075) ──
+# Prevents death-spiral retries when external actions fail repeatedly.
+# State machine: closed → open (after threshold failures) → half_open (after
+# cooldown) → closed (on success) or back to open (on failure).
+
+_CB_THRESHOLD = 3           # consecutive failures to trip
+_CB_BASE_COOLDOWN = 300.0   # 5 minutes
+_CB_MAX_COOLDOWN = 3600.0   # 1 hour
+_CB_MULTIPLIER = 2.0
+
+
+@dataclass
+class ActionHealth:
+    """Circuit breaker state for a single action type."""
+    state: str = 'closed'          # 'closed' | 'open' | 'half_open'
+    consecutive_failures: int = 0
+    last_failure_time: datetime | None = None
+    cooldown_seconds: float = _CB_BASE_COOLDOWN
+
+    def record_failure(self) -> None:
+        """Record a failure. Opens the circuit after threshold."""
+        self.consecutive_failures += 1
+        self.last_failure_time = clock.now_utc()
+        if self.state == 'half_open':
+            # Failed during probe — reopen with longer cooldown
+            self.state = 'open'
+            self.cooldown_seconds = min(
+                self.cooldown_seconds * _CB_MULTIPLIER, _CB_MAX_COOLDOWN
+            )
+        elif self.consecutive_failures >= _CB_THRESHOLD:
+            self.state = 'open'
+            # Reset cooldown to base on first trip, escalate on re-trips
+            if self.cooldown_seconds < _CB_BASE_COOLDOWN:
+                self.cooldown_seconds = _CB_BASE_COOLDOWN
+
+    def record_success(self) -> None:
+        """Record a success. Closes the circuit."""
+        self.consecutive_failures = 0
+        self.state = 'closed'
+        self.cooldown_seconds = _CB_BASE_COOLDOWN
+
+    def is_blocked(self) -> bool:
+        """Check if this action is currently blocked by the circuit breaker.
+
+        Returns True if open and cooldown has NOT expired.
+        Transitions to half_open if cooldown HAS expired (allows one probe).
+        Always returns False for closed/half_open states.
+        """
+        if self.state == 'closed':
+            return False
+        if self.state == 'half_open':
+            return False  # allow one probe attempt
+        # state == 'open' — check cooldown
+        if self.last_failure_time is None:
+            return True
+        elapsed = (clock.now_utc() - self.last_failure_time).total_seconds()
+        if elapsed >= self.cooldown_seconds:
+            self.state = 'half_open'
+            return False  # cooldown expired, allow probe
+        return True
+
+
+# Module-level circuit breaker registry — keyed by action name
+_circuit_breakers: dict[str, ActionHealth] = {}
+
+
+def get_action_health(action_name: str) -> ActionHealth:
+    """Get or create the circuit breaker for an action."""
+    if action_name not in _circuit_breakers:
+        _circuit_breakers[action_name] = ActionHealth()
+    return _circuit_breakers[action_name]
+
+
+def report_action_failure(action_name: str) -> None:
+    """Report an action execution failure to the circuit breaker."""
+    health = get_action_health(action_name)
+    health.record_failure()
+    if health.state == 'open':
+        print(f"  [CircuitBreaker] {action_name}: OPEN after {health.consecutive_failures} failures "
+              f"(cooldown {health.cooldown_seconds:.0f}s)")
+
+
+def report_action_success(action_name: str) -> None:
+    """Report an action execution success. Resets the circuit breaker."""
+    health = get_action_health(action_name)
+    was_half_open = health.state == 'half_open'
+    health.record_success()
+    if was_half_open:
+        print(f"  [CircuitBreaker] {action_name}: CLOSED (recovered)")
+
+
+def get_blocked_actions() -> list[str]:
+    """Return list of action names currently blocked by circuit breakers.
+
+    Called by sensorium to inject fatigue perceptions.
+    """
+    blocked = []
+    for name, health in _circuit_breakers.items():
+        if health.state == 'open' and health.is_blocked():
+            blocked.append(name)
+    return blocked
+
+
+def reset_circuit_breakers() -> None:
+    """Reset all circuit breakers. For testing only."""
+    _circuit_breakers.clear()
 
 # ── Trust-based priority boost: loaded from self_parameters at call time ──
 _TRUST_LEVELS = ('stranger', 'returner', 'regular', 'familiar')
@@ -525,6 +635,15 @@ async def select_actions(validated: ValidatedOutput, drives: DrivesState,
                 decisions.append(decision)
                 continue
 
+        # Gate 8: Circuit breaker — action failure fatigue (TASK-075)
+        if action_name not in _COGNITIVE_PRIMITIVES:
+            health = get_action_health(action_name)
+            if health.is_blocked():
+                decision.status = 'circuit_broken'
+                decision.suppression_reason = 'Action fatigued — needs rest'
+                decisions.append(decision)
+                continue
+
         # Passed all gates — calculate priority
         decision.priority = _calculate_priority(
             intention, drives, context
@@ -573,6 +692,18 @@ async def select_actions(validated: ValidatedOutput, drives: DrivesState,
     approved = _enforce_limits(approved)
 
     suppressed = [d for d in decisions if d.status != 'approved']
+
+    # TASK-075: If all non-cognitive actions were circuit-broken and nothing
+    # else was approved, force an idle intention so the cycle doesn't stall.
+    circuit_broken = [d for d in decisions if d.status == 'circuit_broken']
+    if circuit_broken and not approved:
+        approved = [ActionDecision(
+            action='idle',
+            impulse=0.5,
+            priority=0.5,
+            status='approved',
+            source='circuit_breaker',
+        )]
 
     # Also include validator-dropped actions as suppressed
     for dropped in validated.dropped_actions:

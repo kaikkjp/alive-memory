@@ -25,10 +25,40 @@ from models.pipeline import (
     ActionResult, BodyOutput,
 )
 from pipeline.hypothalamus import apply_expression_relief
+from pipeline.basal_ganglia import report_action_failure, report_action_success
 from body import dispatch_action
 from body.internal import END_ENGAGEMENT_LINES  # noqa: F401 — backward compat
 import db
 from runtime_context import hash_text
+
+
+# ── TASK-075: Error-to-perception translation ──
+# Raw exception strings must NEVER reach cortex. Body translates technical
+# errors into character-aligned descriptions suitable for perception injection.
+_ERROR_TRANSLATIONS: dict[str, str] = {
+    'timeout': 'A wave of mental fatigue washes over you. The effort to reach out fizzled.',
+    'rate_limit': 'You feel overstimulated — too many attempts, too fast. Rest would help.',
+    'connection': 'Something feels disconnected. The world beyond feels unreachable right now.',
+    'auth': 'A door you expected to be open feels locked. Something changed.',
+    'server': 'The world outside feels unresponsive, like shouting into fog.',
+}
+
+# Default when no specific pattern matches
+_ERROR_FALLBACK = 'A subtle resistance. Something you tried to do didn\'t work.'
+
+
+def translate_error_to_perception(error_str: str | None) -> str:
+    """Translate a raw error string into a character-aligned perception.
+
+    Never exposes raw exception types, HTTP codes, or stack traces.
+    """
+    if not error_str:
+        return _ERROR_FALLBACK
+    lowered = error_str.lower()
+    for key, translation in _ERROR_TRANSLATIONS.items():
+        if key in lowered:
+            return translation
+    return _ERROR_FALLBACK
 
 
 _RECALL_STOPWORDS = {
@@ -206,12 +236,29 @@ async def execute_body(motor_plan: MotorPlan, validated: ValidatedOutput,
     output.events_emitted += 1
 
     # ── Execute approved actions from motor plan ──
+    # Cognitive primitives (idle, express_thought) are internal signals with
+    # no executor — skip them to avoid false failure noise.
+    _SKIP_DISPATCH = frozenset({'idle', 'express_thought'})
+
     for decision in motor_plan.actions:
+        if decision.action in _SKIP_DISPATCH:
+            continue
+
         # Use detail dict carried on ActionDecision (set by basal_ganglia)
         action_req = ActionRequest(type=decision.action, detail=decision.detail)
         result = await dispatch_action(action_req, visitor_id, monologue=monologue)
         if result.payload.get('body_state_update'):
             validated.body_state = result.payload['body_state_update']
+
+        # TASK-075: Report success/failure to circuit breaker
+        if result.success:
+            report_action_success(decision.action)
+        else:
+            report_action_failure(decision.action)
+            # Sanitize error — never let raw exceptions reach cortex
+            if result.error:
+                result.error = translate_error_to_perception(result.error)
+
         output.executed.append(result)
 
     return output

@@ -956,7 +956,7 @@ ORDER BY sim_day;
 ---
 
 ### TASK-075: Circuit Breakers for Action Failures
-**Status:** BACKLOG
+**Status:** DONE (2026-02-28)
 **Priority:** High
 **Description:** When an external action fails (API timeout, rate limit, service down), the character retries the same action indefinitely. Observed in production: 262 browses in 500 death-spiral cycles. Circuit breakers prevent this by introducing increasing reluctance (like physical fatigue), with automatic recovery via exponential backoff cooldowns. Failures surface as character-aligned perceptions ("brain fog"), not raw errors.
 
@@ -966,14 +966,14 @@ ORDER BY sim_day;
 - Parameters: threshold=3 consecutive failures, base cooldown=5min, max=1hr, multiplier=2.0
 - Error translation: raw exceptions → character-aligned perceptions (e.g. "A wave of mental fatigue washes over you.")
 - Fatigue perception injected into sensorium when actions are blocked
-- DB persistence: migration `024_circuit_breaker_state.sql` (production only)
+- DB persistence: migration `029_circuit_breaker_state.sql` (production only)
 
 **Rollout order:**
 1. `ActionHealth` dataclass + state machine in `pipeline/basal_ganglia.py`
 2. Failure reporting hook in `pipeline/body.py`
 3. Error-to-perception translation map in `pipeline/body.py`
 4. Fatigue perception injection via sensorium
-5. Migration `024_circuit_breaker_state.sql`
+5. Migration `029_circuit_breaker_state.sql`
 6. Unit tests
 7. Integration test with failure injection
 
@@ -981,7 +981,7 @@ ORDER BY sim_day;
 - `pipeline/basal_ganglia.py`
 - `pipeline/body.py`
 - `pipeline/sensorium.py` (perception injection only)
-- `migrations/024_circuit_breaker_state.sql` (new)
+- `migrations/029_circuit_breaker_state.sql` (new)
 - `tests/test_circuit_breaker.py` (new)
 
 **Scope (files you may NOT touch):**
