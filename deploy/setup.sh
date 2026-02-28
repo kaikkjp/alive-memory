@@ -129,14 +129,14 @@ echo "  Python deps installed."
 
 # ─── 6. Build frontend ───
 echo "[6/9] Building frontend..."
-cd "${APP_DIR}/window"
+cd "${APP_DIR}/demo/window"
 sudo -u "${DEPLOY_USER}" npm ci --silent
 sudo -u "${DEPLOY_USER}" bash -c "
-    cd ${APP_DIR}/window
+    cd ${APP_DIR}/demo/window
     NEXT_PUBLIC_SITE_URL='https://${DOMAIN}' \
     npm run build
 "
-echo "  Frontend built → window/out/"
+echo "  Frontend built → demo/window/out/"
 
 # ─── 7. Environment file ───
 echo "[7/9] Configuring environment..."
@@ -162,7 +162,7 @@ fi
 
 # ─── 8. Nginx + SSL ───
 echo "[8/9] Configuring Nginx and SSL..."
-cp "${APP_DIR}/nginx/shopkeeper.conf" /etc/nginx/sites-available/shopkeeper
+cp "${APP_DIR}/demo/nginx/shopkeeper.conf" /etc/nginx/sites-available/shopkeeper
 ln -sf /etc/nginx/sites-available/shopkeeper /etc/nginx/sites-enabled/shopkeeper
 rm -f /etc/nginx/sites-enabled/default
 

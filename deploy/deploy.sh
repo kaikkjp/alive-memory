@@ -40,7 +40,7 @@ trap 'echo "[deploy] Ensuring shopkeeper service is running..."; sudo systemctl 
 
 # ─── Build frontend ───
 echo "[deploy] Building frontend..."
-cd window
+cd demo/window
 rm -rf node_modules .next out
 npm ci --silent
 NEXT_PUBLIC_SITE_URL="https://${DOMAIN}" \
@@ -51,7 +51,7 @@ cd ..
 # ─── Nginx config ───
 # NOT auto-synced. Certbot manages SSL directives in the live config,
 # so overwriting it breaks HTTPS. To update nginx config manually:
-#   sudo cp /var/www/shopkeeper/nginx/shopkeeper.conf /etc/nginx/sites-available/shopkeeper
+#   sudo cp /var/www/shopkeeper/demo/nginx/shopkeeper.conf /etc/nginx/sites-available/shopkeeper
 #   sudo certbot --nginx -d shopkeeper.tokyo --non-interactive --agree-tos --register-unsafely-without-email --redirect
 #   sudo nginx -t && sudo systemctl reload nginx
 

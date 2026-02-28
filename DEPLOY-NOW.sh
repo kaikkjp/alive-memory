@@ -85,10 +85,10 @@ sudo -u "\${DEPLOY_USER}" "\${APP_DIR}/.venv/bin/pip" install --quiet -r "\${APP
 
 # 6. Build frontend
 echo "[6/9] Building frontend..."
-cd "\${APP_DIR}/window"
+cd "\${APP_DIR}/demo/window"
 sudo -u "\${DEPLOY_USER}" npm ci --silent
 sudo -u "\${DEPLOY_USER}" bash -c "
-    cd \${APP_DIR}/window
+    cd \${APP_DIR}/demo/window
     NEXT_PUBLIC_SITE_URL='https://\${DOMAIN}' npm run build
 "
 
@@ -105,7 +105,7 @@ chmod 600 "\${APP_DIR}/.env"
 
 # 8. Nginx + SSL (will skip SSL if DNS not ready)
 echo "[8/9] Configuring Nginx..."
-cp "\${APP_DIR}/nginx/shopkeeper.conf" /etc/nginx/sites-available/shopkeeper
+cp "\${APP_DIR}/demo/nginx/shopkeeper.conf" /etc/nginx/sites-available/shopkeeper
 ln -sf /etc/nginx/sites-available/shopkeeper /etc/nginx/sites-enabled/shopkeeper
 rm -f /etc/nginx/sites-enabled/default
 nginx -t

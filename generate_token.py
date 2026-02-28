@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate invite tokens for the Shopkeeper's chat gate.
+"""Generate invite tokens for the chat gate.
 
 Usage:
     python generate_token.py --name "Yuki" --uses 10 --expires 7d
@@ -7,14 +7,19 @@ Usage:
     python generate_token.py --name "Staff" (unlimited uses, no expiry)
 """
 
-import argparse
-import asyncio
-import re
-import secrets
+import os
 import sys
-from datetime import datetime, timedelta, timezone
 
-from dotenv import load_dotenv
+# PYTHONPATH bootstrap — engine/ must be on path for db imports
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'engine'))
+
+import argparse  # noqa: E402
+import asyncio  # noqa: E402
+import re  # noqa: E402
+import secrets  # noqa: E402
+from datetime import datetime, timedelta, timezone  # noqa: E402
+
+from dotenv import load_dotenv  # noqa: E402
 
 load_dotenv()
 

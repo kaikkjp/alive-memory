@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
-"""Heartbeat Server — the shopkeeper's life. Runs forever.
+"""Heartbeat Server — the agent's life. Runs forever.
 
-Start: python heartbeat_server.py
-She lives. She journals at 3am. Her drives shift overnight.
+Start: python engine/heartbeat_server.py
 Terminal connects when you want to visit.
 Close the terminal, she keeps living.
 
 Window viewers connect via WebSocket on SHOPKEEPER_WS_PORT (default 8765).
 REST API available on SHOPKEEPER_HTTP_PORT (default 8080).
 """
+
+import os as _os, sys as _sys  # noqa: E401 — PYTHONPATH bootstrap must be first
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+del _os, _sys
 
 import asyncio
 import base64
