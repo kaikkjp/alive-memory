@@ -1786,7 +1786,7 @@ No changes to engagement FSM, ACK path, or channel routing (already automatic vi
 ---
 
 ### TASK-101: Repo Boundary — Decouple Platform from Shopkeeper Instance
-**Status:** BACKLOG
+**Status:** DONE (2026-02-28)
 **Priority:** High
 **Description:** Move all Shopkeeper-specific files into `demo/`. Rename platform code directory to `engine/`. Establish hard import boundary: `engine/` never imports from `demo/`, `demo/` can import from `engine/`, `lounge/` talks to `engine/` via API only. Fixes the context window problem — Claude Code sees shop references everywhere and assumes the entire system is a shopkeeper app.
 **Spec:** `tasks/TASK-101-repo-boundary.md`

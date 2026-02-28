@@ -22,13 +22,18 @@ import csv
 import io
 import json
 import math
+import os
 import random
 import statistics
+import sys
 import tempfile
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-import db
+# PYTHONPATH bootstrap — engine/ contains platform Python code (TASK-101)
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'engine'))
+
+import db  # noqa: E402
 import db.parameters as param_store
 from db.parameters import refresh_params_cache
 from models.event import Event

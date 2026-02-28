@@ -2,9 +2,13 @@
 """Terminal — CLI with the Subconscious Stream (MRI dashboard).
 
 Two modes:
-  1. Standalone: python terminal.py (starts heartbeat in-process)
-  2. Client:     python terminal.py --connect (connects to running heartbeat_server.py)
+  1. Standalone: python engine/terminal.py (starts heartbeat in-process)
+  2. Client:     python engine/terminal.py --connect (connects to running heartbeat_server.py)
 """
+
+import os as _os, sys as _sys  # noqa: E401 — PYTHONPATH bootstrap must be first
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+del _os, _sys
 
 import asyncio
 import hashlib

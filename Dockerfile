@@ -1,7 +1,8 @@
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app/engine
 
 WORKDIR /app
 
@@ -30,4 +31,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
 
 USER appuser
 
-CMD ["python", "heartbeat_server.py"]
+CMD ["python", "engine/heartbeat_server.py"]

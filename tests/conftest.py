@@ -1,16 +1,20 @@
-"""Shared fixtures for the shopkeeper test suite."""
+"""Shared fixtures for the test suite."""
 
-import asyncio
 import os
 import sys
+
+# TASK-101: engine/ must be on path BEFORE repo root so engine/config/
+# is found instead of bare top-level config/ (which is no longer a package)
+_repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(_repo_root, 'engine'))
+sys.path.insert(1, _repo_root)
+
+import asyncio
 import threading
 
 import pytest
 
 from models.pipeline import CortexOutput, ValidatorState
-
-# Add project root to path so tests can import modules
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 # ── Fix aiosqlite hang on exit ──

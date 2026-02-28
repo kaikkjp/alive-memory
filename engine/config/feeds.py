@@ -3,7 +3,7 @@
 # Sources the feed ingester will poll
 FEED_SOURCES = [
     # Static URL/quote lists (one item per line)
-    {'type': 'file', 'path': 'content/readings.txt', 'tags': ['curated']},
+    {'type': 'file', 'path': 'demo/content/readings.txt', 'tags': ['curated']},
 
     # Core — her identity
     {'type': 'rss', 'url': 'https://www.spoon-tamago.com/feed/', 'tags': ['tokyo', 'design', 'craft', 'japan']},

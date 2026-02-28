@@ -1,22 +1,21 @@
 #!/usr/bin/env python3
-"""Simulation Mode — run days/weeks of autonomous shopkeeper life in minutes.
+"""Simulation Mode — run days/weeks of autonomous agent life in minutes.
 
 Usage:
-    python simulate.py --days 7
-    python simulate.py --days 3 --content content/readings.txt
-    python simulate.py --days 7 --visitors experiments/visitors.json
-    python simulate.py --days 1 --start 2026-02-10T07:00 --quiet
-    python simulate.py --days 7 --daily-budget 2.0 --output experiments/run_a/
-    python simulate.py --days 7 --daily-budget 1.00 --run-label tight --output experiments/
+    python engine/simulate.py --days 7
+    python engine/simulate.py --days 3 --content demo/content/readings.txt
+    python engine/simulate.py --days 7 --visitors experiments/visitors.json
+    python engine/simulate.py --days 1 --start 2026-02-10T07:00 --quiet
+    python engine/simulate.py --days 7 --daily-budget 2.0 --output experiments/run_a/
 
-The shopkeeper runs the real pipeline with real LLM calls against a
+The agent runs the real pipeline with real LLM calls against a
 separate simulation DB, using a virtual clock that advances instantly
-instead of waiting. With --visitors, scripted visitor interactions are
-injected at the correct simulated times. With --daily-budget, the daily
-dollar budget is overridden via the settings table (default: 2.00).
-With --run-label, output files use the label as filename (e.g.
-tight.db) instead of timestamp+uuid.
+instead of waiting.
 """
+
+import os as _os, sys as _sys  # noqa: E401 — PYTHONPATH bootstrap must be first
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+del _os, _sys
 
 import argparse
 import asyncio
