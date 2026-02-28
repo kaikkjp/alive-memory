@@ -33,6 +33,12 @@ echo "[deploy] Preparing frontend assets..."
 pip install --quiet Pillow
 bash scripts/prepare_assets.sh
 
+# ─── Backup DB before deploy ───
+if [ -f "${APP_DIR}/data/shopkeeper.db" ]; then
+    echo "[deploy] Backing up database..."
+    cp "${APP_DIR}/data/shopkeeper.db" "${APP_DIR}/data/shopkeeper.db.pre-deploy"
+fi
+
 # ─── Stop service to free RAM for build ───
 echo "[deploy] Stopping shopkeeper service (freeing RAM for build)..."
 sudo systemctl stop shopkeeper

@@ -412,7 +412,10 @@ async def run_migrations(conn):
 
     sql_files = sorted(migrations_dir.glob('*.sql'))
     for f in sql_files:
-        version = int(f.name.split('_')[0])
+        try:
+            version = int(f.name.split('_')[0])
+        except ValueError:
+            continue  # skip non-numeric prefixes (e.g. platform_001_pods.sql)
         if version <= max_version:
             continue
 
