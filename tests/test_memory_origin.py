@@ -289,5 +289,199 @@ class TestGetMemoriesByOrigin(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result[0]['origin'], 'manager_injected')
 
 
+class TestFallbackWithoutColdMemoryVec(unittest.IsolatedAsyncioTestCase):
+    """Tests for agents without COLD_SEARCH_ENABLED (no cold_memory_vec table)."""
+
+    @patch('db.memory._connection')
+    async def test_get_manager_memories_falls_back_to_manager_memories_table(self, mock_conn):
+        """When cold_memory_vec query fails, should fall back to manager_memories."""
+        import db.memory as mem
+
+        mock_db = AsyncMock()
+        mock_conn.get_db = AsyncMock(return_value=mock_db)
+
+        mm_rows = [
+            {'source_type': 'manager_backstory', 'source_id': 'mgr-1',
+             'text_content': 'Tokyo alley', 'ts_iso': '2026-02-01T00:00:00',
+             'origin': 'manager_injected'},
+        ]
+        mm_cursor = AsyncMock()
+        mm_cursor.fetchall = AsyncMock(return_value=mm_rows)
+
+        # First execute (cold_memory_vec) raises, second (manager_memories) succeeds
+        mock_db.execute = AsyncMock(
+            side_effect=[Exception('no such table: cold_memory_vec'), mm_cursor]
+        )
+
+        result = await mem.get_manager_memories()
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]['source_id'], 'mgr-1')
+        self.assertEqual(result[0]['text_content'], 'Tokyo alley')
+
+    @patch('db.memory._connection')
+    async def test_get_organic_memories_returns_empty_when_vec_missing(self, mock_conn):
+        """Organic memories query should return [] when cold_memory_vec is missing."""
+        import db.memory as mem
+
+        mock_db = AsyncMock()
+        mock_conn.get_db = AsyncMock(return_value=mock_db)
+
+        mock_db.execute = AsyncMock(
+            side_effect=Exception('no such table: cold_memory_vec')
+        )
+
+        result = await mem.get_organic_memories(limit=10)
+        self.assertEqual(result, [])
+
+    @patch('db.memory._connection')
+    async def test_manager_memories_merges_and_deduplicates(self, mock_conn):
+        """When both sources have rows, should merge, dedupe, sort by ts_iso desc."""
+        import db.memory as mem
+
+        mock_db = AsyncMock()
+        mock_conn.get_db = AsyncMock(return_value=mock_db)
+
+        vec_rows = [
+            {'source_type': 'manager_backstory', 'source_id': 'mgr-dup',
+             'text_content': 'Old version', 'ts_iso': '2026-01-01T00:00:00',
+             'origin': 'manager_injected'},
+            {'source_type': 'manager_backstory', 'source_id': 'mgr-vec-only',
+             'text_content': 'Vec only', 'ts_iso': '2026-01-02T00:00:00',
+             'origin': 'manager_injected'},
+        ]
+        mm_rows = [
+            {'source_type': 'manager_backstory', 'source_id': 'mgr-dup',
+             'text_content': 'New version', 'ts_iso': '2026-02-01T00:00:00',
+             'origin': 'manager_injected'},
+            {'source_type': 'manager_backstory', 'source_id': 'mgr-mm-only',
+             'text_content': 'MM only', 'ts_iso': '2026-01-15T00:00:00',
+             'origin': 'manager_injected'},
+        ]
+
+        vec_cursor = AsyncMock()
+        vec_cursor.fetchall = AsyncMock(return_value=vec_rows)
+        mm_cursor = AsyncMock()
+        mm_cursor.fetchall = AsyncMock(return_value=mm_rows)
+
+        mock_db.execute = AsyncMock(side_effect=[vec_cursor, mm_cursor])
+
+        result = await mem.get_cold_memories_by_origin('manager_injected', limit=50)
+
+        # Should have 3 unique entries (mgr-dup deduplicated)
+        self.assertEqual(len(result), 3)
+        ids = [r['source_id'] for r in result]
+        self.assertIn('mgr-dup', ids)
+        self.assertIn('mgr-vec-only', ids)
+        self.assertIn('mgr-mm-only', ids)
+
+        # Newest first
+        self.assertEqual(result[0]['source_id'], 'mgr-dup')
+        self.assertEqual(result[0]['ts_iso'], '2026-02-01T00:00:00')
+
+    @patch('db.memory._connection')
+    async def test_pagination_applied_globally_after_merge(self, mock_conn):
+        """offset+limit should be applied after merge, not per-source."""
+        import db.memory as mem
+
+        mock_db = AsyncMock()
+        mock_conn.get_db = AsyncMock(return_value=mock_db)
+
+        # 3 items total across sources (no overlap)
+        vec_rows = [
+            {'source_type': 'manager_backstory', 'source_id': 'mgr-a',
+             'text_content': 'A', 'ts_iso': '2026-03-01T00:00:00',
+             'origin': 'manager_injected'},
+        ]
+        mm_rows = [
+            {'source_type': 'manager_backstory', 'source_id': 'mgr-b',
+             'text_content': 'B', 'ts_iso': '2026-02-01T00:00:00',
+             'origin': 'manager_injected'},
+            {'source_type': 'manager_backstory', 'source_id': 'mgr-c',
+             'text_content': 'C', 'ts_iso': '2026-01-01T00:00:00',
+             'origin': 'manager_injected'},
+        ]
+
+        vec_cursor = AsyncMock()
+        vec_cursor.fetchall = AsyncMock(return_value=vec_rows)
+        mm_cursor = AsyncMock()
+        mm_cursor.fetchall = AsyncMock(return_value=mm_rows)
+
+        mock_db.execute = AsyncMock(side_effect=[vec_cursor, mm_cursor])
+
+        # Page 2: offset=1, limit=1 should return mgr-b (second by date)
+        result = await mem.get_cold_memories_by_origin(
+            'manager_injected', limit=1, offset=1
+        )
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]['source_id'], 'mgr-b')
+
+    @patch('db.memory._connection')
+    @patch('db.memory._write_lock')
+    async def test_inject_without_embedding_uses_manager_memories_table(self, mock_lock, mock_conn):
+        """inject_manager_memory without embedding should write to manager_memories."""
+        import db.memory as mem
+
+        mock_lock.__aenter__ = AsyncMock(return_value=None)
+        mock_lock.__aexit__ = AsyncMock(return_value=False)
+
+        mock_db = AsyncMock()
+        mock_conn.get_db = AsyncMock(return_value=mock_db)
+        mock_db.execute = AsyncMock(return_value=AsyncMock())
+        mock_db.commit = AsyncMock()
+
+        with patch('db.memory.clock') as mock_clock:
+            mock_clock.now_utc.return_value = datetime(2026, 1, 1, tzinfo=timezone.utc)
+
+            source_id = await mem.inject_manager_memory(
+                text='Rain on the alley',
+                title='First rain',
+            )
+
+        self.assertTrue(source_id.startswith('mgr-'))
+
+        # Should write to manager_memories, not cold_memory_vec
+        execute_calls = mock_db.execute.call_args_list
+        sql_stmts = [str(c[0][0]) for c in execute_calls]
+        self.assertTrue(any('manager_memories' in s for s in sql_stmts),
+                        f"Expected manager_memories INSERT, got: {sql_stmts}")
+        self.assertFalse(any('cold_memory_vec' in s for s in sql_stmts),
+                         "Should not touch cold_memory_vec without embedding")
+
+    @patch('db.memory._connection')
+    @patch('db.memory._write_lock')
+    async def test_delete_succeeds_when_vec_table_missing(self, mock_lock, mock_conn):
+        """delete_manager_memory should succeed even without cold_memory_vec."""
+        import db.memory as mem
+
+        mock_lock.__aenter__ = AsyncMock(return_value=None)
+        mock_lock.__aexit__ = AsyncMock(return_value=False)
+
+        mock_db = AsyncMock()
+        mock_conn.get_db = AsyncMock(return_value=mock_db)
+
+        # Origin check succeeds
+        origin_cursor = AsyncMock()
+        origin_cursor.fetchone = AsyncMock(return_value={'origin': 'manager_injected'})
+
+        call_count = 0
+        async def mock_execute(sql, params=None):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                # Origin check
+                return origin_cursor
+            if 'cold_memory_vec' in sql:
+                raise Exception('no such table: cold_memory_vec')
+            return AsyncMock()
+
+        mock_db.execute = AsyncMock(side_effect=mock_execute)
+        mock_db.commit = AsyncMock()
+
+        result = await mem.delete_manager_memory('mgr-abc123')
+        self.assertTrue(result)
+        # Should have attempted all deletes despite vec failure
+        self.assertGreaterEqual(call_count, 3)
+
+
 if __name__ == '__main__':
     unittest.main()

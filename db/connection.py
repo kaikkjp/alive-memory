@@ -479,6 +479,19 @@ async def init_db():
     # Run versioned migrations (additive schema changes)
     await run_migrations(db)
 
+    # Manager-injected memories — regular table, always available (no vec0 dependency)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS manager_memories (
+            source_id TEXT PRIMARY KEY,
+            source_type TEXT NOT NULL DEFAULT 'manager_backstory',
+            text_content TEXT NOT NULL,
+            title TEXT,
+            ts_iso TEXT NOT NULL,
+            origin TEXT NOT NULL DEFAULT 'manager_injected'
+        )
+    """)
+    await db.commit()
+
     # Cold memory vector table (Phase 2) — requires sqlite-vec extension
     if COLD_SEARCH_ENABLED:
         try:

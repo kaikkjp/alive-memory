@@ -1472,20 +1472,54 @@ async def get_cold_memories_by_origin(
 
     Returns text_content, source_type, source_id, ts_iso, and origin.
     Ordered by ts_iso descending (newest first).
+
+    Falls back to manager_memories table if cold_memory_vec is unavailable
+    (agents without COLD_SEARCH_ENABLED).
     """
     conn = await _connection.get_db()
-    cursor = await conn.execute(
-        """SELECT v.source_type, v.source_id, v.text_content, v.ts_iso,
-                  COALESCE(o.origin, 'organic') AS origin
-           FROM cold_memory_vec v
-           LEFT JOIN cold_memory_origin o ON o.source_id = v.source_id
-           WHERE COALESCE(o.origin, 'organic') = ?
-           ORDER BY v.ts_iso DESC
-           LIMIT ? OFFSET ?""",
-        (origin, limit, offset),
-    )
-    rows = await cursor.fetchall()
-    return [dict(r) for r in rows]
+
+    # Try cold_memory_vec first (available when COLD_SEARCH_ENABLED=true)
+    # Fetch without offset — pagination applied globally after merge.
+    try:
+        cursor = await conn.execute(
+            """SELECT v.source_type, v.source_id, v.text_content, v.ts_iso,
+                      COALESCE(o.origin, 'organic') AS origin
+               FROM cold_memory_vec v
+               LEFT JOIN cold_memory_origin o ON o.source_id = v.source_id
+               WHERE COALESCE(o.origin, 'organic') = ?
+               ORDER BY v.ts_iso DESC""",
+            (origin,),
+        )
+        rows = await cursor.fetchall()
+        vec_results = [dict(r) for r in rows]
+    except Exception:
+        vec_results = []
+
+    # For manager_injected: also check the regular manager_memories table
+    if origin == 'manager_injected':
+        try:
+            cursor = await conn.execute(
+                """SELECT source_type, source_id, text_content, ts_iso, origin
+                   FROM manager_memories
+                   ORDER BY ts_iso DESC""",
+            )
+            rows = await cursor.fetchall()
+            mm_results = [dict(r) for r in rows]
+        except Exception:
+            mm_results = []
+
+        # Merge, deduplicate by source_id, keep newest first
+        seen: set[str] = set()
+        merged: list[dict] = []
+        for r in sorted(vec_results + mm_results,
+                        key=lambda x: x.get('ts_iso', ''), reverse=True):
+            if r['source_id'] not in seen:
+                seen.add(r['source_id'])
+                merged.append(r)
+        # Apply offset+limit globally after merge
+        return merged[offset:offset + limit]
+
+    return vec_results[offset:offset + limit]
 
 
 async def get_organic_memories(limit: int = 50, offset: int = 0) -> list[dict]:
@@ -1527,26 +1561,22 @@ async def inject_manager_memory(
             origin='manager_injected',
         )
     else:
-        # Text-only storage: insert into origin table only, no vector
-        # Also store the text content in a regular table for retrieval
+        # Text-only storage: use regular manager_memories table (no vec0 dependency)
         async with _write_lock:
             conn = await _connection.get_db()
+            text_content = (f"{title}: {text}" if title else text)[:500]
+            await conn.execute(
+                """INSERT OR IGNORE INTO manager_memories
+                   (source_id, source_type, text_content, title, ts_iso, origin)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (source_id, 'manager_backstory', text_content,
+                 title or None, ts.isoformat(), 'manager_injected'),
+            )
+            # Also track in cold_memory_origin for consistency
             await conn.execute(
                 """INSERT OR IGNORE INTO cold_memory_origin (source_id, origin)
                    VALUES (?, 'manager_injected')""",
                 (source_id,),
-            )
-            # Store in cold_memory_vec without embedding (nullable embedding)
-            # Actually, vec0 requires embedding. Use a zero vector as placeholder.
-            import sqlite_vec
-            zero_vec = sqlite_vec.serialize_float32([0.0] * 1536)
-            await conn.execute(
-                """INSERT INTO cold_memory_vec
-                   (embedding, source_type, source_id, text_content, ts_iso, embed_model)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
-                (zero_vec, 'manager_backstory', source_id,
-                 (f"{title}: {text}" if title else text)[:500],
-                 ts.isoformat(), 'none'),
             )
             await conn.commit()
 
@@ -1572,11 +1602,22 @@ async def delete_manager_memory(source_id: str) -> bool:
 
     async with _write_lock:
         conn = await _connection.get_db()
-        # Delete from vec table
-        await conn.execute(
-            "DELETE FROM cold_memory_vec WHERE source_id = ?",
-            (source_id,),
-        )
+        # Delete from vec table (if it exists)
+        try:
+            await conn.execute(
+                "DELETE FROM cold_memory_vec WHERE source_id = ?",
+                (source_id,),
+            )
+        except Exception:
+            pass  # cold_memory_vec may not exist without COLD_SEARCH_ENABLED
+        # Delete from manager_memories table
+        try:
+            await conn.execute(
+                "DELETE FROM manager_memories WHERE source_id = ?",
+                (source_id,),
+            )
+        except Exception:
+            pass
         # Delete from origin table
         await conn.execute(
             "DELETE FROM cold_memory_origin WHERE source_id = ?",
