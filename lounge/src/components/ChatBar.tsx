@@ -130,7 +130,6 @@ export default function ChatBar({
         body: JSON.stringify({
           message: text,
           visitor_id: visitorId.current,
-          source: "manager",
         }),
       });
 

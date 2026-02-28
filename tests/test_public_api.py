@@ -291,6 +291,176 @@ class TestHandleChat:
         mock_db.upsert_visitor.assert_called_once_with('new-v', name='TestApp')
 
 
+# ── handle_manager_message Tests (TASK-104) ──
+
+
+class TestHandleManagerMessage:
+    """Test POST /api/manager-message handler.
+
+    TASK-104: Manager messages bypass engagement system entirely.
+    No on_visitor_message() call, no engagement creation.
+    """
+
+    def test_invalid_json(self):
+        server = _make_server()
+        writer = MagicMock()
+        _run(public_routes.handle_manager_message(server, writer, b'not json', {'name': 'mgr'}))
+        args = server._http_json.call_args[0]
+        assert args[1] == 400
+        assert 'invalid JSON' in args[2]['error']
+
+    def test_missing_message(self):
+        server = _make_server()
+        writer = MagicMock()
+        body = json.dumps({'visitor_id': 'v1'}).encode()
+        _run(public_routes.handle_manager_message(server, writer, body, {'name': 'mgr'}))
+        args = server._http_json.call_args[0]
+        assert args[1] == 400
+        assert 'message field required' in args[2]['error']
+
+    def test_empty_message(self):
+        server = _make_server()
+        writer = MagicMock()
+        body = json.dumps({'message': '   '}).encode()
+        _run(public_routes.handle_manager_message(server, writer, body, {'name': 'mgr'}))
+        args = server._http_json.call_args[0]
+        assert args[1] == 400
+
+    @patch('api.public_routes.db')
+    def test_no_engagement_created(self, mock_db):
+        """Core TASK-104 assertion: no on_visitor_message, no engagement lookup."""
+        mock_db.get_visitor = AsyncMock(return_value=MagicMock())
+        mock_db.append_conversation = AsyncMock()
+        mock_db.append_event = AsyncMock()
+        mock_db.inbox_add = AsyncMock()
+
+        server = _make_server()
+        server.heartbeat.wait_for_cycle_log = AsyncMock(return_value=None)
+        writer = MagicMock()
+        body = json.dumps({'message': 'hello', 'visitor_id': 'mgr-1'}).encode()
+
+        with patch('api.public_routes.on_visitor_message') as mock_ack:
+            _run(public_routes.handle_manager_message(server, writer, body, {'name': 'mgr'}))
+            # on_visitor_message must NOT be called — no engagement
+            mock_ack.assert_not_called()
+
+        # get_engagement_state must NOT be called
+        mock_db.get_engagement_state.assert_not_called()
+
+    @patch('api.public_routes.db')
+    def test_creates_manager_message_event(self, mock_db):
+        """Event type must be 'manager_message', not 'visitor_speech'."""
+        mock_db.get_visitor = AsyncMock(return_value=MagicMock())
+        mock_db.append_conversation = AsyncMock()
+        mock_db.append_event = AsyncMock()
+        mock_db.inbox_add = AsyncMock()
+
+        server = _make_server()
+        server.heartbeat.wait_for_cycle_log = AsyncMock(return_value=None)
+        writer = MagicMock()
+        body = json.dumps({'message': 'how are you?', 'visitor_id': 'mgr-1'}).encode()
+        _run(public_routes.handle_manager_message(server, writer, body, {'name': 'mgr'}))
+
+        # Check the event passed to append_event
+        event = mock_db.append_event.call_args[0][0]
+        assert event.event_type == 'manager_message'
+        assert event.payload['text'] == 'how are you?'
+        assert event.source == 'visitor:mgr-1'
+
+    @patch('api.public_routes.db')
+    def test_high_priority_inbox(self, mock_db):
+        """Manager messages get priority 0.95 in inbox."""
+        mock_db.get_visitor = AsyncMock(return_value=MagicMock())
+        mock_db.append_conversation = AsyncMock()
+        mock_db.append_event = AsyncMock()
+        mock_db.inbox_add = AsyncMock()
+
+        server = _make_server()
+        server.heartbeat.wait_for_cycle_log = AsyncMock(return_value=None)
+        writer = MagicMock()
+        body = json.dumps({'message': 'hi', 'visitor_id': 'mgr-1'}).encode()
+        _run(public_routes.handle_manager_message(server, writer, body, {'name': 'mgr'}))
+
+        mock_db.inbox_add.assert_called_once()
+        assert mock_db.inbox_add.call_args[1]['priority'] == 0.95
+
+    @patch('api.public_routes.db')
+    def test_successful_response(self, mock_db):
+        mock_db.get_visitor = AsyncMock(return_value=MagicMock())
+        mock_db.append_conversation = AsyncMock()
+        mock_db.append_event = AsyncMock()
+        mock_db.inbox_add = AsyncMock()
+
+        server = _make_server()
+        server.heartbeat.wait_for_cycle_log = AsyncMock(return_value={
+            'dialogue': 'I am well, thank you.',
+            'expression': 'calm',
+            'body_state': 'sitting',
+            'gaze': 'neutral',
+        })
+        writer = MagicMock()
+        body = json.dumps({'message': 'how are you?', 'visitor_id': 'mgr-1'}).encode()
+        _run(public_routes.handle_manager_message(server, writer, body, {'name': 'mgr'}))
+
+        args = server._http_json.call_args[0]
+        assert args[1] == 200
+        assert args[2]['response'] == 'I am well, thank you.'
+        assert args[2]['visitor_id'] == 'mgr-1'
+        assert 'timestamp' in args[2]
+
+    @patch('api.public_routes.db')
+    def test_timeout_response(self, mock_db):
+        mock_db.get_visitor = AsyncMock(return_value=MagicMock())
+        mock_db.append_conversation = AsyncMock()
+        mock_db.append_event = AsyncMock()
+        mock_db.inbox_add = AsyncMock()
+
+        server = _make_server()
+        server.heartbeat.wait_for_cycle_log = AsyncMock(return_value=None)
+        writer = MagicMock()
+        body = json.dumps({'message': 'hello', 'visitor_id': 'mgr-1'}).encode()
+        _run(public_routes.handle_manager_message(server, writer, body, {'name': 'mgr'}))
+
+        args = server._http_json.call_args[0]
+        assert args[1] == 200
+        assert args[2]['status'] == 'timeout'
+        assert args[2]['response'] is None
+
+    @patch('api.public_routes.db')
+    def test_auto_generated_visitor_id(self, mock_db):
+        mock_db.get_visitor = AsyncMock(return_value=None)
+        mock_db.upsert_visitor = AsyncMock()
+        mock_db.append_conversation = AsyncMock()
+        mock_db.append_event = AsyncMock()
+        mock_db.inbox_add = AsyncMock()
+
+        server = _make_server()
+        server.heartbeat.wait_for_cycle_log = AsyncMock(return_value=None)
+        writer = MagicMock()
+        body = json.dumps({'message': 'hi'}).encode()
+        _run(public_routes.handle_manager_message(server, writer, body, {'name': 'kai'}))
+
+        args = server._http_json.call_args[0]
+        vid = args[2]['visitor_id']
+        assert vid.startswith('manager-kai-')
+
+    @patch('api.public_routes.db')
+    def test_logs_conversation(self, mock_db):
+        """Manager messages must be logged to conversation_log for history."""
+        mock_db.get_visitor = AsyncMock(return_value=MagicMock())
+        mock_db.append_conversation = AsyncMock()
+        mock_db.append_event = AsyncMock()
+        mock_db.inbox_add = AsyncMock()
+
+        server = _make_server()
+        server.heartbeat.wait_for_cycle_log = AsyncMock(return_value=None)
+        writer = MagicMock()
+        body = json.dumps({'message': 'status report', 'visitor_id': 'mgr-1'}).encode()
+        _run(public_routes.handle_manager_message(server, writer, body, {'name': 'mgr'}))
+
+        mock_db.append_conversation.assert_called_once_with('mgr-1', 'visitor', 'status report')
+
+
 # ── handle_public_state Tests ──
 
 

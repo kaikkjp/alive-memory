@@ -228,3 +228,34 @@ export async function chatWithAgent(
     return null;
   }
 }
+
+/**
+ * TASK-104: Manager channel — bypasses engagement system.
+ * Uses /api/manager-message instead of /api/chat.
+ * No engagement created, no ghost detection involvement.
+ */
+export async function managerMessage(
+  port: number,
+  apiKey: string,
+  message: string,
+  visitorId?: string
+): Promise<Record<string, unknown> | null> {
+  try {
+    const body: Record<string, string> = { message };
+    if (visitorId) body.visitor_id = visitorId;
+
+    const res = await fetch(`http://127.0.0.1:${port}/api/manager-message`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(35_000),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}

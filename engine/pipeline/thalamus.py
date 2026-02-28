@@ -80,7 +80,8 @@ async def route(
     # Determine cycle type
     # TASK-087: digital_message/digital_connect/digital_disconnect route
     # identically to their visitor_* counterparts.
-    if focus.p_type in ('visitor_speech', 'digital_message'):
+    # TASK-104: manager_speech routes as engage (manager channel)
+    if focus.p_type in ('visitor_speech', 'digital_message', 'manager_speech'):
         cycle_type = 'engage'
     elif focus.p_type in ('visitor_connect', 'digital_connect'):
         # Visitor/message arrival competes with other perceptions via salience.
