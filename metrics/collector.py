@@ -1,11 +1,14 @@
 """Metric collector — computes and stores liveness metrics (TASK-071).
 
-Runs hourly for M1, M2, M7. Stores snapshots in metrics_snapshots table.
+Phase 1 (hourly): M1 uptime, M2 initiative, M7 emotional range.
+Phase 2 (hourly): M3 entropy. (6-hourly): M4 knowledge, M5 recall, M9 unprompted memories.
+Stores snapshots in metrics_snapshots table.
 """
 
 import json
 from metrics.models import MetricResult, MetricSnapshot
 from metrics import m_uptime, m_initiative, m_emotion
+from metrics import m_entropy, m_knowledge, m_recall, m_memory
 import clock
 import db.connection as _connection
 
@@ -13,10 +16,11 @@ import db.connection as _connection
 # ── Compute ──
 
 async def collect_hourly() -> MetricSnapshot:
-    """Compute Phase 1 hourly metrics and store snapshots."""
+    """Compute hourly metrics (Phase 1 + Phase 2 hourly) and store snapshots."""
     ts = clock.now_utc().isoformat()
     results: list[MetricResult] = []
 
+    # Phase 1 hourly
     try:
         results.append(await m_uptime.compute())
     except Exception as e:
@@ -32,6 +36,12 @@ async def collect_hourly() -> MetricSnapshot:
     except Exception as e:
         print(f"  [Metrics] M7 (emotion) error: {e}")
 
+    # Phase 2 hourly
+    try:
+        results.append(await m_entropy.compute(hours=24))
+    except Exception as e:
+        print(f"  [Metrics] M3 (entropy) error: {e}")
+
     snapshot = MetricSnapshot(timestamp=ts, period='hourly', metrics=results)
 
     # Store each metric
@@ -41,11 +51,40 @@ async def collect_hourly() -> MetricSnapshot:
     return snapshot
 
 
-async def collect_all() -> MetricSnapshot:
-    """Compute all Phase 1 metrics on demand (for API requests)."""
+async def collect_six_hourly() -> MetricSnapshot:
+    """Compute 6-hourly metrics (Phase 2 knowledge, recall, memory)."""
     ts = clock.now_utc().isoformat()
     results: list[MetricResult] = []
 
+    try:
+        results.append(await m_knowledge.compute())
+    except Exception as e:
+        print(f"  [Metrics] M4 (knowledge) error: {e}")
+
+    try:
+        results.append(await m_recall.compute())
+    except Exception as e:
+        print(f"  [Metrics] M5 (recall) error: {e}")
+
+    try:
+        results.append(await m_memory.compute(hours=24))
+    except Exception as e:
+        print(f"  [Metrics] M9 (memory) error: {e}")
+
+    snapshot = MetricSnapshot(timestamp=ts, period='six_hourly', metrics=results)
+
+    for m in results:
+        await _store_snapshot(ts, m.name, m.value, m.details, 'six_hourly')
+
+    return snapshot
+
+
+async def collect_all() -> MetricSnapshot:
+    """Compute all metrics on demand (for API requests)."""
+    ts = clock.now_utc().isoformat()
+    results: list[MetricResult] = []
+
+    # Phase 1
     try:
         results.append(await m_uptime.compute())
     except Exception as e:
@@ -60,6 +99,27 @@ async def collect_all() -> MetricSnapshot:
         results.append(await m_emotion.compute())
     except Exception as e:
         print(f"  [Metrics] M7 error: {e}")
+
+    # Phase 2
+    try:
+        results.append(await m_entropy.compute(hours=24))
+    except Exception as e:
+        print(f"  [Metrics] M3 error: {e}")
+
+    try:
+        results.append(await m_knowledge.compute())
+    except Exception as e:
+        print(f"  [Metrics] M4 error: {e}")
+
+    try:
+        results.append(await m_recall.compute())
+    except Exception as e:
+        print(f"  [Metrics] M5 error: {e}")
+
+    try:
+        results.append(await m_memory.compute(hours=24))
+    except Exception as e:
+        print(f"  [Metrics] M9 error: {e}")
 
     return MetricSnapshot(timestamp=ts, period='snapshot', metrics=results)
 

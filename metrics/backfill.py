@@ -2,14 +2,21 @@
 
 Processes cycle_log and action_log day-by-day, stores daily snapshots so
 the metrics dashboard has full history from her first cycle.
+
+Phase 1: M1 (uptime), M2 (initiative), M7 (emotional range).
+Phase 2: M3 (entropy), M4 (knowledge), M9 (unprompted memories).
+M5 (recall) is not backfilled — visitor memory files don't have historical timestamps.
 """
 
 import json
 import math
+import re
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 from metrics.models import MetricResult
 from metrics.m_emotion import _quantize, _normalize_valence
+from metrics.m_entropy import _shannon_entropy, _normalized_entropy
+from metrics.m_memory import _count_memory_refs
 import db.connection as _connection
 
 
@@ -131,6 +138,83 @@ async def backfill_all() -> dict:
                 (day_str + 'T23:59:59+00:00', 'emotional_range', float(len(bins_visited)),
                  json.dumps({'states': len(bins_visited), 'total_possible': 125, 'day': day_str}),
                  'daily'),
+            )
+            snapshots_written += 1
+
+        # M3: Behavioral entropy for this day
+        cursor = await conn.execute(
+            """SELECT al.action FROM action_log al
+               WHERE al.status = 'executed'
+                 AND datetime(al.created_at) >= datetime(?)
+                 AND datetime(al.created_at) < datetime(?)""",
+            (day_start_str, day_end_str),
+        )
+        action_rows = await cursor.fetchall()
+        day_actions = [r['action'] for r in action_rows]
+        if day_actions:
+            entropy_norm = _normalized_entropy(day_actions)
+            entropy_raw = _shannon_entropy(day_actions)
+            await _connection._exec_write(
+                """INSERT INTO metrics_snapshots (timestamp, metric_name, value, details, period)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (day_str + 'T23:59:59+00:00', 'behavioral_entropy', round(entropy_norm, 4),
+                 json.dumps({
+                     'raw_bits': round(entropy_raw, 4),
+                     'normalized': round(entropy_norm, 4),
+                     'unique_actions': len(set(day_actions)),
+                     'total_actions': len(day_actions),
+                     'day': day_str,
+                 }), 'daily'),
+            )
+            snapshots_written += 1
+
+        # M4: Cumulative knowledge accumulation up to this day
+        try:
+            cursor = await conn.execute(
+                """SELECT COUNT(DISTINCT title) as unique_topics, COUNT(*) as total
+                   FROM content_pool
+                   WHERE source_channel = 'browse'
+                     AND datetime(added_at) < datetime(?)""",
+                (day_end_str,),
+            )
+            krow = await cursor.fetchone()
+            knowledge_count = krow['unique_topics'] if krow else 0
+            if knowledge_count > 0:
+                await _connection._exec_write(
+                    """INSERT INTO metrics_snapshots (timestamp, metric_name, value, details, period)
+                       VALUES (?, ?, ?, ?, ?)""",
+                    (day_str + 'T23:59:59+00:00', 'knowledge_accumulation',
+                     float(knowledge_count),
+                     json.dumps({
+                         'unique_topics': knowledge_count,
+                         'total_searches': krow['total'],
+                         'day': day_str,
+                     }), 'daily'),
+                )
+                snapshots_written += 1
+        except Exception:
+            pass  # content_pool may not exist in older DBs
+
+        # M9: Unprompted memory references for this day
+        cursor = await conn.execute(
+            """SELECT internal_monologue, dialogue
+               FROM cycle_log
+               WHERE mode != 'sleep'
+                 AND datetime(ts) >= datetime(?)
+                 AND datetime(ts) < datetime(?)""",
+            (day_start_str, day_end_str),
+        )
+        mem_rows = await cursor.fetchall()
+        day_refs = 0
+        for mr in mem_rows:
+            combined = (mr['internal_monologue'] or '') + ' ' + (mr['dialogue'] or '')
+            day_refs += _count_memory_refs(combined)
+        if day_refs > 0:
+            await _connection._exec_write(
+                """INSERT INTO metrics_snapshots (timestamp, metric_name, value, details, period)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (day_str + 'T23:59:59+00:00', 'unprompted_memories', float(day_refs),
+                 json.dumps({'references': day_refs, 'day': day_str}), 'daily'),
             )
             snapshots_written += 1
 

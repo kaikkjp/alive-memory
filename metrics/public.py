@@ -26,9 +26,14 @@ async def get_public_liveness() -> dict:
             'details': m.details,
         }
 
-    # Get 30-day trends for each metric
+    # Get 30-day trends for each metric (Phase 1 + Phase 2)
     trends = {}
-    for metric_name in ('uptime', 'initiative_rate', 'emotional_range'):
+    all_metric_names = (
+        'uptime', 'initiative_rate', 'emotional_range',  # Phase 1
+        'behavioral_entropy', 'knowledge_accumulation',   # Phase 2
+        'visitor_recall', 'unprompted_memories',           # Phase 2
+    )
+    for metric_name in all_metric_names:
         trend_data = await get_metric_trend(metric_name, days=30, period='daily')
         trends[metric_name] = [
             {'timestamp': t['timestamp'], 'value': t['value']}

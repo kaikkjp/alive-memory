@@ -214,15 +214,18 @@ class TestCollector:
         await _insert_cycle('c1')
         snapshot = await collect_all()
         assert isinstance(snapshot, MetricSnapshot)
-        assert len(snapshot.metrics) == 3
+        assert len(snapshot.metrics) == 7  # Phase 1 (3) + Phase 2 (4)
         names = {m.name for m in snapshot.metrics}
-        assert names == {'uptime', 'initiative_rate', 'emotional_range'}
+        assert 'uptime' in names
+        assert 'initiative_rate' in names
+        assert 'emotional_range' in names
+        assert 'behavioral_entropy' in names
 
     @pytest.mark.asyncio
     async def test_collect_hourly_stores_snapshots(self):
         await _insert_cycle('c1')
         snapshot = await collect_hourly()
-        assert len(snapshot.metrics) == 3
+        assert len(snapshot.metrics) == 4  # Phase 1 (3) + M3 entropy
 
         # Verify stored in DB
         latest = await get_latest_snapshot('uptime')

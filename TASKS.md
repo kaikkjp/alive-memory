@@ -743,7 +743,7 @@ ORDER BY sim_day;
 ---
 
 ### TASK-071: Liveness Metrics — Proving She's Alive
-**Status:** IN_PROGRESS (Phase 1 done 2026-02-19: M1, M2, M7 + backfill + metrics API + hourly collection)
+**Status:** IN_PROGRESS (Phase 1 done 2026-02-19: M1, M2, M7. Phase 2 done 2026-02-28: M3, M4, M5, M9 + 6-hourly collection + backfill)
 **Priority:** High
 **Complexity:** Large
 **Branch:** `feat/liveness-metrics`
