@@ -49,9 +49,6 @@ function getActivityText(
     if (drives.expression_need > 0.6) high.push("expressive");
     if (drives.social_hunger > 0.6) high.push("sociable");
     if (high.length > 0) return high.join(" & ");
-    if (drives.curiosity > 0.7) return "exploring";
-    if (drives.expression_need > 0.7) return "creating";
-    if (drives.social_hunger > 0.7) return "seeking connection";
   }
   return engagement_state === "idle" ? "resting" : engagement_state;
 }

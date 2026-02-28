@@ -184,11 +184,14 @@ function AgentCard({
         const res = await fetch(`/api/agents/${agent.id}/status`);
         if (!res.ok || !mounted) return;
         const data = await res.json();
-        if (data.status === "offline" || !mounted) return;
+        if (data.status === "offline" || !mounted) {
+          if (mounted) setLive(null);
+          return;
+        }
         const drives = data.drives;
         setLive({
           mood: data.mood,
-          energy: data.energy ?? drives?.energy,
+          energy: data.energy ?? (typeof drives?.energy === "number" ? drives.energy : drives?.energy?.value ?? 0.5),
           drives: drives
             ? {
                 curiosity: typeof drives.curiosity === "number" ? drives.curiosity : drives.curiosity?.value ?? 0.45,
