@@ -21,7 +21,7 @@ jobs:
       - name: Sync code to VPS
         uses: burnett01/rsync-deployments@7.0.1
         with:
-          switches: -rltzP --delete --chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r --exclude='node_modules' --exclude='.next' --exclude='out' --exclude='__pycache__' --exclude='.git' --exclude='data/' --exclude='lounge/data/' --exclude='venv' --exclude='.venv' --exclude='.claude' --exclude='assets/*.png' --exclude='demo/window/public/assets/'
+          switches: -rltzP --delete --chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r --exclude='node_modules' --exclude='.next' --exclude='out' --exclude='__pycache__' --exclude='.git' --exclude='data/' --exclude='lounge/data/' --exclude='venv' --exclude='.venv' --exclude='.claude' --exclude='.env' --exclude='assets/*.png' --exclude='demo/window/public/assets/'
           path: ./
           remote_path: /var/www/shopkeeper/
           remote_host: ${{ secrets.VPS_HOST }}
@@ -52,7 +52,7 @@ jobs:
       - name: Sync code to VPS (retry)
         uses: burnett01/rsync-deployments@7.0.1
         with:
-          switches: -rltzP --delete --chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r --exclude='node_modules' --exclude='.next' --exclude='out' --exclude='__pycache__' --exclude='.git' --exclude='data/' --exclude='lounge/data/' --exclude='venv' --exclude='.venv' --exclude='.claude' --exclude='assets/*.png' --exclude='demo/window/public/assets/'
+          switches: -rltzP --delete --chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r --exclude='node_modules' --exclude='.next' --exclude='out' --exclude='__pycache__' --exclude='.git' --exclude='data/' --exclude='lounge/data/' --exclude='venv' --exclude='.venv' --exclude='.claude' --exclude='.env' --exclude='assets/*.png' --exclude='demo/window/public/assets/'
           path: ./
           remote_path: /var/www/shopkeeper/
           remote_host: ${{ secrets.VPS_HOST }}

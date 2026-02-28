@@ -10,9 +10,11 @@ Group=shopkeeper
 WorkingDirectory=/var/www/shopkeeper
 ExecStart=/var/www/shopkeeper/.venv/bin/python engine/heartbeat_server.py
 Environment=PYTHONPATH=/var/www/shopkeeper/engine
-EnvironmentFile=/var/www/shopkeeper/.env
+EnvironmentFile=-/var/www/shopkeeper/.env
 Restart=always
 RestartSec=5
+StartLimitBurst=5
+StartLimitIntervalSec=60
 
 # Logging
 StandardOutput=journal
@@ -23,7 +25,7 @@ SyslogIdentifier=shopkeeper
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/www/shopkeeper/data /var/www/shopkeeper/assets
+ReadWritePaths=/var/www/shopkeeper/data /var/www/shopkeeper/assets /var/www/shopkeeper/identity
 PrivateTmp=true
 
 [Install]
