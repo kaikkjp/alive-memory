@@ -153,7 +153,7 @@ async def execute_body(motor_plan: MotorPlan, validated: ValidatedOutput,
             source='self',
             payload={
                 'text': dialogue,
-                'language': validated.dialogue_language,
+                'language': 'en',
                 'target': visitor_id,
             },
         )

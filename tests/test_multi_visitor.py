@@ -134,7 +134,7 @@ class TestOutputVisitorPresenceSync:
         """When she first speaks to a visitor, their presence goes to in_conversation."""
         validated = ValidatedOutput(
             dialogue='Welcome.',
-            dialogue_language='en',
+
             expression='warm',
             body_state='standing',
             gaze='at_visitor',
@@ -168,7 +168,7 @@ class TestOutputVisitorPresenceSync:
         """When she switches from v1 to v2, v1 goes to waiting, v2 goes to in_conversation."""
         validated = ValidatedOutput(
             dialogue='Hello there.',
-            dialogue_language='en',
+
             expression='warm',
             body_state='standing',
             gaze='at_visitor',
@@ -207,7 +207,7 @@ class TestOutputVisitorPresenceSync:
         """When she keeps talking to same visitor, only last_activity updates."""
         validated = ValidatedOutput(
             dialogue='Tell me more.',
-            dialogue_language='en',
+
             expression='curious',
             body_state='leaning_forward',
             gaze='at_visitor',

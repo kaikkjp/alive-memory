@@ -1033,7 +1033,6 @@ def fallback_response() -> CortexOutput:
     return CortexOutput(
         internal_monologue='Something went wrong with my thoughts. Starting over.',
         dialogue='...',
-        dialogue_language='en',
         expression='thinking',
         body_state='sitting',
         gaze='down',

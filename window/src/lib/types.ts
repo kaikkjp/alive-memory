@@ -47,32 +47,12 @@ export type TimeOfDay =
 
 export type ShopkeeperStatus = 'awake' | 'sleeping' | 'resting';
 
-// ─── Scene Layers (legacy compositor) ───
+// ─── Scene Layers ───
 
 export interface SceneLayers {
   background: string;
   shop: string;
-  items: ShelfItem[];
   character: string;
-  character_position: Position;
-  foreground: string[];
-  weather: string;
-  scene_id: string;
-}
-
-export interface ShelfItem {
-  sprite: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-export interface Position {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
 }
 
 // ─── Window State ───
@@ -130,105 +110,18 @@ export interface ChatHistoryEntry {
   timestamp: string;
 }
 
-export interface TextFragmentMessage {
-  type: 'text_fragment';
-  content: string;
-  fragment_type: FragmentType;
-  timestamp: string;
-}
-
-export interface ExpressionChangeMessage {
-  type: 'expression_change';
-  expression: string;
-  sprite_url: string;
-}
-
-export interface ItemAddedMessage {
-  type: 'item_added';
-  item: ShelfItem & { description?: string };
-  timestamp: string;
-}
-
-export interface StatusMessage {
-  type: 'status';
-  status: ShopkeeperStatus;
-  message: string;
-}
-
-export interface ChatResponseMessage {
-  type: 'chat_response';
-  content: string;
-  expression: string;
-  timestamp: string;
-}
-
-export interface TokenResultMessage {
-  type: 'token_result';
-  valid: boolean;
-  display_name?: string;
-  error?: string;
-}
-
-export interface ChatErrorMessage {
-  type: 'chat_error';
-  message: string;
-}
-
-export interface ChatMessageBroadcast {
-  type: 'chat_message';
-  sender: string;
-  sender_type: 'visitor' | 'shopkeeper';
-  content: string;
-  timestamp: string;
-}
-
-export interface VisitorPresenceMessage {
-  type: 'visitor_presence';
-  visitors: { display_name: string; visitor_id: string }[];
-  visitor_count: number;
-  timestamp: string;
-}
+// ─── WebSocket Messages: Server → Client (discriminated union) ───
 
 export type ServerMessage =
   | SceneUpdateMessage
-  | TextFragmentMessage
-  | ExpressionChangeMessage
-  | ItemAddedMessage
-  | StatusMessage
-  | ChatResponseMessage
-  | TokenResultMessage
-  | ChatErrorMessage
-  | ChatMessageBroadcast
-  | VisitorPresenceMessage;
-
-// ─── WebSocket Messages: Client → Server ───
-
-export interface VisitorMessage {
-  type: 'visitor_message';
-  text: string;
-  token: string;
-}
-
-export interface VisitorDisconnect {
-  type: 'visitor_disconnect';
-  token: string;
-}
-
-export interface TokenValidateMessage {
-  type: 'token_validate';
-  token: string;
-}
-
-// ─── Aggregated client state ───
-
-export interface ShopkeeperState {
-  layers: SceneLayers | null;
-  textEntries: TextEntry[];
-  windowState: WindowState | null;
-  currentThought: string;
-  activityLabel: string;
-  connected: boolean;
-}
+  | { type: 'text_fragment'; content: string; fragment_type: FragmentType; timestamp: string }
+  | { type: 'expression_change'; expression: string; sprite_url: string }
+  | { type: 'status'; status: ShopkeeperStatus; message: string }
+  | { type: 'chat_response'; content: string; expression: string; timestamp: string }
+  | { type: 'token_result'; valid: boolean; display_name?: string; error?: string }
+  | { type: 'chat_error'; message: string }
+  | { type: 'chat_message'; sender: string; sender_type: 'visitor' | 'shopkeeper'; content: string; timestamp: string }
+  | { type: 'visitor_presence'; visitors: { display_name: string; visitor_id: string }[]; visitor_count: number; timestamp: string };
 
 // ═══════════════════════════════════════════════
 // Dashboard types (unchanged — for /dashboard)
@@ -239,7 +132,6 @@ export interface ActionCapabilityView {
   enabled: boolean;
   ready: boolean;
   cooling_until: string | null;
-  energy_cost: number;
 }
 
 export interface BodyPanelData {
@@ -404,7 +296,6 @@ export interface ExternalRateLimitStatus {
   daily_limit: number;
   cooldown_remaining: number;
   cooldown_seconds: number;
-  energy_cost: number;
 }
 
 export interface ChannelStatus {

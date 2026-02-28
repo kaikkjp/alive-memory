@@ -20,16 +20,15 @@ class RateLimit:
     per_hour: int
     per_day: int
     cooldown_seconds: int
-    energy_cost: float
 
 
 RATE_LIMITS: dict[str, RateLimit] = {
-    'browse_web':    RateLimit(per_hour=20,  per_day=100, cooldown_seconds=180, energy_cost=0.15),
-    'post_x':        RateLimit(per_hour=12,  per_day=50,  cooldown_seconds=300, energy_cost=0.10),
-    'reply_x':       RateLimit(per_hour=30,  per_day=100, cooldown_seconds=120, energy_cost=0.08),
-    'post_x_image':  RateLimit(per_hour=6,   per_day=20,  cooldown_seconds=600, energy_cost=0.20),
-    'tg_send':       RateLimit(per_hour=60,  per_day=500, cooldown_seconds=5,   energy_cost=0.02),
-    'tg_send_image': RateLimit(per_hour=20,  per_day=100, cooldown_seconds=30,  energy_cost=0.05),
+    'browse_web':    RateLimit(per_hour=20,  per_day=100, cooldown_seconds=180),
+    'post_x':        RateLimit(per_hour=12,  per_day=50,  cooldown_seconds=300),
+    'reply_x':       RateLimit(per_hour=30,  per_day=100, cooldown_seconds=120),
+    'post_x_image':  RateLimit(per_hour=6,   per_day=20,  cooldown_seconds=600),
+    'tg_send':       RateLimit(per_hour=60,  per_day=500, cooldown_seconds=5),
+    'tg_send_image': RateLimit(per_hour=20,  per_day=100, cooldown_seconds=30),
 }
 
 
@@ -121,26 +120,15 @@ async def get_limiter_decision(action_name: str) -> dict:
 
 
 async def record_action(action_name: str, success: bool = True,
-                        cost_usd: float = 0.0, channel: str = None,
-                        error: str = None, payload: str = None,
-                        cycle_id: str = None, run_id: str = None,
-                        trace_id: str = None,
-                        limiter_decision: str = None,
-                        cooldown_state: str = None,
-                        rate_limit_remaining: int = None) -> None:
+                        channel: str = None, error: str = None,
+                        **_kwargs) -> None:
     """Record that an external action was executed."""
     now = clock.now_utc()
-    resolved_cycle_id = resolve_cycle_id(cycle_id)
-    resolved_run_id = resolve_run_id(run_id)
-    resolved_trace_id = resolve_trace_id(trace_id)
     await _connection._exec_write(
         """INSERT INTO external_action_log
-           (action_name, timestamp, success, cost_usd, channel, error, payload,
-            cycle_id, run_id, trace_id, limiter_decision, cooldown_state, rate_limit_remaining)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        (action_name, now.isoformat(), int(success), cost_usd,
-         channel, error, payload, resolved_cycle_id, resolved_run_id,
-         resolved_trace_id, limiter_decision, cooldown_state, rate_limit_remaining),
+           (action_name, timestamp, success, channel, error)
+           VALUES (?, ?, ?, ?, ?)""",
+        (action_name, now.isoformat(), int(success), channel, error),
     )
 
 
@@ -172,7 +160,6 @@ async def get_rate_limit_status(action_name: str) -> dict:
         'daily_limit': limit.per_day,
         'cooldown_remaining': cooldown_remaining,
         'cooldown_seconds': limit.cooldown_seconds,
-        'energy_cost': limit.energy_cost,
     }
 
 

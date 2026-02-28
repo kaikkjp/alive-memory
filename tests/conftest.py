@@ -230,7 +230,6 @@ def sample_cortex_output():
     """Minimal valid CortexOutput."""
     return CortexOutput(
         dialogue='The rain sounds different today.',
-        dialogue_language='en',
         expression='neutral',
         body_state='sitting',
         gaze='at_window',

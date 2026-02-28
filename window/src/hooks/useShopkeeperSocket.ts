@@ -172,13 +172,6 @@ export function useShopkeeperSocket(): SocketState & {
         );
         break;
 
-      case 'item_added':
-        setLayers((prev) => {
-          if (!prev) return prev;
-          return { ...prev, items: [...prev.items, msg.item] };
-        });
-        break;
-
       case 'status':
         setWindowState((prev) =>
           prev ? { ...prev, status: msg.status } : prev,
