@@ -8,7 +8,8 @@ Type=simple
 User=shopkeeper
 Group=shopkeeper
 WorkingDirectory=/var/www/shopkeeper
-ExecStart=/var/www/shopkeeper/.venv/bin/python heartbeat_server.py
+ExecStart=/var/www/shopkeeper/.venv/bin/python engine/heartbeat_server.py
+Environment=PYTHONPATH=/var/www/shopkeeper/engine
 EnvironmentFile=/var/www/shopkeeper/.env
 Restart=always
 RestartSec=5

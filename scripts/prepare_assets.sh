@@ -23,7 +23,7 @@ else
 fi
 
 ASSETS_DIR="${PROJECT_ROOT}/assets"
-PUBLIC_DIR="${PROJECT_ROOT}/window/public/assets"
+PUBLIC_DIR="${PROJECT_ROOT}/demo/window/public/assets"
 SPRITES_DIR="${PUBLIC_DIR}/sprites"
 
 # ─── Check source images exist ───

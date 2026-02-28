@@ -24,6 +24,14 @@ from typing import Optional
 
 import yaml
 
+# ── Path constants for engine/demo split (TASK-101) ──
+_CONFIG_DIR = os.path.dirname(os.path.abspath(__file__))       # config/ or engine/config/
+_ENGINE_DIR = os.path.dirname(_CONFIG_DIR)                      # repo root or engine/
+_REPO_ROOT = os.path.dirname(_ENGINE_DIR)                       # repo root (if in engine/config/)
+# Pre-move: _CONFIG_DIR=config/, _ENGINE_DIR=alive/, _REPO_ROOT=parent of alive/
+# Post-move: _CONFIG_DIR=engine/config/, _ENGINE_DIR=engine/, _REPO_ROOT=alive/
+# The search fallbacks in default()/digital_lifeform() handle both cases.
+
 
 # ── World presets ──
 
@@ -256,15 +264,44 @@ class AgentIdentity:
 
     @classmethod
     def default(cls) -> 'AgentIdentity':
-        """Load the default Shopkeeper identity."""
-        default_path = os.path.join(os.path.dirname(__file__), 'default_identity.yaml')
-        return cls.from_yaml(default_path)
+        """Load the default agent identity.
+
+        Search order:
+        1. AGENT_IDENTITY env var (explicit path)
+        2. Module-relative default_identity.yaml (pre-move compat)
+        3. Repo root demo/config/default_identity.yaml (post engine/demo split)
+        """
+        env_path = os.environ.get('AGENT_IDENTITY')
+        if env_path and os.path.exists(env_path):
+            return cls.from_yaml(env_path)
+        local = os.path.join(_CONFIG_DIR, 'default_identity.yaml')
+        if os.path.exists(local):
+            return cls.from_yaml(local)
+        demo_path = os.path.join(_REPO_ROOT, 'demo', 'config', 'default_identity.yaml')
+        if os.path.exists(demo_path):
+            return cls.from_yaml(demo_path)
+        raise FileNotFoundError(
+            "No identity YAML found. Set AGENT_IDENTITY env var or place "
+            "default_identity.yaml in config/ or demo/config/."
+        )
 
     @classmethod
     def digital_lifeform(cls) -> 'AgentIdentity':
-        """Load the digital lifeform blank-slate identity (TASK-095 v2)."""
-        dl_path = os.path.join(os.path.dirname(__file__), 'default_digital_lifeform.yaml')
-        return cls.from_yaml(dl_path)
+        """Load the digital lifeform blank-slate identity (TASK-095 v2).
+
+        Search order:
+        1. Module-relative (pre-move compat)
+        2. Repo root config/default_digital_lifeform.yaml (post engine/demo split)
+        """
+        local = os.path.join(_CONFIG_DIR, 'default_digital_lifeform.yaml')
+        if os.path.exists(local):
+            return cls.from_yaml(local)
+        root_path = os.path.join(_REPO_ROOT, 'config', 'default_digital_lifeform.yaml')
+        if os.path.exists(root_path):
+            return cls.from_yaml(root_path)
+        raise FileNotFoundError(
+            "No digital lifeform YAML found in config/ or repo root config/."
+        )
 
 
 # ── Module-level singleton for backward compat ──

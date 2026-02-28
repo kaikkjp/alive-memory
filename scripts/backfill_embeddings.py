@@ -14,8 +14,9 @@ import asyncio
 import os
 import sys
 
-# Add project root to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add engine/ to path (TASK-101: engine/ contains all platform Python code)
+_repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(_repo_root, 'engine'))
 
 # Force cold search enabled for backfill
 os.environ['COLD_SEARCH_ENABLED'] = 'true'
