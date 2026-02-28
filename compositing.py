@@ -59,14 +59,14 @@ def composite_scene(layers: dict) -> bytes:
     for item in layers.get('items', []):
         _paste_item(canvas, item)
 
-    # Layer 4: Character
-    pos = layers.get('character_position', {})
+    # Layer 4: Character (default anchor from legacy CHARACTER_ANCHOR constant)
     char_file = layers.get('character', '')
-    if char_file and pos:
+    if char_file:
+        pos = layers.get('character_position', {})
         _paste_at(
             canvas, 'her', char_file,
-            x=pos.get('x', 0),
-            y=pos.get('y', 0),
+            x=pos.get('x', 280),
+            y=pos.get('y', 380),
             w=pos.get('width', 200),
             h=pos.get('height', 350),
         )

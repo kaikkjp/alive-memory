@@ -31,8 +31,8 @@ async def log_cycle(log: dict):
            (id, mode, drives, focus_salience,
             token_budget, memory_count, internal_monologue, dialogue,
             expression, body_state, gaze, actions,
-            next_cycle_hints, run_id, trace_id, ts)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            next_cycle_hints, run_id, trace_id, routing_focus, ts)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (log['id'], log['mode'], json.dumps(log.get('drives', {})),
          log.get('focus_salience'), log.get('token_budget'),
          log.get('memory_count'), log.get('internal_monologue'),
@@ -40,7 +40,7 @@ async def log_cycle(log: dict):
          log.get('body_state', 'sitting'), log.get('gaze', 'at_visitor'),
          json.dumps(log.get('actions', [])),
          json.dumps(log.get('next_cycle_hints', [])),
-         run_id, trace_id, now)
+         run_id, trace_id, log.get('routing_focus'), now)
     )
 
 

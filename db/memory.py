@@ -973,17 +973,30 @@ async def get_shelf_assignments() -> list[dict]:
     } for r in rows]
 
 
+_SHELF_SLOTS = {
+    'shelf_top_1':    {'x': 120, 'y': 180, 'width': 80, 'height': 80},
+    'shelf_top_2':    {'x': 220, 'y': 180, 'width': 80, 'height': 80},
+    'shelf_top_3':    {'x': 320, 'y': 180, 'width': 80, 'height': 80},
+    'shelf_top_4':    {'x': 420, 'y': 180, 'width': 80, 'height': 80},
+    'shelf_mid_1':    {'x': 120, 'y': 300, 'width': 80, 'height': 80},
+    'shelf_mid_2':    {'x': 220, 'y': 300, 'width': 80, 'height': 80},
+    'shelf_mid_3':    {'x': 320, 'y': 300, 'width': 80, 'height': 80},
+    'shelf_mid_4':    {'x': 420, 'y': 300, 'width': 80, 'height': 80},
+    'shelf_low_1':    {'x': 120, 'y': 420, 'width': 80, 'height': 80},
+    'shelf_low_2':    {'x': 220, 'y': 420, 'width': 80, 'height': 80},
+}
+
+
 async def assign_shelf_slot(item_id: str, description: str,
                             sprite_filename: str = None) -> Optional[str]:
     """Assign an item to the next available shelf slot. Returns slot_id or None."""
-    from pipeline.scene import SHELF_SLOTS
 
     conn = await _connection.get_db()
     cursor = await conn.execute("SELECT slot_id FROM shelf_assignments")
     occupied = {r['slot_id'] for r in await cursor.fetchall()}
 
     slot_id = None
-    for sid in SHELF_SLOTS:
+    for sid in _SHELF_SLOTS:
         if sid not in occupied:
             slot_id = sid
             break
