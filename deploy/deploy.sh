@@ -13,10 +13,7 @@ cd "${APP_DIR}"
 
 echo "[deploy] Starting deployment at $(date -Iseconds)"
 
-# ─── Pull latest code ───
-echo "[deploy] Pulling latest code..."
-git fetch origin main
-git reset --hard origin/main
+# Code is synced by CI (rsync). No git pull needed.
 
 # ─── Fix ownership (root-owned files from prior deploys break rm/write) ───
 echo "[deploy] Fixing file ownership..."
