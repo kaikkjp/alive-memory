@@ -1723,7 +1723,7 @@ No changes to engagement FSM, ACK path, or channel routing (already automatic vi
 ---
 
 ### TASK-093: Taste Formation Experiment — MVP Core Loop
-**Status:** BACKLOG
+**Status:** DONE (2026-02-28)
 **Priority:** Medium
 **Description:** Build the minimum viable taste experiment: listings presented → evaluated with structured output → decision (accept/reject/watch) → market outcome. Run 200 cycles as fail-fast validation. Sim-only code — does NOT touch production.
 **Spec:** `tasks/TASK-093-cowork-brief.md`
