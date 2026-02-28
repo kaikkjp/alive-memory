@@ -984,6 +984,12 @@ _SHELF_SLOTS = {
     'shelf_mid_4':    {'x': 420, 'y': 300, 'width': 80, 'height': 80},
     'shelf_low_1':    {'x': 120, 'y': 420, 'width': 80, 'height': 80},
     'shelf_low_2':    {'x': 220, 'y': 420, 'width': 80, 'height': 80},
+    'shelf_low_3':    {'x': 320, 'y': 420, 'width': 80, 'height': 80},
+    'shelf_low_4':    {'x': 420, 'y': 420, 'width': 80, 'height': 80},
+    'counter_left':   {'x': 100, 'y': 520, 'width': 100, 'height': 80},
+    'counter_center': {'x': 300, 'y': 520, 'width': 100, 'height': 80},
+    'counter_right':  {'x': 500, 'y': 520, 'width': 100, 'height': 80},
+    'window_sill':    {'x': 50,  'y': 350, 'width': 60, 'height': 60},
 }
 
 
