@@ -1,8 +1,7 @@
 name: Deploy to VPS
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:  # manual trigger only — protects prod from auto-deploy
 
 permissions:
   contents: read
