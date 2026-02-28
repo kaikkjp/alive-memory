@@ -115,6 +115,50 @@ export default function DashboardPage() {
   );
 }
 
+interface LiveState {
+  mood?: { valence: number; arousal: number };
+  energy?: number;
+  drives?: {
+    curiosity: number;
+    social_hunger: number;
+    expression_need: number;
+  };
+  engagement_state?: string;
+  current_action?: string | null;
+  is_sleeping?: boolean;
+  inner_voice?: string | null;
+}
+
+function getMoodWord(valence: number, arousal: number): string {
+  if (valence > 0.3 && arousal > 0.3) return "excited";
+  if (valence > 0.3 && arousal < -0.1) return "serene";
+  if (valence > 0.1) return "content";
+  if (valence < -0.3 && arousal > 0.3) return "agitated";
+  if (valence < -0.3) return "melancholic";
+  if (valence < -0.1) return "pensive";
+  if (arousal > 0.3) return "alert";
+  if (arousal < -0.2) return "drowsy";
+  return "neutral";
+}
+
+function getMoodColor(valence: number): string {
+  if (valence > 0.2) return "#d4a574";
+  if (valence < -0.2) return "#8b9dc3";
+  return "#9a8c7a";
+}
+
+function CardDriveBar({ value, color }: { value: number; color: string }) {
+  const pct = Math.round(Math.max(0, Math.min(1, value)) * 100);
+  return (
+    <div className="flex-1 h-[3px] rounded-full bg-[#161616] overflow-hidden">
+      <div
+        className="h-full rounded-full transition-all duration-[2s] ease-out"
+        style={{ width: `${pct}%`, backgroundColor: color }}
+      />
+    </div>
+  );
+}
+
 function AgentCard({
   agent,
   onRefresh,
@@ -125,7 +169,49 @@ function AgentCard({
   const [menuOpen, setMenuOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [live, setLive] = useState<LiveState | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Poll live status when running
+  useEffect(() => {
+    if (agent.status !== "running") {
+      setLive(null);
+      return;
+    }
+    let mounted = true;
+    async function poll() {
+      try {
+        const res = await fetch(`/api/agents/${agent.id}/status`);
+        if (!res.ok || !mounted) return;
+        const data = await res.json();
+        if (data.status === "offline" || !mounted) return;
+        const drives = data.drives;
+        setLive({
+          mood: data.mood,
+          energy: data.energy ?? drives?.energy,
+          drives: drives
+            ? {
+                curiosity: typeof drives.curiosity === "number" ? drives.curiosity : drives.curiosity?.value ?? 0.45,
+                social_hunger: typeof drives.social_hunger === "number" ? drives.social_hunger : drives.social_hunger?.value ?? 0.5,
+                expression_need: typeof drives.expression_need === "number" ? drives.expression_need : drives.expression_need?.value ?? 0.4,
+              }
+            : undefined,
+          engagement_state: data.engagement_state,
+          current_action: data.current_action,
+          is_sleeping: data.is_sleeping,
+          inner_voice: data.inner_voice,
+        });
+      } catch {
+        // silent
+      }
+    }
+    poll();
+    const timer = setInterval(poll, 30_000);
+    return () => {
+      mounted = false;
+      clearInterval(timer);
+    };
+  }, [agent.id, agent.status]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -297,9 +383,58 @@ function AgentCard({
           <p className="text-xs text-[#9a8c7a] mb-2 ml-5">{agent.role}</p>
         )}
 
-        {/* Status + cycles */}
-        <p className="text-xs text-[#737373] mb-1 ml-5">{status.label}</p>
-        <p className="text-xs text-[#525252] mb-4 ml-5">{cycleText}</p>
+        {/* Status + live vitals */}
+        {live && live.mood ? (
+          <div className="ml-5 mb-4 space-y-1.5">
+            {/* Mood + energy */}
+            <div className="flex items-center gap-2 text-xs">
+              <span
+                className="font-medium"
+                style={{ color: getMoodColor(live.mood.valence) }}
+              >
+                {getMoodWord(live.mood.valence, live.mood.arousal)}
+              </span>
+              <div className="w-16 h-1 rounded-full bg-[#161616] overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-1000 ease-out"
+                  style={{
+                    width: `${Math.round(Math.max(0, Math.min(1, live.energy ?? 0.5)) * 100)}%`,
+                    backgroundColor: getMoodColor(live.mood.valence),
+                  }}
+                />
+              </div>
+              <span className="text-[#525252]">
+                {live.is_sleeping
+                  ? "sleeping"
+                  : live.current_action
+                    ? live.current_action.replace(/_/g, " ")
+                    : live.engagement_state === "engaged"
+                      ? "talking"
+                      : "idle"}
+              </span>
+            </div>
+            {/* Drive bars */}
+            {live.drives && (
+              <div className="flex gap-1.5 pr-2">
+                <CardDriveBar value={live.drives.curiosity} color="#7ab8b8" />
+                <CardDriveBar value={live.drives.social_hunger} color="#c4869a" />
+                <CardDriveBar value={live.drives.expression_need} color="#9a8cc4" />
+              </div>
+            )}
+            {/* Monologue snippet */}
+            {live.inner_voice && (
+              <p className="text-[10px] text-[#525252] italic truncate leading-tight">
+                &ldquo;{typeof live.inner_voice === "string" ? live.inner_voice.slice(0, 80) : ""}&rdquo;
+              </p>
+            )}
+            <p className="text-[10px] text-[#3a3a3a]">{cycleText}</p>
+          </div>
+        ) : (
+          <>
+            <p className="text-xs text-[#737373] mb-1 ml-5">{status.label}</p>
+            <p className="text-xs text-[#525252] mb-4 ml-5">{cycleText}</p>
+          </>
+        )}
 
         {actionError && (
           <p className="text-xs text-red-400 mb-3 ml-5">{actionError}</p>
