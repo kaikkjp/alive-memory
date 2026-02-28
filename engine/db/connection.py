@@ -375,9 +375,13 @@ async def add_column_if_missing(conn, table: str, column: str,
     """Add a column to a table if it doesn't already exist.
 
     SQLite lacks ADD COLUMN IF NOT EXISTS, so we check PRAGMA table_info.
+    Skips silently if the table itself doesn't exist (migrations create it).
     """
     cursor = await conn.execute(f"PRAGMA table_info({table})")
     existing = {row[1] for row in await cursor.fetchall()}
+    if not existing:
+        # Table doesn't exist yet — migration will create it with all columns
+        return
     if column not in existing:
         default_clause = f" DEFAULT {default}" if default is not None else ""
         await conn.execute(
@@ -401,8 +405,8 @@ async def run_migrations(conn):
     row = await cursor.fetchone()
     max_version = row[0] or 0
 
-    # Scan migrations/ directory — parent.parent because we're in db/connection.py
-    migrations_dir = pathlib.Path(__file__).parent.parent / 'migrations'
+    # Scan migrations/ directory — three levels up: db/ → engine/ → repo root
+    migrations_dir = pathlib.Path(__file__).parent.parent.parent / 'migrations'
     if not migrations_dir.exists():
         return
 
