@@ -705,14 +705,8 @@ class Heartbeat:
                 # She lives whether anyone is watching or not.
                 result = await self.run_one_cycle(drives)
 
-                # TASK-100: Apply idle arc multiplier to cycle interval
+                # Multiplier already applied inside run_one_cycle (TASK-100 fix).
                 sleep_time = result.sleep_seconds
-                multiplier = idle_cycle_multiplier(self._consecutive_idle)
-                if multiplier > 1.0:
-                    sleep_time = int(sleep_time * multiplier)
-                    phase = idle_phase(self._consecutive_idle)
-                    print(f"  [IdleArc] {phase} phase — {multiplier}x interval "
-                          f"({result.sleep_seconds}s → {sleep_time}s, streak={self._consecutive_idle})")
 
                 if clock.is_simulating():
                     clock.advance(sleep_time)
@@ -831,7 +825,10 @@ class Heartbeat:
 
         cycle_log = {}
         if focus.channel == 'idle':
-            # TASK-100: Idle arc phase-aware behavior
+            # TASK-100: Increment idle counter BEFORE phase computation
+            # so arbiter, fidget, cortex, and multiplier all see the same value.
+            prev_idle = self._consecutive_idle
+            self._consecutive_idle += 1
             phase = idle_phase(self._consecutive_idle)
 
             # Determine fidget probability based on phase
@@ -861,6 +858,13 @@ class Heartbeat:
                 wander_ctx = focus if focus.payload and focus.payload.get('wander_source') else None
                 cycle_log = await self.run_cycle('idle', focus_context=wander_ctx)
                 detail = cycle_log.get('internal_monologue', '')[:60] or 'idle cycle'
+                # TASK-100 fix: mark wander content-pool items seen so they rotate
+                if (focus.payload and focus.payload.get('wander_source') == 'content_pool'
+                        and focus.payload.get('pool_id')):
+                    await db.update_pool_item(
+                        focus.payload['pool_id'], status='seen',
+                        seen_at=clock.now_utc(),
+                    )
             sleep_seconds = self._get_cycle_interval('idle')
 
         elif focus.channel == 'rest':
@@ -909,18 +913,26 @@ class Heartbeat:
         # TASK-046: Update consecutive idle counter for arousal decay
         is_idle = focus.channel == 'idle'
         if is_idle:
-            prev = self._consecutive_idle
-            self._consecutive_idle += 1
-            # TASK-100: Log phase transitions
+            # Counter already incremented at top of idle branch.
+            # Log phase transitions.
             new_phase = idle_phase(self._consecutive_idle)
-            if prev > 0 and idle_phase(prev) != new_phase:
-                print(f"  [IdleArc] Phase transition: {idle_phase(prev)} → {new_phase} (streak={self._consecutive_idle})")
+            if prev_idle > 0 and idle_phase(prev_idle) != new_phase:
+                print(f"  [IdleArc] Phase transition: {idle_phase(prev_idle)} → {new_phase} (streak={self._consecutive_idle})")
         else:
             # TASK-100: Log wake from idle arc phase
             if self._consecutive_idle > 20:
                 prev_phase = idle_phase(self._consecutive_idle)
                 print(f"  [IdleArc] Wake from {prev_phase} (streak={self._consecutive_idle}) — {focus.channel} focus")
             self._consecutive_idle = 0
+
+        # TASK-100: Apply idle arc multiplier inside run_one_cycle so both
+        # production (_main_loop) and simulation (simulate.py) get it.
+        multiplier = idle_cycle_multiplier(self._consecutive_idle)
+        if multiplier > 1.0:
+            base = sleep_seconds
+            sleep_seconds = int(sleep_seconds * multiplier)
+            print(f"  [IdleArc] {idle_phase(self._consecutive_idle)} phase — {multiplier}x interval "
+                  f"({base}s → {sleep_seconds}s, streak={self._consecutive_idle})")
 
         return CycleResult(
             cycle_type=cycle_log.get('routing_focus', focus.channel),
