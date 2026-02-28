@@ -1828,7 +1828,7 @@ No changes to engagement FSM, ACK path, or channel routing (already automatic vi
 ---
 
 ### TASK-103: Pod Runtime — Programmatic Agent Lifecycle
-**Status:** BACKLOG
+**Status:** DONE (2026-02-28)
 **Priority:** Medium
 **Depends on:** TASK-101 (repo boundary), TASK-102 (MCP frontend)
 **Description:** Replace shell-script-based agent management with a Pod Supervisor — a long-running process that manages agent containers via API. Includes Pod registry (platform DB), health monitoring with auto-restart, resource limits (CPU/memory caps), auto nginx routing, and Lounge integration.
