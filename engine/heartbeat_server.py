@@ -225,8 +225,11 @@ class ShopkeeperServer:
         # Clear stale visitor presence from previous session
         await db.clear_all_visitors_present()
 
-        # Seed if fresh
-        if await check_needs_seed():
+        # Seed if fresh — only for physical-space agents (Shopkeeper).
+        # Digital lifeforms start with a blank slate by design.
+        has_physical = (self._identity.world.has_physical_space
+                        if self._identity and self._identity.world else True)
+        if has_physical and await check_needs_seed():
             await seed()
             print(f"  {Fore.CYAN}[System]{Style.RESET_ALL} Shop initialized. Objects placed on shelves.")
 
