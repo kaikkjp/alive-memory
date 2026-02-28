@@ -211,3 +211,27 @@ class Thread:
     source_visitor_id: Optional[str] = None
     source_event_id: Optional[str] = None
     tags: list = field(default_factory=list)
+
+
+# ── TASK-100: Idle Arc phase function ──
+
+def idle_phase(idle_streak: int) -> str:
+    """Map consecutive idle count to phase: DEEPEN, WANDER, or STILL."""
+    if idle_streak <= 20:
+        return 'DEEPEN'
+    elif idle_streak <= 40:
+        return 'WANDER'
+    return 'STILL'
+
+
+def idle_cycle_multiplier(idle_streak: int) -> float:
+    """Return cycle interval multiplier for current idle streak.
+
+    DEEPEN/WANDER: 1.0x (normal), STILL early (41-60): 2.0x, STILL deep (61+): 4.0x.
+    """
+    phase = idle_phase(idle_streak)
+    if phase != 'STILL':
+        return 1.0
+    if idle_streak <= 60:
+        return 2.0
+    return 4.0

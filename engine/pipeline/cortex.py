@@ -9,7 +9,7 @@ import httpx
 from datetime import datetime, timezone
 import clock
 from llm import complete as llm_complete
-from models.state import DrivesState, Visitor
+from models.state import DrivesState, Visitor, idle_phase
 from models.pipeline import CortexOutput
 from pipeline.thalamus import RoutingDecision
 from pipeline.sensorium import Perception
@@ -107,7 +107,7 @@ def _inject_mcp_into_schema(system_prompt: str) -> str:
 # effective priority so other threads can surface.
 _THREAD_APPEARANCE_COUNTER: dict[str, int] = {}
 _LAST_SELECTED_THREAD_IDS: set[str] = set()
-RUMINATION_THRESHOLD = cfg('cortex.rumination_threshold', 5)
+RUMINATION_THRESHOLD = cfg('cortex.rumination_threshold', 3)
 RUMINATION_DECAY_FACTOR = cfg('cortex.rumination_decay_factor', 0.3)
 
 
@@ -540,6 +540,7 @@ async def cortex_call(
     visitors_present: list = None,
     cycle_id: str | None = None,
     identity: AgentIdentity | None = None,
+    idle_streak: int = 0,
 ) -> CortexOutput:
     """The one LLM call. Build prompt pack, call model, return structured response."""
 
@@ -723,8 +724,33 @@ async def cortex_call(
             _r = enforce_section('U4_active_threads', "\n".join(thread_lines), 'user')
             parts.append(_r.text); _trim_results.append(_r)
 
+        # ── TASK-100: Idle arc prompt injection ──
+        phase = idle_phase(idle_streak)
+
+        if phase == 'DEEPEN' and active_threads:
+            # Inject last_reflection context — she knows she's been sitting with this
+            try:
+                reflections_raw = await db.get_setting('thread_reflections')
+                if reflections_raw:
+                    reflections = json.loads(reflections_raw)
+                    for t in active_threads:
+                        summary = reflections.get(t.id)
+                        if summary:
+                            parts.append(f"\nYou've been sitting with \"{t.title}\". You already considered: {summary}")
+            except Exception:
+                pass  # settings not found or malformed — skip
+
+        elif phase == 'STILL':
+            # Monologue thinning: encourage brevity and silence
+            if idle_streak > 60:
+                parts.append("\nYou've been still for a long time. Silence is fine. A word or two, or nothing.")
+            else:
+                parts.append("\nYou've been quiet for a while. Keep it brief — fragments, not essays.")
+
         # U11: Routing metadata
         routing_text = f"\nTOKEN BUDGET: {routing.token_budget}\nCYCLE TYPE: {routing.cycle_type}"
+        if idle_streak > 0:
+            routing_text += f"\nIDLE PHASE: {phase} (streak: {idle_streak})"
         parts.append(routing_text)
 
         # Skip U2 (gift), U3 (memories), U5 (consume), U6 (conversation),

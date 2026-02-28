@@ -1,12 +1,53 @@
 """Thalamus — deterministic code routing. No LLM."""
 
+from collections import deque
 from dataclasses import dataclass, field
+import random
+
 from models.pipeline import GapScore
-from models.state import DrivesState, EngagementState, Visitor
+from models.state import DrivesState, EngagementState, Visitor, idle_phase
 from pipeline.sensorium import Perception
 from db.parameters import p
 import clock
 import db
+
+
+# ── TASK-100: Perception ring buffer ──
+# Module-level deque prevents repeating the same solitude perception
+# within 3 consecutive idle cycles. Resets on restart (fresh senses).
+_recent_perceptions: deque = deque(maxlen=3)
+
+# Rotating pool of solitude phrases — varied idle perceptions.
+# Each agent type gets its own pool; has_physical selects which.
+_PHYSICAL_SOLITUDE_POOL = [
+    'The shop is quiet. Dust motes drift.',
+    'Silence. The clock ticks.',
+    'A faint creak from the shelves.',
+    'Warm light pools on the counter.',
+    'The street outside is still.',
+    'Nothing stirs. Just the hum of the fridge.',
+    'A car passes. Then quiet again.',
+    'The floorboards settle.',
+    'Afternoon light through the window.',
+    'The air smells faintly of wood and paper.',
+    'Wind presses gently against the glass.',
+    'A bird calls from somewhere nearby.',
+]
+
+_DIGITAL_SOLITUDE_POOL = [
+    'Quiet. No messages.',
+    'The feed is still.',
+    'Nothing new. Just the hum of being.',
+    'Silence stretches.',
+    'No one is here.',
+    'A moment without input.',
+    'The stream of data slows to a trickle.',
+    'Waiting. Not for anything in particular.',
+    'Still here. Still aware.',
+    'The world outside continues without me.',
+    'Time passes gently.',
+    'Alone with thoughts.',
+]
 
 
 @dataclass
@@ -85,6 +126,18 @@ async def route(
     )
 
 
+def _pick_solitude_perception(has_physical: bool) -> str:
+    """Pick a solitude perception from the pool, avoiding recent repeats."""
+    pool = _PHYSICAL_SOLITUDE_POOL if has_physical else _DIGITAL_SOLITUDE_POOL
+    available = [p for p in pool if p not in _recent_perceptions]
+    if not available:
+        # All recently used — pick any
+        available = pool
+    choice = random.choice(available)
+    _recent_perceptions.append(choice)
+    return choice
+
+
 async def autonomous_routing(drives: DrivesState,
                              *, has_physical: bool = True,
                              solitude_text: str = '') -> RoutingDecision:
@@ -96,14 +149,18 @@ async def autonomous_routing(drives: DrivesState,
     else:
         cycle_type = 'idle'
 
-    solitude_text = (solitude_text
-                     or ('No one is here. The shop is quiet.' if has_physical
-                         else 'No one is here. Quiet.'))
+    # TASK-100: Rotating perception pool. Pick from pool avoiding recent.
+    # Identity-level solitude_text is used as override; otherwise rotate.
+    if solitude_text:
+        perception_text = solitude_text
+    else:
+        perception_text = _pick_solitude_perception(has_physical)
+
     focus = Perception(
         p_type='internal',
         source='self',
         ts=clock.now_utc(),
-        content=solitude_text,
+        content=perception_text,
         features={},
         salience=0.2,
     )

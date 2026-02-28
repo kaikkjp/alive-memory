@@ -451,8 +451,9 @@ class TestAutonomousRoutingDigital(unittest.IsolatedAsyncioTestCase):
         drives = DrivesState()
         result = await autonomous_routing(drives, has_physical=False)
 
-        # Focus perception should have digital solitude text
-        self.assertEqual(result.focus.content, 'No one is here. Quiet.')
+        # Focus perception should have a solitude text from the digital pool
+        from pipeline.thalamus import _DIGITAL_SOLITUDE_POOL
+        self.assertIn(result.focus.content, _DIGITAL_SOLITUDE_POOL)
 
     async def test_physical_solitude(self):
         from pipeline.thalamus import autonomous_routing
@@ -461,7 +462,9 @@ class TestAutonomousRoutingDigital(unittest.IsolatedAsyncioTestCase):
         drives = DrivesState()
         result = await autonomous_routing(drives, has_physical=True)
 
-        self.assertEqual(result.focus.content, 'No one is here. The shop is quiet.')
+        # Focus perception should have a solitude text from the physical pool
+        from pipeline.thalamus import _PHYSICAL_SOLITUDE_POOL
+        self.assertIn(result.focus.content, _PHYSICAL_SOLITUDE_POOL)
 
 
 class TestWorldConfigYamlLoading(unittest.TestCase):
@@ -641,15 +644,15 @@ class TestWorldConfigTextFieldsThreaded(unittest.TestCase):
         self.assertEqual(routing.focus.content, 'Silence surrounds me.')
 
     def test_default_solitude_text_fallback(self):
-        """Without solitude_text kwarg, falls back to ternary."""
+        """Without solitude_text kwarg, picks from rotating pool."""
         import asyncio
-        from pipeline.thalamus import autonomous_routing
+        from pipeline.thalamus import autonomous_routing, _DIGITAL_SOLITUDE_POOL
         from models.state import DrivesState
 
         drives = DrivesState(social_hunger=0.3, curiosity=0.3, energy=0.8,
                              rest_need=0.1, expression_need=0.1)
         routing = asyncio.run(autonomous_routing(drives, has_physical=False))
-        self.assertEqual(routing.focus.content, 'No one is here. Quiet.')
+        self.assertIn(routing.focus.content, _DIGITAL_SOLITUDE_POOL)
 
     def test_custom_loneliness_text_threaded(self):
         """drives_to_feeling uses loneliness_text when provided."""

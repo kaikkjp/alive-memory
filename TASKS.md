@@ -1764,7 +1764,7 @@ No changes to engagement FSM, ACK path, or channel routing (already automatic vi
 ---
 
 ### TASK-100: Idle Arc — Natural Response to Low Stimulus
-**Status:** BACKLOG
+**Status:** DONE (2026-02-28)
 **Priority:** Medium
 **Description:** Extended idle periods produce a flat loop. Implement a three-phase idle arc: DEEPEN (0-20 idle cycles, varied perceptions with thread depth), WANDER (21-40, topic shifts via curiosity-driven novelty injection), STILL (41+, cycle interval stretches, monologue thins to fragments/silence). Any external event resets to normal. Reuses existing `_consecutive_idle` counter.
 **Spec:** `tasks/TASK-099-idle-arc.md` (numbered 099 in spec, 100 here — 099 taken by YouTube enrichment)

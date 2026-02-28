@@ -5,6 +5,7 @@ _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
 del _os, _sys
 
 import asyncio
+import json
 import random
 import traceback
 import uuid
@@ -16,7 +17,7 @@ import db
 from db import JST
 import clock
 from models.event import Event
-from models.state import DrivesState
+from models.state import DrivesState, idle_phase, idle_cycle_multiplier
 from models.pipeline import ValidatorState, ValidatedOutput, MotorPlan, HabitBoost
 from pipeline.sensorium import build_perceptions, Perception
 from pipeline.gates import perception_gate
@@ -565,6 +566,10 @@ class Heartbeat:
                     if not self.running:
                         break
                     await self.run_cycle('micro')
+                    # TASK-100: Log wake from idle arc phase
+                    if self._consecutive_idle > 20:
+                        prev_phase = idle_phase(self._consecutive_idle)
+                        print(f"  [IdleArc] Wake from {prev_phase} (streak={self._consecutive_idle}) — stimulus received")
                     self._consecutive_idle = 0  # TASK-046: visitor event resets idle counter
                     continue
 
@@ -699,10 +704,20 @@ class Heartbeat:
                 # ── Autonomous behavior (no visitor engaged) ──
                 # She lives whether anyone is watching or not.
                 result = await self.run_one_cycle(drives)
+
+                # TASK-100: Apply idle arc multiplier to cycle interval
+                sleep_time = result.sleep_seconds
+                multiplier = idle_cycle_multiplier(self._consecutive_idle)
+                if multiplier > 1.0:
+                    sleep_time = int(sleep_time * multiplier)
+                    phase = idle_phase(self._consecutive_idle)
+                    print(f"  [IdleArc] {phase} phase — {multiplier}x interval "
+                          f"({result.sleep_seconds}s → {sleep_time}s, streak={self._consecutive_idle})")
+
                 if clock.is_simulating():
-                    clock.advance(result.sleep_seconds)
+                    clock.advance(sleep_time)
                 else:
-                    await self._interruptible_sleep(result.sleep_seconds)
+                    await self._interruptible_sleep(sleep_time)
 
             except asyncio.CancelledError:
                 break
@@ -811,12 +826,19 @@ class Heartbeat:
                     print(f"  [Heartbeat] Feed ingestion error: {e}")
 
         # Let the arbiter decide focus
-        focus = await decide_cycle_focus(drives, self._arbiter_state)
+        focus = await decide_cycle_focus(drives, self._arbiter_state,
+                                         idle_streak=self._consecutive_idle)
 
         cycle_log = {}
         if focus.channel == 'idle':
-            # Ambient idle — 50% body-only (zero LLM cost), 50% full cycle
-            if random.random() < 0.5:
+            # TASK-100: Idle arc phase-aware behavior
+            phase = idle_phase(self._consecutive_idle)
+
+            # Determine fidget probability based on phase
+            # DEEPEN/WANDER: 50% fidget (normal), STILL: 75% fidget (thin monologue)
+            fidget_prob = 0.75 if phase == 'STILL' else 0.5
+
+            if random.random() < fidget_prob:
                 behavior, description = self._pick_fidget_behavior()
                 body_event = Event(
                     event_type='action_body',
@@ -835,7 +857,9 @@ class Heartbeat:
                 })
                 detail = f'fidget: {description}'
             else:
-                cycle_log = await self.run_cycle('idle')
+                # TASK-100: Pass wander payload as focus_context if present
+                wander_ctx = focus if focus.payload and focus.payload.get('wander_source') else None
+                cycle_log = await self.run_cycle('idle', focus_context=wander_ctx)
                 detail = cycle_log.get('internal_monologue', '')[:60] or 'idle cycle'
             sleep_seconds = self._get_cycle_interval('idle')
 
@@ -885,8 +909,17 @@ class Heartbeat:
         # TASK-046: Update consecutive idle counter for arousal decay
         is_idle = focus.channel == 'idle'
         if is_idle:
+            prev = self._consecutive_idle
             self._consecutive_idle += 1
+            # TASK-100: Log phase transitions
+            new_phase = idle_phase(self._consecutive_idle)
+            if prev > 0 and idle_phase(prev) != new_phase:
+                print(f"  [IdleArc] Phase transition: {idle_phase(prev)} → {new_phase} (streak={self._consecutive_idle})")
         else:
+            # TASK-100: Log wake from idle arc phase
+            if self._consecutive_idle > 20:
+                prev_phase = idle_phase(self._consecutive_idle)
+                print(f"  [IdleArc] Wake from {prev_phase} (streak={self._consecutive_idle}) — {focus.channel} focus")
             self._consecutive_idle = 0
 
         return CycleResult(
@@ -1400,6 +1433,7 @@ class Heartbeat:
             self_state=self_state,
             cycle_id=cycle_id,
             identity=self._identity,
+            idle_streak=self._consecutive_idle,
         )
 
         # 9. Validate
@@ -1433,6 +1467,22 @@ class Heartbeat:
             'internal_monologue': validated.internal_monologue,
             'resonance': validated.resonance,
         })
+
+        # TASK-100: DEEPEN — save thread reflection summary for depth tracking
+        if (mode == 'idle' and self._consecutive_idle <= 20
+                and validated.internal_monologue):
+            try:
+                active_thread_ids = [t.id for t in (await db.get_active_threads(limit=2))]
+                if active_thread_ids:
+                    reflections_raw = await db.get_setting('thread_reflections')
+                    reflections = json.loads(reflections_raw) if reflections_raw else {}
+                    # Store truncated summary of this cycle's monologue per thread
+                    summary = validated.internal_monologue[:120]
+                    for tid in active_thread_ids:
+                        reflections[tid] = summary
+                    await db.set_setting('thread_reflections', json.dumps(reflections))
+            except Exception:
+                pass  # non-critical — skip on error
 
         # ── STAGE: Actions ──
         approved = validated.approved_actions

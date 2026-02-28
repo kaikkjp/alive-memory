@@ -11,7 +11,7 @@ from typing import Optional
 
 import clock
 from db import JST
-from models.state import DrivesState
+from models.state import DrivesState, idle_phase
 import db
 
 
@@ -142,7 +142,8 @@ def _novelty_penalty(payload: Optional[dict], recent_keywords: list[str]) -> flo
     return 0.0
 
 
-async def decide_cycle_focus(drives: DrivesState, arbiter_state: dict) -> ArbiterFocus:
+async def decide_cycle_focus(drives: DrivesState, arbiter_state: dict,
+                             idle_streak: int = 0) -> ArbiterFocus:
     """Deterministic cycle focus decision. No LLM.
 
     Priority order (spec Section 1):
@@ -153,6 +154,7 @@ async def decide_cycle_focus(drives: DrivesState, arbiter_state: dict) -> Arbite
     5. Active thread LRU (Phase 2 — stub for now)
     6. Unread news (Phase 5 — stub for now)
     7. Creative pressure
+    7b. Wander channel (TASK-100: idle arc WANDER phase)
     8. Default: ambient idle
     """
 
@@ -268,6 +270,41 @@ async def decide_cycle_focus(drives: DrivesState, arbiter_state: dict) -> Arbite
                                   drives.mood_arousal)
             and (drives.expression_need > 0.6)):
         return ArbiterFocus(channel='express', pipeline_mode='express')
+
+    # ── Priority 7b: Wander channel (TASK-100) ──
+    # In WANDER phase, inject novelty: pull random totem or unread content.
+    if (idle_phase(idle_streak) == 'WANDER'
+            and drives.curiosity > 0.6):
+        import random as _rng
+        # Try a random totem (old memory / meaningful entity)
+        try:
+            totems = await db.get_totems(min_weight=0.3, limit=10)
+            if totems:
+                pick = _rng.choice(totems)
+                return ArbiterFocus(
+                    channel='idle',
+                    pipeline_mode='idle',
+                    payload={'wander_source': 'totem',
+                             'content': f"{pick.entity} — {pick.context or ''}",
+                             'title': pick.entity},
+                )
+        except Exception:
+            pass
+        # Fallback: unread content pool item
+        try:
+            pool_items = await db.get_unseen_news(min_salience=0.0, limit=1)
+            if pool_items:
+                item = pool_items[0]
+                return ArbiterFocus(
+                    channel='idle',
+                    pipeline_mode='idle',
+                    payload={'wander_source': 'content_pool',
+                             'pool_id': item['id'],
+                             'title': item.get('title', ''),
+                             'content': item.get('content', '')},
+                )
+        except Exception:
+            pass
 
     # ── Priority 8: Default — ambient idle ──
     return ArbiterFocus(channel='idle', pipeline_mode='idle')

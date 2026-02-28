@@ -597,6 +597,25 @@ def _build_focus_perception(focus_context) -> Perception | None:
             salience=1.0,
         )
 
+    # TASK-100: Wander perception — novelty injection during idle arc WANDER phase
+    elif focus_context.channel == 'idle' and payload.get('wander_source'):
+        wander_src = payload['wander_source']
+        if wander_src == 'totem':
+            content = f"Something surfaces from memory: {payload.get('title', 'a distant thought')}"
+        else:
+            content = f"Something catches your attention: {payload.get('title', 'something new')}"
+        return Perception(
+            p_type='ambient_discovery',
+            source='self',
+            ts=now,
+            content=content,
+            features={
+                'wander_source': wander_src,
+                **payload,
+            },
+            salience=0.5,
+        )
+
     return None
 
 
