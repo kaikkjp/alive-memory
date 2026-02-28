@@ -353,6 +353,19 @@ async def build_perceptions(unread_events: list[Event], drives: DrivesState,
     except Exception as e:
         print(f"  [Sensorium] Notification/gap injection failed: {e}")
 
+    # ── TASK-075: Circuit breaker fatigue perception ──
+    # When actions are blocked by circuit breakers, inject a character-aligned
+    # fatigue perception so cortex naturally steers away from failing actions.
+    try:
+        from pipeline.basal_ganglia import get_blocked_actions
+        blocked = get_blocked_actions()
+        if blocked:
+            fatigue_perc = _build_fatigue_perception(blocked)
+            if fatigue_perc:
+                perceptions.append(fatigue_perc)
+    except Exception:
+        pass  # circuit breaker is observability — must not break sensorium
+
     # Add ambient perception
     perceptions.append(build_ambient_perception(drives, world=world))
 
@@ -716,3 +729,36 @@ def _build_identity_evolution_perception(payload: dict) -> str | None:
     if evo_type in _EVOLUTION_TEMPLATES:
         return _EVOLUTION_TEMPLATES[evo_type]
     return None
+
+
+# ── Circuit breaker fatigue perception (TASK-075) ──
+
+_FATIGUE_TEMPLATES = [
+    "A wave of mental fatigue. Some things feel beyond reach right now.",
+    "Brain fog. Certain efforts feel like pushing through water.",
+    "A quiet exhaustion settles in — some capabilities feel dimmed.",
+]
+
+
+def _build_fatigue_perception(blocked_actions: list[str]) -> Perception | None:
+    """Build a character-aligned perception when actions are circuit-broken.
+
+    She doesn't see 'HTTP 429 rate limit' — she feels fatigue, brain fog,
+    a vague inability to do certain things. The perception steers cortex
+    toward alternative actions without exposing technical failure details.
+    """
+    if not blocked_actions:
+        return None
+    # Rotate through templates based on count of blocked actions
+    template = _FATIGUE_TEMPLATES[len(blocked_actions) % len(_FATIGUE_TEMPLATES)]
+    return Perception(
+        p_type='action_fatigue',
+        source='self',
+        ts=clock.now_utc(),
+        content=template,
+        features={
+            'is_fatigue': True,
+            'blocked_count': len(blocked_actions),
+        },
+        salience=0.6,
+    )
