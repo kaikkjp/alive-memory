@@ -5,6 +5,7 @@ import Link from "next/link";
 const tabs = [
   { key: "lounge", label: "Lounge", href: (id: string) => `/agent/${id}/lounge` },
   { key: "configure", label: "Configure", href: (id: string) => `/agent/${id}/configure` },
+  { key: "tools", label: "Tools", href: (id: string) => `/agent/${id}/tools` },
   { key: "api-keys", label: "API Keys", href: (id: string) => `/agent/${id}/api-keys` },
   { key: "docs", label: "Docs", href: (id: string) => `/agent/${id}/docs` },
 ];

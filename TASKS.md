@@ -1806,7 +1806,7 @@ No changes to engagement FSM, ACK path, or channel routing (already automatic vi
 ---
 
 ### TASK-102: MCP Frontend — Lounge UI for MCP Server Management
-**Status:** BACKLOG
+**Status:** DONE (2026-02-28)
 **Priority:** Medium
 **Description:** Two parts: (1) React components in the Lounge for MCP server management — connect server, list servers, toggle server/tools, delete, usage stats. (2) Schema enum injection fix in cortex.py — MCP tools appear in prompt text but NOT in the JSON schema `enum` array, so the LLM can't actually choose them as structured output.
 **Spec:** `tasks/TASK-102-mcp-frontend.md`
