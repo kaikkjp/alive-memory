@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import type { Agent } from "@/lib/types";
 import CreateAgentWizard from "@/components/CreateAgentWizard";
 
@@ -15,7 +14,6 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
-  const router = useRouter();
 
   useEffect(() => {
     fetchAgents();

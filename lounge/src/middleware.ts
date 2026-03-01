@@ -71,13 +71,18 @@ export async function middleware(request: NextRequest) {
 
   const secret = process.env.LOUNGE_JWT_SECRET;
 
-  // Soft-auth: pass through even without login, but inject manager if possible
+  // Soft-auth: pass through even without login, but inject manager if possible.
+  // IMPORTANT: always strip inbound x-manager-* headers to prevent spoofing.
   if (isSoftAuthPath(pathname)) {
     if (secret) {
       const enriched = await tryInjectManager(request, secret);
       if (enriched) return enriched;
     }
-    return NextResponse.next();
+    // No valid JWT — strip any spoofed manager headers
+    const sanitized = new Headers(request.headers);
+    sanitized.delete('x-manager-id');
+    sanitized.delete('x-manager-name');
+    return NextResponse.next({ request: { headers: sanitized } });
   }
 
   // ── Protected routes below ──
