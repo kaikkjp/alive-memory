@@ -11,7 +11,6 @@ interface TimelineEvent {
   payload: any;
 }
 
-// TODO [TASK-030]: event.payload is fetched but not displayed — add expandable detail view
 export default function TimelinePanel() {
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,13 +44,44 @@ export default function TimelinePanel() {
   };
 
   const formatEventType = (type: string) => {
-    // Strip common prefixes then humanize snake_case
     const label = type
       .replace(/^action_/, '')
       .replace(/^internal_/, '')
       .replace(/^ambient_/, '')
       .replace(/_/g, ' ');
     return label;
+  };
+
+  const getEventDetail = (event: TimelineEvent): string | null => {
+    const p = event.payload;
+    if (!p || typeof p !== 'object') return null;
+
+    switch (event.event_type) {
+      case 'action_body': {
+        const parts: string[] = [];
+        if (p.expression) parts.push(p.expression);
+        if (p.body_state) parts.push(p.body_state);
+        if (p.gaze) parts.push(`gaze=${p.gaze}`);
+        return parts.join(', ') || null;
+      }
+      case 'action_speak':
+        return p.text ? `"${p.text}"` : null;
+      case 'ambient_weather':
+        return p.description || p.condition || null;
+      case 'content_consumed':
+        return [p.artist, p.title].filter(Boolean).join(' — ') || p.content_id || null;
+      case 'drift_notable':
+        return p.composite != null ? `composite=${Number(p.composite).toFixed(3)}` : null;
+      case 'internal_conflict':
+        return p.description || null;
+      case 'internal_shift_candidate':
+        return p.trait_key ? `${p.trait_key}: ${p.old_value} → ${p.new_value}` : null;
+      default: {
+        // For unknown types, show first short string value from payload
+        const vals = Object.values(p).filter(v => typeof v === 'string' && v.length > 0 && v.length < 120);
+        return (vals[0] as string) || null;
+      }
+    }
   };
 
   const formatSource = (source: string) => {
@@ -82,23 +112,26 @@ export default function TimelinePanel() {
         {events.length === 0 && (
           <p className="text-sm text-neutral-500 font-mono">No recent events</p>
         )}
-        {events.map((event) => (
-          <div key={event.id} className={`border-l-2 ${getEventColor(event.event_type)} pl-3`}>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs text-neutral-500 font-mono">
-                {formatTs(event.ts)}
-              </span>
-              <span className="text-sm text-neutral-400 font-mono">
-                {formatEventType(event.event_type)}
-              </span>
-            </div>
-            {event.source && (
-              <div className="text-xs text-neutral-600 font-mono truncate">
-                {formatSource(event.source)}
+        {events.map((event) => {
+          const detail = getEventDetail(event);
+          return (
+            <div key={event.id} className={`border-l-2 ${getEventColor(event.event_type)} pl-3`}>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-neutral-500 font-mono">
+                  {formatTs(event.ts)}
+                </span>
+                <span className="text-sm text-neutral-400 font-mono">
+                  {formatEventType(event.event_type)}
+                </span>
               </div>
-            )}
-          </div>
-        ))}
+              {detail && (
+                <div className="text-xs text-neutral-500 font-mono truncate mt-0.5">
+                  {detail}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

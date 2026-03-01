@@ -6,6 +6,7 @@ import ConsciousnessCanvas from "@/components/ConsciousnessCanvas";
 import LoungeTopBar from "@/components/LoungeTopBar";
 import StateOverlay from "@/components/StateOverlay";
 import MindPanel from "@/components/MindPanel";
+import ActionsLog from "@/components/ActionsLog";
 import ChatBar from "@/components/ChatBar";
 import FeedTab from "@/components/FeedTab";
 import SeedTab from "@/components/SeedTab";
@@ -132,6 +133,12 @@ export default function LoungePage({
               Inner Voice
             </h2>
             <MindPanel entries={stream.inner_voice} status={stream.status} />
+          </div>
+          <div className="p-3 border-t border-[#1e1e1a]">
+            <h2 className="text-xs font-medium text-[#525252] uppercase tracking-wider mb-3">
+              Actions
+            </h2>
+            <ActionsLog actions={stream.recent_actions} />
           </div>
         </div>
 
@@ -275,7 +282,15 @@ export default function LoungePage({
           <div className="flex-1 overflow-y-auto px-3 pb-3">
             <div key={mobileTab} className="animate-tab-fade">
               {mobileTab === "mind" && (
-                <MindPanel entries={stream.inner_voice} status={stream.status} />
+                <>
+                  <MindPanel entries={stream.inner_voice} status={stream.status} />
+                  <div className="mt-4 pt-3 border-t border-[#1e1e1a]">
+                    <h2 className="text-xs font-medium text-[#525252] uppercase tracking-wider mb-3 px-3">
+                      Actions
+                    </h2>
+                    <ActionsLog actions={stream.recent_actions} />
+                  </div>
+                </>
               )}
               {mobileTab === "feed" && (
                 <FeedTab agentId={id} status={stream.status} onToast={setToast} />
@@ -349,7 +364,15 @@ export default function LoungePage({
         <div className="flex-1 overflow-y-auto px-3 pb-2">
           <div key={mobileTab} className="animate-tab-fade">
             {mobileTab === "mind" && (
-              <MindPanel entries={stream.inner_voice} status={stream.status} />
+              <>
+                <MindPanel entries={stream.inner_voice} status={stream.status} />
+                <div className="mt-4 pt-3 border-t border-[#1e1e1a]">
+                  <h2 className="text-xs font-medium text-[#525252] uppercase tracking-wider mb-3 px-3">
+                    Actions
+                  </h2>
+                  <ActionsLog actions={stream.recent_actions} />
+                </div>
+              </>
             )}
             {mobileTab === "feed" && (
               <FeedTab agentId={id} status={stream.status} onToast={setToast} />

@@ -13,6 +13,8 @@ const PUBLIC_PATHS = [
   '/api/auth/login',
   '/login',
   '/',
+  '/organism-test',
+  '/canvas-test',
 ];
 
 function isPublicPath(pathname: string): boolean {
