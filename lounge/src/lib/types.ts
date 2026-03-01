@@ -227,6 +227,29 @@ export interface CapabilityWithUsage extends ActionCapability {
   source?: 'builtin' | 'mcp';
 }
 
+// TASK-107: Dynamic actions
+export interface DynamicAction {
+  action_name: string;
+  alias_for: string | null;
+  body_state: string | null;
+  status: 'pending' | 'alias' | 'body_state' | 'promoted' | 'rejected';
+  attempt_count: number;
+  promote_threshold: number;
+  first_seen: string;
+  last_seen: string;
+  resolved_by: string | null;
+  notes: string | null;
+}
+
+export interface DynamicActionsData {
+  actions: DynamicAction[];
+  stats: {
+    total: number;
+    by_status: Record<string, number>;
+    top_pending: Array<{ action_name: string; attempt_count: number }>;
+  };
+}
+
 // TASK-095 v3.1 Batch 3: MCP types
 export interface McpToolInfo {
   name: string;

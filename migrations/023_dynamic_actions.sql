@@ -11,9 +11,7 @@ CREATE TABLE IF NOT EXISTS dynamic_actions (
     notes             TEXT
 );
 
-INSERT OR IGNORE INTO dynamic_actions (action_name, alias_for, body_state, status, attempt_count, first_seen, last_seen, resolved_by)
-VALUES
-    ('browse_web', NULL,           NULL,                        'rejected',   242, datetime('now'), datetime('now'), 'seed'),
-    ('stand',      NULL,           '{"body_state":"standing_window"}', 'body_state', 118, datetime('now'), datetime('now'), 'seed'),
-    ('sit',        NULL,           '{"body_state":"sitting"}',  'body_state',  50, datetime('now'), datetime('now'), 'seed'),
-    ('make_tea',   NULL,           NULL,                        'pending',     17, datetime('now'), datetime('now'), NULL);
+-- No seed data. Each agent discovers actions organically.
+-- Shopkeeper's historical data (browse_web:242, stand:118, etc.) was
+-- previously seeded here but polluted every new agent's DB.
+-- Shopkeeper's existing DB already has these rows; new agents start clean.

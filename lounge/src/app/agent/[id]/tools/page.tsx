@@ -3,6 +3,7 @@
 import { use } from "react";
 import AgentNav from "@/components/AgentNav";
 import McpServersPanel from "@/components/mcp/McpServersPanel";
+import DynamicActionsPanel from "@/components/DynamicActionsPanel";
 
 export default function ToolsPage({
   params,
@@ -17,6 +18,7 @@ export default function ToolsPage({
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto px-4 py-6">
           <McpServersPanel agentId={id} />
+          <DynamicActionsPanel agentId={id} />
         </div>
       </div>
     </div>

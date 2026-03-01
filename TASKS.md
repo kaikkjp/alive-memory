@@ -1945,6 +1945,34 @@ No changes to engagement FSM, ACK path, or channel routing (already automatic vi
 ---
 
 ```markdown
+### TASK-107: Lounge — Dynamic Actions Visibility
+**Status:** BACKLOG
+**Priority:** Medium
+**Description:** The Lounge dashboard has zero visibility into agents' dynamic actions. The ActionsPanel exists in `demo/window/` (Shopkeeper's dashboard) but is completely absent from the Lounge. Managers cannot see what actions their agents are organically inventing, how many times they've attempted them, or resolve pending actions (alias, body_state, reject).
+
+This matters because dynamic actions are the primary signal of agent-initiated growth — Alice is trying `seek_connection`, `ponder_self`, `ponder_name` and the manager can't see any of it.
+
+**Requirements:**
+1. Add a Dynamic Actions section to the Lounge agent detail view
+2. Show organic actions grouped by status (pending, promoted, alias, body_state, rejected)
+3. Show attempt counts and last-seen timestamps
+4. Allow manager to resolve pending actions (alias to existing action, map to body_state, reject)
+5. Filter out noise — don't show actions with attempt_count < 2 unless explicitly expanded
+
+**Scope (files you may touch):**
+- `lounge/src/components/` (new or existing agent detail components)
+- `lounge/src/app/` (agent detail page)
+- `engine/api/dashboard_routes.py` (if Lounge proxies through engine API)
+- `lounge/src/lib/` (API client, types)
+**Scope (files you may NOT touch):**
+- `engine/pipeline/*` (no pipeline changes)
+- `engine/db/*` (CRUD already exists in `db/actions.py`)
+- `demo/window/` (Shopkeeper's dashboard is separate)
+**Tests:** Verify API returns correct data per agent. Verify resolve actions persist.
+**Definition of done:** Manager can see Alice's `seek_connection:7`, `ponder_self:5` etc. in the Lounge and resolve them.
+
+---
+
 ### TASK-XXX: Title
 **Status:** BACKLOG
 **Priority:** Low / Medium / High

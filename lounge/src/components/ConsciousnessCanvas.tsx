@@ -37,7 +37,6 @@ function moodColor(
   component: "r" | "g" | "b",
   type: "stroke" | "bg"
 ): number {
-  // Stroke: warm white (positive) → pure white (neutral) → cool white (negative)
   if (type === "stroke") {
     const warm = { r: 255, g: 240, b: 220 };
     const neutral = { r: 255, g: 255, b: 255 };
@@ -50,7 +49,6 @@ function moodColor(
       return Math.round(neutral[component] + (cool[component] - neutral[component]) * t);
     }
   }
-  // Background: warm black (positive) → true dark (neutral) → cool black (negative)
   const warmBg = { r: 12, g: 10, b: 8 };
   const neutralBg = { r: 8, g: 8, b: 10 };
   const coolBg = { r: 8, g: 8, b: 14 };
@@ -94,6 +92,13 @@ export default function ConsciousnessCanvas({
     flareActive: false,
     flareFrames: 0,
     nextFlareIn: 180, // frames (~6s at 30fps)
+    // Dream flare "bias forces" — random nudges to existing params
+    // (RujiK approach: don't add new systems, push existing knobs)
+    flareDriveIdx: 0,        // which drive channel to spike (0/1/2)
+    flareDriveBias: 0,       // how much to push it (0.2–0.6)
+    flareComplexityBias: 0,  // nudge complexity (±1.5)
+    flareAlphaBias: 0,       // nudge alpha (10–40)
+    flareBlend: 0,           // 0→1→0 smooth envelope
     // Frame skip for target ~18fps
     lastFrame: 0,
     pointCount: 15000,
@@ -153,9 +158,8 @@ export default function ConsciousnessCanvas({
 
     const sleepAlphaFactor = props.is_sleeping ? 0.6 : 1.0;
     const thinkAlphaFactor = props.is_thinking ? 1.15 : 1.0;
-    const flareAlphaFactor = st.flareActive ? 1.3 : 1.0;
     const targetAlpha =
-      (40 + props.energy * 80) * sleepAlphaFactor * thinkAlphaFactor * flareAlphaFactor;
+      (40 + props.energy * 80) * sleepAlphaFactor * thinkAlphaFactor;
 
     const targetComplexity = clamp(8 - props.curiosity * 4, 4, 8);
     const targetAmplitude = (0.7 + props.social_hunger * 0.6) * (props.is_sleeping ? 0.7 : 1.0);
@@ -183,23 +187,37 @@ export default function ConsciousnessCanvas({
     st.bgG = lerp(st.bgG, targetBgG, rate);
     st.bgB = lerp(st.bgB, targetBgB, rate);
 
-    // Dream flare logic
+    // ─── Dream flare logic ───
+    // Each flare rolls random "bias forces" on existing parameters.
+    // The existing math does all the visual work — we just push its knobs.
     if (props.is_dreaming && props.is_sleeping) {
       st.nextFlareIn--;
       if (st.nextFlareIn <= 0 && !st.flareActive) {
         st.flareActive = true;
-        st.flareFrames = 12 + Math.random() * 6; // 12-18 frames
+        st.flareFrames = 14 + Math.random() * 8; // ~0.8-1.2s
+        // Roll this dream's bias forces
+        st.flareDriveIdx = (Math.random() * 3) | 0;          // pick a drive channel
+        st.flareDriveBias = 0.2 + Math.random() * 0.4;       // spike it by 0.2–0.6
+        st.flareComplexityBias = (Math.random() - 0.5) * 3;  // nudge complexity ±1.5
+        st.flareAlphaBias = 10 + Math.random() * 30;         // brighten by 10–40
       }
       if (st.flareActive) {
         st.flareFrames--;
+        // Smooth envelope
+        if (st.flareFrames > 12) {
+          st.flareBlend = lerp(st.flareBlend, 1.0, 0.25);
+        } else if (st.flareFrames < 5) {
+          st.flareBlend = lerp(st.flareBlend, 0.0, 0.2);
+        }
         if (st.flareFrames <= 0) {
           st.flareActive = false;
-          // Next flare in 3-8 seconds at ~18fps
+          st.flareBlend = 0;
           st.nextFlareIn = Math.floor(54 + Math.random() * 90);
         }
       }
     } else {
       st.flareActive = false;
+      st.flareBlend = lerp(st.flareBlend, 0, 0.1);
     }
 
     // Advance clock
@@ -212,21 +230,28 @@ export default function ConsciousnessCanvas({
     ctx.fillStyle = `rgb(${Math.round(st.bgR)},${Math.round(st.bgG)},${Math.round(st.bgB)})`;
     ctx.fillRect(0, 0, w, h);
 
-    // Point rendering
-    const alpha = clamp(Math.round(st.alpha), 0, 255);
+    // ─── Point rendering ───
+    // Apply flare bias forces to existing params — that's it
+    const fb = st.flareBlend;
+    const alpha = clamp(Math.round(st.alpha + fb * st.flareAlphaBias), 0, 255);
+    const complexity = clamp(st.complexity + fb * st.flareComplexityBias, 3, 9);
+    const amp = st.amplitude;
+
     ctx.fillStyle = `rgba(${Math.round(st.strokeR)},${Math.round(st.strokeG)},${Math.round(st.strokeB)},${alpha / 255})`;
 
     const t = st.t;
-    const complexity = st.complexity;
-    const amp = st.amplitude;
 
-    // Drive-modulated phase offsets
+    // Drive weights with flare bias injected into one channel
     const driveWeights = [props.curiosity, props.social_hunger, props.expression_need];
+    driveWeights[st.flareDriveIdx] = clamp(
+      driveWeights[st.flareDriveIdx] + fb * st.flareDriveBias,
+      0, 1
+    );
 
     // Center offset for the form — scale to canvas size
     const cx = w * 0.5;
     const cy = h * 0.46;
-    const scale = Math.min(w, h) / 400; // reference was 400x400
+    const scale = Math.min(w, h) / 400;
 
     for (let i = st.pointCount; i--; ) {
       const y = i / 500;
