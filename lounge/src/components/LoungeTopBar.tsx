@@ -66,6 +66,7 @@ export default function LoungeTopBar({
           href={`/agent/${agentId}/api-keys`}
           className="p-1.5 rounded-md text-sm text-[#525252] hover:text-[#d4a574] transition-colors"
           title="API Keys"
+          aria-label="API Keys"
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M10.5 1.5a3 3 0 0 1 0 4.24l-1.26 1.26.5.5-5 5H2.5v-2.24l5-5 .5.5L9.26 4.5a3 3 0 0 1 1.24-3z" />
@@ -76,6 +77,7 @@ export default function LoungeTopBar({
           href={`/agent/${agentId}/docs`}
           className="p-1.5 rounded-md text-sm text-[#525252] hover:text-[#d4a574] transition-colors"
           title="API Docs"
+          aria-label="API Docs"
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M3 2.5h7l3 3V13.5H3z" />
