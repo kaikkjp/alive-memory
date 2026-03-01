@@ -1,6 +1,7 @@
 /**
- * GET /api/agents — List all agents for the authenticated manager.
- * POST /api/agents — Create a new agent.
+ * GET /api/agents — List agents. Returns all agents (public); includes
+ *   `is_owner` flag when the caller is an authenticated manager.
+ * POST /api/agents — Create a new agent (requires auth).
  */
 
 import { NextResponse } from 'next/server';
@@ -16,21 +17,20 @@ async function getManagerId(): Promise<string | null> {
 
 export async function GET() {
   const managerId = await getManagerId();
-  if (!managerId) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-  }
 
-  const agents = await db.listAgents(managerId);
+  // Return all agents; tag ownership when a manager is logged in
+  const agents = await db.listAllAgents();
 
-  // Enrich with runtime status
+  // Enrich with runtime status + ownership flag
   const enriched = await Promise.all(
     agents.map(async (agent) => ({
       ...agent,
       status: (await isContainerRunning(agent.id)) ? 'running' as const : 'stopped' as const,
+      is_owner: managerId ? agent.manager_id === managerId : false,
     }))
   );
 
-  return NextResponse.json({ agents: enriched });
+  return NextResponse.json({ agents: enriched, authenticated: !!managerId });
 }
 
 export async function POST(request: Request) {

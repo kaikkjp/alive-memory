@@ -137,6 +137,24 @@ export async function listAgents(managerId: string): Promise<Agent[]> {
   }));
 }
 
+export async function listAllAgents(): Promise<Agent[]> {
+  const db = await getDb();
+  const result = db.exec(
+    'SELECT id, name, role, manager_id, port, created_at, updated_at FROM agents ORDER BY created_at DESC'
+  );
+  if (!result.length) return [];
+  return result[0].values.map((row) => ({
+    id: row[0] as string,
+    name: row[1] as string,
+    role: (row[2] as string) || undefined,
+    manager_id: row[3] as string,
+    port: row[4] as number,
+    status: 'stopped' as const,
+    created_at: row[5] as string,
+    updated_at: row[6] as string,
+  }));
+}
+
 export async function getAgent(id: string): Promise<Agent | null> {
   const db = await getDb();
   const result = db.exec(
