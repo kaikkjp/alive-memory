@@ -98,6 +98,66 @@ TRANSPARENT_PNG = base64.b64decode(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+lm1sAAAAASUVORK5CYII='
 )
 
+class _CaptureWriter:
+    """Minimal asyncio.StreamWriter stand-in that captures HTTP response data.
+
+    Used by _handle_rpc to feed requests through _handle_http without a real
+    socket. Collects all written bytes, then parses the HTTP response on
+    drain() to extract status code, content-type, and raw body bytes.
+
+    Body is kept as raw bytes to support binary responses (images, etc.).
+    """
+
+    def __init__(self):
+        self.status = 200
+        self.body_bytes = b''
+        self.content_type = 'application/json'
+        self._buffer = bytearray()
+        self._parsed = False
+
+    def write(self, data: bytes):
+        self._buffer.extend(data)
+
+    async def drain(self):
+        if self._parsed:
+            return
+        self._parsed = True
+        # Parse the captured HTTP response to extract status, headers, and body
+        raw = bytes(self._buffer)
+        # Split headers from body at the \r\n\r\n boundary (in raw bytes)
+        separator = b'\r\n\r\n'
+        idx = raw.find(separator)
+        if idx >= 0:
+            header_bytes = raw[:idx]
+            self.body_bytes = raw[idx + len(separator):]
+            header_text = header_bytes.decode('utf-8', errors='replace')
+            lines = header_text.split('\r\n')
+            # Extract status from first line
+            if lines:
+                try:
+                    self.status = int(lines[0].split(' ')[1])
+                except (IndexError, ValueError):
+                    self.status = 200
+            # Extract Content-Type
+            for line in lines[1:]:
+                if line.lower().startswith('content-type:'):
+                    self.content_type = line.split(':', 1)[1].strip()
+                    break
+        else:
+            self.body_bytes = raw
+
+    def get_extra_info(self, key, default=None):
+        if key == 'peername':
+            return ('gateway-rpc', 0)
+        return default
+
+    def close(self):
+        pass
+
+    async def wait_closed(self):
+        pass
+
+
 def _load_bind_address() -> tuple[str, int]:
     """Load host/port from env with validation."""
     host = os.environ.get('SHOPKEEPER_HOST', DEFAULT_HOST).strip() or DEFAULT_HOST
@@ -159,6 +219,7 @@ class ShopkeeperServer:
         self._current_origin = ''  # set per-request in _handle_http
         self.host, self.port = _load_bind_address()
         self._server_token = os.environ.get(TOKEN_ENV_VAR, '').strip()
+        self._gateway_client = None  # TASK-118: optional Gateway transport
 
     def _configure_agent_isolation(self):
         """Set up isolated DB, memory, identity, and config for a per-agent instance."""
@@ -327,6 +388,22 @@ class ShopkeeperServer:
         except OSError as e:
             print(f"  {Fore.YELLOW}[API]{Style.RESET_ALL} HTTP port {HTTP_PORT} in use, skipped.")
 
+        # TASK-118: Optional Gateway registration
+        gateway_url = os.environ.get('GATEWAY_URL')
+        if gateway_url:
+            from gateway_client import GatewayClient
+            self._gateway_client = GatewayClient(
+                gateway_url=gateway_url,
+                agent_id=self._agent_id,
+                agent_token=os.environ.get('GATEWAY_AGENT_TOKEN', ''),
+                heartbeat=self.heartbeat,
+                local_handler=self._handle_rpc,
+            )
+            asyncio.create_task(self._gateway_client.start())
+            print(f"  {Fore.CYAN}[Gateway]{Style.RESET_ALL} Connecting to {gateway_url}")
+        else:
+            print(f"  {Fore.CYAN}[Gateway]{Style.RESET_ALL} Standalone mode (no GATEWAY_URL)")
+
         print(f"  {Fore.WHITE}She lives whether you visit or not.{Style.RESET_ALL}\n")
 
         # Run all servers forever
@@ -338,6 +415,11 @@ class ShopkeeperServer:
     async def shutdown(self):
         """Graceful shutdown."""
         print(f"\n  {Fore.CYAN}[Server]{Style.RESET_ALL} Shutting down...")
+
+        # TASK-118: Stop Gateway client
+        if self._gateway_client:
+            await self._gateway_client.stop()
+
         await self.heartbeat.stop()
 
         # Stop visitor timeout checker
@@ -1144,6 +1226,42 @@ class ShopkeeperServer:
         await self._broadcast_to_window(
             build_visitor_presence_message(visitors, clock.now_utc().isoformat())
         )
+
+    # ─── RPC handler (Gateway transport, TASK-118) ───
+
+    async def _handle_rpc(self, method: str, path: str,
+                          headers: dict, body: str) -> tuple[int, bytes, str]:
+        """Handle an RPC request from the Gateway client.
+
+        Synthesizes a raw HTTP request and feeds it through the existing
+        _handle_http handler via a _CaptureWriter, so ALL routes are
+        automatically supported without duplication.
+
+        Returns (status, body_bytes, content_type).
+        """
+        body_bytes = body.encode('utf-8') if body else b''
+
+        # Build a synthetic HTTP request that _handle_http can parse.
+        # Path is forwarded with query string intact.
+        request_line = f'{method} {path} HTTP/1.1\r\n'
+        header_lines = ''
+        for hname, hval in headers.items():
+            header_lines += f'{hname}: {hval}\r\n'
+        if body_bytes:
+            header_lines += f'Content-Length: {len(body_bytes)}\r\n'
+        raw_request = (request_line + header_lines + '\r\n').encode() + body_bytes
+
+        # Create a StreamReader with the synthetic request
+        reader = asyncio.StreamReader()
+        reader.feed_data(raw_request)
+        reader.feed_eof()
+
+        # Use _CaptureWriter to collect the response
+        writer = _CaptureWriter()
+
+        await self._handle_http(reader, writer)
+
+        return writer.status, writer.body_bytes, writer.content_type
 
     # ─── HTTP handler (REST API) ───
 

@@ -2366,7 +2366,7 @@ Existing handler signatures remain `(server, writer, ...)` — `RequestContext` 
 ---
 
 ### TASK-118: Gateway — Core
-**Status:** BACKLOG
+**Status:** DONE (2026-03-01)
 **Priority:** High
 **Proposal:** `tasks/PROPOSAL-alive-infra-roadmap.md` Phase 3, Sub-phase 1
 **Depends on:** TASK-115 (bus patterns established)
