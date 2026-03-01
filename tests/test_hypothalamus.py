@@ -242,11 +242,33 @@ class TestMoodArousal:
         assert new.mood_arousal == pytest.approx(0.35, abs=0.01)
 
     @pytest.mark.asyncio
+    async def test_content_consumed_relieves_curiosity(self):
+        d = DrivesState(curiosity=0.8)
+        events = [Event(event_type='content_consumed', source='self', payload={})]
+        new, _ = await update_drives(d, elapsed_hours=0.0, events=events)
+        assert new.diversive_curiosity < d.diversive_curiosity
+        assert new.diversive_curiosity == pytest.approx(
+            0.8 - p('hypothalamus.event.content_consumed_curiosity_relief'),
+            abs=0.01,
+        )
+
+    @pytest.mark.asyncio
     async def test_thread_updated_boosts_arousal(self):
         d = DrivesState(mood_arousal=0.30)
         events = [Event(event_type='thread_updated', source='self', payload={})]
         new, _ = await update_drives(d, elapsed_hours=0.0, events=events)
         assert new.mood_arousal == pytest.approx(0.34, abs=0.01)
+
+    @pytest.mark.asyncio
+    async def test_thread_updated_relieves_expression(self):
+        d = DrivesState(expression_need=0.6)
+        events = [Event(event_type='thread_updated', source='self', payload={})]
+        new, _ = await update_drives(d, elapsed_hours=0.0, events=events)
+        assert new.expression_need < d.expression_need
+        assert new.expression_need == pytest.approx(
+            0.6 - p('hypothalamus.event.thread_updated_expression_relief'),
+            abs=0.01,
+        )
 
     @pytest.mark.asyncio
     async def test_action_variety_boosts_arousal(self):

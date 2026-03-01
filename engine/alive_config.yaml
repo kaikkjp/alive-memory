@@ -50,7 +50,6 @@ habit_policy:
     expression_threshold: 0.6          # expression_need must exceed this
     cooldown_cycles: 80                # min cycles between journals
     no_visitor_window: 5               # must have no visitor for N recent cycles
-    max_per_day: 3                     # hard cap per sleep-wake window
     priority: 0.75                     # base priority when triggered
     diminishing_factor: 0.6            # priority *= this per journal in current day
     mood_boost_amount: 0.1             # priority boost when mood is low

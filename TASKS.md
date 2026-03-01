@@ -1873,7 +1873,7 @@ No changes to engagement FSM, ACK path, or channel routing (already automatic vi
 ---
 
 ### TASK-105: Drive-Based Regulation — Remove Hard Caps + Social Sensitivity Trait
-**Status:** READY
+**Status:** DONE (2026-03-02)
 **Priority:** P2
 **Branch:** `feature/drive-regulation`
 **Depends on:** P1-6 energy feeling fix (must be live so budget-as-tiredness works)
@@ -1881,8 +1881,7 @@ No changes to engagement FSM, ACK path, or channel routing (already automatic vi
 **Spec:** `tasks/TASK-105-drive-regulation.md`
 **Scope (files you may touch):**
 - `engine/pipeline/hypothalamus.py` (social_sensitivity scaling, SessionTracker)
-- `engine/pipeline/body.py` (remove journal/content/thread caps)
-- `engine/pipeline/action_registry.py` (remove cap checks)
+- `engine/pipeline/arbiter.py` (remove per-channel daily caps, keep cooldown pacing)
 - `engine/drives_to_feeling.py` or equivalent (personality-aware thresholds)
 - `engine/config/identity.py` or identity loader (parse social_sensitivity)
 - Identity YAML schema (add `personality.social_sensitivity` field)
