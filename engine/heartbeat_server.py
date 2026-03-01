@@ -1025,6 +1025,13 @@ class ShopkeeperServer:
         await db.append_event(speech_event)
         await db.inbox_add(speech_event.id, priority=0.8)
 
+        # Acknowledge receipt immediately so the frontend can show a thinking indicator.
+        # Sent BEFORE triggering the microcycle (which may take 10-30+ seconds for LLM).
+        await websocket.send(json.dumps({
+            'type': 'chat_ack',
+            'timestamp': clock.now_utc().isoformat(),
+        }))
+
         # Trigger a microcycle
         await self.heartbeat.schedule_microcycle()
 

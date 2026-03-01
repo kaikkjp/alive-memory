@@ -45,6 +45,8 @@ function LiveWindow() {
     windowState,
     connected,
     chatMessages,
+    thinking,
+    chatError,
     sendChat,
     sendDisconnect,
     addVisitorMessage,
@@ -143,6 +145,8 @@ function LiveWindow() {
         open={chatPhase === 'chatting'}
         messages={chatMessages}
         displayName={displayName}
+        thinking={thinking}
+        chatError={chatError}
         onSend={handleChatSend}
         onClose={handleChatClose}
       />

@@ -119,6 +119,7 @@ export type ServerMessage =
   | { type: 'status'; status: ShopkeeperStatus; message: string }
   | { type: 'chat_response'; content: string; expression: string; timestamp: string }
   | { type: 'token_result'; valid: boolean; display_name?: string; error?: string }
+  | { type: 'chat_ack'; timestamp: string }
   | { type: 'chat_error'; message: string }
   | { type: 'chat_message'; sender: string; sender_type: 'visitor' | 'shopkeeper'; content: string; timestamp: string }
   | { type: 'visitor_presence'; visitors: { display_name: string; visitor_id: string }[]; visitor_count: number; timestamp: string };

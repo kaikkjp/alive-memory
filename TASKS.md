@@ -2178,6 +2178,36 @@ Outputs a human-readable report. No mutations — read-only diagnostic.
 
 ---
 
+### TASK-113: Chat UX — Thinking Indicator + Multi-Message Support
+**Status:** DONE (2026-03-01)
+**Priority:** High
+**Description:** Chat panel feels locked after sending a message: the input clears, the send button grays out (opacity 0.4), and there is zero feedback that the agent is processing. If the LLM cycle takes long or fails, the visitor sees nothing and must refresh. Three problems:
+1. **No processing feedback** — backend sends no acknowledgment when a visitor message is received. The frontend has no "thinking" state.
+2. **chat_error is invisible** — token exhaustion and other errors are silently logged to `console.warn`, never shown to the user.
+3. **No timeout recovery** — TCP terminal clients get `"She seems lost in thought"` after 45s, but WebSocket visitors get nothing if the cycle hangs.
+
+Fix:
+1. Backend: send `chat_ack` message immediately when a visitor message is received (before the LLM runs).
+2. Frontend: handle `chat_ack` → show a thinking indicator (animated dots in a shopkeeper-style bubble).
+3. Frontend: surface `chat_error` messages visibly in the chat panel.
+4. Frontend: clear the thinking indicator when `chat_response` / `chat_message` (shopkeeper) arrives, or after a timeout with a graceful fallback message.
+
+**Scope (files you may touch):**
+- `engine/heartbeat_server.py` (add `chat_ack` emission in `_handle_ws_chat`)
+- `demo/window/src/hooks/useShopkeeperSocket.ts` (handle `chat_ack`, `chat_error` state)
+- `demo/window/src/components/chat/ChatPanel.tsx` (thinking indicator, error display)
+- `demo/window/src/components/chat/ChatMessage.tsx` (thinking bubble variant)
+- `demo/window/src/lib/types.ts` (add `chat_ack` to `ServerMessage` union)
+- `demo/window/src/app/globals.css` (thinking animation styles)
+**Scope (files you may NOT touch):**
+- `engine/heartbeat.py`
+- `engine/pipeline/*`
+- `engine/db/*`
+**Tests:** Verify existing tests still pass. Manual: send a message → see thinking dots → receive response → dots disappear. Send with expired token → see error in chat.
+**Definition of done:** Visitor sees immediate feedback after sending a message. Errors are visible. Chat never feels "locked".
+
+---
+
 ### TASK-XXX: Title
 **Status:** BACKLOG
 **Priority:** Low / Medium / High

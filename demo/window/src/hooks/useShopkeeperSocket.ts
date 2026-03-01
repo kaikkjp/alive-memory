@@ -26,6 +26,8 @@ export interface SocketState {
   connected: boolean;
   chatMessages: ChatMessage[];
   visitorCount: number;
+  thinking: boolean;
+  chatError: string | null;
 }
 
 export function useShopkeeperSocket(): SocketState & {
@@ -43,6 +45,21 @@ export function useShopkeeperSocket(): SocketState & {
   const [connected, setConnected] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [visitorCount, setVisitorCount] = useState(0);
+  const [pendingAcks, setPendingAcks] = useState(0);
+  const [chatError, setChatError] = useState<string | null>(null);
+  const thinkingTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const pendingAcksRef = useRef(0);
+  const thinking = pendingAcks > 0;
+
+  // Decrement pending counter and clear timeout when all responses arrived.
+  const decrementPending = useCallback(() => {
+    setPendingAcks((n) => {
+      const next = Math.max(0, n - 1);
+      pendingAcksRef.current = next;
+      if (next === 0) clearTimeout(thinkingTimerRef.current);
+      return next;
+    });
+  }, []);
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectDelay = useRef(RECONNECT_BASE_MS);
@@ -178,7 +195,25 @@ export function useShopkeeperSocket(): SocketState & {
         );
         break;
 
+      case 'chat_ack':
+        // Server received our message — increment pending counter.
+        setChatError(null);
+        setPendingAcks((n) => {
+          const next = n + 1;
+          pendingAcksRef.current = next;
+          return next;
+        });
+        // Safety timeout: if no response within 60s after last ack, clear all and show fallback.
+        clearTimeout(thinkingTimerRef.current);
+        thinkingTimerRef.current = setTimeout(() => {
+          pendingAcksRef.current = 0;
+          setPendingAcks(0);
+          setChatError('She seems lost in thought...');
+        }, 60_000);
+        break;
+
       case 'chat_response':
+        decrementPending();
         setChatMessages((prev) => [
           ...prev,
           {
@@ -192,7 +227,8 @@ export function useShopkeeperSocket(): SocketState & {
         break;
 
       case 'chat_error':
-        console.warn('[chat]', msg.message);
+        decrementPending();
+        setChatError(msg.message);
         break;
 
       case 'chat_message':
@@ -216,6 +252,7 @@ export function useShopkeeperSocket(): SocketState & {
             ];
           });
         } else {
+          decrementPending();
           setChatMessages((prev) => [
             ...prev,
             {
@@ -251,6 +288,10 @@ export function useShopkeeperSocket(): SocketState & {
   const clearChatMessages = useCallback(() => {
     setChatMessages([]);
     lastSkThoughtRef.current = '';
+    pendingAcksRef.current = 0;
+    setPendingAcks(0);
+    setChatError(null);
+    clearTimeout(thinkingTimerRef.current);
   }, []);
 
   const addVisitorMessage = useCallback((text: string) => {
@@ -271,6 +312,7 @@ export function useShopkeeperSocket(): SocketState & {
     return () => {
       disposedRef.current = true;
       clearTimeout(reconnectTimer.current);
+      clearTimeout(thinkingTimerRef.current);
       wsRef.current?.close();
     };
   }, [connect]);
@@ -285,6 +327,8 @@ export function useShopkeeperSocket(): SocketState & {
     connected,
     chatMessages,
     visitorCount,
+    thinking,
+    chatError,
     sendChat,
     sendDisconnect,
     addVisitorMessage,

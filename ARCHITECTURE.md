@@ -418,9 +418,9 @@ Metacognitive monitor in `engine/pipeline/output.py` compares executed behavior 
 | Area | Files | Lines |
 |------|-------|-------|
 | Core engine (*.py root) | 1 | ~97 |
-| Config | 1 | ~57 |
-| Scripts | 18 | ~3,216 |
-| Tests | 148 | ~40,557 |
-| Docs (*.md) | 52 | ~33,929 |
-| Deploy | 8 | ~753 |
-| **Total** | **~228** | **~78,609** | **~332** | **~100,415** |
+| Config | 1 | ~60 |
+| Scripts | 19 | ~3,255 |
+| Tests | 151 | ~41,689 |
+| Docs (*.md) | 52 | ~34,347 |
+| Deploy | 8 | ~756 |
+| **Total** | **~232** | **~80,204** | **~228** | **~78,609** | **~332** | **~100,415** |

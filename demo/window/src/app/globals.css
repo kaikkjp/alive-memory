@@ -332,6 +332,22 @@ body:has(.window-viewport) {
 .chat-message { max-width: 85%; font-size: 0.9rem; line-height: 1.5; }
 .chat-message--visitor { align-self: flex-end; color: var(--color-text); opacity: 0.75; font-family: 'DM Sans', sans-serif; }
 .chat-message--shopkeeper { align-self: flex-start; color: var(--text-speech); font-family: 'Cormorant Garamond', 'Georgia', serif; }
+.chat-message--error { align-self: center; color: var(--color-text-muted); font-family: 'DM Sans', sans-serif; font-size: 0.75rem; font-style: italic; opacity: 0.6; }
+
+/* Thinking indicator — three dots pulsing */
+.chat-thinking { display: flex; gap: 0.3rem; padding: 0.25rem 0; }
+.chat-thinking__dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--text-speech); opacity: 0.4;
+  animation: thinking-pulse 1.4s ease-in-out infinite;
+}
+.chat-thinking__dot:nth-child(2) { animation-delay: 0.2s; }
+.chat-thinking__dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes thinking-pulse {
+  0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
+  40% { opacity: 0.7; transform: scale(1); }
+}
 
 .chat-panel__input-area { display: flex; gap: 0.5rem; margin-top: auto; flex-shrink: 0; padding-top: 0.5rem; }
 .chat-panel__input { flex: 1; background: rgba(8,6,4,0.6); border: 1px solid var(--color-border); color: var(--color-text); font-family: 'DM Sans', sans-serif; font-size: 0.85rem; padding: 0.55rem 0.75rem; border-radius: 2px; outline: none; transition: border-color 0.2s ease; min-height: 44px; }

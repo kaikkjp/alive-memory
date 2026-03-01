@@ -8,6 +8,8 @@ interface ChatPanelProps {
   open: boolean;
   messages: ChatMessage[];
   displayName: string;
+  thinking: boolean;
+  chatError: string | null;
   onSend: (text: string) => boolean;
   onClose: () => void;
 }
@@ -20,6 +22,8 @@ export default function ChatPanel({
   open,
   messages,
   displayName,
+  thinking,
+  chatError,
   onSend,
   onClose,
 }: ChatPanelProps) {
@@ -27,10 +31,10 @@ export default function ChatPanel({
   const inputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom on new messages
+  // Auto-scroll to bottom on new messages or thinking state change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length]);
+  }, [messages.length, thinking]);
 
   // Focus input when panel opens
   useEffect(() => {
@@ -72,6 +76,18 @@ export default function ChatPanel({
         {messages.map((msg) => (
           <ChatMessageItem key={msg.id} message={msg} />
         ))}
+        {thinking && (
+          <div className="chat-message chat-message--shopkeeper chat-thinking">
+            <span className="chat-thinking__dot" />
+            <span className="chat-thinking__dot" />
+            <span className="chat-thinking__dot" />
+          </div>
+        )}
+        {chatError && (
+          <div className="chat-message chat-message--error">
+            {chatError}
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
 
