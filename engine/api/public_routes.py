@@ -16,12 +16,17 @@ from pipeline.ack import on_visitor_message
 from pipeline.sanitize import sanitize_input
 
 
-async def _wait_for_dialogue(heartbeat, subscriber_id: str, timeout: float = 30.0) -> dict | None:
+async def _wait_for_dialogue(heartbeat, subscriber_id: str, timeout: float = 30.0,
+                             *, required_visitor_id: str | None = None) -> dict | None:
     """Wait for a cycle log that contains dialogue, skipping non-dialogue cycles.
 
     The subscriber queue receives logs from ALL cycle types (idle, ambient,
     habit, engage). Only engage cycles produce dialogue. We drain non-dialogue
     logs until we find one with actual speech or the timeout expires.
+
+    TASK-104: When required_visitor_id is set, only accept logs where the
+    cycle's visitor_id matches. This prevents manager handlers from
+    receiving dialogue intended for a different visitor's engagement.
     """
     import time
     deadline = time.monotonic() + timeout
@@ -34,10 +39,14 @@ async def _wait_for_dialogue(heartbeat, subscriber_id: str, timeout: float = 30.
             return None
         # Got a log — check if it has dialogue
         dialogue = log.get('dialogue')
-        if dialogue:
-            return log
-        # No dialogue — could be a habit/idle cycle that fired between
-        # subscribe and the engage cycle. Keep waiting.
+        if not dialogue:
+            # No dialogue — could be a habit/idle cycle. Keep waiting.
+            continue
+        # TASK-104: Filter by visitor_id when specified
+        if required_visitor_id and log.get('visitor_id') != required_visitor_id:
+            # Dialogue from a different visitor's cycle — skip it
+            continue
+        return log
 
 
 async def handle_chat(server, writer, body_bytes: bytes, api_key_meta: dict):
@@ -185,10 +194,12 @@ async def handle_manager_message(server, writer, body_bytes: bytes, api_key_meta
     await db.inbox_add(manager_event.id, priority=0.95)
 
     # Trigger microcycle and wait for response (same as handle_chat).
+    # TASK-104: Filter by visitor_id so manager doesn't receive another visitor's dialogue.
     server.heartbeat.subscribe_cycle_logs(visitor_id)
     try:
         await server.heartbeat.schedule_microcycle()
-        log = await _wait_for_dialogue(server.heartbeat, visitor_id, timeout=30)
+        log = await _wait_for_dialogue(server.heartbeat, visitor_id, timeout=30,
+                                       required_visitor_id=visitor_id)
     finally:
         server.heartbeat.unsubscribe_cycle_logs(visitor_id)
 

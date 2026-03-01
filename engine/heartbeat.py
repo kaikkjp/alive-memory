@@ -1105,6 +1105,7 @@ class Heartbeat:
         drives, feelings = await update_drives(
             drives, elapsed, unread, cortex_flags or None,
             cycle_context=cycle_context,
+            identity=self._identity,
         )
 
         # 3. Sensorium: events → perceptions
@@ -1134,7 +1135,19 @@ class Heartbeat:
         engagement = await db.get_engagement_state()
         visitor = None
         visitor_id = None
-        if engagement.visitor_id:
+        # TASK-104: Manager messages take priority over engagement state.
+        # The manager is not a visitor — don't use engagement's visitor_id
+        # when the focus perception is a manager message.
+        _is_manager_cycle = (
+            perceptions and perceptions[0].p_type == 'manager_speech'
+        )
+        if _is_manager_cycle:
+            # Resolve visitor_id from perception source, skip engagement
+            src = perceptions[0].source
+            vid = src.split(':')[1] if ':' in src else src
+            visitor = await db.get_visitor(vid)
+            visitor_id = vid
+        elif engagement.visitor_id:
             visitor = await db.get_visitor(engagement.visitor_id)
             visitor_id = engagement.visitor_id
         elif perceptions:
@@ -1527,6 +1540,7 @@ class Heartbeat:
                 'mood_valence': round(drives.mood_valence, 2),
                 'mood_arousal': round(drives.mood_arousal, 2),
             },
+            'visitor_id': visitor_id,  # TASK-104: needed for subscriber filtering
             'focus_salience': round(routing.focus.salience, 2) if routing.focus else 0,
             'focus_type': routing.focus.p_type if routing.focus else 'none',
             'routing_focus': routing.cycle_type,
@@ -1582,7 +1596,8 @@ class Heartbeat:
             body_output = await execute_body(motor_plan, validated, visitor_id, cycle_id=cycle_id)
             await process_output(body_output, validated, visitor_id,
                                  motor_plan=motor_plan, cycle_id=cycle_id,
-                                 elapsed_hours=elapsed)
+                                 elapsed_hours=elapsed,
+                                 is_manager=_is_manager_cycle)
             for event in unread:
                 await db.inbox_mark_read(event.id)
             await db.log_cycle(log)

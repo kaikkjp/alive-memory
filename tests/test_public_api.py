@@ -397,6 +397,7 @@ class TestHandleManagerMessage:
             'expression': 'calm',
             'body_state': 'sitting',
             'gaze': 'neutral',
+            'visitor_id': 'mgr-1',
         })
         writer = MagicMock()
         body = json.dumps({'message': 'how are you?', 'visitor_id': 'mgr-1'}).encode()

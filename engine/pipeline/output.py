@@ -116,7 +116,8 @@ def _classify_channel(action_name: str, target: str | None) -> str:
 async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
                          visitor_id: str = None, motor_plan: MotorPlan = None,
                          cycle_id: str = None,
-                         elapsed_hours: float = 0.05) -> CycleOutput:
+                         elapsed_hours: float = 0.05,
+                         is_manager: bool = False) -> CycleOutput:
     """Process post-action side effects.
 
     Memory consolidation, pool updates, drive adjustments, engagement state,
@@ -272,7 +273,9 @@ async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
         a.type == 'end_engagement'
         for a in validated.approved_actions
     )
-    if visitor_id and dialogue and dialogue != '...' and not ending:
+    # TASK-104: Manager channel messages must NOT create engagement.
+    # Manager is not a visitor — no engagement state, no ghost detection.
+    if visitor_id and dialogue and dialogue != '...' and not ending and not is_manager:
         engagement = await db.get_engagement_state()
         now = clock.now_utc()
         if engagement.status != 'engaged' or engagement.visitor_id != visitor_id:
