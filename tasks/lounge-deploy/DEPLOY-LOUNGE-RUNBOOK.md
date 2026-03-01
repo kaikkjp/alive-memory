@@ -1,131 +1,122 @@
 # Private Lounge — Deployment Runbook
 
+## Architecture
+
+```
+/opt/alive/shopkeeper/          ← git clone (deploy key: read-only)
+  lounge/                       ← Next.js app, systemd service alive-lounge
+    data/lounge.db              ← persistent DB (agent registrations, manager tokens)
+  engine/                       ← Python engine (used by agent Docker containers)
+
+/data/alive-agents/<id>/        ← per-agent config + data (bind-mounted into containers)
+```
+
+Engine (Shopkeeper + agents) = Docker containers.
+Lounge = systemd service running Next.js on port 3100.
+These are separate concerns — lounge restarts don't affect running agents.
+
+---
+
+## Deploying Lounge Changes
+
+### Standard deploy (from local machine)
+
+```bash
+# 1. Push your changes to GitHub
+git push origin main
+
+# 2. Deploy
+./scripts/deploy-lounge.sh
+```
+
+The script does: `git pull` → `npm install` → `npm run build` → `systemctl restart alive-lounge` → verify.
+
+### Manual deploy (SSH)
+
+```bash
+ssh shopkeeper
+cd /opt/alive/shopkeeper && git pull --ff-only
+cd lounge && npm install && npm run build
+sudo systemctl restart alive-lounge
+sudo systemctl status alive-lounge
+```
+
+---
+
 ## Prerequisites on VPS (89.167.23.147)
 
 ```bash
-# Check these are installed:
 docker --version          # Docker 20+
 nginx -v                  # nginx
 node -v                   # Node.js 20+
 ```
 
-If any missing, install first.
+---
+
+## First-Time Setup (already done)
+
+These steps were completed on 2026-03-01. Documented for reference.
+
+1. Generated SSH deploy key on VPS: `~/.ssh/id_ed25519_github`
+2. Added as deploy key to `TriMinhPham/shopkeeper` on GitHub (read-only)
+3. Cloned repo to `/opt/alive/shopkeeper/`
+4. Restored `lounge/data/lounge.db` from previous rsync'd install
+5. Updated systemd `WorkingDirectory` to `/opt/alive/shopkeeper/lounge`
+6. Old rsync'd lounge archived to `/opt/alive/lounge.bak/`
 
 ---
 
-## Step 1: Copy deploy files to VPS
-
-From your local machine, copy these files into the repo on VPS:
-
-```
-deploy/nginx-alive-lounge.conf    → repo/deploy/
-deploy/deploy-lounge.sh           → repo/deploy/
-scripts/create_agent.sh           → repo/scripts/
-scripts/destroy_agent.sh          → repo/scripts/
-scripts/list_agents.sh            → repo/scripts/
-scripts/nginx_regen.sh            → repo/scripts/
-```
-
-Make scripts executable:
-```bash
-chmod +x deploy/deploy-lounge.sh scripts/*.sh
-```
-
----
-
-## Step 2: Set REPO_DIR and run deploy
+## Manager Login
 
 ```bash
-# Edit the script — set REPO_DIR to your repo path
-vim deploy/deploy-lounge.sh
-# Change: REPO_DIR="" → REPO_DIR="/home/heo/shopkeeper" (or wherever)
-
-# Run it
-./deploy/deploy-lounge.sh
-```
-
-This will:
-1. Create `/data/alive-agents/` directory
-2. Build `alive-engine:latest` Docker image
-3. Build the lounge Next.js app
-4. Create + start systemd service for lounge portal (port 3100)
-5. Install nginx config for both subdomains
-6. Verify everything responds
-
----
-
-## Step 3: Verify externally
-
-```bash
-# From your local machine:
-curl -I https://alive.kaikk.jp          # Should get 200 (login page)
-curl -I https://api.alive.kaikk.jp      # Should get 404 (no agents yet)
-```
-
-If Cloudflare returns 522 (connection refused): nginx isn't listening on port 80, or the VPS firewall blocks it.
-
----
-
-## Step 4: Generate manager token
-
-```bash
-# On VPS:
-cd /path/to/repo/lounge
+# Generate a manager token (on VPS):
+cd /opt/alive/shopkeeper/lounge
 npx ts-node scripts/generate-manager-token.ts
 # Outputs: token_xxxxxxxx
 ```
 
 Log in at https://alive.kaikk.jp with this token.
 
+The dashboard is publicly accessible without login — all agents and their vitals are visible. Login is only required for management actions (start/stop/create/delete agents).
+
 ---
 
-## Step 5: Create first agent (manual test)
+## Agent Management
 
 ```bash
-# On VPS:
-./scripts/create_agent.sh test-hina 9001 sk-or-v1-YOUR-OPENROUTER-KEY
+# Create agent (via lounge API or scripts)
+./scripts/create_agent.sh <name> <port> <openrouter-key>
 
-# Verify:
-curl http://127.0.0.1:9001/api/state
-curl https://api.alive.kaikk.jp/test-hina/state
+# List agents
+./scripts/list_agents.sh
+
+# Destroy agent
+./scripts/destroy_agent.sh <name>          # keeps data
+./scripts/destroy_agent.sh <name> --purge  # deletes everything
 ```
-
----
-
-## Step 6: Test Private Lounge
-
-1. Go to https://alive.kaikk.jp
-2. Login with your manager token
-3. Click your agent → Lounge
-4. Send a message
-5. Verify response comes back
 
 ---
 
 ## Troubleshooting
 
 ```bash
-# Portal logs
+# Lounge logs
 sudo journalctl -u alive-lounge -f
 
-# Agent logs
-docker logs alive-agent-test-hina -f
+# Agent container logs
+docker logs alive-agent-<name> -f
 
 # nginx logs
 sudo tail -f /var/log/nginx/error.log
 
-# List all agents
-./scripts/list_agents.sh
-
-# Restart portal
+# Restart lounge
 sudo systemctl restart alive-lounge
 
-# Restart agent
-docker restart alive-agent-test-hina
+# Restart agent container
+docker restart alive-agent-<name>
 
-# Destroy agent
-./scripts/destroy_agent.sh test-hina          # keeps data
-./scripts/destroy_agent.sh test-hina --purge  # deletes everything
+# Check lounge DB
+sqlite3 /opt/alive/shopkeeper/lounge/data/lounge.db ".tables"
 ```
 
 ---
@@ -134,6 +125,14 @@ docker restart alive-agent-test-hina
 
 - SSL mode: "Flexible" works out of the box (Cloudflare → VPS on port 80)
 - For "Full" mode: add Cloudflare origin cert to nginx (recommended for production)
-- The yellow warning on `api.alive` DNS record clears once nginx responds
 - If you see "Error 522": VPS firewall or nginx not running
 - If you see "Error 524": agent took >100s to respond (Cloudflare timeout)
+
+---
+
+## Important Warnings
+
+- **Never delete `lounge/data/lounge.db`** — wipes all agent registrations and manager tokens
+- **Never `git clean -f` in the lounge dir on VPS** — would delete the data dir
+- **Deploy key is read-only** — you cannot push from VPS, only pull
+- **`lounge/data/` is gitignored** — it only exists on the VPS, not in the repo
