@@ -741,9 +741,9 @@ async def get_budget_remaining() -> dict:
 
     conn = await _connection.get_db()
 
-    # Get daily budget from settings (default $5.00)
+    # Get daily budget from settings (default $1.00 — matches identity YAML default)
     budget_str = await get_setting('daily_budget')
-    budget = float(budget_str) if budget_str else 5.0
+    budget = float(budget_str) if budget_str else 1.0
 
     # Get last sleep reset timestamp (default: today midnight JST in UTC)
     last_reset_str = await get_setting('last_sleep_reset')

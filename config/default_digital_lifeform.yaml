@@ -34,6 +34,8 @@ communication_style:
   verbosity: 0.4
   emoji_usage: 0.0
 
+daily_budget: 1.0              # max $/day on LLM calls
+
 language: "en"
 domain_context: ""
 greeting: ""              # blank — her first words are her own

@@ -50,9 +50,15 @@ def _trait_is_duplicate(visitor_id: str, category: str, key: str, value: str) ->
 
 async def hippocampus_consolidate(update: dict, visitor_id: str = None):
     """Write validated memory updates to DB + MD files."""
+    if not isinstance(update, dict):
+        print(f"  [Memory] Skipped non-dict memory_update: {type(update).__name__}")
+        return
 
     update_type = update.get('type')
     content = update.get('content', {})
+    if not isinstance(content, dict):
+        print(f"  [Memory] Skipped memory_update with non-dict content: {type(content).__name__}")
+        return
 
     if update_type == 'visitor_impression':
         if not visitor_id:
