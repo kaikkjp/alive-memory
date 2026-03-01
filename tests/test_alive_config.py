@@ -89,7 +89,6 @@ class TestConfigMergeLayers:
             assert config.get('habit_policy.journal.cooldown_cycles') == 200
             # Sibling keys preserved
             assert config.get('habit_policy.journal.expression_threshold') == 0.6
-            assert config.get('habit_policy.journal.max_per_day') == 3
 
     def test_env_override_deep_merges(self):
         """ALIVE_CONFIG env var should deep-merge, not replace."""

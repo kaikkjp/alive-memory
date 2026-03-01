@@ -35,14 +35,6 @@ CHANNEL_TO_MODE = {
     'idle':    'idle',      # existing ambient behavior
 }
 
-# Hard caps per JST day
-DAILY_CAPS = {
-    'consume': 8,
-    'news': 10,
-    'thread': 8,
-    'express': 6,
-}
-
 # Per-channel cooldowns in seconds
 CHANNEL_COOLDOWNS = {
     'consume': 1200,   # 20 min
@@ -66,19 +58,6 @@ def _cooldown_elapsed(last_ts: Optional[datetime], cooldown_seconds: int,
     if mood_arousal > 0.7:
         cooldown_seconds = int(cooldown_seconds * 0.6)
     return elapsed >= cooldown_seconds
-
-
-def _check_daily_budget(state: dict, channel: str) -> bool:
-    """Check if daily budget allows another cycle of this channel type."""
-    count_key = {
-        'consume': 'consume_count_today',
-        'news': 'news_engage_count_today',
-        'thread': 'thread_focus_count_today',
-        'express': 'express_count_today',
-    }.get(channel)
-    if not count_key:
-        return True
-    return state.get(count_key, 0) < DAILY_CAPS.get(channel, 999)
 
 
 def _reset_if_new_day(state: dict) -> dict:
@@ -158,7 +137,7 @@ async def decide_cycle_focus(drives: DrivesState, arbiter_state: dict,
     8. Default: ambient idle
     """
 
-    # Reset daily caps if new JST day
+    # Reset daily counters if new JST day
     _reset_if_new_day(arbiter_state)
 
     # ── Priority 1: Rest guard ──
@@ -167,10 +146,9 @@ async def decide_cycle_focus(drives: DrivesState, arbiter_state: dict,
 
     # ── Priority 2: Active thread with deadline today ──
     today_jst = clock.now().date().isoformat()
-    if (_check_daily_budget(arbiter_state, 'thread')
-            and _cooldown_elapsed(arbiter_state.get('last_thread_focus_ts'),
-                                  CHANNEL_COOLDOWNS['thread'],
-                                  drives.mood_arousal)):
+    if _cooldown_elapsed(arbiter_state.get('last_thread_focus_ts'),
+                         CHANNEL_COOLDOWNS['thread'],
+                         drives.mood_arousal):
         active_threads = await db.get_active_threads(limit=5)
         deadline_thread = next(
             (t for t in active_threads if t.target_date == today_jst), None
@@ -192,10 +170,9 @@ async def decide_cycle_focus(drives: DrivesState, arbiter_state: dict,
                 )
 
     # ── Priority 3: Unread high-salience news ──
-    if (_check_daily_budget(arbiter_state, 'news')
-            and _cooldown_elapsed(arbiter_state.get('last_news_engage_ts'),
-                                  CHANNEL_COOLDOWNS['news'],
-                                  drives.mood_arousal)):
+    if _cooldown_elapsed(arbiter_state.get('last_news_engage_ts'),
+                         CHANNEL_COOLDOWNS['news'],
+                         drives.mood_arousal):
         high_sal_news = await db.get_unseen_news(min_salience=0.5, limit=1)
         if high_sal_news:
             item = high_sal_news[0]
@@ -220,10 +197,9 @@ async def decide_cycle_focus(drives: DrivesState, arbiter_state: dict,
     # no longer schedules consume cycles.
 
     # ── Priority 5: Active thread (LRU, cooldown elapsed) ──
-    if (_check_daily_budget(arbiter_state, 'thread')
-            and _cooldown_elapsed(arbiter_state.get('last_thread_focus_ts'),
-                                  CHANNEL_COOLDOWNS['thread'],
-                                  drives.mood_arousal)):
+    if _cooldown_elapsed(arbiter_state.get('last_thread_focus_ts'),
+                         CHANNEL_COOLDOWNS['thread'],
+                         drives.mood_arousal):
         active_threads = await db.get_active_threads(limit=3)
         if active_threads:
             # Pick the least-recently-touched thread
@@ -245,10 +221,9 @@ async def decide_cycle_focus(drives: DrivesState, arbiter_state: dict,
             )
 
     # ── Priority 6: Unread news (lower salience) ──
-    if (_check_daily_budget(arbiter_state, 'news')
-            and _cooldown_elapsed(arbiter_state.get('last_news_engage_ts'),
-                                  CHANNEL_COOLDOWNS['news'],
-                                  drives.mood_arousal)):
+    if _cooldown_elapsed(arbiter_state.get('last_news_engage_ts'),
+                         CHANNEL_COOLDOWNS['news'],
+                         drives.mood_arousal):
         low_sal_news = await db.get_unseen_news(min_salience=0.0, limit=1)
         if low_sal_news:
             item = low_sal_news[0]
@@ -264,10 +239,9 @@ async def decide_cycle_focus(drives: DrivesState, arbiter_state: dict,
             )
 
     # ── Priority 7: Creative pressure ──
-    if (_check_daily_budget(arbiter_state, 'express')
-            and _cooldown_elapsed(arbiter_state.get('last_express_ts'),
-                                  CHANNEL_COOLDOWNS['express'],
-                                  drives.mood_arousal)
+    if (_cooldown_elapsed(arbiter_state.get('last_express_ts'),
+                          CHANNEL_COOLDOWNS['express'],
+                          drives.mood_arousal)
             and (drives.expression_need > 0.6)):
         return ArbiterFocus(channel='express', pipeline_mode='express')
 

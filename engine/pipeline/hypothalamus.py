@@ -176,10 +176,18 @@ async def update_drives(
     for event in events:
         if event.event_type == 'content_consumed':
             new.mood_arousal = clamp(new.mood_arousal + p('hypothalamus.event.content_consumed_arousal'))
+            new.diversive_curiosity = clamp(
+                new.diversive_curiosity
+                - p_or('hypothalamus.event.content_consumed_curiosity_relief', 0.12)
+            )
 
         # Thread touched: she's developing an idea
         if event.event_type == 'thread_updated':
             new.mood_arousal = clamp(new.mood_arousal + p('hypothalamus.event.thread_updated_arousal'))
+            new.expression_need = clamp(
+                new.expression_need
+                - p_or('hypothalamus.event.thread_updated_expression_relief', 0.10)
+            )
 
     # Action variety: novelty bump if recent actions are diverse
     if cortex_flags and cortex_flags.get('action_variety'):
