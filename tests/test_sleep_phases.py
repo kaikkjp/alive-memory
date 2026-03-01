@@ -30,6 +30,7 @@ from sleep.reflection import (
     compute_emotional_arc_from_moments,
     extract_totems_from_reflections,
 )
+from pipeline.hippocampus_write import hippocampus_consolidate
 from sleep.meta_review import _CATEGORY_DRIVE_MAP
 from sleep.wake import (
     reset_drives_for_morning,
@@ -179,6 +180,51 @@ class TestExtractTotems(unittest.TestCase):
             {'moment': _moment(), 'reflection': {'memory_updates': []}},
         ]
         self.assertEqual(extract_totems_from_reflections(reflections), [])
+
+    def test_non_dict_memory_update_skipped(self):
+        """Non-dict items in memory_updates must not crash extraction."""
+        reflections = [
+            {'moment': _moment(), 'reflection': {'memory_updates': [
+                'stale string entry',
+                42,
+                None,
+                {'type': 'totem_create', 'content': {'entity': 'Nujabes'}},
+            ]}},
+        ]
+        totems = extract_totems_from_reflections(reflections)
+        self.assertEqual(totems, ['Nujabes'])
+
+    def test_non_dict_content_skipped(self):
+        """Totem update with non-dict content must not crash."""
+        reflections = [
+            {'moment': _moment(), 'reflection': {'memory_updates': [
+                {'type': 'totem_create', 'content': 'not a dict'},
+                {'type': 'totem_update', 'content': {'entity': 'rain'}},
+            ]}},
+        ]
+        totems = extract_totems_from_reflections(reflections)
+        self.assertEqual(totems, ['rain'])
+
+
+class TestHippocampusConsolidateGuard(unittest.IsolatedAsyncioTestCase):
+    """hippocampus_consolidate rejects non-dict updates without crashing."""
+
+    async def test_string_update_skipped(self):
+        """String passed as update must not crash."""
+        await hippocampus_consolidate('stale string entry')
+        # No exception = pass
+
+    async def test_none_update_skipped(self):
+        """None passed as update must not crash."""
+        await hippocampus_consolidate(None)
+
+    async def test_int_update_skipped(self):
+        """Integer passed as update must not crash."""
+        await hippocampus_consolidate(42)
+
+    async def test_non_dict_content_skipped(self):
+        """Dict update with non-dict content must not crash."""
+        await hippocampus_consolidate({'type': 'visitor_impression', 'content': 'not a dict'})
 
 
 # ─── 2. sleep.meta_review tests ───

@@ -2208,6 +2208,33 @@ Fix:
 
 ---
 
+### TASK-114: Per-Agent Daily Dollar Budget in Identity YAML
+**Status:** DONE (2026-03-01)
+**Priority:** Medium
+**Description:** Add a `daily_budget` field to the agent identity YAML so each agent can have its own daily dollar cap. Currently the budget defaults to a hardcoded `$5.00` in `get_budget_remaining()` and can only be changed via the dashboard API at runtime. New agents should start with a budget from their identity config.
+
+**Implementation:**
+1. Add `daily_budget: float = 1.0` to `AgentIdentity` dataclass
+2. Parse `daily_budget` from YAML in `from_yaml()` (default 1.0 if absent)
+3. Add `daily_budget: 1.0` to `config/default_digital_lifeform.yaml`
+4. On heartbeat `start()`, seed `daily_budget` into DB settings if not already set (identity value as initial default, never overwrite runtime changes)
+5. Update `get_budget_remaining()` fallback from hardcoded `5.0` to `1.0` (matches identity default)
+
+**Scope (files you may touch):**
+- `engine/config/agent_identity.py` (add field + parsing)
+- `config/default_digital_lifeform.yaml` (add daily_budget key)
+- `engine/heartbeat.py` (seed budget on start)
+- `engine/db/analytics.py` (update fallback default)
+- `tests/test_agent_identity.py` (test new field)
+**Scope (files you may NOT touch):**
+- `engine/db/connection.py`
+- `engine/pipeline/*`
+- `engine/config/identity.py`
+**Tests:** Identity loads daily_budget from YAML. Default is 1.0 when absent. Heartbeat seeds budget on first start. Existing budget not overwritten.
+**Definition of done:** Each agent identity YAML can specify `daily_budget`. Value seeds into DB on first start. Dashboard can still override at runtime. Fallback matches identity default.
+
+---
+
 ### TASK-XXX: Title
 **Status:** BACKLOG
 **Priority:** Low / Medium / High

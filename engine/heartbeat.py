@@ -433,6 +433,15 @@ class Heartbeat:
                 print(f"  [Heartbeat] Restored last_sleep_date: {saved_sleep}")
         except Exception:
             pass
+        # TASK-109: Seed daily budget from identity config if not already set
+        try:
+            existing_budget = await db.get_setting('daily_budget')
+            if existing_budget is None:
+                budget_val = str(round(self._identity.daily_budget, 2))
+                await db.set_setting('daily_budget', budget_val)
+                print(f"  [Heartbeat] Seeded daily_budget from identity: ${self._identity.daily_budget:.2f}")
+        except Exception:
+            pass
         # TASK-061: Load persistent self-model
         self._self_model = SelfModel.load('identity/self_model.json')
         try:

@@ -214,6 +214,9 @@ class AgentIdentity:
     # Personality traits (TASK-105)
     personality: dict = field(default_factory=lambda: {'social_sensitivity': 0.5})
 
+    # Daily dollar budget (TASK-109)
+    daily_budget: float = 1.0
+
     # World framing + embodiment (identity decontamination)
     world: WorldConfig = field(default_factory=WorldConfig)
 
@@ -274,6 +277,7 @@ class AgentIdentity:
             }),
             actions_enabled=actions_enabled,
             personality=data.get('personality', {'social_sensitivity': 0.5}),
+            daily_budget=float(data.get('daily_budget', 1.0)),
             world=world,
         )
 
