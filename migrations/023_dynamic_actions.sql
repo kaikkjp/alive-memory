@@ -14,4 +14,4 @@ CREATE TABLE IF NOT EXISTS dynamic_actions (
 -- No seed data. Each agent discovers actions organically.
 -- Shopkeeper's historical data (browse_web:242, stand:118, etc.) was
 -- previously seeded here but polluted every new agent's DB.
--- Shopkeeper's existing DB already has these rows; new agents start clean.
+-- Shopkeeper's existing DB already has these rows. New agents start clean.
