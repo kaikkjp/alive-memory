@@ -54,7 +54,7 @@ async def reset_drives_for_morning():
     drives.social_hunger = p('sleep.morning.social_hunger')
     drives.curiosity = p('sleep.morning.curiosity')
     drives.expression_need = p('sleep.morning.expression_need')
-    drives.rest_need = p('sleep.morning.rest_need')
+    # NOTE: rest_need removed (TASK-106). Dollar budget is energy.
     # NOTE: energy is now a display-only derived value from real-dollar budget
     # (TASK-050). After sleep reset writes last_sleep_reset, budget is full,
     # so energy will read as 1.0 on next cycle's budget check.

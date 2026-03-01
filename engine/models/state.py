@@ -51,7 +51,7 @@ class DrivesState:
     social_hunger: float = 0.5
     curiosity: float = 0.5             # TASK-043: this IS diversive_curiosity (field kept for compat)
     expression_need: float = 0.3
-    rest_need: float = 0.2
+    rest_need: float = 0.0  # TASK-106: deprecated, always 0.0 (kept for DB compat)
     energy: float = 0.8
     mood_valence: float = 0.0           # -1 (dark) to +1 (bright)
     mood_arousal: float = 0.3           # 0 (still) to 1 (activated)

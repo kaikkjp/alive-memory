@@ -345,7 +345,7 @@ async def build_perceptions(unread_events: list[Event], drives: DrivesState,
                             for gs in gap_scores
                         },
                     },
-                    salience=0.3,
+                    salience=max(0.3, max((n.salience_base for n in notifications), default=0.3)),
                 ))
 
             # TASK-042: Add visitor speech gap annotations to perceptions

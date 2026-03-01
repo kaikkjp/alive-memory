@@ -96,12 +96,6 @@ _DRIVE_SENTENCES = {
         'low':      'I was content to listen.',
         'quiet':    'Nothing pressing to express.',
     },
-    'rest_need': {
-        'high':     'I was exhausted. Everything in me wanted to stop.',
-        'moderate': 'Tiredness was creeping in.',
-        'low':      'Still some energy left.',
-        'quiet':    'I felt rested.',
-    },
 }
 
 _ENERGY_SENTENCES = {
@@ -148,7 +142,7 @@ def translate_drives_summary(drives) -> str:
         parts.append(mood_sent)
 
     for drive_name in ('social_hunger', 'diversive_curiosity',
-                       'expression_need', 'rest_need'):
+                       'expression_need'):
         val = getattr(drives, drive_name, 0.5)
         # Only mention drives that are notably high or low
         if val > 0.6 or val < 0.3:
@@ -215,7 +209,7 @@ _SCRUB_PATTERNS = [
     # Percentages like 84%
     (r'\b\d+%', ''),
     # Pipeline variable names followed by numbers
-    (r'\b(arousal|valence|salience|energy|hunger|curiosity|expression_need|rest_need)\s*[:=]?\s*\d[\d.]*', ''),
+    (r'\b(arousal|valence|salience|energy|hunger|curiosity|expression_need)\s*[:=]?\s*\d[\d.]*', ''),
     # Bare integers that look like scores (3+ digits or preceded by "score")
     (r'\bscore\s*[:=]?\s*\d+', ''),
 ]

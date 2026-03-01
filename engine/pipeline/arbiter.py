@@ -162,7 +162,7 @@ async def decide_cycle_focus(drives: DrivesState, arbiter_state: dict,
     _reset_if_new_day(arbiter_state)
 
     # ── Priority 1: Rest guard ──
-    if drives.rest_need > 0.8 or drives.energy < 0.2:
+    if drives.energy < 0.2:
         return ArbiterFocus(channel='rest', pipeline_mode='rest')
 
     # ── Priority 2: Active thread with deadline today ──

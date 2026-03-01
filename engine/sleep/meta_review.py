@@ -14,12 +14,12 @@ from alive_config import cfg
 
 # Drive fields governed by each parameter category — for meta-sleep review
 _CATEGORY_DRIVE_MAP: dict[str, list[str]] = {
-    'hypothalamus': ['mood_valence', 'social_hunger', 'curiosity', 'expression_need', 'energy', 'rest_need'],
+    'hypothalamus': ['mood_valence', 'social_hunger', 'curiosity', 'expression_need', 'energy'],
     'thalamus':     ['curiosity'],
     'sensorium':    ['social_hunger'],
     'basal_ganglia': ['energy'],
     'output':       ['mood_valence', 'mood_arousal'],
-    'sleep':        ['rest_need', 'energy'],
+    'sleep':        ['energy'],
 }
 
 

@@ -103,7 +103,7 @@ class TestTranslateWhisper(unittest.TestCase):
             'hypothalamus.equilibria.diversive_curiosity',
             'hypothalamus.equilibria.social_hunger',
             'hypothalamus.equilibria.expression_need',
-            'hypothalamus.equilibria.rest_need',
+
             'hypothalamus.equilibria.mood_valence',
             'hypothalamus.equilibria.mood_arousal',
             'communication_style.formality',

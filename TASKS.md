@@ -1895,6 +1895,55 @@ No changes to engagement FSM, ACK path, or channel routing (already automatic vi
 
 ---
 
+### TASK-106: Remove rest_need Drive — Dollar Budget Is Energy
+**Status:** DONE (2026-03-01)
+**Priority:** High
+**Description:** `rest_need` is a fake fatigue counter with no real-world backing. It ticks up every cycle (even idle), traps agents in rest loops, and blocks content engagement. Meanwhile `energy` already mirrors the real constraint: `drives.energy = budget_remaining / daily_budget`. Dollar budget IS energy — there's no second fatigue layer needed.
+
+**What to remove:**
+1. Stop updating `rest_need` in hypothalamus (time decay, visitor cost, homeostatic pull, event responses)
+2. Remove rest routing from thalamus (`rest_need > threshold → rest` mode)
+3. Arbiter P1 rest guard: keep `energy < 0.2` only, drop `rest_need > 0.8`
+4. Remove rest_need adjustments from output.py (quiet cycle relief, end_engagement relief)
+5. Remove rest_need from basal_ganglia open_shop gate (use energy instead)
+6. Remove rest_need from self_context.py display
+7. Remove rest_need from hypothalamus expression_relief dict (journal, post_x)
+8. Remove rest_need from sleep/wake morning reset
+9. Zero `rest_need` in DrivesState default (keep field for DB compat, just stop using it)
+10. Clean up memory_translator.py, whisper.py, meta_review.py references
+
+**Also fix (discovered during investigation):**
+- `db/content.py:get_unseen_news()` filters `source_type = 'rss_headline'` — excludes manager drops (`source_type = 'manager_drop'`), URL items, text items. Arbiter P3/P6 never sees non-RSS content. Widen filter to include all unseen pool items regardless of source_type.
+
+**Scope (files you may touch):**
+- `engine/pipeline/hypothalamus.py` (remove rest_need updates)
+- `engine/pipeline/thalamus.py` (remove rest routing)
+- `engine/pipeline/arbiter.py` (simplify rest guard)
+- `engine/pipeline/output.py` (remove rest_need adjustments)
+- `engine/pipeline/basal_ganglia.py` (open_shop gate → use energy)
+- `engine/pipeline/sensorium.py` (notification salience — use max of item salience_base)
+- `engine/prompt/self_context.py` (remove rest_need display)
+- `engine/models/state.py` (zero default, keep field)
+- `engine/db/content.py` (fix get_unseen_news filter)
+- `engine/sleep/wake.py` (remove rest_need morning set)
+- `engine/sleep/whisper.py` (remove rest_need parameter tuning)
+- `engine/sleep/meta_review.py` (remove rest_need from review categories)
+- `engine/memory_translator.py` (remove rest_need translation)
+- `engine/pipeline/validator.py` (remove rest_need from close_shop gate)
+- `tests/test_hypothalamus.py`
+- `tests/test_thalamus.py`
+- `tests/test_arbiter.py`
+- `tests/test_habit_policy.py`
+- `tests/test_output.py`
+**Scope (files you may NOT touch):**
+- `engine/pipeline/cortex.py`
+- `engine/db/connection.py` (keep DB column for compat)
+- `engine/db/state.py` (keep field read/write for compat)
+**Tests:** Agent with rest_need=0.0 never enters rest mode unless energy < 0.2 (budget exhausted). Manager-dropped content (source_type='manager_drop') appears in arbiter P3 news check. All existing tests pass or are updated to reflect removal.
+**Definition of done:** rest_need is inert — always 0.0, never read for routing/gating decisions. Dollar budget (energy) is the sole compute-availability signal. get_unseen_news returns all source types. Existing agents behave identically except they no longer get stuck in rest loops.
+
+---
+
 ```markdown
 ### TASK-XXX: Title
 **Status:** BACKLOG

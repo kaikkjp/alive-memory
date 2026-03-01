@@ -120,16 +120,10 @@ async def update_drives(
     if budget_ratio is not None:
         new.energy = clamp(budget_ratio)
 
-    # Rest need builds with time — she gets tired just from being awake
-    # Faster when engaged (+0.06/hr), slower when idle (+0.03/hr)
     has_visitor_events = any(
         e.event_type in ('visitor_speech', 'visitor_connect')
         for e in events
     )
-    if has_visitor_events:
-        new.rest_need = clamp(new.rest_need + p('hypothalamus.time_decay.rest_engaged_per_hour') * elapsed_hours)
-    else:
-        new.rest_need = clamp(new.rest_need + p('hypothalamus.time_decay.rest_idle_per_hour') * elapsed_hours)
 
     # ─── Homeostatic pull (prevents drive saturation) ───
     # Each drive is pulled toward its equilibrium. Further from equilibrium
@@ -141,8 +135,6 @@ async def update_drives(
         new.diversive_curiosity, p('hypothalamus.equilibria.diversive_curiosity'), elapsed_hours)
     new.expression_need = _homeostatic_pull(
         new.expression_need, p('hypothalamus.equilibria.expression_need'), elapsed_hours)
-    new.rest_need = _homeostatic_pull(
-        new.rest_need, p('hypothalamus.equilibria.rest_need'), elapsed_hours)
     new.mood_valence = _homeostatic_pull(
         new.mood_valence, p('hypothalamus.equilibria.mood_valence'), elapsed_hours, -1.0, 1.0)
     new.mood_arousal = _homeostatic_pull(
@@ -157,7 +149,6 @@ async def update_drives(
             messages_this_session = _session_tracker.on_message(visitor_id)
             relief = base_relief / (1 + messages_this_session * 0.3)
             new.social_hunger = clamp(new.social_hunger - relief)
-            new.rest_need = clamp(new.rest_need + p('hypothalamus.event.visitor_speech_rest_cost'))  # each interaction tires her
 
         if event.event_type == 'action_speak':
             new.expression_need = clamp(new.expression_need - p('hypothalamus.event.action_speak_expression_relief'))
@@ -203,11 +194,8 @@ async def update_drives(
     if has_visitor_events:
         new.diversive_curiosity = clamp(new.diversive_curiosity - p('hypothalamus.conversation.curiosity_suppress_per_hour') * elapsed_hours)
 
-    # NOTE: Rest recovery gate removed (TASK-024). The old gate required
-    # `not events and elapsed_hours > 0.5`, which was impossible with
-    # frequent cycle intervals (~3 min). Homeostatic pull now handles
-    # continuous rest/energy recovery via equilibria (rest_need=0.25,
-    # energy=0.70).
+    # NOTE: rest_need removed (TASK-106). Dollar budget is energy.
+    # Budget-forced rest works via energy < 0.2 in the arbiter.
 
     # ─── TASK-046: Drive-to-mood coupling (allostatic affect regulation) ───
     ctx = cycle_context or {}
@@ -275,7 +263,7 @@ async def update_drives(
     feelings = drives_to_feeling(new, social_sensitivity=ss)
 
     print(f"  [Hypothalamus] Drives: soc={new.social_hunger:.2f} cur={new.curiosity:.2f} "
-          f"exp={new.expression_need:.2f} rest={new.rest_need:.2f} nrg={new.energy:.2f} "
+          f"exp={new.expression_need:.2f} nrg={new.energy:.2f} "
           f"val={new.mood_valence:.2f} aro={new.mood_arousal:.2f} "
           f"(elapsed={elapsed_hours:.3f}h, events={len(events)})")
 
@@ -374,9 +362,9 @@ def _build_expression_relief() -> dict:
     """Build expression relief dict from parameters."""
     return {
         'action_speak':    {'expression_need': p('hypothalamus.expression_relief.speak_expression'), 'social_hunger': p('hypothalamus.expression_relief.speak_social')},
-        'write_journal':   {'expression_need': p('hypothalamus.expression_relief.write_journal_expression'), 'rest_need': p('hypothalamus.expression_relief.write_journal_rest'), 'mood_valence': p_or('hypothalamus.expression_relief.write_journal_mood', 0.05)},
+        'write_journal':   {'expression_need': p('hypothalamus.expression_relief.write_journal_expression'), 'mood_valence': p_or('hypothalamus.expression_relief.write_journal_mood', 0.05)},
         'write_journal_skipped': {'expression_need': p('hypothalamus.expression_relief.write_journal_skipped_expression')},
-        'post_x_draft':    {'expression_need': p('hypothalamus.expression_relief.post_x_expression'), 'rest_need': p('hypothalamus.expression_relief.post_x_rest')},
+        'post_x_draft':    {'expression_need': p('hypothalamus.expression_relief.post_x_expression')},
         'rearrange':       {'expression_need': p('hypothalamus.expression_relief.rearrange_expression')},
     }
 

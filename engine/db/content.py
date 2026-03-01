@@ -374,7 +374,6 @@ async def get_unseen_news(min_salience: float = 0.3, limit: int = 5) -> list[dic
     cursor = await conn.execute(
         """SELECT * FROM content_pool
            WHERE status = 'unseen'
-           AND source_type = 'rss_headline'
            AND salience_base >= ?
            ORDER BY salience_base DESC, added_at ASC
            LIMIT ?""",

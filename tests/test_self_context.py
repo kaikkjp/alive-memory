@@ -377,11 +377,10 @@ async def test_visitor_hands_state():
 
 @pytest.mark.asyncio
 async def test_notable_drives_only_when_high():
-    """Curiosity/expression/rest only shown when above threshold."""
+    """Curiosity/expression only shown when above threshold."""
     drives = _make_drives(
         curiosity=0.3,  # below 0.5
         expression_need=0.2,  # below 0.5
-        rest_need=0.1,  # below 0.6
     )
     _setup_mocks(drives=drives)
 
@@ -389,16 +388,14 @@ async def test_notable_drives_only_when_high():
 
     assert 'Curiosity:' not in result
     assert 'Expression need:' not in result
-    assert 'Rest need:' not in result
 
 
 @pytest.mark.asyncio
 async def test_notable_drives_shown_when_high():
-    """Curiosity/expression/rest shown when above threshold."""
+    """Curiosity/expression shown when above threshold."""
     drives = _make_drives(
         curiosity=0.8,
         expression_need=0.7,
-        rest_need=0.7,
     )
     _setup_mocks(drives=drives)
 
@@ -406,7 +403,6 @@ async def test_notable_drives_shown_when_high():
 
     assert 'Curiosity:' in result
     assert 'Expression need:' in result
-    assert 'Rest need:' in result
 
 
 @pytest.mark.asyncio

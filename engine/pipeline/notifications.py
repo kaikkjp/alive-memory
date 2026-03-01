@@ -32,6 +32,7 @@ class Notification:
     source: str
     content_type: str
     surfaced_at: datetime
+    salience_base: float = 0.2
 
 
 async def get_notifications(cycle_id: str = None) -> list[Notification]:
@@ -73,6 +74,7 @@ async def get_notifications(cycle_id: str = None) -> list[Notification]:
             source=source,
             content_type=content_type,
             surfaced_at=now,
+            salience_base=item.get('salience_base', 0.2),
         )
         notifications.append(notification)
 

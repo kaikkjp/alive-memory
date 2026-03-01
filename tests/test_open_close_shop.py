@@ -3,7 +3,7 @@
 Covers:
 - Auto-reopen removed — shop stays closed after close_shop
 - open_shop action changes room_state from closed to open
-- open_shop drive gate — blocked when energy < 0.3 or rest_need > 0.6
+- open_shop drive gate — blocked when energy < 0.3
 - open_shop prerequisite — blocked when shop already open
 - close_shop prerequisite — blocked when shop already closed
 - Habit gates for open_shop and close_shop
@@ -138,32 +138,12 @@ class TestOpenShopAction:
 # ── Drive gates for open_shop (basal ganglia select_actions) ──
 
 class TestOpenShopDriveGate:
-    """open_shop is blocked when energy < 0.3 or rest_need > 0.6."""
+    """open_shop is blocked when energy < 0.3."""
 
     @pytest.mark.asyncio
-    async def test_low_energy_no_longer_blocks(self):
-        """TASK-050: Energy gate removed — low energy doesn't block open_shop."""
-        drives = _make_drives(energy=0.2, rest_need=0.3)
-        intentions = [Intention(action='open_shop', target=None,
-                                content='open up', impulse=0.8)]
-        validated = _validated_with_intentions(intentions)
-
-        mock_room = MagicMock()
-        mock_room.shop_status = 'closed'
-
-        with patch('pipeline.basal_ganglia.db') as mock_db:
-            mock_db.get_inhibitions_for_action = AsyncMock(return_value=[])
-            mock_db.get_room_state = AsyncMock(return_value=mock_room)
-
-            plan = await select_actions(validated, drives)
-
-        # TASK-050: Budget check is in heartbeat, not basal_ganglia
-        assert len(plan.actions) == 1
-        assert plan.actions[0].status == 'approved'
-
-    @pytest.mark.asyncio
-    async def test_blocked_when_high_rest_need(self):
-        drives = _make_drives(energy=0.8, rest_need=0.7)
+    async def test_blocked_when_low_energy(self):
+        """TASK-106: open_shop blocked when energy < 0.3."""
+        drives = _make_drives(energy=0.2, rest_need=0.0)
         intentions = [Intention(action='open_shop', target=None,
                                 content='open up', impulse=0.8)]
         validated = _validated_with_intentions(intentions)
@@ -179,11 +159,11 @@ class TestOpenShopDriveGate:
 
         assert len(plan.actions) == 0
         assert len(plan.suppressed) == 1
-        assert 'rest' in plan.suppressed[0].suppression_reason.lower()
+        assert 'energy' in plan.suppressed[0].suppression_reason.lower()
 
     @pytest.mark.asyncio
-    async def test_allowed_when_energy_and_rest_ok(self):
-        drives = _make_drives(energy=0.8, rest_need=0.3)
+    async def test_allowed_when_energy_ok(self):
+        drives = _make_drives(energy=0.8)
         intentions = [Intention(action='open_shop', target=None,
                                 content='open up', impulse=0.8)]
         validated = _validated_with_intentions(intentions)
@@ -354,13 +334,14 @@ class TestOpenShopHabitGates:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_habit_open_shop_blocked_high_rest_need(self):
-        drives = _make_drives(energy=0.8, rest_need=0.7)
+    async def test_habit_open_shop_blocked_low_energy_gate(self):
+        """TASK-106: open_shop habit blocked when energy < 0.3."""
+        drives = _make_drives(energy=0.2, rest_need=0.0)
         engagement = _make_engagement(status='none')
 
         habit = {
             'id': 'hab_open', 'action': 'open_shop',
-            'trigger_context': 'energy:high|mood:positive|mode:idle|time:morning|visitor:false',
+            'trigger_context': 'energy:low|mood:positive|mode:idle|time:morning|visitor:false',
             'strength': 0.9, 'repetition_count': 10,
             'formed_at': '2026-01-01', 'last_triggered': '2026-02-01',
         }
@@ -385,23 +366,19 @@ class TestDriveGateUnit:
     """Direct tests for _passes_drive_gate."""
 
     def test_open_shop_passes_when_ok(self):
-        drives = _make_drives(energy=0.5, rest_need=0.3)
+        drives = _make_drives(energy=0.5)
         assert _passes_drive_gate('open_shop', drives) is True
 
     def test_open_shop_fails_low_energy(self):
-        drives = _make_drives(energy=0.2, rest_need=0.3)
-        assert _passes_drive_gate('open_shop', drives) is False
-
-    def test_open_shop_fails_high_rest(self):
-        drives = _make_drives(energy=0.5, rest_need=0.7)
+        drives = _make_drives(energy=0.2)
         assert _passes_drive_gate('open_shop', drives) is False
 
     def test_open_shop_boundary_energy(self):
         """Energy exactly at 0.3 should fail (need > 0.3)."""
-        drives = _make_drives(energy=0.3, rest_need=0.3)
+        drives = _make_drives(energy=0.3)
         assert _passes_drive_gate('open_shop', drives) is False
 
-    def test_open_shop_boundary_rest(self):
-        """Rest need exactly at 0.6 should fail (need < 0.6)."""
-        drives = _make_drives(energy=0.5, rest_need=0.6)
-        assert _passes_drive_gate('open_shop', drives) is False
+    def test_open_shop_passes_above_threshold(self):
+        """Energy at 0.31 should pass."""
+        drives = _make_drives(energy=0.31)
+        assert _passes_drive_gate('open_shop', drives) is True

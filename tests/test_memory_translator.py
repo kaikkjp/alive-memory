@@ -154,9 +154,9 @@ class TestTranslateDrivesSummary:
         assert 'longed' in result.lower() or 'talk' in result.lower()
 
     def test_notable_drives_included(self):
-        drives = self._make_drives(rest_need=0.9, energy=0.1)
+        drives = self._make_drives(energy=0.1)
         result = translate_drives_summary(drives)
-        assert 'exhaust' in result.lower() or 'stop' in result.lower()
+        assert 'fumes' in result.lower() or 'thin' in result.lower()
 
 
 # ── Internal conflict translation ──

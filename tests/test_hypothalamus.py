@@ -98,14 +98,6 @@ class TestUpdateDrives:
         assert new.mood_arousal > 0.3
 
     @pytest.mark.asyncio
-    async def test_rest_recovery_during_idle(self):
-        d = DrivesState(rest_need=0.5, energy=0.5)
-        new, _ = await update_drives(d, elapsed_hours=1.0, events=[])
-        assert new.rest_need < 0.5
-        # TASK-050: energy is display-only, not recovered by hypothalamus
-        assert new.energy == 0.5
-
-    @pytest.mark.asyncio
     async def test_drives_stay_clamped(self):
         d = DrivesState(social_hunger=0.99, energy=0.01)
         events = [Event(event_type='visitor_disconnect', source='visitor:x', payload={})]
@@ -172,13 +164,6 @@ class TestHomeostaticPull:
         assert new.energy == 0.0, f"Energy should stay at 0.0 (display-only), got {new.energy}"
 
     @pytest.mark.asyncio
-    async def test_high_rest_need_pulled_down(self):
-        """Rest need at 1.0 should decrease toward equilibrium."""
-        d = DrivesState(rest_need=1.0)
-        new, _ = await update_drives(d, elapsed_hours=1.0, events=[])
-        assert new.rest_need < 1.0, f"Rest need should decrease from 1.0, got {new.rest_need}"
-
-    @pytest.mark.asyncio
     async def test_expression_at_zero_pulled_up(self):
         """Expression need at 0.0 should increase toward equilibrium."""
         d = DrivesState(expression_need=0.0)
@@ -188,25 +173,23 @@ class TestHomeostaticPull:
     @pytest.mark.asyncio
     async def test_no_drive_stuck_after_3_cycles(self):
         """No drive should stay at 0% or 100% for 3 consecutive short cycles."""
-        d = DrivesState(curiosity=1.0, expression_need=0.0, rest_need=1.0, energy=0.0)
+        d = DrivesState(curiosity=1.0, expression_need=0.0, energy=0.0)
         for _ in range(3):
             d, _ = await update_drives(d, elapsed_hours=0.05, events=[])
         assert d.curiosity < 1.0, "Curiosity stuck at 1.0 after 3 cycles"
         assert d.expression_need > 0.0, "Expression need stuck at 0.0 after 3 cycles"
-        assert d.rest_need < 1.0, "Rest need stuck at 1.0 after 3 cycles"
         # TASK-050: energy is display-only, stays at initial value
         assert d.energy == 0.0, "Energy should remain unchanged (display-only)"
 
     @pytest.mark.asyncio
     async def test_drives_converge_over_20_cycles(self):
         """From extremes, drives move meaningfully toward equilibrium over ~1hr."""
-        d = DrivesState(curiosity=1.0, rest_need=1.0, energy=0.0, expression_need=0.0)
+        d = DrivesState(curiosity=1.0, energy=0.0, expression_need=0.0)
         initial = d.copy()
         for _ in range(20):
             d, _ = await update_drives(d, elapsed_hours=0.05, events=[])
         # After 1 hour, drives should have moved significantly from extremes
         assert d.curiosity < initial.curiosity - 0.02
-        assert d.rest_need < initial.rest_need - 0.02
         # TASK-050: energy is display-only, stays at initial value
         assert d.energy == initial.energy
         assert d.expression_need > initial.expression_need + 0.01
@@ -218,7 +201,6 @@ class TestHomeostaticPull:
             social_hunger=p('hypothalamus.equilibria.social_hunger'),
             curiosity=p('hypothalamus.equilibria.diversive_curiosity'),
             expression_need=p('hypothalamus.equilibria.expression_need'),
-            rest_need=p('hypothalamus.equilibria.rest_need'),
             energy=p('hypothalamus.equilibria.energy'),
         )
         new, _ = await update_drives(d, elapsed_hours=0.05, events=[])

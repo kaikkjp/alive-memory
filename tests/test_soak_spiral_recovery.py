@@ -274,13 +274,6 @@ class TestSoakSpiralRecovery(unittest.IsolatedAsyncioTestCase):
             # Enforce hard floor (as output.py does)
             new_drives.mood_valence = max(new_drives.mood_valence, VALENCE_HARD_FLOOR)
 
-            # Quiet cycle rest relief (as output.py does)
-            if not body_executed and (not visitor_present):
-                from db.parameters import p
-                new_drives.rest_need = max(0.0, min(1.0,
-                    new_drives.rest_need + p('output.drives.quiet_cycle_rest_relief') * CYCLE_INTERVAL_HOURS
-                ))
-
             drives = new_drives
 
         return {

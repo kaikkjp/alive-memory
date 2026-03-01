@@ -43,7 +43,7 @@ def _build_action_drive_effects() -> dict:
         'write_journal':  {},                          # journaling — no curiosity drain
         'post_x_draft':   {},                          # creative output — no curiosity drain
         'rearrange':      {},                          # physical activity — no curiosity drain
-        'end_engagement': {'rest_need': p('output.drives.end_engagement_rest_relief')},  # social load lifted
+        'end_engagement': {},  # TASK-106: rest_need removed, social load modeled via energy
     }
 
 # ── X draft limits (TASK-057) ──
@@ -244,14 +244,6 @@ async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
         # Curiosity is stimulus-driven via gap detection. Reading produces
         # growth (memories, questions, mood), not drain.
 
-        # Quiet cycles (no actions, no dialogue) provide mild rest.
-        # Scaled to elapsed_hours so rest relief doesn't overwhelm buildup
-        # at high cycle frequencies (3-min cycles were getting -0.03/cycle
-        # vs buildup of +0.0015/cycle, pinning rest_need to zero).
-        if is_quiet_cycle:
-            drives.rest_need = clamp(drives.rest_need + p('output.drives.quiet_cycle_rest_relief') * elapsed_hours)
-            drives_changed = True
-
         if drives_changed:
             # HOTFIX-002: Enforce hard floor on valence — never go catatonic
             from pipeline.hypothalamus import VALENCE_HARD_FLOOR
@@ -259,7 +251,7 @@ async def process_output(body_output: BodyOutput, validated: ValidatedOutput,
             await db.save_drives_state(drives)
             print(f"  [Output] Drives saved: soc={drives.social_hunger:.2f} "
                   f"cur={drives.curiosity:.2f} exp={drives.expression_need:.2f} "
-                  f"rest={drives.rest_need:.2f} nrg={drives.energy:.2f} "
+                  f"nrg={drives.energy:.2f} "
                   f"val={drives.mood_valence:.2f} aro={drives.mood_arousal:.2f}")
 
     # ── Update engagement state ──

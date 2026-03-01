@@ -107,8 +107,6 @@ async def route(
         cycle_type = 'idle'
     elif drives.expression_need > p('thalamus.routing.express_drive_threshold'):
         cycle_type = 'express'
-    elif drives.rest_need > p('thalamus.routing.rest_drive_threshold'):
-        cycle_type = 'rest'
     else:
         cycle_type = 'idle'
 
@@ -145,8 +143,6 @@ async def autonomous_routing(drives: DrivesState,
     """Routing when no perceptions — she's alone."""
     if drives.expression_need > p('thalamus.routing.express_drive_threshold'):
         cycle_type = 'express'
-    elif drives.rest_need > p('thalamus.routing.rest_drive_threshold'):
-        cycle_type = 'rest'
     else:
         cycle_type = 'idle'
 

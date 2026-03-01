@@ -19,10 +19,10 @@ class TestActionDriveEffects:
         effects = _build_action_drive_effects().get('write_journal', {})
         assert 'curiosity' not in effects
 
-    def test_end_engagement_reduces_rest_need(self):
+    def test_end_engagement_no_rest_need(self):
+        """TASK-106: rest_need removed from end_engagement effects."""
         effects = _build_action_drive_effects().get('end_engagement', {})
-        assert effects.get('rest_need', 0) < 0
-        # TASK-050: energy is display-only, no longer adjusted by actions
+        assert 'rest_need' not in effects
 
     def test_all_effects_bounded(self):
         """All delta values should be small adjustments, not extreme."""

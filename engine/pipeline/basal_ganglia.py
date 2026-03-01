@@ -293,8 +293,8 @@ def _passes_drive_gate(action: str, drives: DrivesState) -> bool:
     field, threshold = gate
     if not getattr(drives, field) > threshold:
         return False
-    # Composite gate: open_shop also requires rest_need below threshold
-    if action == 'open_shop' and drives.rest_need >= p('basal_ganglia.habit.open_shop_rest_gate'):
+    # Composite gate: open_shop also requires sufficient energy
+    if action == 'open_shop' and drives.energy < 0.3:
         return False
     return True
 
@@ -593,9 +593,9 @@ async def select_actions(validated: ValidatedOutput, drives: DrivesState,
 
         # Gate 5b: Drive gates for shop actions
         if action_name == 'open_shop':
-            if drives.rest_need >= p('basal_ganglia.habit.open_shop_rest_gate'):
+            if drives.energy < 0.3:
                 decision.status = 'suppressed'
-                decision.suppression_reason = f'Need rest first (rest_need {drives.rest_need:.2f})'
+                decision.suppression_reason = f'Low energy (energy {drives.energy:.2f})'
                 decisions.append(decision)
                 continue
 

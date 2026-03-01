@@ -83,7 +83,7 @@ basal_ganglia:
     rearrange:       { field: energy, threshold: 0.3 }
     place_item:      { field: energy, threshold: 0.3 }
     open_shop:       { field: energy, threshold: 0.3 }
-    close_shop:      { field: rest_need, threshold: 0.0 }
+    # close_shop: no drive gate (TASK-106: rest_need removed, shop gate handles it)
 
   # Disengagement: when absorbed, low-impulse conversation suppressed
   disengagement_expression_threshold: 0.7

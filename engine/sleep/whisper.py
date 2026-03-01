@@ -52,15 +52,6 @@ def _expression_need(old_v, new_v):
             "Some things can simply be felt.")
 
 
-def _rest_need(old_v, new_v):
-    d = _direction(old_v, new_v)
-    if d == 'increase':
-        return ("A weariness settling deeper, the body asking for more stillness, "
-                "more time in the quiet dark.")
-    return ("Energy stirs. The pull toward sleep loosens its grip. "
-            "Wakefulness comes easier now.")
-
-
 def _mood_valence(old_v, new_v):
     d = _direction(old_v, new_v)
     if d == 'increase':
@@ -129,7 +120,6 @@ _WHISPER_TRANSLATIONS: dict[str, callable] = {
     'hypothalamus.equilibria.diversive_curiosity': _curiosity,
     'hypothalamus.equilibria.social_hunger': _social_hunger,
     'hypothalamus.equilibria.expression_need': _expression_need,
-    'hypothalamus.equilibria.rest_need': _rest_need,
     'hypothalamus.equilibria.mood_valence': _mood_valence,
     'hypothalamus.equilibria.mood_arousal': _mood_arousal,
     'communication_style.formality': _formality,
@@ -153,7 +143,6 @@ def _humanize_param_path(param_path: str) -> str:
         'hypothalamus.equilibria.diversive_curiosity': 'your sense of curiosity',
         'hypothalamus.equilibria.social_hunger': 'your hunger for connection',
         'hypothalamus.equilibria.expression_need': 'your need to express',
-        'hypothalamus.equilibria.rest_need': 'your need for rest',
         'hypothalamus.equilibria.mood_valence': 'the color of your mood',
         'hypothalamus.equilibria.mood_arousal': 'the tempo of your inner life',
         'communication_style.formality': 'the formality of your voice',

@@ -138,8 +138,6 @@ async def assemble_self_context(
             state_parts.append(f'Curiosity: {_drive_level(drives.diversive_curiosity)}')
         if drives.expression_need > 0.5:
             state_parts.append(f'Expression need: {_drive_level(drives.expression_need)}')
-        if drives.rest_need > 0.6:
-            state_parts.append(f'Rest need: {_drive_level(drives.rest_need)}')
     except Exception:
         pass  # drives table may not exist in tests
 
