@@ -20,7 +20,6 @@ from prompt.budget import enforce_section, estimate_tokens, get_reserved_output_
 
 from alive_config import cfg
 
-CORTEX_MODEL = "claude-sonnet-4-5-20250929"
 API_CALL_TIMEOUT = cfg('cortex.api_call_timeout', 60.0)
 
 # ── Circuit Breaker & Cost Controls ──
@@ -1066,8 +1065,6 @@ def fallback_response() -> CortexOutput:
 
 
 # ── Sleep Reflection ──
-
-REFLECT_MODEL = os.getenv('REFLECT_MODEL', CORTEX_MODEL)
 
 def build_reflection_system(identity_compact: str) -> str:
     """Build the sleep reflection system prompt for a given identity."""

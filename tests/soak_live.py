@@ -106,7 +106,8 @@ async def run_soak():
     print(f"[Soak] Starting live API soak test")
     print(f"[Soak] {TOTAL_ENGAGE_CYCLES} engage cycles + {TOTAL_MAINT_CYCLES} maintenance cycles")
     print(f"[Soak] API_CALL_TIMEOUT = {cortex.API_CALL_TIMEOUT}s")
-    print(f"[Soak] Model: {cortex.CORTEX_MODEL}")
+    from llm.config import resolve_model
+    print(f"[Soak] Model: {resolve_model('cortex')}")
     print()
 
     engage_ok = 0
