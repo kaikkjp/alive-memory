@@ -261,6 +261,71 @@ async def handle_collection(server, writer: asyncio.StreamWriter,
     await server._http_json(writer, 200, {'collection': collection})
 
 
+async def handle_get_totems(server, writer: asyncio.StreamWriter,
+                            authorization: str):
+    """Handle GET /api/dashboard/totems — return all totems sorted by weight."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+    all_totems = await db.get_all_totems(limit=100)
+    totems = [{
+        'id': t.id,
+        'entity': t.entity,
+        'weight': t.weight,
+        'context': t.context,
+        'category': t.category,
+        'visitor_id': t.visitor_id,
+        'first_seen': t.first_seen.isoformat() if t.first_seen else None,
+        'last_referenced': t.last_referenced.isoformat() if t.last_referenced else None,
+    } for t in all_totems]
+    await server._http_json(writer, 200, {'totems': totems})
+
+
+async def handle_get_journal(server, writer: asyncio.StreamWriter,
+                             authorization: str):
+    """Handle GET /api/dashboard/journal — return all journal entries."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+    entries = await db.get_all_journal()
+    journal = [{
+        'id': e.id,
+        'content': e.content,
+        'mood': e.mood,
+        'day_alive': e.day_alive,
+        'tags': e.tags,
+        'created_at': e.created_at.isoformat() if e.created_at else None,
+    } for e in entries]
+    await server._http_json(writer, 200, {'entries': journal})
+
+
+async def handle_get_daily_summaries(server, writer: asyncio.StreamWriter,
+                                     authorization: str):
+    """Handle GET /api/dashboard/daily-summaries — return recent daily summaries."""
+    if not check_dashboard_auth(authorization):
+        await server._http_json(writer, 401, {'error': 'unauthorized'})
+        return
+    from db import memory as _mem, connection as _conn
+    conn = await _conn.get_db()
+    cursor = await conn.execute(
+        "SELECT * FROM daily_summaries ORDER BY date DESC LIMIT 30"
+    )
+    rows = await cursor.fetchall()
+    summaries = []
+    for row in rows:
+        s = _mem._row_to_daily_summary(row)
+        summaries.append({
+            'id': s.id,
+            'day_number': s.day_number,
+            'date': s.date,
+            'emotional_arc': s.emotional_arc,
+            'moment_count': s.moment_count,
+            'moment_ids': s.moment_ids,
+            'journal_entry_ids': s.journal_entry_ids,
+        })
+    await server._http_json(writer, 200, {'summaries': summaries})
+
+
 async def handle_timeline(server, writer: asyncio.StreamWriter,
                           authorization: str):
     """Handle GET /api/dashboard/timeline — return recent events."""

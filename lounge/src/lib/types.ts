@@ -268,3 +268,61 @@ export interface McpServer {
   tools: McpToolInfo[];
   connected_at: string;
 }
+
+// TASK-108: Full memory view types
+export interface Thread {
+  id: string;
+  title: string;
+  status: string;
+  thread_type: string;
+  tags: string[];
+  touch_count: number;
+  last_touched: string | null;
+}
+
+export interface JournalEntry {
+  id: string;
+  content: string;
+  mood: string | null;
+  day_alive: number | null;
+  tags: string[];
+  created_at: string | null;
+}
+
+export interface Totem {
+  id: string;
+  entity: string;
+  weight: number;
+  context: string | null;
+  category: string | null;
+  visitor_id: string | null;
+  first_seen: string | null;
+  last_referenced: string | null;
+}
+
+export interface DayMemory {
+  id: string;
+  summary: string;
+  salience: number;
+  moment_type: string;
+  visitor_id: string | null;
+  ts: string;
+}
+
+export interface CollectionItem {
+  id: string;
+  title: string;
+  item_type: string;
+  location: string;
+  origin: string;
+  her_feeling: string | null;
+  created_at: string | null;
+}
+
+export interface DailySummary {
+  id: string;
+  day_number: number | null;
+  date: string | null;
+  emotional_arc: string | null;
+  moment_count: number;
+}
