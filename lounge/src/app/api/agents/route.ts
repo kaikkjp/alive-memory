@@ -21,12 +21,16 @@ export async function GET() {
   // Return all agents; tag ownership when a manager is logged in
   const agents = await db.listAllAgents();
 
-  // Enrich with runtime status + ownership flag
+  // Enrich with runtime status + ownership flag; strip internal fields
   const enriched = await Promise.all(
     agents.map(async (agent) => ({
-      ...agent,
+      id: agent.id,
+      name: agent.name,
+      role: agent.role,
       status: (await isContainerRunning(agent.id)) ? 'running' as const : 'stopped' as const,
       is_owner: managerId ? agent.manager_id === managerId : false,
+      created_at: agent.created_at,
+      updated_at: agent.updated_at,
     }))
   );
 
