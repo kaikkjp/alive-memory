@@ -40,17 +40,19 @@ export async function POST(
 
   try {
     const body = await request.json();
+    // Use stable manager-derived visitor_id, same as chat proxy
+    const stableVisitorId = `mgr-${managerId}`;
     const result = await getConversationHistory(
       agent.port,
       keys[0].key,
-      body.visitor_id,
+      stableVisitorId,
       body.limit
     );
 
     if (result) {
       return NextResponse.json(result);
     }
-    return NextResponse.json({ messages: [], visitor_id: body.visitor_id });
+    return NextResponse.json({ messages: [], visitor_id: stableVisitorId });
   } catch {
     return NextResponse.json({ error: 'history fetch failed' }, { status: 500 });
   }

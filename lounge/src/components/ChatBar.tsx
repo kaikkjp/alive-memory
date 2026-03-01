@@ -43,17 +43,9 @@ export default function ChatBar({
   const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastActivity = useRef(Date.now());
 
-  // Stable visitor ID: persist per agent in localStorage
+  // Visitor ID: not needed client-side — the server proxy injects a stable
+  // manager-derived ID. We still send it for history lookups (returned by server).
   const visitorId = useRef("");
-  if (!visitorId.current && typeof window !== "undefined") {
-    const storageKey = `lounge-visitor-${agentId}`;
-    let stored = localStorage.getItem(storageKey);
-    if (!stored) {
-      stored = `lounge-${Date.now()}`;
-      localStorage.setItem(storageKey, stored);
-    }
-    visitorId.current = stored;
-  }
 
   const isOffline = status === "offline" || status === "error";
 
@@ -152,6 +144,8 @@ export default function ChatBar({
 
       if (res.ok) {
         const data = await res.json();
+        // Store server-assigned visitor_id for history lookups
+        if (data.visitor_id) visitorId.current = data.visitor_id;
         if (data.response) {
           const agentMsg: ChatMessage = {
             role: "agent",

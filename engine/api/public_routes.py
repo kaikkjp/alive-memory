@@ -179,6 +179,9 @@ async def handle_manager_message(server, writer, body_bytes: bytes, api_key_meta
     visitor = await db.get_visitor(visitor_id)
     if not visitor:
         await db.upsert_visitor(visitor_id, name=api_key_meta.get('name', 'Manager'))
+        await db.update_visitor(visitor_id, trust_level='trusted')
+    elif visitor.trust_level != 'trusted':
+        await db.update_visitor(visitor_id, trust_level='trusted')
 
     # Log conversation (so cortex sees history in U6)
     await db.append_conversation(visitor_id, 'visitor', text)

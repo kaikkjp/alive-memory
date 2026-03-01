@@ -43,15 +43,18 @@ export async function POST(
 
   try {
     const body = await request.json();
+    // Stable visitor_id: derived from managerId so the same manager always
+    // maps to the same visitor across sessions, browsers, and devices.
+    const stableVisitorId = `mgr-${managerId}`;
     const result = await managerMessage(
       agent.port,
       keys[0].key,
       body.message,
-      body.visitor_id
+      stableVisitorId
     );
 
     if (result) {
-      return NextResponse.json(result);
+      return NextResponse.json({ ...result, visitor_id: stableVisitorId });
     }
     return NextResponse.json(
       { response: null, message: 'Agent is not responding' },
