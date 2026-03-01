@@ -111,7 +111,19 @@ export default function ConfigurePage({
       if (res.ok) {
         const data = await res.json();
         if (data.config && Object.keys(data.config).length > 0) {
-          setConfig({ ...DEFAULT_CONFIG, ...data.config });
+          const raw = data.config;
+          const normalized: Partial<IdentityConfig> = { ...raw };
+          if (Array.isArray(raw.voice_rules)) {
+            normalized.voice_rules = raw.voice_rules;
+          } else if (typeof raw.voice_rules === "string") {
+            normalized.voice_rules = raw.voice_rules.split("\n").filter(Boolean);
+          }
+          if (Array.isArray(raw.boundaries)) {
+            normalized.boundaries = raw.boundaries.join("\n");
+          } else if (typeof raw.boundaries !== "string") {
+            normalized.boundaries = "";
+          }
+          setConfig({ ...DEFAULT_CONFIG, ...normalized });
         }
       }
     } catch {
