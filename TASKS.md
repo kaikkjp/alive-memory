@@ -2235,6 +2235,261 @@ Fix:
 
 ---
 
+### TASK-115: Event Bus — Foundation
+**Status:** READY
+**Priority:** High
+**Proposal:** `tasks/PROPOSAL-alive-infra-roadmap.md` Phase 2, Sub-phase 1
+**Description:** Create the in-process async pub/sub event bus. `asyncio.Queue`-backed topic routing with typed messages. Not Redis/NATS — in-process only, forever. Wire `Heartbeat` to publish through bus while keeping old callbacks as bus subscribers (compatibility shim). Zero test changes in this task.
+
+**What gets built:**
+- `engine/bus.py` — `EventBus` class with two modes:
+  - **Broadcast topics** (`outbound.scene_update`, `stage.progress`, etc.): standard fan-out with bounded queues + drop-oldest. Same as current `_window_broadcast` semantics.
+  - **Keyed subscriptions** (`cycle.complete`): per-visitor keyed queues preserving current `_cycle_log_subscribers` semantics. Each request gets its own `sub_id`. Exact `visitor_id` matching + explicit `'*'` wildcard for ambient/idle cycles.
+  - **Per-visitor lock** (`bus.visitor_lock(visitor_id)`): `asyncio.Lock` keyed by visitor_id. Serializes subscribe → schedule → wait → unsubscribe per visitor. Prevents the pre-existing duplicate-response race on concurrent `/api/chat` for same visitor.
+- `engine/bus_types.py` — Typed payloads: `InboundSpeech`, `OutboundDialogue`, `SceneUpdate`, `StageProgress`, `CycleComplete`, etc.
+- Compatibility shim: `Heartbeat._window_broadcast` → `bus.publish('outbound.scene_update', ...)`, `Heartbeat._stage_callback` → `bus.publish('stage.progress', ...)`, `Heartbeat._cycle_log_subscribers` → `bus.subscribe_keyed('cycle.complete', ...)`. Old interfaces still work — bus is wired underneath.
+
+**Enumerated topics:**
+
+| Topic | Publisher | Subscribers |
+|-------|-----------|-------------|
+| `inbound.visitor_speech` | TCP, WS, API, Telegram, X | Heartbeat |
+| `inbound.visitor_connect` | TCP, WS, API | Heartbeat, presence tracker |
+| `inbound.visitor_disconnect` | TCP, WS, API | Heartbeat, presence tracker |
+| `outbound.dialogue` | pipeline/body (via output) | WS broadcaster, TCP writer |
+| `outbound.scene_update` | Heartbeat (post-cycle) | WS broadcaster |
+| `outbound.status` | Heartbeat (sleep/wake) | WS, TCP |
+| `cycle.complete` | Heartbeat | Replaces `_cycle_log_subscribers` |
+| `stage.progress` | Heartbeat | Console logger, terminal MRI |
+
+**Implementation steps:**
+1. Create `engine/bus.py` with `EventBus` class (~200 lines): `publish()`, `subscribe()`, `unsubscribe()` for broadcast topics; `publish_keyed()`, `subscribe_keyed()`, `unsubscribe_keyed()` for keyed topics; `visitor_lock()` for per-visitor serialization
+2. Create `engine/bus_types.py` with dataclass payloads (~80 lines)
+3. In `engine/heartbeat.py`, add `self._bus` attribute, replace `_window_broadcast` internals with `bus.publish('outbound.scene_update', ...)`
+4. Replace `_stage_callback` with `bus.publish('stage.progress', ...)`
+5. Replace `_cycle_log_subscribers` dict with bus keyed subscriptions — keep same external interface (compatibility shim)
+6. Create `tests/test_bus.py` — unit tests for bus broadcast, keyed subscriptions, visitor_lock, wildcard delivery, drop-oldest behavior
+
+**Scope (files you may touch):**
+- `engine/bus.py` (CREATE)
+- `engine/bus_types.py` (CREATE)
+- `engine/heartbeat.py` (~50 lines: replace callbacks with bus.publish)
+- `engine/heartbeat_server.py` (~10 lines: instantiate bus, pass to Heartbeat)
+- `tests/test_bus.py` (CREATE)
+**Scope (files you may NOT touch):**
+- `engine/pipeline/*` (bus is transport layer, above the pipeline)
+- `engine/db/`
+- `engine/api/dashboard_routes.py`
+- Route handler signatures (adapter pattern comes in TASK-117)
+**Tests:** `python -m pytest tests/test_bus.py -v` — all pass. `python -m pytest tests/ --tb=short -q` — no regressions. Existing `_window_broadcast` and `_cycle_log_subscribers` tests still pass unchanged.
+**Definition of done:** Bus exists and Heartbeat publishes through it. All existing behavior unchanged. Old callback interfaces work via compatibility shim. No test changes required.
+
+---
+
+### TASK-116: Event Bus — Transport Extraction
+**Status:** BACKLOG
+**Priority:** High
+**Proposal:** `tasks/PROPOSAL-alive-infra-roadmap.md` Phase 2, Sub-phase 2
+**Depends on:** TASK-115 (bus must exist)
+**Description:** Extract TCP and WebSocket handlers from `heartbeat_server.py` into dedicated modules under `engine/api/`. Both register as bus subscribers. `heartbeat_server.py` shrinks from ~1,700 lines to ~500.
+
+**What moves:**
+- TCP handler → `engine/api/tcp.py` (~200 lines)
+- WS handler → `engine/api/websocket.py` (~250 lines)
+- `heartbeat_server.py` keeps: HTTP handler, `start()`, `stop()`, server lifecycle, config loading
+
+**What does NOT change:**
+- `window_state.py` builders (produce payloads, bus carries them)
+- Pipeline stages (bus is transport layer, above the pipeline)
+- DB layer
+- Route handler signatures
+
+**Implementation steps:**
+1. Create `engine/api/tcp.py` — extract TCP connection handler, visitor handshake, message routing. Subscribe to `outbound.dialogue` and `outbound.scene_update` from bus.
+2. Create `engine/api/websocket.py` — extract WS connection handler, dashboard auth, window state broadcast. Subscribe to bus topics.
+3. Update `engine/heartbeat_server.py` — remove extracted code, import from new modules, wire into `start()`/`stop()`
+4. Verify all TCP and WS tests pass unchanged
+
+**Scope (files you may touch):**
+- `engine/api/tcp.py` (CREATE)
+- `engine/api/websocket.py` (CREATE)
+- `engine/heartbeat_server.py` (MODIFY — large: ~600 lines moved out)
+- `engine/heartbeat.py` (minor: remove any TCP/WS-specific code)
+**Scope (files you may NOT touch):**
+- `engine/pipeline/*`
+- `engine/db/`
+- `engine/bus.py` (should not need changes)
+**Tests:** `python -m pytest tests/ --tb=short -q` — no regressions. Terminal connects, visitor speaks, cycle runs, window updates. WebSocket broadcast still works after extraction.
+**Definition of done:** `heartbeat_server.py` is ~500 lines. TCP and WS handlers live in `engine/api/`. Bus carries all messages between components.
+
+---
+
+### TASK-117: Event Bus — Cleanup + RequestContext
+**Status:** BACKLOG
+**Priority:** Medium
+**Proposal:** `tasks/PROPOSAL-alive-infra-roadmap.md` Phase 2, Sub-phase 3
+**Depends on:** TASK-116 (extraction must be complete)
+**Description:** Create `RequestContext` adapter for new handlers, remove compatibility shims from TASK-115, add integration tests for bus message flow.
+
+**RequestContext pattern:**
+```python
+class RequestContext:
+    """Thin wrapper that delegates to server. Tests can mock this directly."""
+    def __init__(self, server):
+        self._server = server
+    async def http_json(self, writer, status, body):
+        await self._server._http_json(writer, status, body)
+    @property
+    def heartbeat(self): return self._server.heartbeat
+    @property
+    def bus(self): return self._server._bus
+```
+
+Existing handler signatures remain `(server, writer, ...)` — `RequestContext` is opt-in for new handlers and Gateway RPC handlers in Phase 3. Full migration is deferred.
+
+**Implementation steps:**
+1. Create `engine/api/request_context.py` (~40 lines)
+2. Remove compatibility shims in `engine/heartbeat.py` (old `_window_broadcast`, `_cycle_log_subscribers` wrappers)
+3. Add integration tests: bus message flow end-to-end, concurrent chat with per-visitor lock, wildcard cycle delivery
+4. Concurrency test: two simultaneous `POST /api/chat` for same `visitor_id` each get distinct dialogue
+
+**Scope (files you may touch):**
+- `engine/api/request_context.py` (CREATE)
+- `engine/heartbeat.py` (~30 lines: remove shims)
+- `tests/test_bus.py` (ADD integration tests)
+**Scope (files you may NOT touch):**
+- `engine/pipeline/*`
+- `engine/db/`
+- Route handler signatures (no rewrite — adapter is opt-in)
+**Tests:** `python -m pytest tests/test_bus.py -v` — all pass including new integration tests. Concurrent same-visitor chat test passes.
+**Definition of done:** Compatibility shims removed. `RequestContext` exists and is usable by new handlers. No old callback interfaces remain in Heartbeat.
+
+---
+
+### TASK-118: Gateway — Core
+**Status:** BACKLOG
+**Priority:** High
+**Proposal:** `tasks/PROPOSAL-alive-infra-roadmap.md` Phase 3, Sub-phase 1
+**Depends on:** TASK-115 (bus patterns established)
+**Description:** Build the Gateway process — a standalone router that agents connect UP to. Handles agent registration, cognitive health monitoring, and RPC request forwarding. Lounge still works via old port-based routing during this phase (parallel operation).
+
+**Architecture:**
+- Gateway is a single process: HTTP :8000 (Lounge + public clients) + WS :8001 (agent pods + dashboards)
+- Agents open persistent WS to Gateway on startup (not the other way around)
+- Gateway tracks who's alive because they're connected
+- No business logic, no DB writes, no LLM calls — router only
+
+**Auth model:**
+- Agent → Gateway: per-agent `GATEWAY_AGENT_TOKEN` validated against `agent_tokens.json` (flock + atomic file replacement)
+- Lounge → Gateway: `GATEWAY_ADMIN_TOKEN` (separate shared secret)
+- Per-request: Gateway forwards `Authorization` header transparently — agent-level auth still enforced inside the agent
+
+**Health model:**
+- Agent sends full `get_health_status()` payload every 15s over WS (not simplified)
+- Gateway stores latest health verbatim, exposes via `GET /agents/{agent_id}/health`
+- No heartbeat for 45s → `{"status": "unreachable", "reason": "heartbeat_timeout"}`
+
+**Implementation steps:**
+1. Create `engine/gateway.py` (~400 lines): `GatewayServer` with agent registry, WS handler for agent connections, HTTP handler for Lounge/client requests, RPC-over-WS request forwarding, health monitoring
+2. Create `engine/gateway_client.py` (~150 lines): `GatewayClient` that runs inside each agent — connects to Gateway WS, handles RPC requests, sends health heartbeats
+3. Modify `engine/heartbeat_server.py` (~30 lines): optional Gateway transport — if `GATEWAY_URL` env var set, start `GatewayClient` alongside existing HTTP/WS servers
+4. Create `tests/test_gateway.py` and `tests/test_gateway_client.py`
+
+**Scope (files you may touch):**
+- `engine/gateway.py` (CREATE)
+- `engine/gateway_client.py` (CREATE)
+- `engine/heartbeat_server.py` (~30 lines: optional Gateway client startup)
+- `tests/test_gateway.py` (CREATE)
+- `tests/test_gateway_client.py` (CREATE)
+**Scope (files you may NOT touch):**
+- `engine/pipeline/*`
+- `engine/db/`
+- `lounge/*` (Lounge cutover is TASK-119)
+- `engine/bus.py` (Gateway uses bus_types but not the bus itself)
+**Tests:** Agent registration + deregistration. Health monitoring with timeout. RPC round-trip. Auth validation (reject bad token, reject impersonation). Standalone mode still works without Gateway.
+**Definition of done:** Gateway runs as standalone process. Agent containers can connect to it. RPC forwarding works end-to-end. Existing standalone mode unaffected.
+
+---
+
+### TASK-119: Gateway — Lounge Cutover
+**Status:** BACKLOG
+**Priority:** High
+**Proposal:** `tasks/PROPOSAL-alive-infra-roadmap.md` Phase 3, Sub-phase 2
+**Depends on:** TASK-118 (Gateway core must exist)
+**Description:** Full Lounge migration from per-agent port-based routing to Gateway. All 11 functions in `agent-client.ts` rewritten. Port-based routing removed. Nginx simplified.
+
+**Migration matrix:**
+
+| File | What Changes |
+|------|-------------|
+| `lounge/src/lib/agent-client.ts` | All 11 functions: replace `http://127.0.0.1:${port}/...` with `http://127.0.0.1:8000/agents/${agentId}/...` |
+| `lounge/src/lib/types.ts` | Add `gateway_registered?: boolean`. `port: number` stays (0 = Gateway-managed) |
+| `lounge/src/lib/manager-db.ts` | `createAgent()` port defaults to 0. `getNextPort()` skips `port=0` rows |
+| `lounge/src/app/api/agents/route.ts` | POST: stop requiring port in create flow. Use Gateway for health |
+| `lounge/src/app/api/agents/[id]/` | All sub-routes: resolve via Gateway instead of DB port lookup |
+| `lounge/src/lib/docker-client.ts` | Gateway-mode create path: no host port, set GATEWAY_URL + token envs |
+| `scripts/create_agent.sh` | `--gateway` mode: token generation, no host port mapping, atomic registry write |
+| `scripts/destroy_agent.sh` | Remove agent token from `agent_tokens.json` |
+| `deploy/nginx.conf` | Simplify to static Gateway routing |
+
+**Implementation steps:**
+1. Rewrite `lounge/src/lib/agent-client.ts` — all functions route through Gateway URL
+2. Update `lounge/src/lib/types.ts` — add `gateway_registered` field
+3. Update `lounge/src/lib/manager-db.ts` — port=0 convention, `getNextPort()` skips 0
+4. Update `lounge/src/app/api/agents/` routes — Gateway-aware create/health/proxy
+5. Update `lounge/src/lib/docker-client.ts` — Gateway-mode container creation
+6. Add `--gateway` mode to `scripts/create_agent.sh` — token gen, atomic registry
+7. Update `scripts/destroy_agent.sh` — clean up token
+8. Simplify nginx config — static Gateway routing
+
+**Scope (files you may touch):**
+- `lounge/src/lib/agent-client.ts`
+- `lounge/src/lib/types.ts`
+- `lounge/src/lib/manager-db.ts`
+- `lounge/src/app/api/agents/route.ts`
+- `lounge/src/app/api/agents/[id]/` (all sub-routes)
+- `lounge/src/lib/docker-client.ts`
+- `scripts/create_agent.sh`
+- `scripts/destroy_agent.sh`
+- `deploy/nginx.conf`
+- `deploy/nginx-alive-lounge.conf`
+**Scope (files you may NOT touch):**
+- `engine/gateway.py` (should not need changes)
+- `engine/pipeline/*`
+- `engine/db/`
+**Tests:** `pnpm --dir lounge exec tsc --noEmit` passes. Agent creation via `--gateway` mode works. Lounge dashboard shows agent status in real-time. `docker stop <agent>` → Lounge shows offline within seconds. Standalone mode still works for local dev.
+**Definition of done:** Lounge routes all traffic through Gateway. No more per-agent port management. Nginx is static config.
+
+---
+
+### TASK-120: Gateway — Inter-Agent Messaging
+**Status:** BACKLOG
+**Priority:** Medium
+**Proposal:** `tasks/PROPOSAL-alive-infra-roadmap.md` Phase 3, Sub-phase 3
+**Depends on:** TASK-118 (Gateway core must exist)
+**Description:** Enable agents to send messages to each other through the Gateway. Messages routed by Gateway, appear in recipient's inbound event stream via Phase 2 bus. Agents stay isolated — they don't know each other's addresses.
+
+**Implementation steps:**
+1. Add `agent_send` RPC type to Gateway — receives `{target_agent_id, message}`, routes to target agent's WS connection
+2. Add inbound handler in `gateway_client.py` — receives inter-agent messages, publishes to local bus as `inbound.agent_message`
+3. Add `inbound.agent_message` topic to `bus_types.py`
+4. Heartbeat processes agent messages like visitor messages (but with agent identity)
+
+**Scope (files you may touch):**
+- `engine/gateway.py` (~30 lines: add agent_send routing)
+- `engine/gateway_client.py` (~20 lines: handle inbound agent messages)
+- `engine/bus_types.py` (~10 lines: add AgentMessage type)
+- `engine/heartbeat.py` (~20 lines: process agent messages)
+- `tests/test_gateway.py` (ADD inter-agent tests)
+**Scope (files you may NOT touch):**
+- `engine/pipeline/*`
+- `engine/db/`
+- `lounge/*`
+**Tests:** Agent A sends message to Agent B via Gateway. Message appears in Agent B's event stream. Unknown target agent returns error. Auth validated.
+**Definition of done:** Agents can communicate through Gateway. Messages appear in recipient's cognitive pipeline.
+
+---
+
 ### TASK-XXX: Title
 **Status:** BACKLOG
 **Priority:** Low / Medium / High
