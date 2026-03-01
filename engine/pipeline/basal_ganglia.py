@@ -264,7 +264,7 @@ async def _check_inhibition(action_name: str, context: dict) -> InhibitionCheck:
 # ── Drive gates for habit auto-fire ──
 # Habits should only fire when the relevant drive supports the action.
 # Without this, write_journal fires every cycle and drains curiosity to 0.
-# NOTE: Loaded from alive_config.yaml. The open_shop rest gate is via p().
+# NOTE: Loaded from alive_config.yaml (basal_ganglia.drive_gates).
 def _load_drive_gates() -> dict[str, tuple[str, float]]:
     gates_cfg = cfg('basal_ganglia.drive_gates', {})
     result = {}
@@ -293,33 +293,6 @@ def _passes_drive_gate(action: str, drives: DrivesState) -> bool:
     field, threshold = gate
     if not getattr(drives, field) > threshold:
         return False
-    # Composite gate: open_shop also requires sufficient energy
-    if action == 'open_shop' and drives.energy < 0.3:
-        return False
-    return True
-
-
-async def _passes_shop_gate(action: str, *, identity=None) -> bool:
-    """Check context gates that require DB lookups (e.g. shop status).
-
-    Non-physical agents never fire open_shop/close_shop.
-    """
-    if identity and hasattr(identity, 'world'):
-        if not identity.world.has_physical_space:
-            return action not in ('close_shop', 'open_shop')
-
-    if action == 'close_shop':
-        try:
-            room = await db.get_room_state()
-            return room.shop_status == 'open'
-        except Exception:
-            return False  # can't verify -> don't fire
-    if action == 'open_shop':
-        try:
-            room = await db.get_room_state()
-            return room.shop_status == 'closed'
-        except Exception:
-            return False  # can't verify -> don't fire
     return True
 
 
@@ -379,10 +352,6 @@ async def check_habits(drives: DrivesState,
 
             # Gate: per-action cooldown (safety net against rapid re-fire)
             if not _passes_cooldown_gate(action):
-                continue
-
-            # Gate: context checks requiring DB (e.g. shop must be open)
-            if not await _passes_shop_gate(action, identity=identity):
                 continue
 
             # All gates passed — record fire and return
@@ -579,27 +548,7 @@ async def select_actions(validated: ValidatedOutput, drives: DrivesState,
                 decisions.append(decision)
                 continue
 
-        # Gate 5: Shop status prerequisite (open_shop/close_shop)
-        if not await _passes_shop_gate(action_name, identity=identity):
-            decision.status = 'suppressed'
-            if action_name == 'open_shop':
-                decision.suppression_reason = 'Shop is already open'
-            elif action_name == 'close_shop':
-                decision.suppression_reason = 'Shop is already closed'
-            else:
-                decision.suppression_reason = 'Shop status check failed'
-            decisions.append(decision)
-            continue
-
-        # Gate 5b: Drive gates for shop actions
-        if action_name == 'open_shop':
-            if drives.energy < 0.3:
-                decision.status = 'suppressed'
-                decision.suppression_reason = f'Low energy (energy {drives.energy:.2f})'
-                decisions.append(decision)
-                continue
-
-        # Gate 6: Inhibition (learned from experience)
+        # Gate 5: Inhibition (learned from experience)
         inhibition = await _check_inhibition(action_name, context)
         if inhibition.suppress:
             decision.status = 'inhibited'
@@ -607,7 +556,7 @@ async def select_actions(validated: ValidatedOutput, drives: DrivesState,
             decisions.append(decision)
             continue
 
-        # Gate 7: modify_self requires recent reflection evidence
+        # Gate 6: modify_self requires recent reflection evidence
         if action_name == 'modify_self':
             has_evidence = await _has_reflection_evidence()
             if not has_evidence:
@@ -634,7 +583,7 @@ async def select_actions(validated: ValidatedOutput, drives: DrivesState,
                 decisions.append(decision)
                 continue
 
-        # Gate 8: Circuit breaker — action failure fatigue (TASK-075)
+        # Gate 7: Circuit breaker — action failure fatigue (TASK-075)
         if action_name not in _COGNITIVE_PRIMITIVES:
             health = get_action_health(action_name)
             if health.is_blocked():

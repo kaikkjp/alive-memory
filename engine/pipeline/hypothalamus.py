@@ -98,6 +98,9 @@ async def update_drives(
 
     new = drives.copy()
 
+    # TASK-106: Zero stale rest_need from persisted state
+    new.rest_need = 0.0
+
     # TASK-105: Extract social sensitivity from identity
     ss = (identity.social_sensitivity
           if identity and hasattr(identity, 'social_sensitivity')
@@ -340,7 +343,7 @@ def drives_to_feeling(d: DrivesState,
 
     # Expression
     if d.expression_need > cfg('hypothalamus.feeling_expression_high', 0.7):
-        parts.append("There's something building inside me that wants to come out. I should write, or post, or rearrange something.")
+        parts.append("There's something building inside me that wants to come out. I should write or post something.")
 
     # Mood
     if d.mood_valence < cfg('hypothalamus.feeling_valence_low', -0.5):
@@ -365,7 +368,6 @@ def _build_expression_relief() -> dict:
         'write_journal':   {'expression_need': p('hypothalamus.expression_relief.write_journal_expression'), 'mood_valence': p_or('hypothalamus.expression_relief.write_journal_mood', 0.05)},
         'write_journal_skipped': {'expression_need': p('hypothalamus.expression_relief.write_journal_skipped_expression')},
         'post_x_draft':    {'expression_need': p('hypothalamus.expression_relief.post_x_expression')},
-        'rearrange':       {'expression_need': p('hypothalamus.expression_relief.rearrange_expression')},
     }
 
 
