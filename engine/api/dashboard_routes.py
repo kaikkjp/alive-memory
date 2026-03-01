@@ -283,19 +283,27 @@ async def handle_get_totems(server, writer: asyncio.StreamWriter,
 
 async def handle_get_journal(server, writer: asyncio.StreamWriter,
                              authorization: str):
-    """Handle GET /api/dashboard/journal — return all journal entries."""
+    """Handle GET /api/dashboard/journal — return recent journal entries."""
     if not check_dashboard_auth(authorization):
         await server._http_json(writer, 401, {'error': 'unauthorized'})
         return
-    entries = await db.get_all_journal()
-    journal = [{
-        'id': e.id,
-        'content': e.content,
-        'mood': e.mood,
-        'day_alive': e.day_alive,
-        'tags': e.tags,
-        'created_at': e.created_at.isoformat() if e.created_at else None,
-    } for e in entries]
+    from db import connection as _conn
+    conn = await _conn.get_db()
+    cursor = await conn.execute(
+        "SELECT * FROM journal_entries ORDER BY created_at DESC LIMIT 100"
+    )
+    rows = await cursor.fetchall()
+    journal = []
+    for r in rows:
+        tags_raw = r['tags']
+        journal.append({
+            'id': r['id'],
+            'content': r['content'],
+            'mood': r['mood'],
+            'day_alive': r['day_alive'],
+            'tags': json.loads(tags_raw) if tags_raw else [],
+            'created_at': r['created_at'],
+        })
     await server._http_json(writer, 200, {'entries': journal})
 
 
