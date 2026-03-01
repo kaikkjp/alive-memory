@@ -1973,7 +1973,7 @@ This matters because dynamic actions are the primary signal of agent-initiated g
 ---
 
 ### TASK-108: Lounge — Full Memory View
-**Status:** READY
+**Status:** DONE (2026-03-02)
 **Priority:** Medium
 **Description:** The Lounge Seed tab only surfaces `manager_memories` (backstory + organic). The Shopkeeper's real cognitive memory — journals, threads, totems, day memory pool, collection — lives in the DB but has no Lounge panel. Add a comprehensive memory view.
 

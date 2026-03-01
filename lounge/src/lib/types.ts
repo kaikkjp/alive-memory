@@ -325,4 +325,6 @@ export interface DailySummary {
   date: string | null;
   emotional_arc: string | null;
   moment_count: number;
+  moment_ids: string[];
+  journal_entry_ids: string[];
 }

@@ -9,6 +9,7 @@ import type {
   Totem,
   DayMemory,
   CollectionItem,
+  DailySummary,
 } from "@/lib/types";
 
 interface Memory {
@@ -25,7 +26,8 @@ type MemorySection =
   | "journal"
   | "totems"
   | "moments"
-  | "collection";
+  | "collection"
+  | "sleep";
 
 interface SeedTabProps {
   agentId: string;
@@ -77,6 +79,7 @@ export default function SeedTab({ agentId, onToast }: SeedTabProps) {
   const [totems, setTotems] = useState<Totem[]>([]);
   const [moments, setMoments] = useState<DayMemory[]>([]);
   const [collection, setCollection] = useState<CollectionItem[]>([]);
+  const [summaries, setSummaries] = useState<DailySummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newTitle, setNewTitle] = useState("");
@@ -103,9 +106,12 @@ export default function SeedTab({ agentId, onToast }: SeedTabProps) {
       fetch(`/api/agents/${agentId}/collection`)
         .then((r) => (r.ok ? r.json() : null))
         .catch(() => null),
+      fetch(`/api/agents/${agentId}/summaries`)
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null),
     ];
 
-    const [memData, thrData, jrnData, totData, poolData, colData] =
+    const [memData, thrData, jrnData, totData, poolData, colData, sumData] =
       await Promise.all(fetches);
 
     if (memData) {
@@ -117,6 +123,7 @@ export default function SeedTab({ agentId, onToast }: SeedTabProps) {
     if (totData) setTotems(totData.totems || []);
     if (poolData) setMoments(poolData.pool || []);
     if (colData) setCollection(colData.collection || []);
+    if (sumData) setSummaries(sumData.summaries || []);
 
     setLoading(false);
   }, [agentId]);
@@ -172,6 +179,7 @@ export default function SeedTab({ agentId, onToast }: SeedTabProps) {
     { key: "totems", label: "Totems", count: totems.length },
     { key: "moments", label: "Moments", count: moments.length },
     { key: "collection", label: "Collection", count: collection.length },
+    { key: "sleep", label: "Sleep", count: summaries.length },
   ];
 
   return (
@@ -229,6 +237,8 @@ export default function SeedTab({ agentId, onToast }: SeedTabProps) {
         <MomentsSection moments={moments} organic={organic} />
       ) : section === "collection" ? (
         <CollectionSection items={collection} />
+      ) : section === "sleep" ? (
+        <SleepSection summaries={summaries} journal={journal} />
       ) : null}
     </div>
   );
@@ -592,6 +602,116 @@ function CollectionSection({ items }: { items: CollectionItem[] }) {
           )}
         </div>
       ))}
+    </div>
+  );
+}
+
+/* ── Sleep (daily summaries) ── */
+
+function SleepSection({
+  summaries,
+  journal,
+}: {
+  summaries: DailySummary[];
+  journal: JournalEntry[];
+}) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  if (summaries.length === 0) {
+    return (
+      <p className="text-xs text-[#525252] italic">
+        No sleep summaries yet.
+      </p>
+    );
+  }
+
+  const sorted = [...summaries].sort(
+    (a, b) => (b.day_number ?? 0) - (a.day_number ?? 0)
+  );
+
+  const journalById = new Map(journal.map((j) => [j.id, j]));
+
+  return (
+    <div className="space-y-1.5">
+      {sorted.map((s) => {
+        const isExpanded = expandedId === s.id;
+        const arcPreview =
+          s.emotional_arc && s.emotional_arc.length > 120
+            ? s.emotional_arc.slice(0, 120) + "..."
+            : s.emotional_arc;
+        const linkedJournal = (s.journal_entry_ids || [])
+          .map((jid) => journalById.get(jid))
+          .filter(Boolean) as JournalEntry[];
+
+        return (
+          <div
+            key={s.id}
+            onClick={() => setExpandedId(isExpanded ? null : s.id)}
+            className="p-2.5 bg-[#12121a] border border-[#1e1e1a] rounded-lg cursor-pointer hover:border-[#262620] transition-colors"
+          >
+            {/* Header */}
+            <div className="flex items-center gap-2 mb-1">
+              {s.day_number != null && (
+                <span className="text-[10px] text-[#d4a574] font-medium">
+                  Day {s.day_number}
+                </span>
+              )}
+              {s.date && (
+                <span className="text-[10px] text-[#525252]">
+                  {s.date}
+                </span>
+              )}
+              <span className="text-[10px] text-[#525252] ml-auto">
+                {s.moment_count} moment{s.moment_count !== 1 ? "s" : ""}
+              </span>
+            </div>
+
+            {/* Emotional arc */}
+            {s.emotional_arc && (
+              <p className="text-xs text-[#a3a3a3] leading-relaxed whitespace-pre-wrap">
+                {isExpanded ? s.emotional_arc : arcPreview}
+              </p>
+            )}
+
+            {/* Expanded: linked journal entries */}
+            {isExpanded && linkedJournal.length > 0 && (
+              <div className="mt-2 pt-2 border-t border-[#1e1e2a] space-y-1.5">
+                <p className="text-[10px] text-[#525252] uppercase tracking-wider">
+                  Journal entries
+                </p>
+                {linkedJournal.map((j) => (
+                  <div
+                    key={j.id}
+                    onClick={(e) => e.stopPropagation()}
+                    className="p-2 bg-[#0a0a0f] border border-[#1a1a2e] rounded"
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      {j.mood && (
+                        <span className="text-[9px] px-1 py-0.5 bg-[#1a1a2e] text-[#d4a574] rounded">
+                          {j.mood}
+                        </span>
+                      )}
+                      {j.created_at && (
+                        <span className="text-[9px] text-[#525252]">
+                          {formatDate(j.created_at)}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-[#a3a3a3] leading-relaxed whitespace-pre-wrap">
+                      {j.content}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Expand hint */}
+            {!isExpanded && (linkedJournal.length > 0 || (s.emotional_arc && s.emotional_arc.length > 120)) && (
+              <p className="text-[9px] text-[#525252] mt-1">click to expand</p>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
