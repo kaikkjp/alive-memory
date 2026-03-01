@@ -1973,6 +1973,68 @@ This matters because dynamic actions are the primary signal of agent-initiated g
 
 ---
 
+### TASK-108: Lounge — Full Memory View
+**Status:** READY
+**Priority:** Medium
+**Description:** The Lounge Seed tab only surfaces `manager_memories` (backstory + organic). The Shopkeeper's real cognitive memory — journals, threads, totems, day memory pool, collection — lives in the DB but has no Lounge panel. Add a comprehensive memory view.
+
+**What already exists (backend → Lounge wiring needed):**
+
+| Data | Backend endpoint | DB function | Lounge UI |
+|------|-----------------|-------------|-----------|
+| Threads | `GET /api/dashboard/threads` | `db.content.get_open_threads()` | Missing |
+| Day memory pool | `GET /api/dashboard/pool` | `db.memory.get_day_memory_dashboard()` | Missing |
+| Collection | `GET /api/dashboard/collection` | `db.content.get_collection_items()` | Missing |
+
+**What needs new backend endpoints:**
+
+| Data | DB function (exists) | New endpoint needed |
+|------|---------------------|-------------------|
+| Totems | `db.memory.get_all_totems(limit=100)` | `GET /api/dashboard/totems` |
+| Journal | `db.memory.get_all_journal()` | `GET /api/dashboard/journal` |
+| Daily summaries | `db.get_daily_summaries()` | `GET /api/dashboard/daily-summaries` |
+
+**Implementation:**
+
+1. Add 3 new dashboard endpoints in `engine/api/dashboard_routes.py`:
+   - `GET /api/dashboard/totems` → calls `db.get_all_totems()`
+   - `GET /api/dashboard/journal` → calls `db.get_all_journal()`
+   - `GET /api/dashboard/daily-summaries` → calls existing daily summary query
+2. Register routes in `engine/heartbeat_server.py` HTTP handler
+3. Add Lounge proxy routes in `lounge/src/app/api/agents/[id]/`:
+   - `threads/route.ts`, `pool/route.ts`, `collection/route.ts`
+   - `totems/route.ts`, `journal/route.ts`, `summaries/route.ts`
+4. Redesign SeedTab into a multi-section memory view with sub-tabs:
+   - **Seeds** (existing backstory) — keep as-is
+   - **Threads** — open agenda items (title, status, priority, touch count)
+   - **Journal** — sleep reflections (date, mood, content)
+   - **Totems** — weighted entities (entity, weight, category, context)
+   - **Moments** — day memory pool (salience, type, summary)
+   - **Collection** — items (title, type, location, feeling)
+5. Each sub-tab: simple list view, no editing (read-only except Seeds)
+
+**Scope (files you may touch):**
+- `engine/api/dashboard_routes.py` (add 3 endpoint handlers)
+- `engine/heartbeat_server.py` (register 3 new routes)
+- `lounge/src/components/SeedTab.tsx` (redesign into memory view)
+- `lounge/src/components/MemoryTimeline.tsx` (refactor)
+- `lounge/src/components/MemoryPanel.tsx` (update)
+- `lounge/src/app/api/agents/[id]/threads/route.ts` (new proxy)
+- `lounge/src/app/api/agents/[id]/pool/route.ts` (new proxy)
+- `lounge/src/app/api/agents/[id]/collection/route.ts` (new proxy)
+- `lounge/src/app/api/agents/[id]/totems/route.ts` (new proxy)
+- `lounge/src/app/api/agents/[id]/journal/route.ts` (new proxy)
+- `lounge/src/app/api/agents/[id]/summaries/route.ts` (new proxy)
+- New components as needed in `lounge/src/components/`
+**Scope (files you may NOT touch):**
+- `engine/db/` (all DB functions already exist)
+- `engine/pipeline/` (no pipeline changes)
+- `engine/config/identity.py`
+**Tests:** Verify all 6 dashboard endpoints return valid JSON. Verify Lounge renders each sub-tab with data from the prod snapshot (3892 events, 42 journal entries, 39 threads, 3 totems, 30 day memories).
+**Definition of done:** All memory categories visible in the Lounge Seed tab. Manager can see the Shopkeeper's full cognitive memory at a glance.
+
+---
+
 ### TASK-XXX: Title
 **Status:** BACKLOG
 **Priority:** Low / Medium / High

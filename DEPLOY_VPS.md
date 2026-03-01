@@ -176,6 +176,58 @@ docker compose exec certbot certbot certificates
 
 ---
 
+## Lounge (Manager Dashboard)
+
+The lounge is a Next.js app that runs as a separate systemd service. It is deployed from the same repo clone on the VPS.
+
+### Current layout
+
+```
+/opt/alive/shopkeeper/          ← git clone of TriMinhPham/shopkeeper
+  lounge/                       ← Next.js app (systemd: alive-lounge, port 3100)
+    data/lounge.db              ← agent registrations, manager tokens, API keys
+  engine/                       ← Python engine (used by Docker containers)
+```
+
+### Deploy lounge changes
+
+From your local machine, after pushing to GitHub:
+
+```bash
+./scripts/deploy-lounge.sh
+```
+
+This runs: `git pull` → `npm install` → `npm run build` → `systemctl restart alive-lounge`.
+
+### Manual deploy (if script fails)
+
+```bash
+ssh shopkeeper
+cd /opt/alive/shopkeeper && git pull --ff-only
+cd lounge && npm install && npm run build
+sudo systemctl restart alive-lounge
+sudo systemctl status alive-lounge
+```
+
+### Systemd service
+
+Service file: `/etc/systemd/system/alive-lounge.service`
+
+Key environment variables (set in service file, not `.env.local`):
+- `PORT=3100`
+- `DATA_DIR=/data/alive-agents`
+- `ALIVE_ENGINE_DIR=/opt/alive/shopkeeper`
+- `LOUNGE_JWT_SECRET=<secret>` — used for session cookies
+
+### Important
+
+- **Never delete `lounge/data/lounge.db`** — contains agent registrations and manager tokens.
+- `lounge/data/` is in `.gitignore` — it only exists on the VPS.
+- The dashboard is publicly accessible (no login required to view agents). Management actions (start/stop/create/delete) require JWT authentication.
+- GitHub deploy key (`~/.ssh/id_ed25519_github`) is read-only. To push from VPS, use a different key with write access.
+
+---
+
 ## Bare-metal (systemd) — alternative
 
 For deployments without Docker. Uses systemd service + host nginx + certbot.

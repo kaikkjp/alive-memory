@@ -153,6 +153,8 @@ class WorldConfig:
 def _build_world_config(data: dict) -> WorldConfig:
     """Build WorldConfig from YAML data with preset-based defaults."""
     world_raw = data.get('world', {})
+    if not isinstance(world_raw, dict):
+        world_raw = {}
     is_physical = world_raw.get('has_physical_space', True)
     defaults = _PHYSICAL_DEFAULTS if is_physical else _DIGITAL_DEFAULTS
     default_framing = _SHOPKEEPER_FRAMING if is_physical else _DIGITAL_FRAMING
@@ -235,10 +237,14 @@ class AgentIdentity:
 
         # Compile voice detection patterns
         voice_detection = data.get('voice_detection', {})
+        if not isinstance(voice_detection, dict):
+            voice_detection = {}
         voice_rules_patterns = _compile_voice_patterns(voice_detection)
 
         # Compile physical traits patterns
         physical_raw = data.get('physical_traits_detection', [])
+        if not isinstance(physical_raw, list):
+            physical_raw = []
         physical_traits_patterns = _compile_physical_patterns(physical_raw)
 
         # actions_enabled: None = absent (all allowed), [] = empty (none), list = filter

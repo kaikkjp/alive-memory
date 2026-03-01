@@ -184,6 +184,14 @@ The operator pre-loads chains by setting multiple tasks to `READY` before a sess
 - WebSocket messages are defined by `engine/window_state.py` on the backend.
 - If you change backend state shape, update `demo/window/src/lib/types.ts`.
 
+### Lounge rules:
+- Lounge lives in `lounge/`. It's a separate Next.js app (manager dashboard).
+- DB: `lounge/data/lounge.db` (gitignored, only exists on VPS). Never delete it — contains agent registrations and manager tokens.
+- Auth: JWT session cookies. Middleware injects `x-manager-id` headers. Dashboard is public; management actions require login.
+- Deploy: push to GitHub, then `./scripts/deploy-lounge.sh`. Never rsync — use git pull on VPS.
+- VPS path: `/opt/alive/shopkeeper/lounge/` (systemd service `alive-lounge`, port 3100).
+- See `DEPLOY_VPS.md` and `tasks/lounge-deploy/DEPLOY-LOUNGE-RUNBOOK.md` for full details.
+
 ## Common Tasks
 
 ### "Add a new action the shopkeeper can take"
@@ -254,6 +262,9 @@ python -m pytest tests/ -v
 
 # Simulation (no server needed)
 python engine/simulate.py --cycles 10
+
+# Deploy lounge to VPS (after pushing to GitHub)
+./scripts/deploy-lounge.sh
 ```
 
 ## Environment Variables
@@ -287,3 +298,5 @@ python engine/simulate.py --cycles 10
 - Don't pipe test output through `tail` or `head` in background tasks — use `--tb=short` flag instead
 - Don't run `engine/simulate.py` or `experiments/*.py` without `--db` or `--output` pointing to an isolated path — see INCIDENT-006
 - Don't run experiment scripts as root on the VPS — use the `shopkeeper` user
+- Don't rsync the lounge to VPS — use `./scripts/deploy-lounge.sh` (git-based deploy)
+- Don't delete or overwrite `lounge/data/` on VPS — contains live agent registrations
