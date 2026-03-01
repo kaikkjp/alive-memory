@@ -327,16 +327,22 @@ class TestSocialSensitivity:
     async def test_introvert_relief_per_message_stronger(self):
         """Introvert (ss=0.2) gets more relief per message than extrovert (ss=0.8)."""
         from unittest.mock import MagicMock
+        from pipeline.hypothalamus import _session_tracker
+        _session_tracker.sessions.clear()
+
         d = DrivesState(social_hunger=0.5)
-        events = [Event(event_type='visitor_speech', source='visitor:intro_test', payload={})]
 
         introvert = MagicMock()
         introvert.social_sensitivity = 0.2
         extrovert = MagicMock()
         extrovert.social_sensitivity = 0.8
 
-        new_intro, _ = await update_drives(d, elapsed_hours=0.0, events=events, identity=introvert)
-        new_extro, _ = await update_drives(d, elapsed_hours=0.0, events=events, identity=extrovert)
+        # Use different visitor IDs so session tracker doesn't confound
+        intro_events = [Event(event_type='visitor_speech', source='visitor:relief_intro', payload={})]
+        extro_events = [Event(event_type='visitor_speech', source='visitor:relief_extro', payload={})]
+
+        new_intro, _ = await update_drives(d, elapsed_hours=0.0, events=intro_events, identity=introvert)
+        new_extro, _ = await update_drives(d, elapsed_hours=0.0, events=extro_events, identity=extrovert)
 
         # Introvert gets more relief (lower social_hunger)
         assert new_intro.social_hunger < new_extro.social_hunger
