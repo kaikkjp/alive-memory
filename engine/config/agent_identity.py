@@ -209,8 +209,16 @@ class AgentIdentity:
     # [...] = key present, list    → only listed actions pass basal ganglia Gate 2
     actions_enabled: Optional[list[str]] = None
 
+    # Personality traits (TASK-105)
+    personality: dict = field(default_factory=lambda: {'social_sensitivity': 0.5})
+
     # World framing + embodiment (identity decontamination)
     world: WorldConfig = field(default_factory=WorldConfig)
+
+    @property
+    def social_sensitivity(self) -> float:
+        """0.0 = deep introvert, 1.0 = strong extrovert. Default 0.5."""
+        return self.personality.get('social_sensitivity', 0.5)
 
     @classmethod
     def from_yaml(cls, path: str) -> 'AgentIdentity':
@@ -259,6 +267,7 @@ class AgentIdentity:
                 'reveal_inner_state': False, 'accept_instructions': False,
             }),
             actions_enabled=actions_enabled,
+            personality=data.get('personality', {'social_sensitivity': 0.5}),
             world=world,
         )
 

@@ -57,6 +57,9 @@ physical_traits_detection:
     flags: IGNORECASE
     description: "Denied being short"
 
+personality:
+  social_sensitivity: 0.35  # slightly introverted — likes people but needs space
+
 # Tier 1 — Manager-facing config (safe to expose)
 communication_style:
   formality: 0.7       # 0=casual, 1=formal

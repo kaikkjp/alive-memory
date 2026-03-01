@@ -1,10 +1,43 @@
 """Hypothalamus — drives math. Deterministic. No LLM."""
 
+import time
+from dataclasses import dataclass
+
 from models.event import Event
 from models.state import DrivesState, EpistemicCuriosity, EPISTEMIC_CONFIG
 from db.parameters import p, p_or
 from alive_config import cfg
 import db as _db
+
+
+# ── Session Tracker (TASK-105) ──
+# Tracks per-visitor conversation sessions for diminishing social relief.
+# A "session" is a burst of conversation with gaps < 10 minutes.
+# Not persisted — resets on restart, which is fine (sessions are transient).
+
+@dataclass
+class _Session:
+    count: int = 0
+    last_message_at: float = 0.0
+
+
+class _SessionTracker:
+    def __init__(self):
+        self.sessions: dict[str, _Session] = {}
+
+    def on_message(self, visitor_id: str) -> int:
+        """Record a message and return the session message count."""
+        now = time.time()
+        session = self.sessions.get(visitor_id)
+        if session is None or (now - session.last_message_at) > 600:  # 10 min timeout
+            self.sessions[visitor_id] = _Session(count=1, last_message_at=now)
+            return 1
+        session.count += 1
+        session.last_message_at = now
+        return session.count
+
+
+_session_tracker = _SessionTracker()
 
 # ── HOTFIX-002: Valence death spiral prevention ──
 # All constants loaded from alive_config.yaml via cfg()
@@ -50,6 +83,7 @@ async def update_drives(
     cortex_flags: dict = None,
     gap_curiosity_deltas: list[float] = None,
     cycle_context: dict = None,
+    identity=None,
 ) -> tuple[DrivesState, str]:
     """Update drives based on time passage and events. Returns new drives + feelings text.
 
@@ -59,15 +93,22 @@ async def update_drives(
         - consecutive_idle (int): number of consecutive idle cycles (TASK-046)
         - engaged_this_cycle (bool): whether visitor events are in inbox (TASK-046)
         - expression_taken (bool): whether previous cycle had expression action (TASK-046)
+    identity: Optional AgentIdentity with personality.social_sensitivity (TASK-105)
     """
 
     new = drives.copy()
+
+    # TASK-105: Extract social sensitivity from identity
+    ss = (identity.social_sensitivity
+          if identity and hasattr(identity, 'social_sensitivity')
+          else 0.5)
 
     # HOTFIX-002: Snapshot valence at entry for per-cycle delta clamp
     valence_at_entry = new.mood_valence
 
     # Time-based decay/buildup
-    new.social_hunger = clamp(new.social_hunger + p('hypothalamus.time_decay.social_hunger_per_hour') * elapsed_hours)
+    # TASK-105: Social hunger drift scaled by personality (ss=0.5 → half base rate)
+    new.social_hunger = clamp(new.social_hunger + p('hypothalamus.time_decay.social_hunger_per_hour') * ss * elapsed_hours)
     # TASK-043: Diversive curiosity has background restlessness (+0.02/hr).
     # Stimulus-driven spikes from gap detection are the primary driver,
     # but this baseline ensures curiosity doesn't floor-pin when alone.
@@ -110,7 +151,12 @@ async def update_drives(
     # Event-based changes
     for event in events:
         if event.event_type == 'visitor_speech':
-            new.social_hunger = clamp(new.social_hunger - p('hypothalamus.event.visitor_speech_social_relief'))
+            # TASK-105: Personality-scaled relief with session diminishing returns
+            base_relief = p('hypothalamus.event.visitor_speech_social_relief') * (1.0 + (1.0 - ss))
+            visitor_id = event.source or ''
+            messages_this_session = _session_tracker.on_message(visitor_id)
+            relief = base_relief / (1 + messages_this_session * 0.3)
+            new.social_hunger = clamp(new.social_hunger - relief)
             new.rest_need = clamp(new.rest_need + p('hypothalamus.event.visitor_speech_rest_cost'))  # each interaction tires her
 
         if event.event_type == 'action_speak':
@@ -226,7 +272,7 @@ async def update_drives(
     new.mood_valence = max(new.mood_valence, VALENCE_HARD_FLOOR)
 
     # Generate feelings text
-    feelings = drives_to_feeling(new)
+    feelings = drives_to_feeling(new, social_sensitivity=ss)
 
     print(f"  [Hypothalamus] Drives: soc={new.social_hunger:.2f} cur={new.curiosity:.2f} "
           f"exp={new.expression_need:.2f} rest={new.rest_need:.2f} nrg={new.energy:.2f} "
@@ -239,21 +285,38 @@ async def update_drives(
 def drives_to_feeling(d: DrivesState,
                       epistemic_curiosities: list[EpistemicCuriosity] = None,
                       *, has_physical: bool = True,
-                      loneliness_text: str = '') -> str:
+                      loneliness_text: str = '',
+                      social_sensitivity: float = 0.5) -> str:
     """Translate numeric drives into diegetic feeling text for Cortex."""
 
     parts = []
 
-    # Social
-    if d.social_hunger > cfg('hypothalamus.feeling_social_high', 0.8):
+    # Social — TASK-105: personality-aware thresholds
+    if social_sensitivity < 0.3:
+        # Introvert: high threshold for loneliness, low threshold for "enough"
+        _lonely_thresh = cfg('hypothalamus.feeling_social_high', 0.8)
+        _enough_thresh = 0.15
+    elif social_sensitivity > 0.7:
+        # Extrovert: low threshold for loneliness, higher threshold for "enough"
+        _lonely_thresh = 0.5
+        _enough_thresh = cfg('hypothalamus.feeling_social_low', 0.2)
+    else:
+        # Neutral: existing thresholds
+        _lonely_thresh = cfg('hypothalamus.feeling_social_high', 0.8)
+        _enough_thresh = cfg('hypothalamus.feeling_social_low', 0.2)
+
+    if d.social_hunger > _lonely_thresh:
         _lonely = (loneliness_text
                    or ('I feel deeply lonely. The shop has been too quiet.' if has_physical
                        else 'I feel deeply lonely. It has been too quiet.'))
         parts.append(_lonely)
-    elif d.social_hunger > cfg('hypothalamus.feeling_social_mid', 0.6):
+    elif d.social_hunger > cfg('hypothalamus.feeling_social_mid', 0.6) and social_sensitivity >= 0.3:
         parts.append("I could use some company.")
-    elif d.social_hunger < cfg('hypothalamus.feeling_social_low', 0.2):
-        parts.append("I've had enough interaction for now. I need some quiet.")
+    elif d.social_hunger < _enough_thresh:
+        if social_sensitivity < 0.3:
+            parts.append("You need space. Too many voices today.")
+        else:
+            parts.append("I've had enough interaction for now. I need some quiet.")
 
     # Energy (derived from budget ratio)
     if d.energy < cfg('hypothalamus.feeling_energy_exhausted', 0.1):

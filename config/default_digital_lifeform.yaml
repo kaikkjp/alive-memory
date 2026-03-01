@@ -26,6 +26,9 @@ voice_rules:
 voice_detection: {}
 physical_traits_detection: []
 
+personality:
+  social_sensitivity: 0.5  # 0.0 = deep introvert, 1.0 = strong extrovert
+
 communication_style:
   formality: 0.5
   verbosity: 0.4

@@ -301,3 +301,95 @@ class TestMoodArousal:
         new, _ = await update_drives(d, elapsed_hours=0.0, events=events,
                                      cortex_flags={'resonance': True, 'action_variety': True})
         assert 0.60 <= new.mood_arousal <= 0.85, f"Expected 0.60-0.85, got {new.mood_arousal}"
+
+
+class TestSocialSensitivity:
+    """TASK-105: Social sensitivity personality trait scales social hunger dynamics."""
+
+    @pytest.mark.asyncio
+    async def test_extrovert_gets_lonely_faster(self):
+        """Extrovert (ss=0.8) drift is faster than introvert (ss=0.2)."""
+        from unittest.mock import MagicMock
+        d = DrivesState(social_hunger=0.3)
+
+        introvert = MagicMock()
+        introvert.social_sensitivity = 0.2
+        extrovert = MagicMock()
+        extrovert.social_sensitivity = 0.8
+
+        new_intro, _ = await update_drives(d, elapsed_hours=1.0, events=[], identity=introvert)
+        new_extro, _ = await update_drives(d, elapsed_hours=1.0, events=[], identity=extrovert)
+
+        # Both should increase (time drift), but extrovert increases more
+        assert new_extro.social_hunger > new_intro.social_hunger
+
+    @pytest.mark.asyncio
+    async def test_introvert_relief_per_message_stronger(self):
+        """Introvert (ss=0.2) gets more relief per message than extrovert (ss=0.8)."""
+        from unittest.mock import MagicMock
+        d = DrivesState(social_hunger=0.5)
+        events = [Event(event_type='visitor_speech', source='visitor:intro_test', payload={})]
+
+        introvert = MagicMock()
+        introvert.social_sensitivity = 0.2
+        extrovert = MagicMock()
+        extrovert.social_sensitivity = 0.8
+
+        new_intro, _ = await update_drives(d, elapsed_hours=0.0, events=events, identity=introvert)
+        new_extro, _ = await update_drives(d, elapsed_hours=0.0, events=events, identity=extrovert)
+
+        # Introvert gets more relief (lower social_hunger)
+        assert new_intro.social_hunger < new_extro.social_hunger
+
+    @pytest.mark.asyncio
+    async def test_session_diminishing_returns(self):
+        """5 messages in quick succession give diminishing relief."""
+        from unittest.mock import MagicMock
+        from pipeline.hypothalamus import _session_tracker
+        # Clear session state
+        _session_tracker.sessions.clear()
+
+        d = DrivesState(social_hunger=0.8)
+        identity = MagicMock()
+        identity.social_sensitivity = 0.5
+
+        reliefs = []
+        for i in range(5):
+            before = d.social_hunger
+            events = [Event(event_type='visitor_speech', source='visitor:session_test', payload={})]
+            d, _ = await update_drives(d, elapsed_hours=0.0, events=events, identity=identity)
+            relief = before - d.social_hunger
+            reliefs.append(relief)
+
+        # Each successive message gives less relief
+        assert reliefs[0] > reliefs[1] > reliefs[2]
+
+    def test_introvert_feeling_lonely_threshold(self):
+        """Introvert only feels lonely at very high social hunger."""
+        d = DrivesState(social_hunger=0.7)
+        feeling = drives_to_feeling(d, social_sensitivity=0.2)
+        # 0.7 < 0.8 threshold for introvert — should NOT be lonely
+        assert "lonely" not in feeling.lower()
+
+        d2 = DrivesState(social_hunger=0.85)
+        feeling2 = drives_to_feeling(d2, social_sensitivity=0.2)
+        assert "lonely" in feeling2.lower()
+
+    def test_extrovert_feeling_lonely_threshold(self):
+        """Extrovert feels lonely at lower social hunger."""
+        d = DrivesState(social_hunger=0.55)
+        feeling = drives_to_feeling(d, social_sensitivity=0.8)
+        # 0.55 > 0.5 threshold for extrovert — SHOULD be lonely
+        assert "lonely" in feeling.lower()
+
+    def test_introvert_enough_threshold(self):
+        """Introvert hits 'enough' at low social hunger."""
+        d = DrivesState(social_hunger=0.1, energy=0.8)
+        feeling = drives_to_feeling(d, social_sensitivity=0.2)
+        assert "space" in feeling.lower() or "enough" in feeling.lower()
+
+    def test_default_sensitivity_matches_neutral(self):
+        """Default ss=0.5 gives same thresholds as before TASK-105."""
+        d = DrivesState(social_hunger=0.85)
+        feeling = drives_to_feeling(d, social_sensitivity=0.5)
+        assert "lonely" in feeling.lower()
