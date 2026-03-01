@@ -7,9 +7,11 @@ Verifies:
 - Backward compatibility wrapper works
 """
 
+import asyncio
 import os
 import re
 import tempfile
+from unittest.mock import AsyncMock, patch, MagicMock
 
 import yaml
 import pytest
@@ -271,6 +273,127 @@ class TestSystemPromptBuilders:
         from pipeline.cortex import _DEFAULT_IDENTITY
         compact = _DEFAULT_IDENTITY.identity_compact
         assert compact == ORIGINAL_IDENTITY_COMPACT
+
+
+# ── Tests: Daily budget (TASK-109) ──
+
+class TestDailyBudget:
+    def test_default_identity_has_budget(self):
+        identity = AgentIdentity.default()
+        assert hasattr(identity, 'daily_budget')
+        assert isinstance(identity.daily_budget, float)
+
+    def test_digital_lifeform_budget_is_one(self):
+        identity = AgentIdentity.digital_lifeform()
+        assert identity.daily_budget == 1.0
+
+    def test_custom_budget_from_yaml(self):
+        custom_yaml = {
+            'identity_compact': 'Test agent.',
+            'voice_rules': ['Be polite'],
+            'daily_budget': 2.5,
+        }
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            yaml.dump(custom_yaml, f)
+            path = f.name
+        try:
+            identity = AgentIdentity.from_yaml(path)
+            assert identity.daily_budget == 2.5
+        finally:
+            os.unlink(path)
+
+    def test_missing_budget_defaults_to_one(self):
+        custom_yaml = {
+            'identity_compact': 'Test agent.',
+            'voice_rules': ['Be polite'],
+        }
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            yaml.dump(custom_yaml, f)
+            path = f.name
+        try:
+            identity = AgentIdentity.from_yaml(path)
+            assert identity.daily_budget == 1.0
+        finally:
+            os.unlink(path)
+
+
+# ── Tests: Heartbeat budget seeding (TASK-109) ──
+
+class TestBudgetSeeding:
+    """Verify heartbeat.start() seeds daily_budget from identity only when unset."""
+
+    @pytest.fixture
+    def _patch_heartbeat_deps(self):
+        """Patch all DB/supervisor calls so heartbeat.start() runs without a real DB."""
+        patches = [
+            patch('heartbeat.db.register_run_start', new_callable=AsyncMock),
+            patch('heartbeat.db.log_runtime_event', new_callable=AsyncMock),
+            patch('heartbeat.db.load_arbiter_state', new_callable=AsyncMock, return_value={}),
+        ]
+        mocks = [p.start() for p in patches]
+        yield
+        for p in patches:
+            p.stop()
+
+    @pytest.mark.asyncio
+    async def test_seeds_budget_when_unset(self, _patch_heartbeat_deps):
+        """When no daily_budget exists in DB, heartbeat seeds it from identity."""
+        from heartbeat import Heartbeat
+        identity = AgentIdentity.digital_lifeform()
+        hb = Heartbeat(identity=identity)
+
+        settings_store = {}
+
+        async def mock_get_setting(key):
+            return settings_store.get(key)
+
+        async def mock_set_setting(key, val):
+            settings_store[key] = val
+
+        with patch('heartbeat.db.get_setting', side_effect=mock_get_setting), \
+             patch('heartbeat.db.set_setting', side_effect=mock_set_setting), \
+             patch('heartbeat.SelfModel.load', return_value=None):
+            await hb.start()
+            # Clean up supervisor task
+            hb.running = False
+            if hb._supervisor_task:
+                hb._supervisor_task.cancel()
+                try:
+                    await hb._supervisor_task
+                except (asyncio.CancelledError, Exception):
+                    pass
+
+        assert settings_store.get('daily_budget') == '1.0'
+
+    @pytest.mark.asyncio
+    async def test_preserves_existing_budget(self, _patch_heartbeat_deps):
+        """When daily_budget already exists in DB, heartbeat does NOT overwrite it."""
+        from heartbeat import Heartbeat
+        identity = AgentIdentity.digital_lifeform()
+        hb = Heartbeat(identity=identity)
+
+        settings_store = {'daily_budget': '3.50'}
+
+        async def mock_get_setting(key):
+            return settings_store.get(key)
+
+        async def mock_set_setting(key, val):
+            settings_store[key] = val
+
+        with patch('heartbeat.db.get_setting', side_effect=mock_get_setting), \
+             patch('heartbeat.db.set_setting', side_effect=mock_set_setting), \
+             patch('heartbeat.SelfModel.load', return_value=None):
+            await hb.start()
+            hb.running = False
+            if hb._supervisor_task:
+                hb._supervisor_task.cancel()
+                try:
+                    await hb._supervisor_task
+                except (asyncio.CancelledError, Exception):
+                    pass
+
+        # Must still be the original value — not overwritten
+        assert settings_store['daily_budget'] == '3.50'
 
 
 # ── Tests: Frozen dataclass ──

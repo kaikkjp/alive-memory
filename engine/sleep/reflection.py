@@ -155,8 +155,11 @@ def extract_totems_from_reflections(reflections: list) -> list:
     totems = []
     for r in reflections:
         for update in r['reflection'].get('memory_updates', []):
+            if not isinstance(update, dict):
+                continue
             if update.get('type') in ('totem_create', 'totem_update'):
-                entity = update.get('content', {}).get('entity')
+                raw_content = update.get('content', {})
+                entity = raw_content.get('entity') if isinstance(raw_content, dict) else None
                 if entity:
                     totems.append(entity)
     return totems
