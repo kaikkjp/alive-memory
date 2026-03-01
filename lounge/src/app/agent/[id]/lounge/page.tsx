@@ -115,6 +115,7 @@ export default function LoungePage({
   return (
     <div className="flex flex-col h-screen bg-[#0a0a0f] text-[#d4d4d4]">
       <LoungeTopBar
+        agentId={id}
         agentName={agentName}
         status={stream.status}
         isSleeping={isSleeping}
