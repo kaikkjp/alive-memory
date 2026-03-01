@@ -500,48 +500,57 @@ function MomentsSection({
   moments: DayMemory[];
   organic: Memory[];
 }) {
-  // Show day memory pool if available, fall back to organic memories
-  if (moments.length > 0) {
+  if (moments.length === 0 && organic.length === 0) {
     return (
-      <div className="space-y-1.5">
-        {moments.map((m) => (
-          <div
-            key={m.id}
-            className="p-2.5 bg-[#12121a] border border-[#1e1e1a] rounded-lg"
-          >
-            <div className="flex items-center gap-2 mb-1">
-              <span
-                className={`text-[10px] ${
-                  MOMENT_TYPE_COLORS[m.moment_type] || "text-[#525252]"
-                }`}
-              >
-                {m.moment_type}
-              </span>
-              <span className="text-[10px] text-[#525252]">
-                {formatDate(m.ts)}
-              </span>
-              {/* Salience indicator */}
-              <span className="ml-auto text-[10px] text-[#d4a574]">
-                {"*".repeat(Math.min(Math.ceil(m.salience * 5), 5))}
-              </span>
-            </div>
-            <p className="text-xs text-[#a3a3a3] leading-relaxed">
-              {m.summary}
-            </p>
-          </div>
-        ))}
-      </div>
+      <p className="text-xs text-[#525252] italic">
+        No moments in the day memory pool yet.
+      </p>
     );
   }
 
-  if (organic.length > 0) {
-    return <MemoryTimeline memories={organic} />;
-  }
-
   return (
-    <p className="text-xs text-[#525252] italic">
-      No moments in the day memory pool yet.
-    </p>
+    <div className="space-y-3">
+      {moments.length > 0 && (
+        <div className="space-y-1.5">
+          {moments.map((m) => (
+            <div
+              key={m.id}
+              className="p-2.5 bg-[#12121a] border border-[#1e1e1a] rounded-lg"
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <span
+                  className={`text-[10px] ${
+                    MOMENT_TYPE_COLORS[m.moment_type] || "text-[#525252]"
+                  }`}
+                >
+                  {m.moment_type}
+                </span>
+                <span className="text-[10px] text-[#525252]">
+                  {formatDate(m.ts)}
+                </span>
+                <span className="ml-auto text-[10px] text-[#d4a574]">
+                  {"*".repeat(Math.min(Math.ceil(m.salience * 5), 5))}
+                </span>
+              </div>
+              <p className="text-xs text-[#a3a3a3] leading-relaxed">
+                {m.summary}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {organic.length > 0 && (
+        <>
+          {moments.length > 0 && (
+            <p className="text-[10px] text-[#525252] uppercase tracking-wider mt-2">
+              Organic memories
+            </p>
+          )}
+          <MemoryTimeline memories={organic} />
+        </>
+      )}
+    </div>
   );
 }
 
