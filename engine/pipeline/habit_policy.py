@@ -26,28 +26,26 @@ class HabitProposal:
 JOURNAL_EXPRESSION_THRESHOLD = cfg('habit_policy.journal.expression_threshold', 0.6)
 JOURNAL_COOLDOWN_CYCLES = cfg('habit_policy.journal.cooldown_cycles', 80)
 JOURNAL_NO_VISITOR_WINDOW = cfg('habit_policy.journal.no_visitor_window', 5)
-JOURNAL_MAX_PER_DAY = cfg('habit_policy.journal.max_per_day', 3)
 JOURNAL_PRIORITY = cfg('habit_policy.journal.priority', 0.75)
-JOURNAL_DIMINISHING_FACTOR = cfg('habit_policy.journal.diminishing_factor', 0.6)
 
 
 def evaluate_journal_habit(
     drives: DrivesState,
     cycles_since_last_journal: int,
     cycles_since_last_visitor: int,
-    journals_today: int,
     budget_emergency: bool = False,
 ) -> HabitProposal | None:
     """Evaluate whether journaling should fire this cycle.
+
+    TASK-105: Daily cap removed. Drives are the sole rate limiter.
+    Expression_need drops ~0.12 per journal, so after ~5 journals it's
+    near zero and this policy stops firing. Budget is the ultimate cap.
 
     Returns a HabitProposal if conditions are met, None otherwise.
     """
     # Hard blocks
     if budget_emergency:
         print("[HabitPolicy] Journal blocked: budget emergency")
-        return None
-    if journals_today >= JOURNAL_MAX_PER_DAY:
-        print(f"[HabitPolicy] Journal blocked: daily cap reached ({journals_today}/{JOURNAL_MAX_PER_DAY})")
         return None
     if cycles_since_last_journal < JOURNAL_COOLDOWN_CYCLES:
         print(f"[HabitPolicy] Journal blocked: cooldown ({cycles_since_last_journal}/{JOURNAL_COOLDOWN_CYCLES} cycles)")
@@ -64,9 +62,7 @@ def evaluate_journal_habit(
     # Optional boost: low mood increases urgency
     mood_boost = cfg('habit_policy.journal.mood_boost_amount', 0.1) if drives.mood_valence < cfg('habit_policy.journal.mood_boost_threshold', -0.2) else 0.0
 
-    # Calculate priority with diminishing returns
-    priority = JOURNAL_PRIORITY * (JOURNAL_DIMINISHING_FACTOR ** journals_today) + mood_boost
-    priority = min(priority, 1.0)
+    priority = min(JOURNAL_PRIORITY + mood_boost, 1.0)
 
     reason = f"expression_need={expression_need:.2f}, {cycles_since_last_journal} cycles since last journal"
     print(f"[HabitPolicy] Journal triggered: {reason}, priority={priority:.2f}")

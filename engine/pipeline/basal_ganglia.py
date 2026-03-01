@@ -417,7 +417,6 @@ async def check_habits(drives: DrivesState,
             drives=drives,
             cycles_since_last_journal=await db.get_cycles_since_last_journal(),
             cycles_since_last_visitor=await db.get_cycles_since_last_visitor(),
-            journals_today=await db.get_journals_today(),
             budget_emergency=False,  # conservative: full check in select_actions
         )
         if proposal:
@@ -644,19 +643,6 @@ async def select_actions(validated: ValidatedOutput, drives: DrivesState,
                 decisions.append(decision)
                 continue
 
-        # Gate 9: Journal daily cap — enforce regardless of source (TASK-082 fix)
-        if action_name == 'write_journal':
-            try:
-                journals_today = await db.get_journals_today()
-                from pipeline.habit_policy import JOURNAL_MAX_PER_DAY
-                if journals_today >= JOURNAL_MAX_PER_DAY:
-                    decision.status = 'suppressed'
-                    decision.suppression_reason = f'Daily journal cap reached ({journals_today}/{JOURNAL_MAX_PER_DAY})'
-                    decisions.append(decision)
-                    continue
-            except Exception:
-                pass  # graceful degradation — let journal through if DB unavailable
-
         # Passed all gates — calculate priority
         decision.priority = _calculate_priority(
             intention, drives, context
@@ -684,7 +670,6 @@ async def select_actions(validated: ValidatedOutput, drives: DrivesState,
             drives=drives,
             cycles_since_last_journal=await db.get_cycles_since_last_journal(),
             cycles_since_last_visitor=await db.get_cycles_since_last_visitor(),
-            journals_today=await db.get_journals_today(),
             budget_emergency=budget_emergency,
         )
         if proposal:

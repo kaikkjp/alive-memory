@@ -278,5 +278,4 @@ def _mock_db_calls():
         mock_db.get_room_state = AsyncMock(return_value=MagicMock(shop_status='open'))
         mock_db.get_cycles_since_last_journal = AsyncMock(return_value=10)
         mock_db.get_cycles_since_last_visitor = AsyncMock(return_value=5)
-        mock_db.get_journals_today = AsyncMock(return_value=0)
         yield mock_db

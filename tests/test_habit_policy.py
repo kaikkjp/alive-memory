@@ -11,9 +11,7 @@ from pipeline.habit_policy import (
     JOURNAL_EXPRESSION_THRESHOLD,
     JOURNAL_COOLDOWN_CYCLES,
     JOURNAL_NO_VISITOR_WINDOW,
-    JOURNAL_MAX_PER_DAY,
     JOURNAL_PRIORITY,
-    JOURNAL_DIMINISHING_FACTOR,
 )
 
 
@@ -45,7 +43,7 @@ def test_journal_fires_when_conditions_met(high_expression_drives):
         drives=high_expression_drives,
         cycles_since_last_journal=100,
         cycles_since_last_visitor=10,
-        journals_today=0,
+
     )
     assert result is not None
     assert isinstance(result, HabitProposal)
@@ -59,7 +57,7 @@ def test_journal_blocked_by_cooldown(high_expression_drives):
         drives=high_expression_drives,
         cycles_since_last_journal=30,  # < JOURNAL_COOLDOWN_CYCLES (80)
         cycles_since_last_visitor=10,
-        journals_today=0,
+
     )
     assert result is None
 
@@ -70,18 +68,7 @@ def test_journal_blocked_by_visitor(high_expression_drives):
         drives=high_expression_drives,
         cycles_since_last_journal=100,
         cycles_since_last_visitor=2,  # < JOURNAL_NO_VISITOR_WINDOW (5)
-        journals_today=0,
-    )
-    assert result is None
 
-
-def test_journal_blocked_by_daily_cap(high_expression_drives):
-    """3 journals already today -> None."""
-    result = evaluate_journal_habit(
-        drives=high_expression_drives,
-        cycles_since_last_journal=100,
-        cycles_since_last_visitor=10,
-        journals_today=JOURNAL_MAX_PER_DAY,
     )
     assert result is None
 
@@ -92,7 +79,7 @@ def test_journal_blocked_by_budget_emergency(high_expression_drives):
         drives=high_expression_drives,
         cycles_since_last_journal=100,
         cycles_since_last_visitor=10,
-        journals_today=0,
+
         budget_emergency=True,
     )
     assert result is None
@@ -104,32 +91,9 @@ def test_journal_blocked_by_low_expression(low_expression_drives):
         drives=low_expression_drives,
         cycles_since_last_journal=100,
         cycles_since_last_visitor=10,
-        journals_today=0,
+
     )
     assert result is None
-
-
-def test_diminishing_returns(high_expression_drives):
-    """2nd journal in a day has lower priority than 1st."""
-    first = evaluate_journal_habit(
-        drives=high_expression_drives,
-        cycles_since_last_journal=100,
-        cycles_since_last_visitor=10,
-        journals_today=0,
-    )
-    second = evaluate_journal_habit(
-        drives=high_expression_drives,
-        cycles_since_last_journal=100,
-        cycles_since_last_visitor=10,
-        journals_today=1,
-    )
-    assert first is not None
-    assert second is not None
-    assert second.priority < first.priority
-    # Verify the exact diminishing factor
-    assert second.priority == pytest.approx(
-        JOURNAL_PRIORITY * JOURNAL_DIMINISHING_FACTOR, abs=0.01
-    )
 
 
 def test_mood_boost(negative_mood_drives):
@@ -139,13 +103,13 @@ def test_mood_boost(negative_mood_drives):
         drives=normal_drives,
         cycles_since_last_journal=100,
         cycles_since_last_visitor=10,
-        journals_today=0,
+
     )
     result_negative = evaluate_journal_habit(
         drives=negative_mood_drives,
         cycles_since_last_journal=100,
         cycles_since_last_visitor=10,
-        journals_today=0,
+
     )
     assert result_normal is not None
     assert result_negative is not None
@@ -295,7 +259,6 @@ async def test_check_habits_reaches_habit_policy_without_learned_habits():
         mock_db.get_all_habits = AsyncMock(return_value=[])  # no learned habits
         mock_db.get_cycles_since_last_journal = AsyncMock(return_value=200)
         mock_db.get_cycles_since_last_visitor = AsyncMock(return_value=50)
-        mock_db.get_journals_today = AsyncMock(return_value=0)
 
         result = await check_habits(drives, engagement=engagement)
 
@@ -325,7 +288,6 @@ async def test_select_actions_does_not_inject_empty_journal():
         mock_db.resolve_dynamic_action = AsyncMock(return_value=None)
         mock_db.get_cycles_since_last_journal = AsyncMock(return_value=200)
         mock_db.get_cycles_since_last_visitor = AsyncMock(return_value=50)
-        mock_db.get_journals_today = AsyncMock(return_value=0)
 
         motor_plan = await select_actions(validated, drives, context={})
 
