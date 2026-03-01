@@ -137,7 +137,7 @@ def _check_db_lock() -> list[str]:
     """Check if the DB file is locked by another process."""
     # Determine DB path
     config_dir = os.environ.get('AGENT_CONFIG_DIR')
-    agent_id = os.environ.get('AGENT_ID', 'shopkeeper')
+    agent_id = os.environ.get('AGENT_ID', 'default')
 
     if config_dir:
         db_path = Path(config_dir) / 'db' / f'{agent_id}.db'

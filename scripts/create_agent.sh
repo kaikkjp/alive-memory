@@ -91,9 +91,10 @@ if [ "$VALIDATE" = true ]; then
         echo "  Starting stopped container for validation..."
         docker start "$CONTAINER_NAME" >/dev/null 2>&1
         sleep 2
+        # Capture exit code without triggering set -e, then always stop
         docker exec "$CONTAINER_NAME" \
-            python -c "from preflight import run_preflight; import sys; sys.exit(0 if run_preflight() else 1)"
-        PREFLIGHT_RC=$?
+            python -c "from preflight import run_preflight; import sys; sys.exit(0 if run_preflight() else 1)" \
+            && PREFLIGHT_RC=0 || PREFLIGHT_RC=$?
         echo "  Stopping container (was not running before validate)"
         docker stop "$CONTAINER_NAME" >/dev/null 2>&1
     else
