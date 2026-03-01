@@ -100,6 +100,7 @@ async def complete(
         "messages": converted_messages,
         "max_tokens": max_tokens,
         "temperature": temperature,
+        "reasoning": {"effort": "medium"},
     }
     if tools:
         body["tools"] = tools
