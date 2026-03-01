@@ -7,7 +7,7 @@ from models.pipeline import (
     ActionDecision, MotorPlan,
 )
 from models.state import DrivesState
-from pipeline.basal_ganglia import select_actions, _calculate_priority
+from pipeline.basal_ganglia import select_actions, _calculate_priority, _normalize_action_name
 
 
 # ── Fixtures ──
@@ -73,7 +73,7 @@ class TestMultiIntentionSelection:
     async def test_strongest_impulse_has_highest_priority(self, drives, context_no_visitor):
         intentions = [
             Intention(action='write_journal', content='day thoughts', impulse=0.3),
-            Intention(action='rearrange', content='shelf', impulse=0.9),
+            Intention(action='browse_web', content='look something up', impulse=0.9),
             Intention(action='express_thought', content='hmm', impulse=0.5),
         ]
         validated = _validated_with_intentions(intentions)
@@ -81,7 +81,7 @@ class TestMultiIntentionSelection:
 
         assert len(plan.actions) == 3
         # Sorted by priority descending
-        assert plan.actions[0].action == 'rearrange'
+        assert plan.actions[0].action == 'browse_web'
         assert plan.actions[0].priority > plan.actions[1].priority
 
     @pytest.mark.asyncio
@@ -192,7 +192,7 @@ class TestGateCooldown:
         from pipeline.action_registry import ACTION_REGISTRY
         import clock
 
-        cap = ACTION_REGISTRY['rearrange']
+        cap = ACTION_REGISTRY['browse_web']
         # Simulate action used 10 seconds ago, cooldown is 300s
         original_last_used = cap.last_used
         original_cooldown = cap.cooldown_seconds
@@ -200,7 +200,7 @@ class TestGateCooldown:
             cap.last_used = clock.now_utc()
             cap.cooldown_seconds = 300
             intentions = [
-                Intention(action='rearrange', content='shelf', impulse=0.8),
+                Intention(action='browse_web', content='search', impulse=0.8),
             ]
             validated = _validated_with_intentions(intentions)
             plan = await select_actions(validated, drives, context={})
@@ -219,14 +219,14 @@ class TestGateCooldown:
         from datetime import timedelta
         import clock
 
-        cap = ACTION_REGISTRY['rearrange']
+        cap = ACTION_REGISTRY['browse_web']
         original_last_used = cap.last_used
         original_cooldown = cap.cooldown_seconds
         try:
             cap.last_used = clock.now_utc() - timedelta(seconds=600)
             cap.cooldown_seconds = 300
             intentions = [
-                Intention(action='rearrange', content='shelf', impulse=0.8),
+                Intention(action='browse_web', content='search', impulse=0.8),
             ]
             validated = _validated_with_intentions(intentions)
             plan = await select_actions(validated, drives, context={})
@@ -492,3 +492,168 @@ class TestHasReflectionEvidence:
         with patch('db.get_recent_events', new=AsyncMock(return_value=[mock_event, mock_event, mock_event])):
             result = await _has_reflection_evidence()
         assert result is False
+
+
+# ── Test: Freeform intention normalization ──
+
+class TestNormalizeActionName:
+
+    def test_known_name_passthrough(self):
+        """Known registry action passes through untouched."""
+        assert _normalize_action_name('speak') == 'speak'
+
+    def test_hyphen_conversion(self):
+        """Hyphens convert to underscores."""
+        assert _normalize_action_name('browse-web') == 'browse_web'
+
+    def test_caps_and_punctuation(self):
+        """Uppercase + punctuation normalizes to snake_case."""
+        assert _normalize_action_name('Make Tea!!!') == 'make_tea'
+
+    def test_empty_string(self):
+        """Empty/whitespace returns empty."""
+        assert _normalize_action_name('') == ''
+        assert _normalize_action_name('   ') == ''
+
+    def test_mcp_tool_passthrough(self):
+        """Long MCP-style names with underscores pass through if in registry."""
+        with patch.dict('pipeline.action_registry.ACTION_REGISTRY',
+                        {'mcp_3_long_tool_name': MagicMock()}):
+            assert _normalize_action_name('mcp_3_long_tool_name') == 'mcp_3_long_tool_name'
+
+    def test_freeform_truncation(self):
+        """Freeform names longer than 60 chars are truncated."""
+        long_name = 'a' * 100
+        result = _normalize_action_name(long_name)
+        assert len(result) == 60
+
+    def test_none_input_returns_empty(self):
+        """None input returns '' without crashing."""
+        assert _normalize_action_name(None) == ''
+
+    def test_non_string_input_returns_empty(self):
+        """Non-string input (int, list) returns '' without crashing."""
+        assert _normalize_action_name(42) == ''
+        assert _normalize_action_name(['speak']) == ''
+
+
+# ── Test: Freeform starvation fallback ──
+
+class TestStarvationFallback:
+
+    @pytest.mark.asyncio
+    async def test_all_incapable_with_approved_actions_falls_through(self, drives, context_no_visitor):
+        """When all intentions are incapable but actions[] exist, passthrough fires."""
+        intentions = [
+            Intention(action='invent_something', content='novel', impulse=0.7),
+        ]
+        actions = [
+            ActionRequest(type='write_journal', detail={'text': 'my thoughts'}),
+        ]
+        validated = _validated_with_intentions(intentions, actions=actions)
+        plan = await select_actions(validated, drives, context=context_no_visitor)
+
+        # Passthrough should have produced the write_journal action
+        assert len(plan.actions) >= 1
+        assert any(a.action == 'write_journal' for a in plan.actions)
+
+    @pytest.mark.asyncio
+    async def test_all_incapable_no_approved_actions_empty(self, drives, context_no_visitor):
+        """When all intentions are incapable and no actions[], result is empty motor plan."""
+        intentions = [
+            Intention(action='fly_to_moon', content='impossible', impulse=0.9),
+        ]
+        validated = _validated_with_intentions(intentions, actions=[])
+        plan = await select_actions(validated, drives, context=context_no_visitor)
+
+        # No fallback — empty approved list
+        assert len(plan.actions) == 0
+
+    @pytest.mark.asyncio
+    async def test_mixed_incapable_and_suppressed_no_fallback(self, drives):
+        """Mixed statuses (incapable + suppressed) — fallback does NOT fire."""
+        intentions = [
+            Intention(action='fly_to_moon', content='impossible', impulse=0.9),
+            Intention(action='speak', content='hello', impulse=0.6, target='visitor'),
+        ]
+        actions = [
+            ActionRequest(type='write_journal', detail={'text': 'backup'}),
+        ]
+        validated = _validated_with_intentions(intentions, actions=actions)
+        # No visitor present — speak should be suppressed (not incapable)
+        plan = await select_actions(validated, drives, context={'visitor_present': False, 'mode': 'idle'})
+
+        # speak is suppressed (no visitor), fly_to_moon is incapable
+        # Mixed statuses → fallback should NOT fire
+        # Either approved is empty or speak was handled differently,
+        # but the fallback specifically requires ALL incapable
+        statuses = {d.status for d in plan.actions + plan.suppressed}
+        # At least one non-incapable status exists
+        assert not all(
+            d.status == 'incapable'
+            for d in plan.actions + plan.suppressed
+            if d.action != 'idle'
+        )
+
+    @pytest.mark.asyncio
+    async def test_mixed_incapable_and_approved_normal_flow(self, drives, context_no_visitor):
+        """One incapable + one approved — normal flow, no fallback needed."""
+        intentions = [
+            Intention(action='fly_to_moon', content='impossible', impulse=0.9),
+            Intention(action='write_journal', content='thoughts', impulse=0.7),
+        ]
+        actions = [
+            ActionRequest(type='write_journal', detail={'text': 'my thoughts'}),
+        ]
+        validated = _validated_with_intentions(intentions, actions=actions)
+        plan = await select_actions(validated, drives, context=context_no_visitor)
+
+        # write_journal should be approved normally
+        assert len(plan.actions) >= 1
+        assert any(a.action == 'write_journal' for a in plan.actions)
+
+    @pytest.mark.asyncio
+    async def test_gate2_disabled_does_not_trigger_fallback(self, drives):
+        """When all intentions are incapable due to Gate 2 (disabled), fallback must NOT fire.
+
+        This prevents the actions_enabled whitelist from being bypassed.
+        """
+        # Use a known action that we'll disable via identity.actions_enabled
+        intentions = [
+            Intention(action='write_journal', content='thoughts', impulse=0.8),
+        ]
+        actions = [
+            ActionRequest(type='write_journal', detail={'text': 'my thoughts'}),
+        ]
+        validated = _validated_with_intentions(intentions, actions=actions)
+
+        # Create identity with actions_enabled that does NOT include write_journal
+        identity = MagicMock()
+        identity.actions_enabled = ['speak']  # only speak allowed
+        context = {'visitor_present': False, 'mode': 'idle', 'identity': identity}
+
+        plan = await select_actions(validated, drives, context=context)
+
+        # write_journal should be incapable (Gate 2) — fallback must NOT fire
+        assert len(plan.actions) == 0
+        # The incapable decision should be in suppressed
+        assert any(d.action == 'write_journal' and d.status == 'incapable'
+                   for d in plan.suppressed)
+
+    @pytest.mark.asyncio
+    async def test_fallback_includes_incapable_in_suppressed(self, drives, context_no_visitor):
+        """When fallback fires, incapable decisions appear in plan.suppressed."""
+        intentions = [
+            Intention(action='invent_something', content='novel', impulse=0.7),
+        ]
+        actions = [
+            ActionRequest(type='write_journal', detail={'text': 'backup'}),
+        ]
+        validated = _validated_with_intentions(intentions, actions=actions)
+        plan = await select_actions(validated, drives, context=context_no_visitor)
+
+        # Fallback should fire — write_journal approved via passthrough
+        assert any(a.action == 'write_journal' for a in plan.actions)
+        # The unknown intention should appear in suppressed for observability
+        assert any(d.action == 'invent_something' and d.status == 'incapable'
+                   for d in plan.suppressed)

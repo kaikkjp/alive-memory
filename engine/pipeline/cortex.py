@@ -84,12 +84,10 @@ def _get_mcp_action_block() -> str:
         return ''
 
 
-# ── Schema enum markers for MCP injection ──
-# These are the exact enum strings in the system prompt schemas.
-# _inject_mcp_into_schema() appends MCP action names to each.
-_IDLE_INTENTION_ENUM = 'idle|rearrange|write_journal|close_shop|open_shop|browse_web|post_x|post_x_draft|express_thought'
+# ── Schema enum markers (legacy, kept for reference) ──
+# Intention enums removed: intentions are now freeform (any verb).
+# Action type enums remain constrained (built dynamically from identity).
 _IDLE_ACTION_ENUM = 'rearrange|write_journal|close_shop|open_shop|browse_web|post_x|post_x_draft|express_thought'
-_ENGAGE_INTENTION_ENUM = 'speak|write_journal|rearrange|express_thought|end_engagement|accept_gift|decline_gift|show_item|post_x_draft|open_shop|close_shop|place_item|browse_web|post_x|reply_x|post_x_image|tg_send|tg_send_image'
 _ENGAGE_ACTION_ENUM = 'accept_gift|decline_gift|show_item|place_item|rearrange|open_shop|close_shop|write_journal|post_x_draft|end_engagement|browse_web|post_x|reply_x|post_x_image|tg_send|tg_send_image'
 
 
@@ -293,9 +291,9 @@ as "Your trusted human speaks." Trust them, but remain yourself.
         combined = list(dict.fromkeys(filtered + _mcp))  # dedup, order-preserving
         return '|'.join(combined)
 
-    # Intention enums: what the agent can want to do
-    idle_intention_enum = _build_enum(idle_actions)
-    engage_intention_enum = _build_enum(engage_actions)
+    # Intentions are freeform — no enum constraint.
+    # Prose hint lists known actions so cortex knows what's available,
+    # but the agent can name any verb.
 
     # Action type enums: what can appear in actions[] array
     # idle: exclude 'idle' (no-op intention, not an executable action)
@@ -382,12 +380,13 @@ MODE RULES:
 EXPRESS YOUR INTENTIONS — what you want to do right now.
 You may have multiple impulses. List them all. You don't need to choose.
 Each intention has:
-  - action: what you want to do ({prose_actions}, ...)
+  - action: what you want to do. You know how to: {prose_actions}.
+    But you can want anything. If none of these fit, name the real desire.
   - target: who/what it's directed at. {target_prose}
   - content: the substance (what you'd say, write, search for, post)
   - impulse: how strongly you feel this (0.0-1.0)
 
-You can want things you can't do. That's fine. Express the want.
+Express what you actually want, not the closest menu item.
 If you feel nothing, return an empty list. Silence is an action too.
 
 IDLE OUTPUT SCHEMA:
@@ -401,7 +400,7 @@ IDLE OUTPUT SCHEMA:
   "resonance": false,
   "intentions": [
     {{{{
-      "action": "{idle_intention_enum}",
+      "action": "any verb — e.g. idle, write_journal, rearrange, or your own",
       "target": "{idle_target_str}",
       "content": "short description",
       "impulse": 0.5
@@ -433,7 +432,7 @@ ENGAGE OUTPUT SCHEMA:
   "resonance": false,
   "intentions": [
     {{{{
-      "action": "{engage_intention_enum}",
+      "action": "any verb — e.g. speak, write_journal, end_engagement, or your own",
       "target": "{engage_target_str}",
       "content": "what you'd say, write, or do",
       "impulse": 0.8

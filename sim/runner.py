@@ -138,7 +138,7 @@ OUTPUT SCHEMA:
   "resonance": false,
   "intentions": [
     {
-      "action": "speak|write_journal|rearrange|express_thought|end_engagement|accept_gift|decline_gift|show_item|post_x_draft|open_shop|close_shop|place_item|browse_web|post_x|reply_x|post_x_image|tg_send|tg_send_image",
+      "action": "any verb — e.g. speak, write_journal, or your own",
       "target": "visitor|visitor:ID|shelf|journal|self|web|x_timeline|telegram",
       "content": "what you'd say, write, or do",
       "impulse": 0.8

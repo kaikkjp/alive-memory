@@ -13,6 +13,7 @@ strong habits bypass cortex entirely.
 
 import json
 import random
+import re
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -29,6 +30,38 @@ from models.state import DrivesState, EngagementState
 from pipeline.action_registry import ACTION_REGISTRY, check_prerequisites
 from pipeline.context_bands import compute_trigger_context
 from pipeline.habit_policy import evaluate_journal_habit
+
+
+# ── Freeform intention normalization ──
+
+def _normalize_action_name(raw: str) -> str:
+    """Normalize freeform intention action to snake_case.
+
+    Known names (in ACTION_REGISTRY) pass through untouched.
+    Freeform names: lowercase, separators -> underscore, strip non-alnum.
+    Returns '' for None or non-string input.
+    """
+    if not isinstance(raw, str):
+        return ''
+    stripped = raw.strip()
+    if not stripped:
+        return ''
+
+    # Known action — pass through as-is
+    if stripped in ACTION_REGISTRY:
+        return stripped
+
+    s = stripped.lower()
+    s = re.sub(r'[-\s]+', '_', s)        # hyphens/spaces -> underscore
+    s = re.sub(r'[^a-z0-9_]', '', s)     # drop remaining non-alnum
+    s = re.sub(r'_+', '_', s)            # collapse multiple underscores
+    s = s.strip('_')
+
+    # Check again after normalization (e.g. "Browse Web" -> "browse_web")
+    if s in ACTION_REGISTRY:
+        return s
+
+    return s[:60] if s else ''            # cap freeform at 60
 
 
 # ── Cognitive primitives: always pass Gate 2 even with actions_enabled=[] ──
@@ -508,7 +541,9 @@ async def select_actions(validated: ValidatedOutput, drives: DrivesState,
     decisions = []
 
     for intention in intentions:
-        action_name = intention.action
+        action_name = _normalize_action_name(intention.action)
+        if not action_name:
+            continue  # empty/garbage intention — skip silently
         decision = ActionDecision(
             action=action_name,
             content=intention.content,
@@ -698,6 +733,22 @@ async def select_actions(validated: ValidatedOutput, drives: DrivesState,
             status='approved',
             source='circuit_breaker',
         )]
+
+    # Freeform-intention fallback: if ALL decisions are incapable because
+    # the action was unknown (Gate 1), and cortex provided constrained
+    # actions[], use those. Does NOT fire when actions are disabled (Gate 2)
+    # — that would bypass the actions_enabled whitelist.
+    if (decisions
+            and all(d.status == 'incapable' for d in decisions)
+            and all(
+                d.suppression_reason and d.suppression_reason.startswith('Unknown action:')
+                for d in decisions if d.status == 'incapable'
+            )
+            and not approved
+            and validated.approved_actions):
+        plan = _phase1_passthrough(validated, drives)
+        plan.suppressed.extend(decisions)  # P2: preserve incapable decisions for observability
+        return plan
 
     # Also include validator-dropped actions as suppressed
     for dropped in validated.dropped_actions:
