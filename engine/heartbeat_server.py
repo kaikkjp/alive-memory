@@ -1230,6 +1230,12 @@ class ShopkeeperServer:
                 await dashboard_routes.handle_pool(self, writer, authorization)
             elif path == '/api/dashboard/collection' and method == 'GET':
                 await dashboard_routes.handle_collection(self, writer, authorization)
+            elif path == '/api/dashboard/totems' and method == 'GET':
+                await dashboard_routes.handle_get_totems(self, writer, authorization)
+            elif path == '/api/dashboard/journal' and method == 'GET':
+                await dashboard_routes.handle_get_journal(self, writer, authorization)
+            elif path == '/api/dashboard/daily-summaries' and method == 'GET':
+                await dashboard_routes.handle_get_daily_summaries(self, writer, authorization)
             elif path == '/api/dashboard/timeline' and method == 'GET':
                 await dashboard_routes.handle_timeline(self, writer, authorization)
             elif path == '/api/dashboard/controls/cycle' and method == 'POST':
