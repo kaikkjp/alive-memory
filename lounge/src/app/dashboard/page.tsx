@@ -13,6 +13,7 @@ function Skeleton({ className }: { className?: string }) {
 export default function DashboardPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [authenticated, setAuthenticated] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
   const router = useRouter();
 
@@ -26,6 +27,7 @@ export default function DashboardPage() {
       if (res.ok) {
         const data = await res.json();
         setAgents(data.agents);
+        setAuthenticated(!!data.authenticated);
       }
     } finally {
       setLoading(false);
@@ -39,7 +41,8 @@ export default function DashboardPage() {
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/login");
+    setAuthenticated(false);
+    fetchAgents();
   }
 
   if (loading) {
@@ -86,32 +89,43 @@ export default function DashboardPage() {
           <span className="text-sm font-light tracking-[0.15em] uppercase text-[#9a8c7a]">
             ALIVE
           </span>
-          <button
-            onClick={handleLogout}
-            className="text-xs text-[#737373] hover:text-[#a3a3a3] transition-colors"
-          >
-            Logout
-          </button>
+          {authenticated ? (
+            <button
+              onClick={handleLogout}
+              className="text-xs text-[#737373] hover:text-[#a3a3a3] transition-colors"
+            >
+              Logout
+            </button>
+          ) : (
+            <Link
+              href="/login"
+              className="text-xs text-[#737373] hover:text-[#a3a3a3] transition-colors"
+            >
+              Manager login
+            </Link>
+          )}
         </div>
       </nav>
 
       <div className="max-w-5xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-xl font-semibold">Your Agents</h1>
+            <h1 className="text-xl font-semibold">Agents</h1>
             <p className="text-[#737373] text-sm mt-1">
               {agents.length} agent{agents.length !== 1 ? "s" : ""}
             </p>
           </div>
-          <button
-            onClick={() => setShowWizard(true)}
-            className="px-4 py-2 bg-[#d4a574] hover:bg-[#c4955a] text-[#0a0a0a] rounded-lg text-sm font-medium transition-colors"
-          >
-            Bring a new one to life
-          </button>
+          {authenticated && (
+            <button
+              onClick={() => setShowWizard(true)}
+              className="px-4 py-2 bg-[#d4a574] hover:bg-[#c4955a] text-[#0a0a0a] rounded-lg text-sm font-medium transition-colors"
+            >
+              Bring a new one to life
+            </button>
+          )}
         </div>
 
-        {showWizard && (
+        {authenticated && showWizard && (
           <CreateAgentWizard
             onCreated={handleAgentCreated}
             onCancel={() => setShowWizard(false)}
@@ -122,14 +136,18 @@ export default function DashboardPage() {
           <div className="text-center py-20 border border-dashed border-[#1e1e1a] rounded-xl">
             <p className="text-[#737373] mb-1">No agents yet</p>
             <p className="text-[#525252] text-sm mb-6">
-              Bring a digital lifeform into existence.
+              {authenticated
+                ? "Bring a digital lifeform into existence."
+                : "No one is here right now."}
             </p>
-            <button
-              onClick={() => setShowWizard(true)}
-              className="px-5 py-2.5 bg-[#d4a574] hover:bg-[#c4955a] text-[#0a0a0a] rounded-lg text-sm font-medium transition-colors"
-            >
-              Bring a new one to life
-            </button>
+            {authenticated && (
+              <button
+                onClick={() => setShowWizard(true)}
+                className="px-5 py-2.5 bg-[#d4a574] hover:bg-[#c4955a] text-[#0a0a0a] rounded-lg text-sm font-medium transition-colors"
+              >
+                Bring a new one to life
+              </button>
+            )}
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -137,6 +155,7 @@ export default function DashboardPage() {
               <AgentCard
                 key={agent.id}
                 agent={agent}
+                canManage={!!agent.is_owner}
                 onRefresh={fetchAgents}
               />
             ))}
@@ -193,9 +212,11 @@ function CardDriveBar({ value, color }: { value: number; color: string }) {
 
 function AgentCard({
   agent,
+  canManage,
   onRefresh,
 }: {
   agent: Agent;
+  canManage: boolean;
   onRefresh: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -379,38 +400,40 @@ function AgentCard({
             <h3 className="font-medium">{agent.name || "Unnamed"}</h3>
           </div>
 
-          {/* ⋯ menu */}
-          <div className="relative" ref={menuRef}>
-            <button
-              onClick={() => setMenuOpen(!menuOpen)}
-              className="p-1 text-[#525252] hover:text-[#a3a3a3] transition-colors text-lg leading-none"
-              title="Actions"
-            >
-              &#x22EF;
-            </button>
-            {menuOpen && (
-              <div className="absolute right-0 top-8 w-40 bg-[#1a1a1a] border border-[#262620] rounded-lg shadow-xl py-1 z-20">
-                {isRunning ? (
-                  <>
-                    <MenuBtn onClick={handleRestart}>Restart</MenuBtn>
-                    <MenuBtn onClick={handleStop}>Stop</MenuBtn>
-                  </>
-                ) : (
-                  <MenuBtn onClick={handleStart}>Start</MenuBtn>
-                )}
-                <div className="border-t border-[#262620] my-1" />
-                <MenuBtn
-                  onClick={() => {
-                    setMenuOpen(false);
-                    setDeleteConfirm(true);
-                  }}
-                  danger
-                >
-                  Delete
-                </MenuBtn>
-              </div>
-            )}
-          </div>
+          {/* ⋯ menu — only for owners */}
+          {canManage && (
+            <div className="relative" ref={menuRef}>
+              <button
+                onClick={() => setMenuOpen(!menuOpen)}
+                className="p-1 text-[#525252] hover:text-[#a3a3a3] transition-colors text-lg leading-none"
+                title="Actions"
+              >
+                &#x22EF;
+              </button>
+              {menuOpen && (
+                <div className="absolute right-0 top-8 w-40 bg-[#1a1a1a] border border-[#262620] rounded-lg shadow-xl py-1 z-20">
+                  {isRunning ? (
+                    <>
+                      <MenuBtn onClick={handleRestart}>Restart</MenuBtn>
+                      <MenuBtn onClick={handleStop}>Stop</MenuBtn>
+                    </>
+                  ) : (
+                    <MenuBtn onClick={handleStart}>Start</MenuBtn>
+                  )}
+                  <div className="border-t border-[#262620] my-1" />
+                  <MenuBtn
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setDeleteConfirm(true);
+                    }}
+                    danger
+                  >
+                    Delete
+                  </MenuBtn>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Role subtitle */}
