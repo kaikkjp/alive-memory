@@ -2035,6 +2035,55 @@ This matters because dynamic actions are the primary signal of agent-initiated g
 
 ---
 
+### TASK-109: Lounge — Agent Credentials Manager UI
+**Status:** BACKLOG
+**Priority:** Medium
+**Description:** Add a credentials management panel to the Lounge agent settings page. Currently only `openrouter_key` is stored in the lounge DB per agent. All other service credentials (X/Twitter, Telegram, fal.ai, OpenAI, etc.) must be configured manually via environment variables on the VPS. This task adds a UI for managers to view, set, and rotate per-agent credentials, and syncs them to the agent container environment.
+
+**Requirements:**
+1. New "Credentials" tab/section in the agent detail page (alongside existing Identity, Config, Feed, MCP tabs)
+2. Key-value credential store in lounge DB — new `agent_credentials` table (`agent_id`, `service`, `key_name`, `encrypted_value`, `created_at`, `updated_at`)
+3. Predefined credential templates for known services:
+   - X/Twitter: `X_API_KEY`, `X_API_SECRET`, `X_ACCESS_TOKEN`, `X_ACCESS_SECRET`
+   - OpenAI: `OPENAI_API_KEY`
+   - fal.ai: `FAL_KEY`
+   - Custom: arbitrary key-value pairs
+4. Values masked in UI (show only last 4 chars), full value shown on click/copy
+5. API endpoints: `GET/PUT/DELETE /api/agents/:id/credentials`
+6. On save, write credentials to `{AGENT_CONFIG_DIR}/credentials.json` (already bind-mounted into the container). No container restart required.
+7. Engine-side: add a credential loader that reads `/agent-config/credentials.json` and injects values into `os.environ` on startup + watches for file changes at runtime (or re-reads on each access with mtime caching, like `ApiKeyManager` does for `api_keys.json`)
+8. Update `create_agent.sh` to load credentials from config dir on startup if the file exists
+9. Credential validation: optional "test connection" button per service (e.g., verify X creds with a whoami call)
+
+**Credential sync flow:**
+- Manager saves creds in Lounge UI → lounge writes `credentials.json` to agent config dir → engine detects file change → loads new values into `os.environ` → next X/service call uses new creds
+- No container restart needed. Hot-reload.
+
+**Security considerations:**
+- Encrypt values at rest in lounge DB (AES-256 or similar, key from env var `LOUNGE_ENCRYPTION_KEY`)
+- `credentials.json` on disk is plaintext (container filesystem, not exposed) — acceptable for v1, encrypt later if needed
+- Never log credential values
+- Never return full values in API responses (only masked)
+- Rate-limit credential reads
+
+**Scope (files you may touch):**
+- `lounge/src/lib/manager-db.ts` (new table + CRUD)
+- `lounge/src/lib/types.ts` (credential types)
+- `lounge/src/app/api/agents/[id]/credentials/route.ts` (new API route)
+- `lounge/src/components/AgentCredentials.tsx` (new component)
+- `lounge/src/app/agents/[id]/page.tsx` (add credentials tab)
+- `lounge/src/lib/docker-client.ts` (write credentials.json to agent config dir)
+- `scripts/create_agent.sh` (load credentials.json on container start)
+- `engine/config/credentials.py` (new file — credential loader, file watcher, env injection)
+- `engine/heartbeat_server.py` (init credential loader on startup)
+**Scope (files you may NOT touch):**
+- `engine/body/x_client.py` (already reads from `os.environ` — no changes needed)
+- `lounge/data/` (DB file, never commit)
+**Tests:** Verify CRUD operations, masked display, hot-reload of credentials.json, env injection.
+**Definition of done:** Manager can add/view/edit/delete credentials per agent from the Lounge UI. Credentials are encrypted at rest in lounge DB. Saving credentials writes to agent config dir. Engine hot-reloads credentials without container restart. New agents pick up credentials on first start.
+
+---
+
 ### TASK-XXX: Title
 **Status:** BACKLOG
 **Priority:** Low / Medium / High
