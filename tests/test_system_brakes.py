@@ -279,7 +279,6 @@ class TestEnergyBudgetEnforcement:
         hb = Heartbeat()
         hb.running = True
         hb._stage_callback = None
-        hb._window_broadcast = None
         hb._error_backoff = 5
         hb._last_cycle_ts = datetime(2026, 2, 16, 11, 0, 0, tzinfo=timezone.utc)
         hb._recent_fidgets = []

@@ -192,7 +192,13 @@ class TestWait:
 # ---------------------------------------------------------------------------
 
 class TestHeartbeatIntegration:
-    def test_set_bus(self):
+    def test_default_bus_exists(self):
+        """Heartbeat creates a default bus in __init__."""
+        from heartbeat import Heartbeat
+        hb = Heartbeat()
+        assert hb._bus is not None
+
+    def test_set_bus_replaces_default(self):
         from heartbeat import Heartbeat
         hb = Heartbeat()
         bus = EventBus()
@@ -200,12 +206,25 @@ class TestHeartbeatIntegration:
         assert hb._bus is bus
 
     @pytest.mark.asyncio
+    async def test_set_bus_migrates_existing_subscribers(self):
+        """Bus swap after subscribe_cycle_logs migrates queues to new bus."""
+        from heartbeat import Heartbeat
+        hb = Heartbeat()
+        hb.subscribe_cycle_logs('alice')
+        # Swap to a new bus
+        new_bus = EventBus()
+        hb.set_bus(new_bus)
+        # Publish on the new bus — alice should still receive
+        log = {'visitor_id': 'alice', 'data': 'after-swap'}
+        await hb._publish_cycle_log(log)
+        result = await hb.wait_for_cycle_log('alice', timeout=1.0)
+        assert result == log
+
+    @pytest.mark.asyncio
     async def test_publish_cycle_log_to_bus(self):
         from heartbeat import Heartbeat
         hb = Heartbeat()
-        bus = EventBus()
-        hb.set_bus(bus)
-        q = bus.subscribe_keyed(TOPIC_CYCLE_COMPLETE, 'visitor-1', 'test')
+        q = hb._bus.subscribe_keyed(TOPIC_CYCLE_COMPLETE, 'visitor-1', 'test')
         log = {'visitor_id': 'visitor-1', 'type': 'test'}
         await hb._publish_cycle_log(log)
         assert q.get_nowait() == log
@@ -214,9 +233,7 @@ class TestHeartbeatIntegration:
     async def test_publish_cycle_log_wildcard_subscriber(self):
         from heartbeat import Heartbeat
         hb = Heartbeat()
-        bus = EventBus()
-        hb.set_bus(bus)
-        q = bus.subscribe_keyed(TOPIC_CYCLE_COMPLETE, '*', 'watcher')
+        q = hb._bus.subscribe_keyed(TOPIC_CYCLE_COMPLETE, '*', 'watcher')
         log = {'visitor_id': 'visitor-1', 'type': 'test'}
         await hb._publish_cycle_log(log)
         assert q.get_nowait() == log
@@ -226,59 +243,89 @@ class TestHeartbeatIntegration:
         """Cycle with no visitor_id publishes with key='*'."""
         from heartbeat import Heartbeat
         hb = Heartbeat()
-        bus = EventBus()
-        hb.set_bus(bus)
-        q = bus.subscribe_keyed(TOPIC_CYCLE_COMPLETE, '*', 'watcher')
+        q = hb._bus.subscribe_keyed(TOPIC_CYCLE_COMPLETE, '*', 'watcher')
         log = {'type': 'idle'}  # no visitor_id
         await hb._publish_cycle_log(log)
         assert q.get_nowait() == log
 
     @pytest.mark.asyncio
-    async def test_publish_cycle_log_no_bus_fallback(self):
-        """Legacy path still works when bus is None."""
+    async def test_subscribe_cycle_logs_uses_bus(self):
+        """subscribe_cycle_logs delegates to bus.subscribe_keyed."""
         from heartbeat import Heartbeat
         hb = Heartbeat()
-        q = asyncio.Queue(maxsize=10)
-        hb._cycle_log_subscribers['test'] = q
-        log = {'type': 'test'}
+        q = hb.subscribe_cycle_logs('visitor-1')
+        log = {'visitor_id': 'visitor-1', 'data': 'test'}
         await hb._publish_cycle_log(log)
         assert q.get_nowait() == log
+
+    @pytest.mark.asyncio
+    async def test_unsubscribe_cycle_logs_stops_delivery(self):
+        """After unsubscribe, no more messages are delivered."""
+        from heartbeat import Heartbeat
+        hb = Heartbeat()
+        q = hb.subscribe_cycle_logs('visitor-1')
+        hb.unsubscribe_cycle_logs('visitor-1')
+        log = {'visitor_id': 'visitor-1', 'data': 'test'}
+        await hb._publish_cycle_log(log)
+        assert q.empty()
+
+    @pytest.mark.asyncio
+    async def test_wait_for_cycle_log_returns_message(self):
+        """wait_for_cycle_log returns the published log."""
+        from heartbeat import Heartbeat
+        hb = Heartbeat()
+        hb.subscribe_cycle_logs('visitor-1')
+        log = {'visitor_id': 'visitor-1', 'data': 'test'}
+        await hb._publish_cycle_log(log)
+        result = await hb.wait_for_cycle_log('visitor-1', timeout=1.0)
+        assert result == log
+
+    @pytest.mark.asyncio
+    async def test_wait_for_cycle_log_timeout(self):
+        """wait_for_cycle_log returns None on timeout."""
+        from heartbeat import Heartbeat
+        hb = Heartbeat()
+        hb.subscribe_cycle_logs('visitor-1')
+        result = await hb.wait_for_cycle_log('visitor-1', timeout=0.05)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_wait_for_cycle_log_unknown_subscriber(self):
+        """wait_for_cycle_log returns None for unknown subscriber."""
+        from heartbeat import Heartbeat
+        hb = Heartbeat()
+        result = await hb.wait_for_cycle_log('nobody', timeout=0.05)
+        assert result is None
 
     @pytest.mark.asyncio
     async def test_emit_stage_to_bus(self):
         from heartbeat import Heartbeat
         hb = Heartbeat()
-        bus = EventBus()
-        hb.set_bus(bus)
-        q = bus.subscribe(TOPIC_STAGE_PROGRESS, 'test')
+        q = hb._bus.subscribe(TOPIC_STAGE_PROGRESS, 'test')
         await hb._emit_stage('cortex', {'tokens': 100})
         msg = q.get_nowait()
         assert msg['stage'] == 'cortex'
         assert msg['data'] == {'tokens': 100}
 
     @pytest.mark.asyncio
-    async def test_emit_stage_legacy_and_bus_coexist(self):
+    async def test_emit_stage_callback_and_bus_coexist(self):
         from heartbeat import Heartbeat
         hb = Heartbeat()
-        bus = EventBus()
-        hb.set_bus(bus)
         legacy_calls = []
         hb.set_stage_callback(AsyncMock(side_effect=lambda s, d: legacy_calls.append(s)))
-        q = bus.subscribe(TOPIC_STAGE_PROGRESS, 'test')
+        q = hb._bus.subscribe(TOPIC_STAGE_PROGRESS, 'test')
         await hb._emit_stage('body', {'action': 'sip_tea'})
         # Both paths got the message
         assert 'body' in legacy_calls
         assert not q.empty()
 
     @pytest.mark.asyncio
-    async def test_emit_stage_legacy_failure_does_not_block_bus(self):
-        """Legacy callback raising does not prevent bus publish."""
+    async def test_emit_stage_callback_failure_does_not_block_bus(self):
+        """Callback raising does not prevent bus publish."""
         from heartbeat import Heartbeat
         hb = Heartbeat()
-        bus = EventBus()
-        hb.set_bus(bus)
         hb.set_stage_callback(AsyncMock(side_effect=RuntimeError("boom")))
-        q = bus.subscribe(TOPIC_STAGE_PROGRESS, 'test')
+        q = hb._bus.subscribe(TOPIC_STAGE_PROGRESS, 'test')
         await hb._emit_stage('cortex', {'x': 1})
         # Bus still got the message
         msg = q.get_nowait()
@@ -289,10 +336,8 @@ class TestHeartbeatIntegration:
         """Bus exception in _emit_stage is caught (fail-open)."""
         from heartbeat import Heartbeat
         hb = Heartbeat()
-        bus = EventBus()
-        hb.set_bus(bus)
         # Monkey-patch publish to raise
-        bus.publish = lambda *a, **kw: (_ for _ in ()).throw(RuntimeError("bus-fail"))
+        hb._bus.publish = lambda *a, **kw: (_ for _ in ()).throw(RuntimeError("bus-fail"))
         # Should not raise
         await hb._emit_stage('test', {})
 
@@ -302,22 +347,6 @@ class TestHeartbeatIntegration:
 # ---------------------------------------------------------------------------
 
 class TestSceneUpdateIntegration:
-    """Tests for the scene_update bus path in run_cycle's window broadcast block.
-
-    These test the restructured build-once publish-twice pattern. We can't
-    easily run full run_cycle, so we test the bus wiring via _emit_stage and
-    _publish_cycle_log, plus verify the attribute wiring.
-    """
-
-    def test_bus_attribute_independent_of_window_broadcast(self):
-        """Bus can be set without window_broadcast being set."""
-        from heartbeat import Heartbeat
-        hb = Heartbeat()
-        bus = EventBus()
-        hb.set_bus(bus)
-        assert hb._bus is bus
-        assert hb._window_broadcast is None
-
     def test_scene_update_topic_constant(self):
         """TOPIC_SCENE_UPDATE has expected value."""
         assert TOPIC_SCENE_UPDATE == 'outbound.scene_update'
@@ -354,3 +383,211 @@ class TestSceneUpdateIntegration:
         q = bus.subscribe(TOPIC_STAGE_PROGRESS, 'test')
         bus.publish(TOPIC_STAGE_PROGRESS, {'stage': 'ok'})
         assert q.get_nowait() == {'stage': 'ok'}
+
+
+# ---------------------------------------------------------------------------
+# TestBusMessageFlow (TASK-117 integration tests)
+# ---------------------------------------------------------------------------
+
+class TestBusMessageFlow:
+    """End-to-end bus message flow tests."""
+
+    @pytest.mark.asyncio
+    async def test_subscribe_publish_wait_roundtrip(self):
+        """Full subscribe -> publish -> wait cycle via Heartbeat."""
+        from heartbeat import Heartbeat
+        hb = Heartbeat()
+        hb.subscribe_cycle_logs('alice')
+        log = {'visitor_id': 'alice', 'dialogue': 'Hello!'}
+        await hb._publish_cycle_log(log)
+        result = await hb.wait_for_cycle_log('alice', timeout=1.0)
+        assert result == log
+        assert result['dialogue'] == 'Hello!'
+        hb.unsubscribe_cycle_logs('alice')
+
+    @pytest.mark.asyncio
+    async def test_multiple_subscribers_independent(self):
+        """Two subscribers get their own messages, not each other's."""
+        from heartbeat import Heartbeat
+        hb = Heartbeat()
+        hb.subscribe_cycle_logs('alice')
+        hb.subscribe_cycle_logs('bob')
+
+        log_alice = {'visitor_id': 'alice', 'dialogue': 'Hi from Alice'}
+        log_bob = {'visitor_id': 'bob', 'dialogue': 'Hi from Bob'}
+
+        await hb._publish_cycle_log(log_alice)
+        await hb._publish_cycle_log(log_bob)
+
+        result_alice = await hb.wait_for_cycle_log('alice', timeout=1.0)
+        result_bob = await hb.wait_for_cycle_log('bob', timeout=1.0)
+
+        assert result_alice['dialogue'] == 'Hi from Alice'
+        assert result_bob['dialogue'] == 'Hi from Bob'
+
+        hb.unsubscribe_cycle_logs('alice')
+        hb.unsubscribe_cycle_logs('bob')
+
+    @pytest.mark.asyncio
+    async def test_wildcard_cycle_delivery(self):
+        """Wildcard subscriber receives cycle logs from all visitors."""
+        from heartbeat import Heartbeat
+        hb = Heartbeat()
+        q_all = hb._bus.subscribe_keyed(TOPIC_CYCLE_COMPLETE, '*', 'watcher')
+
+        hb.subscribe_cycle_logs('alice')
+        hb.subscribe_cycle_logs('bob')
+
+        log_alice = {'visitor_id': 'alice', 'data': 1}
+        log_bob = {'visitor_id': 'bob', 'data': 2}
+        log_ambient = {'type': 'idle'}  # no visitor_id -> key='*'
+
+        await hb._publish_cycle_log(log_alice)
+        await hb._publish_cycle_log(log_bob)
+        await hb._publish_cycle_log(log_ambient)
+
+        # Wildcard subscriber got all three
+        msgs = []
+        while not q_all.empty():
+            msgs.append(q_all.get_nowait())
+        assert len(msgs) == 3
+
+        # Alice only got hers
+        result_alice = await hb.wait_for_cycle_log('alice', timeout=0.1)
+        assert result_alice['visitor_id'] == 'alice'
+
+        # Bob only got his
+        result_bob = await hb.wait_for_cycle_log('bob', timeout=0.1)
+        assert result_bob['visitor_id'] == 'bob'
+
+        hb.unsubscribe_cycle_logs('alice')
+        hb.unsubscribe_cycle_logs('bob')
+
+    @pytest.mark.asyncio
+    async def test_concurrent_visitor_lock_serialization(self):
+        """Two concurrent requests for the same visitor are serialized by lock."""
+        bus = EventBus()
+        lock = bus.visitor_lock('visitor-1')
+        order = []
+        results = []
+
+        async def chat_handler(label, delay):
+            async with lock:
+                order.append(f'{label}-start')
+                await asyncio.sleep(delay)
+                results.append(f'response-{label}')
+                order.append(f'{label}-end')
+
+        t1 = asyncio.create_task(chat_handler('A', 0.05))
+        await asyncio.sleep(0.01)
+        t2 = asyncio.create_task(chat_handler('B', 0.01))
+        await asyncio.gather(t1, t2)
+
+        # A completes before B starts (serialized, not interleaved)
+        assert order == ['A-start', 'A-end', 'B-start', 'B-end']
+        # Both produced distinct responses
+        assert len(results) == 2
+        assert results[0] == 'response-A'
+        assert results[1] == 'response-B'
+
+    @pytest.mark.asyncio
+    async def test_different_visitors_run_concurrently(self):
+        """Two different visitors are NOT serialized -- they run in parallel."""
+        bus = EventBus()
+        lock_a = bus.visitor_lock('visitor-A')
+        lock_b = bus.visitor_lock('visitor-B')
+        order = []
+
+        async def chat_handler(lock, label, delay):
+            async with lock:
+                order.append(f'{label}-start')
+                await asyncio.sleep(delay)
+                order.append(f'{label}-end')
+
+        t1 = asyncio.create_task(chat_handler(lock_a, 'A', 0.05))
+        await asyncio.sleep(0.01)
+        t2 = asyncio.create_task(chat_handler(lock_b, 'B', 0.01))
+        await asyncio.gather(t1, t2)
+
+        # B starts before A ends (parallel, not serialized)
+        assert order[0] == 'A-start'
+        assert order[1] == 'B-start'
+        assert 'B-end' in order
+        assert 'A-end' in order
+
+    @pytest.mark.asyncio
+    async def test_scene_update_flows_through_bus(self):
+        """Scene update published to bus is received by subscriber."""
+        from heartbeat import Heartbeat
+        hb = Heartbeat()
+        q = hb._bus.subscribe(TOPIC_SCENE_UPDATE, 'window-viewer')
+        msg = {'type': 'scene_update', 'expression': 'smile'}
+        hb._bus.publish(TOPIC_SCENE_UPDATE, msg)
+        result = await hb._bus.wait(q, timeout=1.0)
+        assert result == msg
+
+    @pytest.mark.asyncio
+    async def test_unsubscribe_is_clean(self):
+        """After unsubscribe, no stale references remain."""
+        from heartbeat import Heartbeat
+        hb = Heartbeat()
+        hb.subscribe_cycle_logs('temp')
+        assert 'temp' in hb._cycle_log_queues
+        hb.unsubscribe_cycle_logs('temp')
+        assert 'temp' not in hb._cycle_log_queues
+        # Publishing after unsubscribe doesn't crash
+        await hb._publish_cycle_log({'visitor_id': 'temp', 'x': 1})
+
+
+# ---------------------------------------------------------------------------
+# TestRequestContext (TASK-117)
+# ---------------------------------------------------------------------------
+
+class TestRequestContext:
+    def test_heartbeat_property(self):
+        from api.request_context import RequestContext
+
+        class FakeServer:
+            def __init__(self):
+                self.heartbeat = 'hb-sentinel'
+                self._bus = 'bus-sentinel'
+        ctx = RequestContext(FakeServer())
+        assert ctx.heartbeat == 'hb-sentinel'
+
+    def test_bus_property(self):
+        from api.request_context import RequestContext
+
+        class FakeServer:
+            def __init__(self):
+                self.heartbeat = None
+                self._bus = EventBus()
+        ctx = RequestContext(FakeServer())
+        assert isinstance(ctx.bus, EventBus)
+
+    @pytest.mark.asyncio
+    async def test_http_json_delegates(self):
+        from api.request_context import RequestContext
+
+        class FakeServer:
+            def __init__(self):
+                self.heartbeat = None
+                self._bus = None
+                self.calls = []
+            async def _http_json(self, writer, status, body):
+                self.calls.append((writer, status, body))
+
+        server = FakeServer()
+        ctx = RequestContext(server)
+        await ctx.http_json('writer', 200, {'ok': True})
+        assert server.calls == [('writer', 200, {'ok': True})]
+
+    def test_server_escape_hatch(self):
+        from api.request_context import RequestContext
+
+        class FakeServer:
+            def __init__(self):
+                self.heartbeat = None
+                self._bus = None
+        server = FakeServer()
+        ctx = RequestContext(server)
+        assert ctx.server is server

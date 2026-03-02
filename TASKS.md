@@ -2324,7 +2324,7 @@ Fix:
 ---
 
 ### TASK-117: Event Bus — Cleanup + RequestContext
-**Status:** BACKLOG
+**Status:** DONE (2026-03-02)
 **Priority:** Medium
 **Proposal:** `tasks/PROPOSAL-alive-infra-roadmap.md` Phase 2, Sub-phase 3
 **Depends on:** TASK-116 (extraction must be complete)
