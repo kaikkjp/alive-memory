@@ -145,11 +145,10 @@ class Heartbeat:
         self._last_sleep_date: Optional[str] = None  # ISO date string (restored from DB on start)
         self._last_fidget_behavior: Optional[str] = None
         self._recent_fidgets: list[tuple] = []  # (behavior_key, description, timestamp)
-        self._cycle_log_subscribers: dict[str, asyncio.Queue] = {}
+        self._cycle_log_queues: dict[str, asyncio.Queue] = {}  # lookup table for bus queues
         self._loop_task = None
         self._supervisor_task = None
         self._stage_callback: StageCallback = None
-        self._window_broadcast: Optional[Callable] = None
         self._error_backoff = 5
         self._arbiter_state: Optional[dict] = None  # loaded from DB on start
         self._last_ambient_fetch_ts: Optional[datetime] = None
@@ -165,7 +164,8 @@ class Heartbeat:
         self._loop_restart_count: int = 0
         self._last_loop_error: Optional[str] = None
         self._run_meta = get_run_metadata()
-        self._bus: Optional['EventBus'] = None  # TASK-115: event bus
+        from bus import EventBus
+        self._bus: EventBus = EventBus()  # TASK-117: always available
 
         # TASK-095 v2: Queued sleep for force-sleep when engaged
         self._sleep_queued: bool = False
@@ -219,10 +219,6 @@ class Heartbeat:
         hi = max(lo + 1, min(self.INTERVAL_MAX * 3, int(base * 1.25)))
         return random.randint(lo, hi)
 
-    def set_window_broadcast(self, cb: Callable):
-        """Set callback for broadcasting to window viewers."""
-        self._window_broadcast = cb
-
     def _pick_fidget_behavior(self) -> tuple[str, str]:
         """Pick a fidget behavior while avoiding immediate repetition."""
         world = self._identity.world if self._identity else None
@@ -254,8 +250,16 @@ class Heartbeat:
         return ['at_object', 'away_thinking', 'window', 'down']
 
     def set_bus(self, bus: 'EventBus') -> None:
-        """Set the event bus for publish-subscribe delivery."""
+        """Replace the event bus, migrating any existing cycle-log subscribers."""
+        from bus_types import TOPIC_CYCLE_COMPLETE
+        old_bus = self._bus
         self._bus = bus
+        # Migrate existing cycle-log subscriptions to the new bus
+        for sub_id in list(self._cycle_log_queues):
+            if old_bus is not None:
+                old_bus.unsubscribe_keyed(TOPIC_CYCLE_COMPLETE, sub_id, sub_id)
+            q = bus.subscribe_keyed(TOPIC_CYCLE_COMPLETE, sub_id, sub_id)
+            self._cycle_log_queues[sub_id] = q
 
     def set_stage_callback(self, cb: StageCallback):
         """Set a callback that fires after each pipeline stage."""
@@ -276,26 +280,13 @@ class Heartbeat:
                 print(f"  [Bus] stage publish error (non-fatal): {e}")
 
     async def _publish_cycle_log(self, log: dict) -> None:
-        """Publish cycle log to legacy subscribers and bus (fail-open)."""
-        # Legacy path (unchanged semantics)
-        for sub_id, q in list(self._cycle_log_subscribers.items()):
-            while q.full():
-                try:
-                    q.get_nowait()
-                except asyncio.QueueEmpty:
-                    break
-            try:
-                q.put_nowait(log)
-            except asyncio.QueueFull:
-                pass
-        # Bus path (fail-open)
-        if self._bus is not None:
-            try:
-                from bus_types import TOPIC_CYCLE_COMPLETE
-                visitor_id = log.get('visitor_id') or '*'
-                self._bus.publish_keyed(TOPIC_CYCLE_COMPLETE, visitor_id, log)
-            except Exception as e:
-                print(f"  [Bus] cycle_complete publish error (non-fatal): {e}")
+        """Publish cycle log via bus (fail-open)."""
+        try:
+            from bus_types import TOPIC_CYCLE_COMPLETE
+            visitor_id = log.get('visitor_id') or '*'
+            self._bus.publish_keyed(TOPIC_CYCLE_COMPLETE, visitor_id, log)
+        except Exception as e:
+            print(f"  [Bus] cycle_complete publish error (non-fatal): {e}")
 
     def _touch_loop_heartbeat(self):
         """Mark that the main loop is still making progress."""
@@ -1656,36 +1647,27 @@ class Heartbeat:
                 })
         self._error_backoff = 5  # reset backoff on successful cycle
 
-        # ── Window broadcast: push scene update to web viewers ──
+        # ── Window broadcast: push scene update via bus ──
         broadcast_msg = None
-        if self._window_broadcast or self._bus is not None:
-            try:
-                from window_state import build_cycle_broadcast
-                room = await db.get_room_state()
-                ambient = {'condition': room.weather}
-                shelf_items = await db.get_shelf_assignments()
-                broadcast_msg = await build_cycle_broadcast(
-                    cycle_log=log,
-                    drives=drives,
-                    ambient=ambient,
-                    focus=routing.focus if routing else None,
-                    engagement=engagement,
-                    clock_now=datetime.now(timezone.utc),
-                    shelf_items=shelf_items,
-                    shop_status=room.shop_status,
-                )
-            except Exception as e:
-                print(f"  [WindowBroadcast] Build error: {e}")
+        try:
+            from window_state import build_cycle_broadcast
+            room = await db.get_room_state()
+            ambient = {'condition': room.weather}
+            shelf_items = await db.get_shelf_assignments()
+            broadcast_msg = await build_cycle_broadcast(
+                cycle_log=log,
+                drives=drives,
+                ambient=ambient,
+                focus=routing.focus if routing else None,
+                engagement=engagement,
+                clock_now=datetime.now(timezone.utc),
+                shelf_items=shelf_items,
+                shop_status=room.shop_status,
+            )
+        except Exception as e:
+            print(f"  [WindowBroadcast] Build error: {e}")
 
-        # Legacy callback (unchanged behavior)
-        if broadcast_msg is not None and self._window_broadcast:
-            try:
-                await self._window_broadcast(broadcast_msg)
-            except Exception as e:
-                print(f"  [WindowBroadcast] Error: {e}")
-
-        # Bus path (independent, fail-open)
-        if broadcast_msg is not None and self._bus is not None:
+        if broadcast_msg is not None:
             try:
                 from bus_types import TOPIC_SCENE_UPDATE
                 self._bus.publish(TOPIC_SCENE_UPDATE, broadcast_msg)
@@ -1908,21 +1890,21 @@ class Heartbeat:
         }
 
     def subscribe_cycle_logs(self, subscriber_id: str, maxsize: int = 50) -> asyncio.Queue:
-        """Register a subscriber for cycle logs. Returns their personal queue."""
-        q = asyncio.Queue(maxsize=maxsize)
-        self._cycle_log_subscribers[subscriber_id] = q
+        """Register a subscriber for cycle logs via bus. Returns their queue."""
+        from bus_types import TOPIC_CYCLE_COMPLETE
+        q = self._bus.subscribe_keyed(TOPIC_CYCLE_COMPLETE, subscriber_id, subscriber_id, maxsize)
+        self._cycle_log_queues[subscriber_id] = q
         return q
 
     def unsubscribe_cycle_logs(self, subscriber_id: str):
-        """Remove a subscriber."""
-        self._cycle_log_subscribers.pop(subscriber_id, None)
+        """Remove a cycle log subscriber."""
+        self._cycle_log_queues.pop(subscriber_id, None)
+        from bus_types import TOPIC_CYCLE_COMPLETE
+        self._bus.unsubscribe_keyed(TOPIC_CYCLE_COMPLETE, subscriber_id, subscriber_id)
 
     async def wait_for_cycle_log(self, subscriber_id: str, timeout: float = 30.0) -> dict:
         """Wait for the next cycle log entry for a specific subscriber."""
-        q = self._cycle_log_subscribers.get(subscriber_id)
+        q = self._cycle_log_queues.get(subscriber_id)
         if not q:
             return None
-        try:
-            return await asyncio.wait_for(q.get(), timeout=timeout)
-        except asyncio.TimeoutError:
-            return None
+        return await self._bus.wait(q, timeout=timeout)

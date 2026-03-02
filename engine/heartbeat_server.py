@@ -211,6 +211,7 @@ class ShopkeeperServer:
         self._weather_cache: dict = {}  # {data, fetched_at}
         self._WEATHER_CACHE_TTL = 600  # 10 minutes
         self._last_chat_response_content: str = ''  # dedup tracker
+        self._scene_fwd_task = None
         self._sprite_gen_task = None
         self._visitor_timeout_task = None
         self._metrics_task = None
@@ -290,16 +291,10 @@ class ShopkeeperServer:
             await seed()
             print(f"  {Fore.CYAN}[System]{Style.RESET_ALL} Shop initialized. Objects placed on shelves.")
 
-        # TASK-115: Initialize event bus
-        from bus import EventBus
-        self._bus = EventBus()
-        self.heartbeat.set_bus(self._bus)
-
-        # Set stage callback for server-side logging
+        # TASK-117: Use heartbeat's built-in bus, subscribe for scene updates
+        self._bus = self.heartbeat._bus
         self.heartbeat.set_stage_callback(self._on_stage)
-
-        # Set window broadcast callback
-        self.heartbeat.set_window_broadcast(self._broadcast_to_window)
+        self._scene_fwd_task = asyncio.create_task(self._scene_update_forwarder())
 
         # Start sprite generation worker
         try:
@@ -421,6 +416,14 @@ class ShopkeeperServer:
             await self._gateway_client.stop()
 
         await self.heartbeat.stop()
+
+        # Stop scene update forwarder (TASK-117)
+        if self._scene_fwd_task:
+            self._scene_fwd_task.cancel()
+            try:
+                await self._scene_fwd_task
+            except asyncio.CancelledError:
+                pass
 
         # Stop visitor timeout checker
         if self._visitor_timeout_task:
@@ -843,6 +846,25 @@ class ShopkeeperServer:
             except Exception:
                 pass
 
+
+    # ─── Scene update forwarder (TASK-117) ───
+
+    async def _scene_update_forwarder(self):
+        """Forward bus scene_update messages to WS broadcast."""
+        from bus_types import TOPIC_SCENE_UPDATE
+        q = self._bus.subscribe(TOPIC_SCENE_UPDATE, 'ws-broadcast')
+        try:
+            while True:
+                try:
+                    msg = await self._bus.wait(q, timeout=60.0)
+                    if msg is not None:
+                        await self._broadcast_to_window(msg)
+                except asyncio.CancelledError:
+                    raise
+                except Exception as e:
+                    print(f"  [SceneForwarder] Error (non-fatal): {e}")
+        finally:
+            self._bus.unsubscribe(TOPIC_SCENE_UPDATE, 'ws-broadcast')
 
     # ─── Visitor idle timeout ───
 
