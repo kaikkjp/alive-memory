@@ -42,7 +42,7 @@ export async function PATCH(
     );
   }
 
-  const healthy = await getAgentHealth(agent.port);
+  const healthy = await getAgentHealth(id);
   if (!healthy) {
     return NextResponse.json({ error: 'agent offline' }, { status: 502 });
   }
@@ -53,7 +53,7 @@ export async function PATCH(
   }
 
   const { data, status } = await dashboardFetchRaw(
-    agent.port, keys[0].key, 'PATCH',
+    id, keys[0].key, 'PATCH',
     `mcp/${encodeURIComponent(serverId)}/tools/${encodeURIComponent(toolSuffix)}`,
     { enabled: body.enabled }
   );

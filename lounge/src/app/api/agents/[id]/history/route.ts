@@ -43,7 +43,7 @@ export async function POST(
     // Use stable manager-derived visitor_id, same as chat proxy
     const stableVisitorId = `mgr-${managerId}`;
     const result = await getConversationHistory(
-      agent.port,
+      id,
       keys[0].key,
       stableVisitorId,
       body.limit

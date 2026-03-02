@@ -13,6 +13,7 @@
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import * as db from '@/lib/manager-db';
+import { agentDashboardUrl, getGatewayHeaders } from '@/lib/agent-client';
 
 const POLL_INTERVAL_MS = 5_000;
 const POLL_TIMEOUT_MS = 8_000;
@@ -48,7 +49,8 @@ export async function GET(
   }
 
   const apiKey = keys[0].key;
-  const port = agent.port;
+  const stateUrl = agentDashboardUrl(id, 'state');
+  const hdrs = getGatewayHeaders(apiKey);
 
   const encoder = new TextEncoder();
   let aborted = false;
@@ -74,8 +76,8 @@ export async function GET(
 
       while (!aborted) {
         try {
-          const res = await fetch(`http://127.0.0.1:${port}/api/dashboard/state`, {
-            headers: { Authorization: `Bearer ${apiKey}` },
+          const res = await fetch(stateUrl, {
+            headers: hdrs,
             signal: AbortSignal.timeout(POLL_TIMEOUT_MS),
           });
 

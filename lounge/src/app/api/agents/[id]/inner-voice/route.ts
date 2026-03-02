@@ -39,7 +39,7 @@ export async function GET(
     return NextResponse.json({ error: 'not found' }, { status: 404 });
   }
 
-  const healthy = await getAgentHealth(agent.port);
+  const healthy = await getAgentHealth(id);
   if (!healthy) {
     return NextResponse.json({ error: 'agent offline' }, { status: 502 });
   }
@@ -60,7 +60,7 @@ export async function GET(
   if (before) queryParts.push(`before=${encodeURIComponent(before)}`);
   if (queryParts.length > 0) path += `?${queryParts.join('&')}`;
 
-  const { data, status } = await dashboardFetchRaw(agent.port, keys[0].key, 'GET', path);
+  const { data, status } = await dashboardFetchRaw(id, keys[0].key, 'GET', path);
 
   if (status === 0) {
     return NextResponse.json({ error: 'agent not responding' }, { status: 502 });

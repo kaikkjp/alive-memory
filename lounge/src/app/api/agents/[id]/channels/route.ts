@@ -37,7 +37,7 @@ export async function GET(
     return NextResponse.json({ error: 'not found' }, { status: 404 });
   }
 
-  const healthy = await getAgentHealth(agent.port);
+  const healthy = await getAgentHealth(id);
   if (!healthy) {
     return NextResponse.json({ error: 'agent offline' }, { status: 502 });
   }
@@ -51,8 +51,8 @@ export async function GET(
 
   // Fetch channel data in parallel — using dashboardFetchRaw to propagate 404
   const [feedsResult, capsResult] = await Promise.all([
-    dashboardFetchRaw(agent.port, apiKey, 'GET', 'feed/streams'),
-    dashboardFetchRaw(agent.port, apiKey, 'GET', 'capabilities'),
+    dashboardFetchRaw(id, apiKey, 'GET', 'feed/streams'),
+    dashboardFetchRaw(id, apiKey, 'GET', 'capabilities'),
   ]);
 
   // If both sub-fetches returned 404, the engine doesn't support channels yet

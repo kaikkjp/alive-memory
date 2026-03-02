@@ -7,7 +7,8 @@
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import * as db from '@/lib/manager-db';
-import { isContainerRunning, createAgentContainer, destroyAgentContainer } from '@/lib/docker-client';
+import { createAgentContainer, destroyAgentContainer } from '@/lib/docker-client';
+import { getAgentHealth } from '@/lib/agent-client';
 import type { CreateAgentRequest } from '@/lib/types';
 
 async function getManagerId(): Promise<string | null> {
@@ -27,7 +28,7 @@ export async function GET() {
       id: agent.id,
       name: agent.name,
       role: agent.role,
-      status: (await isContainerRunning(agent.id)) ? 'running' as const : 'stopped' as const,
+      status: (await getAgentHealth(agent.id)) ? 'running' as const : 'stopped' as const,
       is_owner: managerId ? agent.manager_id === managerId : false,
       created_at: agent.created_at,
       updated_at: agent.updated_at,
@@ -50,8 +51,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'openrouter_key required' }, { status: 400 });
     }
 
-    // Allocate port
-    const port = await db.getNextPort();
+    // Gateway mode: port=0 (no host port mapping)
+    const port = 0;
 
     // Create agent record
     const agentName = body.name?.trim() || 'Unnamed';
@@ -60,7 +61,7 @@ export async function POST(request: Request) {
     // Create initial API key
     const apiKey = await db.createApiKey(agent.id, 'default');
 
-    // Start container
+    // Start container (Gateway mode — no host port)
     const result = await createAgentContainer(
       agent.id,
       port,

@@ -15,10 +15,12 @@ set -euo pipefail
 # Parse flags
 FORCE=false
 VALIDATE=false
+GATEWAY=false
 while [[ "${1:-}" == --* ]]; do
     case "$1" in
         --force)    FORCE=true; shift ;;
         --validate) VALIDATE=true; shift ;;
+        --gateway)  GATEWAY=true; shift ;;
         *)          echo "ERROR: Unknown flag: $1"; exit 1 ;;
     esac
 done
@@ -190,52 +192,141 @@ chown -R 1000:1000 "$AGENT_DIR"
 # not actually used since managed agents don't accept terminal connections).
 SERVER_TOKEN="$(openssl rand -hex 32)"
 
+# ── Gateway mode: generate agent token and register ──
+GATEWAY_AGENT_TOKEN=""
+if [ "$GATEWAY" = true ]; then
+    GATEWAY_AGENT_TOKEN="$(openssl rand -hex 32)"
+    TOKENS_FILE="${GATEWAY_TOKENS_PATH:-/data/alive-agents/agent_tokens.json}"
+
+    # Atomic token registration: read → merge → write via temp file + rename
+    if [ -f "$TOKENS_FILE" ]; then
+        CURRENT="$(cat "$TOKENS_FILE")"
+    else
+        CURRENT="{}"
+        mkdir -p "$(dirname "$TOKENS_FILE")"
+    fi
+
+    # Merge new token using python (available in all alive environments)
+    NEW_TOKENS="$(python3 -c "
+import json, sys
+data = json.loads(sys.argv[1])
+data[sys.argv[2]] = sys.argv[3]
+print(json.dumps(data, indent=2))
+" "$CURRENT" "$AGENT_ID" "$GATEWAY_AGENT_TOKEN")"
+
+    TMPFILE="$(mktemp "${TOKENS_FILE}.XXXXXX")"
+    echo "$NEW_TOKENS" > "$TMPFILE"
+    mv "$TMPFILE" "$TOKENS_FILE"
+    echo "  Registered agent token in $TOKENS_FILE"
+fi
+
 # Start container
 # Mount $AGENT_DIR as /agent-config (NOT /app/config — that would overlay
 # the Python config package and break imports like config.agent_identity).
-docker run -d \
-    --name "$CONTAINER_NAME" \
-    -p "${PORT}:8080" \
-    -v "$AGENT_DIR/:/agent-config/" \
-    -e "AGENT_ID=${AGENT_ID}" \
-    -e "OPENROUTER_API_KEY=${API_KEY}" \
-    -e "AGENT_CONFIG_DIR=/agent-config/" \
-    -e "SHOPKEEPER_SERVER_TOKEN=${SERVER_TOKEN}" \
-    --restart unless-stopped \
-    --memory 512m \
-    --cpus 0.5 \
-    alive-engine:latest
-
-echo "  Container started: $CONTAINER_NAME"
-
-# Wait for health
-echo -n "  Waiting for agent to start"
-for i in $(seq 1 30); do
-    if curl -s "http://127.0.0.1:${PORT}/api/health" >/dev/null 2>&1; then
-        echo ""
-        echo "  Agent '$AGENT_ID' is healthy on port $PORT"
-        break
-    fi
-    echo -n "."
-    sleep 2
-done
-
-# Check if we timed out
-if ! curl -s "http://127.0.0.1:${PORT}/api/health" >/dev/null 2>&1; then
-    echo ""
-    echo "  Agent not responding after 60s. Check logs:"
-    echo "     docker logs $CONTAINER_NAME --tail 50"
+if [ "$GATEWAY" = true ]; then
+    # Gateway mode: no host port mapping. Agent connects UP to Gateway.
+    GATEWAY_URL="${GATEWAY_URL:-ws://host.docker.internal:8001}"
+    docker run -d \
+        --name "$CONTAINER_NAME" \
+        --add-host=host.docker.internal:host-gateway \
+        -v "$AGENT_DIR/:/agent-config/" \
+        -e "AGENT_ID=${AGENT_ID}" \
+        -e "OPENROUTER_API_KEY=${API_KEY}" \
+        -e "AGENT_CONFIG_DIR=/agent-config/" \
+        -e "SHOPKEEPER_SERVER_TOKEN=${SERVER_TOKEN}" \
+        -e "GATEWAY_URL=${GATEWAY_URL}" \
+        -e "GATEWAY_AGENT_TOKEN=${GATEWAY_AGENT_TOKEN}" \
+        --restart unless-stopped \
+        --memory 512m \
+        --cpus 0.5 \
+        alive-engine:latest
+    echo "  Container started (Gateway mode): $CONTAINER_NAME"
+else
+    # Legacy mode: host port mapping
+    docker run -d \
+        --name "$CONTAINER_NAME" \
+        -p "${PORT}:8080" \
+        -v "$AGENT_DIR/:/agent-config/" \
+        -e "AGENT_ID=${AGENT_ID}" \
+        -e "OPENROUTER_API_KEY=${API_KEY}" \
+        -e "AGENT_CONFIG_DIR=/agent-config/" \
+        -e "SHOPKEEPER_SERVER_TOKEN=${SERVER_TOKEN}" \
+        --restart unless-stopped \
+        --memory 512m \
+        --cpus 0.5 \
+        alive-engine:latest
+    echo "  Container started: $CONTAINER_NAME"
 fi
 
-# Update nginx routes
-if [ -f "$SCRIPT_DIR/nginx_regen.sh" ]; then
-    echo "  Updating nginx routes..."
-    bash "$SCRIPT_DIR/nginx_regen.sh"
+# Wait for health
+if [ "$GATEWAY" = true ]; then
+    # Gateway mode: wait for agent to register with Gateway
+    GATEWAY_HTTP="${GATEWAY_HTTP_URL:-http://127.0.0.1:8000}"
+    GATEWAY_ADMIN_TOKEN="${GATEWAY_ADMIN_TOKEN:-}"
+    GW_REGISTERED=false
+    echo -n "  Waiting for agent to register with Gateway"
+    for i in $(seq 1 30); do
+        HEALTH=$(curl -s -H "X-Gateway-Token: ${GATEWAY_ADMIN_TOKEN}" \
+            "${GATEWAY_HTTP}/agents/${AGENT_ID}/health" 2>/dev/null || echo '{}')
+        # Validate: must be valid JSON with a known healthy status field
+        # (rejects auth errors, empty responses, and "unreachable")
+        if echo "$HEALTH" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+st = d.get('status', '')
+# Only accept real health statuses — reject 'unreachable', auth errors, etc.
+sys.exit(0 if st and st not in ('unreachable',) and 'error' not in d else 1)
+" 2>/dev/null; then
+            echo ""
+            echo "  Agent '$AGENT_ID' registered with Gateway"
+            GW_REGISTERED=true
+            break
+        fi
+        echo -n "."
+        sleep 2
+    done
+
+    if [ "$GW_REGISTERED" = false ]; then
+        echo ""
+        echo "  WARNING: Agent did not register with Gateway after 60s."
+        echo "     Check logs: docker logs $CONTAINER_NAME --tail 50"
+        echo "     Gateway:    curl -H 'X-Gateway-Token: ...' ${GATEWAY_HTTP}/agents/${AGENT_ID}/health"
+        exit 1
+    fi
+else
+    echo -n "  Waiting for agent to start"
+    for i in $(seq 1 30); do
+        if curl -s "http://127.0.0.1:${PORT}/api/health" >/dev/null 2>&1; then
+            echo ""
+            echo "  Agent '$AGENT_ID' is healthy on port $PORT"
+            break
+        fi
+        echo -n "."
+        sleep 2
+    done
+
+    # Check if we timed out
+    if ! curl -s "http://127.0.0.1:${PORT}/api/health" >/dev/null 2>&1; then
+        echo ""
+        echo "  Agent not responding after 60s. Check logs:"
+        echo "     docker logs $CONTAINER_NAME --tail 50"
+    fi
+
+    # Update nginx routes (legacy mode only)
+    if [ -f "$SCRIPT_DIR/nginx_regen.sh" ]; then
+        echo "  Updating nginx routes..."
+        bash "$SCRIPT_DIR/nginx_regen.sh"
+    fi
 fi
 
 echo ""
 echo "Agent '$AGENT_ID' created."
-echo "  Local:  http://127.0.0.1:${PORT}/api/state"
-echo "  Public: https://api.alive.kaikk.jp/${AGENT_ID}/state"
+if [ "$GATEWAY" = true ]; then
+    echo "  Mode:   Gateway (no host port)"
+    echo "  Health: via Gateway /agents/${AGENT_ID}/health"
+else
+    echo "  Local:  http://127.0.0.1:${PORT}/api/state"
+    echo "  Public: https://api.alive.kaikk.jp/${AGENT_ID}/state"
+fi
 echo "  Logs:   docker logs $CONTAINER_NAME -f"
 echo "  Config: $AGENT_DIR/"

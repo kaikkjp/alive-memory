@@ -178,8 +178,8 @@ export async function getAgent(id: string): Promise<Agent | null> {
 export async function createAgent(
   name: string,
   managerId: string,
-  port: number,
-  openrouterKey: string,
+  port: number = 0,
+  openrouterKey: string = '',
   role?: string,
   bio?: string
 ): Promise<Agent> {
@@ -228,7 +228,8 @@ export async function getAgentOpenRouterKey(agentId: string): Promise<string> {
 
 export async function getNextPort(): Promise<number> {
   const db = await getDb();
-  const result = db.exec('SELECT MAX(port) FROM agents');
+  // Skip port=0 rows (Gateway-managed agents don't use host ports)
+  const result = db.exec('SELECT MAX(port) FROM agents WHERE port > 0');
   if (!result.length || !result[0].values.length || result[0].values[0][0] === null) {
     return 9001; // First agent port
   }

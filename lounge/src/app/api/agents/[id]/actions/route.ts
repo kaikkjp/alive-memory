@@ -35,7 +35,7 @@ export async function GET(
     return NextResponse.json({ error: 'not found' }, { status: 404 });
   }
 
-  const healthy = await getAgentHealth(agent.port);
+  const healthy = await getAgentHealth(id);
   if (!healthy) {
     return NextResponse.json({ error: 'agent offline' }, { status: 502 });
   }
@@ -45,7 +45,7 @@ export async function GET(
     return NextResponse.json({ error: 'no api key' }, { status: 500 });
   }
 
-  const result = await dashboardGet(agent.port, keys[0].key, 'actions');
+  const result = await dashboardGet(id, keys[0].key, 'actions');
   if (!result) {
     return NextResponse.json({ error: 'agent not responding' }, { status: 502 });
   }
@@ -81,7 +81,7 @@ export async function POST(
     );
   }
 
-  const healthy = await getAgentHealth(agent.port);
+  const healthy = await getAgentHealth(id);
   if (!healthy) {
     return NextResponse.json({ error: 'agent offline' }, { status: 502 });
   }
@@ -91,7 +91,7 @@ export async function POST(
     return NextResponse.json({ error: 'no api key' }, { status: 500 });
   }
 
-  const result = await dashboardPost(agent.port, keys[0].key, 'actions/resolve', body);
+  const result = await dashboardPost(id, keys[0].key, 'actions/resolve', body);
   if (!result) {
     return NextResponse.json({ error: 'agent not responding' }, { status: 502 });
   }
