@@ -16,6 +16,7 @@ del _os, _sys
 import asyncio
 import base64
 from collections import deque
+import contextvars
 import errno
 import hmac
 import json
@@ -93,6 +94,12 @@ def _cors_origin_for(request_origin: str) -> str:
         return request_origin  # echo back the exact origin
     return ''  # not allowed — omit the header
 
+
+# Per-request origin for CORS headers.  Each asyncio Task (one per HTTP
+# request) gets its own copy, eliminating the race where concurrent
+# requests clobbered each other's Origin via the old self._current_origin.
+_request_origin: contextvars.ContextVar[str] = contextvars.ContextVar(
+    '_request_origin', default='')
 
 TRANSPARENT_PNG = base64.b64decode(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+lm1sAAAAASUVORK5CYII='
@@ -217,7 +224,6 @@ class ShopkeeperServer:
         self._metrics_task = None
         self._missing_assets_logged: set[str] = set()
         self._missing_assets_queue: deque[str] = deque()
-        self._current_origin = ''  # set per-request in _handle_http
         self.host, self.port = _load_bind_address()
         self._server_token = os.environ.get(TOKEN_ENV_VAR, '').strip()
         self._gateway_client = None  # TASK-118: optional Gateway transport
@@ -1303,7 +1309,7 @@ class ShopkeeperServer:
             # Read headers, capture Content-Length, Authorization, and Origin
             content_length = 0
             authorization = ''
-            self._current_origin = ''
+            _request_origin.set('')
             header_count = 0
             while True:
                 line = await asyncio.wait_for(reader.readline(), timeout=5)
@@ -1326,7 +1332,7 @@ class ShopkeeperServer:
                 elif header_lower.startswith('authorization:'):
                     authorization = header.split(':', 1)[1].strip()
                 elif header_lower.startswith('origin:'):
-                    self._current_origin = header.split(':', 1)[1].strip()
+                    _request_origin.set(header.split(':', 1)[1].strip())
 
             request_text = request_line.decode('utf-8', errors='replace').strip()
             parts = request_text.split()
@@ -1594,7 +1600,7 @@ class ShopkeeperServer:
             state = await build_initial_state()
             layers = state.get('layers', {})
             png_bytes = composite_scene(layers)
-            allowed = _cors_origin_for(getattr(self, '_current_origin', ''))
+            allowed = _cors_origin_for(_request_origin.get(''))
             cors_header = f'Access-Control-Allow-Origin: {allowed}\r\n' if allowed else ''
             vary_header = 'Vary: Origin\r\n' if allowed and allowed != '*' else ''
             response = (
@@ -1754,7 +1760,7 @@ class ShopkeeperServer:
 
     async def _http_cors_preflight(self, writer: asyncio.StreamWriter):
         """Handle OPTIONS preflight for CORS."""
-        allowed = _cors_origin_for(getattr(self, '_current_origin', ''))
+        allowed = _cors_origin_for(_request_origin.get(''))
         headers = [
             'HTTP/1.1 204 No Content\r\n',
             'Access-Control-Allow-Methods: GET, POST, PATCH, DELETE, OPTIONS\r\n',
@@ -1796,7 +1802,7 @@ class ShopkeeperServer:
             429: 'Too Many Requests',
             500: 'Internal Server Error', 503: 'Service Unavailable',
         }
-        allowed = _cors_origin_for(getattr(self, '_current_origin', ''))
+        allowed = _cors_origin_for(_request_origin.get(''))
         cors_headers = ''
         if allowed:
             cors_headers = (
@@ -1835,7 +1841,7 @@ class ShopkeeperServer:
             404: 'Not Found',
             500: 'Internal Server Error',
         }
-        allowed = _cors_origin_for(getattr(self, '_current_origin', ''))
+        allowed = _cors_origin_for(_request_origin.get(''))
         headers = [
             f'HTTP/1.1 {status} {status_text.get(status, "Unknown")}\r\n',
             f'Content-Type: {content_type}\r\n',
