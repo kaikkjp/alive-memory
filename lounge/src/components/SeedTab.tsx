@@ -123,7 +123,7 @@ export default function SeedTab({ agentId, onToast }: SeedTabProps) {
     if (totData) setTotems(totData.totems || []);
     if (poolData) setMoments(poolData.pool || []);
     if (colData) setCollection(colData.collection || []);
-    if (sumData) setSummaries(sumData.summaries || []);
+    setSummaries(sumData?.summaries || []);
 
     setLoading(false);
   }, [agentId]);
@@ -639,9 +639,11 @@ function SleepSection({
           s.emotional_arc && s.emotional_arc.length > 120
             ? s.emotional_arc.slice(0, 120) + "..."
             : s.emotional_arc;
-        const linkedJournal = (s.journal_entry_ids || [])
+        const allIds = s.journal_entry_ids || [];
+        const linkedJournal = allIds
           .map((jid) => journalById.get(jid))
           .filter(Boolean) as JournalEntry[];
+        const unresolvedCount = allIds.length - linkedJournal.length;
 
         return (
           <div
@@ -674,7 +676,7 @@ function SleepSection({
             )}
 
             {/* Expanded: linked journal entries */}
-            {isExpanded && linkedJournal.length > 0 && (
+            {isExpanded && (linkedJournal.length > 0 || unresolvedCount > 0) && (
               <div className="mt-2 pt-2 border-t border-[#1e1e2a] space-y-1.5">
                 <p className="text-[10px] text-[#525252] uppercase tracking-wider">
                   Journal entries
@@ -702,11 +704,16 @@ function SleepSection({
                     </p>
                   </div>
                 ))}
+                {unresolvedCount > 0 && (
+                  <p className="text-[9px] text-[#525252] italic">
+                    +{unresolvedCount} older {unresolvedCount === 1 ? "entry" : "entries"} not loaded
+                  </p>
+                )}
               </div>
             )}
 
             {/* Expand hint */}
-            {!isExpanded && (linkedJournal.length > 0 || (s.emotional_arc && s.emotional_arc.length > 120)) && (
+            {!isExpanded && (linkedJournal.length > 0 || unresolvedCount > 0 || (s.emotional_arc && s.emotional_arc.length > 120)) && (
               <p className="text-[9px] text-[#525252] mt-1">click to expand</p>
             )}
           </div>
