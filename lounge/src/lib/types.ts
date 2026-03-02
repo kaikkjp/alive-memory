@@ -13,12 +13,13 @@ export interface Agent {
   name: string;
   role?: string;
   manager_id: string;
-  port: number;
+  port: number; // 0 = Gateway-managed (no host port)
   status: 'running' | 'stopped' | 'error';
   created_at: string;
   updated_at: string;
   cycle_count?: number;
   is_owner?: boolean;
+  gateway_registered?: boolean;
 }
 
 export interface AgentConfig {

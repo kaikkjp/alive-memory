@@ -39,7 +39,7 @@ export async function POST(
     return NextResponse.json({ error: 'url required' }, { status: 400 });
   }
 
-  const healthy = await getAgentHealth(agent.port);
+  const healthy = await getAgentHealth(id);
   if (!healthy) {
     return NextResponse.json({ error: 'agent offline' }, { status: 502 });
   }
@@ -50,7 +50,7 @@ export async function POST(
   }
 
   const { data, status } = await dashboardFetchRaw(
-    agent.port, keys[0].key, 'POST', 'mcp/connect',
+    id, keys[0].key, 'POST', 'mcp/connect',
     { url: body.url, name: body.name }
   );
 

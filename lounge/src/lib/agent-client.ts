@@ -1,8 +1,15 @@
 /**
- * TASK-095 Phase 5: HTTP client for talking to agent containers.
+ * TASK-119: Gateway-based agent client.
  *
- * Each agent exposes HTTP on its assigned port (localhost only).
- * This client proxies requests from the portal backend to agents.
+ * All agent communication routes through the Gateway process
+ * (HTTP :8000) instead of per-agent host ports. The Gateway
+ * forwards requests as RPC-over-WS to the connected agent.
+ *
+ * Auth model:
+ *   Lounge → Gateway: X-Gateway-Token header (admin shared secret)
+ *   Gateway → Agent:  Authorization header passes through transparently
+ *
+ * URL pattern: http://<gateway>/agents/<agentId>/<agent-path>
  */
 
 import type { AgentStatus } from './types';
@@ -10,21 +17,51 @@ import type { AgentStatus } from './types';
 const AGENT_TIMEOUT = 10_000; // 10s
 const DASHBOARD_TIMEOUT = 15_000; // 15s for dashboard endpoints
 
-export async function getAgentHealth(port: number): Promise<boolean> {
+// Gateway connection config — set via env vars on VPS
+const GATEWAY_URL = process.env.GATEWAY_URL || 'http://127.0.0.1:8000';
+const GATEWAY_ADMIN_TOKEN = process.env.GATEWAY_ADMIN_TOKEN || '';
+
+/** Build a Gateway-proxied URL for an agent endpoint. */
+function agentUrl(agentId: string, path: string): string {
+  const clean = path.startsWith('/') ? path : `/${path}`;
+  return `${GATEWAY_URL}/agents/${agentId}${clean}`;
+}
+
+/** Standard headers for Gateway requests. */
+function gatewayHeaders(apiKey?: string): Record<string, string> {
+  const hdrs: Record<string, string> = {
+    'X-Gateway-Token': GATEWAY_ADMIN_TOKEN,
+  };
+  if (apiKey) hdrs['Authorization'] = `Bearer ${apiKey}`;
+  return hdrs;
+}
+
+// ---------------------------------------------------------------------------
+// Health
+// ---------------------------------------------------------------------------
+
+export async function getAgentHealth(agentId: string): Promise<boolean> {
   try {
-    const res = await fetch(`http://127.0.0.1:${port}/api/health`, {
+    const res = await fetch(`${GATEWAY_URL}/agents/${agentId}/health`, {
+      headers: { 'X-Gateway-Token': GATEWAY_ADMIN_TOKEN },
       signal: AbortSignal.timeout(5_000),
     });
-    return res.ok;
+    if (!res.ok) return false;
+    const data = await res.json();
+    return data.status !== 'unreachable';
   } catch {
     return false;
   }
 }
 
-export async function getAgentStatus(port: number, apiKey: string): Promise<AgentStatus | null> {
+// ---------------------------------------------------------------------------
+// Public state
+// ---------------------------------------------------------------------------
+
+export async function getAgentStatus(agentId: string, apiKey: string): Promise<AgentStatus | null> {
   try {
-    const res = await fetch(`http://127.0.0.1:${port}/api/public-state`, {
-      headers: { Authorization: `Bearer ${apiKey}` },
+    const res = await fetch(agentUrl(agentId, '/api/public-state'), {
+      headers: gatewayHeaders(apiKey),
       signal: AbortSignal.timeout(AGENT_TIMEOUT),
     });
     if (!res.ok) return null;
@@ -34,18 +71,18 @@ export async function getAgentStatus(port: number, apiKey: string): Promise<Agen
   }
 }
 
-/**
- * Generic dashboard GET — proxy to agent's /api/dashboard/* endpoints.
- * Uses first API key for auth (dashboard auth uses same Bearer token).
- */
+// ---------------------------------------------------------------------------
+// Dashboard helpers (GET / POST / PATCH / DELETE)
+// ---------------------------------------------------------------------------
+
 export async function dashboardGet(
-  port: number,
+  agentId: string,
   apiKey: string,
   path: string
 ): Promise<Record<string, unknown> | null> {
   try {
-    const res = await fetch(`http://127.0.0.1:${port}/api/dashboard/${path}`, {
-      headers: { Authorization: `Bearer ${apiKey}` },
+    const res = await fetch(agentUrl(agentId, `/api/dashboard/${path}`), {
+      headers: gatewayHeaders(apiKey),
       signal: AbortSignal.timeout(DASHBOARD_TIMEOUT),
     });
     if (!res.ok) return null;
@@ -55,21 +92,18 @@ export async function dashboardGet(
   }
 }
 
-/**
- * Generic dashboard POST — proxy to agent's /api/dashboard/* endpoints.
- */
 export async function dashboardPost(
-  port: number,
+  agentId: string,
   apiKey: string,
   path: string,
   body?: Record<string, unknown>
 ): Promise<Record<string, unknown> | null> {
   try {
-    const res = await fetch(`http://127.0.0.1:${port}/api/dashboard/${path}`, {
+    const res = await fetch(agentUrl(agentId, `/api/dashboard/${path}`), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
+        ...gatewayHeaders(apiKey),
       },
       body: body ? JSON.stringify(body) : undefined,
       signal: AbortSignal.timeout(DASHBOARD_TIMEOUT),
@@ -81,21 +115,18 @@ export async function dashboardPost(
   }
 }
 
-/**
- * Generic dashboard PATCH — proxy to agent's /api/dashboard/* endpoints.
- */
 export async function dashboardPatch(
-  port: number,
+  agentId: string,
   apiKey: string,
   path: string,
   body?: Record<string, unknown>
 ): Promise<Record<string, unknown> | null> {
   try {
-    const res = await fetch(`http://127.0.0.1:${port}/api/dashboard/${path}`, {
+    const res = await fetch(agentUrl(agentId, `/api/dashboard/${path}`), {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
+        ...gatewayHeaders(apiKey),
       },
       body: body ? JSON.stringify(body) : undefined,
       signal: AbortSignal.timeout(DASHBOARD_TIMEOUT),
@@ -107,18 +138,15 @@ export async function dashboardPatch(
   }
 }
 
-/**
- * Generic dashboard DELETE — proxy to agent's /api/dashboard/* endpoints.
- */
 export async function dashboardDelete(
-  port: number,
+  agentId: string,
   apiKey: string,
   path: string
 ): Promise<Record<string, unknown> | null> {
   try {
-    const res = await fetch(`http://127.0.0.1:${port}/api/dashboard/${path}`, {
+    const res = await fetch(agentUrl(agentId, `/api/dashboard/${path}`), {
       method: 'DELETE',
-      headers: { Authorization: `Bearer ${apiKey}` },
+      headers: gatewayHeaders(apiKey),
       signal: AbortSignal.timeout(DASHBOARD_TIMEOUT),
     });
     if (!res.ok) return null;
@@ -128,13 +156,10 @@ export async function dashboardDelete(
   }
 }
 
-/**
- * TASK-095 v3.1 Batch 4: Raw dashboard fetch with status code preservation.
- *
- * Unlike dashboardGet/Post/etc which collapse all non-2xx to null,
- * this returns { data, status } so portal routes can distinguish
- * 404 (endpoint not deployed) from 502 (agent unreachable).
- */
+// ---------------------------------------------------------------------------
+// Raw dashboard fetch (preserves status codes)
+// ---------------------------------------------------------------------------
+
 type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE';
 export interface DashboardRawResult {
   data: unknown;
@@ -142,23 +167,22 @@ export interface DashboardRawResult {
 }
 
 export async function dashboardFetchRaw(
-  port: number,
+  agentId: string,
   apiKey: string,
   method: HttpMethod,
   path: string,
   body?: Record<string, unknown>
 ): Promise<DashboardRawResult> {
   try {
-    const hdrs: Record<string, string> = { Authorization: `Bearer ${apiKey}` };
+    const hdrs: Record<string, string> = gatewayHeaders(apiKey);
     if (body) hdrs['Content-Type'] = 'application/json';
-    const res = await fetch(`http://127.0.0.1:${port}/api/dashboard/${path}`, {
+    const res = await fetch(agentUrl(agentId, `/api/dashboard/${path}`), {
       method,
       headers: hdrs,
       body: body ? JSON.stringify(body) : undefined,
       signal: AbortSignal.timeout(DASHBOARD_TIMEOUT),
     });
     if (!res.ok) return { data: null, status: res.status };
-    // Safe parse: 204/empty → null, non-JSON → null (preserves real status)
     const text = await res.text();
     if (!text) return { data: null, status: res.status };
     try {
@@ -171,25 +195,22 @@ export async function dashboardFetchRaw(
   }
 }
 
-/**
- * Get the WebSocket URL for an agent's lounge stream.
- */
-export function getAgentWsUrl(port: number): string {
-  return `ws://127.0.0.1:${port}/ws/lounge`;
-}
+// ---------------------------------------------------------------------------
+// Chat / conversation
+// ---------------------------------------------------------------------------
 
 export async function getConversationHistory(
-  port: number,
+  agentId: string,
   apiKey: string,
   visitorId: string,
   limit: number = 50
 ): Promise<{ messages: { role: string; text: string; ts: string }[]; visitor_id: string } | null> {
   try {
-    const res = await fetch(`http://127.0.0.1:${port}/api/conversation-history`, {
+    const res = await fetch(agentUrl(agentId, '/api/conversation-history'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
+        ...gatewayHeaders(apiKey),
       },
       body: JSON.stringify({ visitor_id: visitorId, limit }),
       signal: AbortSignal.timeout(AGENT_TIMEOUT),
@@ -202,7 +223,7 @@ export async function getConversationHistory(
 }
 
 export async function chatWithAgent(
-  port: number,
+  agentId: string,
   apiKey: string,
   message: string,
   visitorId?: string,
@@ -213,42 +234,11 @@ export async function chatWithAgent(
     if (visitorId) body.visitor_id = visitorId;
     if (source) body.source = source;
 
-    const res = await fetch(`http://127.0.0.1:${port}/api/chat`, {
+    const res = await fetch(agentUrl(agentId, '/api/chat'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(35_000), // 30s agent timeout + buffer
-    });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch {
-    return null;
-  }
-}
-
-/**
- * TASK-104: Manager channel — bypasses engagement system.
- * Uses /api/manager-message instead of /api/chat.
- * No engagement created, no ghost detection involvement.
- */
-export async function managerMessage(
-  port: number,
-  apiKey: string,
-  message: string,
-  visitorId?: string
-): Promise<Record<string, unknown> | null> {
-  try {
-    const body: Record<string, string> = { message };
-    if (visitorId) body.visitor_id = visitorId;
-
-    const res = await fetch(`http://127.0.0.1:${port}/api/manager-message`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
+        ...gatewayHeaders(apiKey),
       },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(35_000),
@@ -258,4 +248,48 @@ export async function managerMessage(
   } catch {
     return null;
   }
+}
+
+/**
+ * Manager channel — bypasses engagement system.
+ * Uses /api/manager-message instead of /api/chat.
+ */
+export async function managerMessage(
+  agentId: string,
+  apiKey: string,
+  message: string,
+  visitorId?: string
+): Promise<Record<string, unknown> | null> {
+  try {
+    const body: Record<string, string> = { message };
+    if (visitorId) body.visitor_id = visitorId;
+
+    const res = await fetch(agentUrl(agentId, '/api/manager-message'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...gatewayHeaders(apiKey),
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(35_000),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Gateway URL helper (for SSE stream route to fetch directly)
+// ---------------------------------------------------------------------------
+
+/** Build a direct Gateway URL for agent state polling. */
+export function agentDashboardUrl(agentId: string, path: string): string {
+  return agentUrl(agentId, `/api/dashboard/${path}`);
+}
+
+/** Return headers needed for Gateway requests. */
+export function getGatewayHeaders(apiKey: string): Record<string, string> {
+  return gatewayHeaders(apiKey);
 }

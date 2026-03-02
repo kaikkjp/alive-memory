@@ -2411,10 +2411,10 @@ Existing handler signatures remain `(server, writer, ...)` — `RequestContext` 
 ---
 
 ### TASK-119: Gateway — Lounge Cutover
-**Status:** BACKLOG
+**Status:** DONE (2026-03-02)
 **Priority:** High
 **Proposal:** `tasks/PROPOSAL-alive-infra-roadmap.md` Phase 3, Sub-phase 2
-**Depends on:** TASK-118 (Gateway core must exist)
+**Depends on:** TASK-118 (Gateway core must exist) ✅
 **Description:** Full Lounge migration from per-agent port-based routing to Gateway. All 11 functions in `agent-client.ts` rewritten. Port-based routing removed. Nginx simplified.
 
 **Migration matrix:**

@@ -34,7 +34,7 @@ export async function DELETE(
     return NextResponse.json({ error: 'not found' }, { status: 404 });
   }
 
-  const healthy = await getAgentHealth(agent.port);
+  const healthy = await getAgentHealth(id);
   if (!healthy) {
     return NextResponse.json({ error: 'agent offline' }, { status: 502 });
   }
@@ -45,7 +45,7 @@ export async function DELETE(
   }
 
   const result = await dashboardDelete(
-    agent.port,
+    id,
     keys[0].key,
     `memories/${encodeURIComponent(memId)}`
   );

@@ -37,7 +37,7 @@ export async function GET(
     return NextResponse.json({ error: 'not found' }, { status: 404 });
   }
 
-  const healthy = await getAgentHealth(agent.port);
+  const healthy = await getAgentHealth(id);
   if (!healthy) {
     return NextResponse.json({ error: 'agent offline' }, { status: 502 });
   }
@@ -47,7 +47,7 @@ export async function GET(
     return NextResponse.json({ error: 'no api key' }, { status: 500 });
   }
 
-  const { data, status } = await dashboardFetchRaw(agent.port, keys[0].key, 'GET', 'feed/streams');
+  const { data, status } = await dashboardFetchRaw(id, keys[0].key, 'GET', 'feed/streams');
 
   if (status === 0) {
     return NextResponse.json({ error: 'agent not responding' }, { status: 502 });
@@ -87,7 +87,7 @@ export async function POST(
     );
   }
 
-  const healthy = await getAgentHealth(agent.port);
+  const healthy = await getAgentHealth(id);
   if (!healthy) {
     return NextResponse.json({ error: 'agent offline' }, { status: 502 });
   }
@@ -97,7 +97,7 @@ export async function POST(
     return NextResponse.json({ error: 'no api key' }, { status: 500 });
   }
 
-  const { data, status } = await dashboardFetchRaw(agent.port, keys[0].key, 'POST', 'feed/streams', {
+  const { data, status } = await dashboardFetchRaw(id, keys[0].key, 'POST', 'feed/streams', {
     url: body.url,
     ...(body.label ? { label: body.label } : {}),
     ...(body.poll_interval ? { poll_interval: body.poll_interval } : {}),

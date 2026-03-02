@@ -21,11 +21,10 @@ export async function GET(
   }
 
   // Check basic health first
-  const healthy = await getAgentHealth(agent.port);
+  const healthy = await getAgentHealth(id);
   if (!healthy) {
     return NextResponse.json({
       status: 'offline',
-      port: agent.port,
     });
   }
 
@@ -34,7 +33,6 @@ export async function GET(
   if (keys.length === 0) {
     return NextResponse.json({
       status: 'active',
-      port: agent.port,
     });
   }
 
@@ -42,16 +40,15 @@ export async function GET(
 
   // Fetch public state (basic) and expanded drives in parallel
   const [publicState, drives, state] = await Promise.all([
-    getAgentStatus(agent.port, apiKey),
-    dashboardGet(agent.port, apiKey, 'drives'),
-    dashboardGet(agent.port, apiKey, 'state'),
+    getAgentStatus(id, apiKey),
+    dashboardGet(id, apiKey, 'drives'),
+    dashboardGet(id, apiKey, 'state'),
   ]);
 
   // Merge into expanded response
   const result: Record<string, unknown> = {
     ...(publicState || { status: 'active' }),
     ...(drives ? { drives } : {}),
-    port: agent.port,
   };
 
   // Add lounge-specific fields from initial state

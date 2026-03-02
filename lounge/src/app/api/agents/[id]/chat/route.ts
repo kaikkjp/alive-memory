@@ -47,7 +47,7 @@ export async function POST(
     // maps to the same visitor across sessions, browsers, and devices.
     const stableVisitorId = `mgr-${managerId}`;
     const result = await managerMessage(
-      agent.port,
+      id,
       keys[0].key,
       body.message,
       stableVisitorId

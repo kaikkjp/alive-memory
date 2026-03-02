@@ -43,7 +43,7 @@ export async function PATCH(
     );
   }
 
-  const healthy = await getAgentHealth(agent.port);
+  const healthy = await getAgentHealth(id);
   if (!healthy) {
     return NextResponse.json({ error: 'agent offline' }, { status: 502 });
   }
@@ -54,7 +54,7 @@ export async function PATCH(
   }
 
   const { data, status } = await dashboardFetchRaw(
-    agent.port, keys[0].key, 'PATCH',
+    id, keys[0].key, 'PATCH',
     `mcp/${encodeURIComponent(serverId)}`,
     { enabled: body.enabled }
   );
@@ -89,7 +89,7 @@ export async function DELETE(
     return NextResponse.json({ error: 'not found' }, { status: 404 });
   }
 
-  const healthy = await getAgentHealth(agent.port);
+  const healthy = await getAgentHealth(id);
   if (!healthy) {
     return NextResponse.json({ error: 'agent offline' }, { status: 502 });
   }
@@ -100,7 +100,7 @@ export async function DELETE(
   }
 
   const { data, status } = await dashboardFetchRaw(
-    agent.port, keys[0].key, 'DELETE',
+    id, keys[0].key, 'DELETE',
     `mcp/${encodeURIComponent(serverId)}`
   );
 

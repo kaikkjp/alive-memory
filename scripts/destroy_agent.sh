@@ -14,18 +14,31 @@ AGENT_DIR="$DATA_DIR/$AGENT_ID"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CONTAINER_NAME="alive-agent-${AGENT_ID}"
 
-# Check container exists
-if ! docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
-    echo "ERROR: Agent '$AGENT_ID' not found (no container '${CONTAINER_NAME}')"
-    exit 1
-fi
-
 echo "Destroying agent: $AGENT_ID"
 
-# Stop and remove container
-docker stop "$CONTAINER_NAME" 2>/dev/null || true
-docker rm "$CONTAINER_NAME" 2>/dev/null || true
-echo "  Container removed."
+# Always clean up gateway token first (even if container doesn't exist —
+# token may have been registered before container creation failed)
+TOKENS_FILE="${GATEWAY_TOKENS_PATH:-/data/alive-agents/agent_tokens.json}"
+if [ -f "$TOKENS_FILE" ]; then
+    NEW_TOKENS="$(python3 -c "
+import json, sys
+with open(sys.argv[1]) as f:
+    data = json.load(f)
+data.pop(sys.argv[2], None)
+print(json.dumps(data, indent=2))
+" "$TOKENS_FILE" "$AGENT_ID" 2>/dev/null || cat "$TOKENS_FILE")"
+    echo "$NEW_TOKENS" > "$TOKENS_FILE"
+    echo "  Removed agent token from $TOKENS_FILE"
+fi
+
+# Stop and remove container (if it exists)
+if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+    docker stop "$CONTAINER_NAME" 2>/dev/null || true
+    docker rm "$CONTAINER_NAME" 2>/dev/null || true
+    echo "  Container removed."
+else
+    echo "  No container found (already removed or never created)."
+fi
 
 # Update nginx routes
 if [ -f "$SCRIPT_DIR/nginx_regen.sh" ]; then

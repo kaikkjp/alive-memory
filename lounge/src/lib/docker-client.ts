@@ -29,11 +29,15 @@ export async function createAgentContainer(
   openrouterKey: string
 ): Promise<DockerResult> {
   try {
-    // create_agent.sh takes: agent_id port openrouter_key
-    // The lounge API key is synced separately via syncApiKeysToAgent
+    // Gateway mode (port=0): use --gateway flag, no host port mapping
+    // Legacy mode (port>0): backward compatible with port-based routing
+    const args = port === 0
+      ? ['--gateway', agentId, '0', openrouterKey]
+      : [agentId, String(port), openrouterKey];
+
     const { stdout, stderr } = await exec(
       path.join(SCRIPTS, 'create_agent.sh'),
-      [agentId, String(port), openrouterKey],
+      args,
       { timeout: 120_000, cwd: PROJECT_ROOT }
     );
     return { success: true, output: stdout + stderr };
