@@ -4,6 +4,7 @@ LLM summarizes old conversations into a running summary.
 Constant storage, but loses detail progressively. High LLM cost.
 """
 
+import os
 import sys
 from typing import Optional
 
@@ -16,10 +17,25 @@ from benchmarks.adapters.base import (
 
 try:
     from langchain.memory import ConversationSummaryMemory
-    from langchain_anthropic import ChatAnthropic
 except ImportError:
     ConversationSummaryMemory = None  # type: ignore[assignment, misc]
-    ChatAnthropic = None  # type: ignore[assignment, misc]
+
+# Try LLM providers: prefer OpenRouter (OpenAI-compat), fall back to Anthropic
+_llm_cls = None
+_llm_kwargs: dict = {}
+
+try:
+    from langchain_openai import ChatOpenAI as _ChatOpenAI
+    _llm_cls = _ChatOpenAI
+except ImportError:
+    pass
+
+if _llm_cls is None:
+    try:
+        from langchain_anthropic import ChatAnthropic as _ChatAnthropic
+        _llm_cls = _ChatAnthropic
+    except ImportError:
+        pass
 
 
 class _TokenTracker:
@@ -33,7 +49,7 @@ class _TokenTracker:
 class LangChainSummaryAdapter(MemoryAdapter):
     """LangChain ConversationSummaryMemory wrapper.
 
-    Uses Claude Haiku for summarization (recommended config for cost).
+    Uses Claude Haiku via OpenRouter (or Anthropic as fallback) for summarization.
     """
 
     def __init__(self) -> None:
@@ -44,12 +60,32 @@ class LangChainSummaryAdapter(MemoryAdapter):
     async def setup(self, config: dict) -> None:
         if ConversationSummaryMemory is None:
             raise ImportError(
-                "langchain + langchain-anthropic required: "
-                "pip install langchain langchain-anthropic"
+                "langchain required: pip install langchain langchain-openai"
+            )
+        if _llm_cls is None:
+            raise ImportError(
+                "langchain LLM provider required: pip install langchain-openai"
             )
 
-        model = config.get("llm_model", "claude-haiku-4-5-20251001")
-        llm = ChatAnthropic(model=model, temperature=0)
+        openrouter_key = os.environ.get("OPENROUTER_API_KEY")
+        anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
+
+        if openrouter_key and _llm_cls.__name__ == "ChatOpenAI":
+            model = config.get("llm_model", "anthropic/claude-haiku-4-5")
+            llm = _llm_cls(
+                model=model,
+                temperature=0,
+                openai_api_key=openrouter_key,
+                openai_api_base="https://openrouter.ai/api/v1",
+            )
+        elif anthropic_key:
+            model = config.get("llm_model", "claude-haiku-4-5-20251001")
+            llm = _llm_cls(model=model, temperature=0)
+        else:
+            raise RuntimeError(
+                "No LLM API key found. Set OPENROUTER_API_KEY or ANTHROPIC_API_KEY."
+            )
+
         self._memory = ConversationSummaryMemory(
             llm=llm, return_messages=False
         )
