@@ -4,7 +4,9 @@ Uses Mem0's recommended configuration. Expected to excel at entity_tracking
 and multi_hop queries due to its graph-based architecture.
 """
 
+import os
 import sys
+import tempfile
 from typing import Optional
 
 from benchmarks.adapters.base import (
@@ -29,18 +31,68 @@ class Mem0Adapter(MemoryAdapter):
         self._count = 0
         self._llm_calls = 0
         self._llm_tokens = 0
+        self._tmp_dir: Optional[str] = None
 
     async def setup(self, config: dict) -> None:
         if Memory is None:
             raise ImportError("mem0ai required: pip install mem0ai")
 
-        # Mem0 recommended config
-        mem0_config = config.get("mem0_config", {
-            "llm": {
+        openrouter_key = os.environ.get("OPENROUTER_API_KEY")
+        anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
+        openai_key = os.environ.get("OPENAI_API_KEY")
+
+        # Build LLM config: prefer OpenRouter, fall back to Anthropic, then OpenAI
+        if openrouter_key:
+            llm_config = {
+                "provider": "openai",
+                "config": {
+                    "model": config.get("llm_model", "anthropic/claude-haiku-4-5"),
+                    "temperature": 0,
+                    "openai_base_url": "https://openrouter.ai/api/v1",
+                    "api_key": openrouter_key,
+                },
+            }
+        elif anthropic_key:
+            llm_config = {
                 "provider": "anthropic",
                 "config": {
-                    "model": "claude-haiku-4-5-20251001",
+                    "model": config.get("llm_model", "claude-haiku-4-5-20251001"),
                     "temperature": 0,
+                    "api_key": anthropic_key,
+                },
+            }
+        elif openai_key:
+            llm_config = {
+                "provider": "openai",
+                "config": {
+                    "model": config.get("llm_model", "gpt-4o-mini"),
+                    "temperature": 0,
+                    "api_key": openai_key,
+                },
+            }
+        else:
+            raise RuntimeError(
+                "No LLM API key found. Set OPENROUTER_API_KEY, ANTHROPIC_API_KEY, "
+                "or OPENAI_API_KEY."
+            )
+
+        # Local SQLite vector store to avoid needing a running Qdrant
+        self._tmp_dir = tempfile.mkdtemp(prefix="bench_mem0_")
+        db_path = os.path.join(self._tmp_dir, "mem0.db")
+
+        mem0_config = config.get("mem0_config", {
+            "llm": llm_config,
+            "embedder": {
+                "provider": "huggingface",
+                "config": {
+                    "model": "all-MiniLM-L6-v2",
+                },
+            },
+            "vector_store": {
+                "provider": "chroma",
+                "config": {
+                    "collection_name": "bench_mem0",
+                    "path": db_path,
                 },
             },
             "version": "v1.1",
@@ -126,3 +178,7 @@ class Mem0Adapter(MemoryAdapter):
             except Exception:
                 pass
         self._memory = None
+
+        if self._tmp_dir and os.path.isdir(self._tmp_dir):
+            import shutil
+            shutil.rmtree(self._tmp_dir, ignore_errors=True)

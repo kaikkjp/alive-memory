@@ -44,6 +44,9 @@ class AliveMemoryAdapter(MemoryAdapter):
         self._consolidation_reports: list[dict] = []
         self._total_dreams = 0
         self._total_reflections = 0
+        self._llm_calls = 0
+        self._llm_tokens = 0
+        self._llm_enabled = False
 
     async def setup(self, config: dict) -> None:
         self._tmp_dir = tempfile.mkdtemp(prefix="bench_alive_")
@@ -52,13 +55,52 @@ class AliveMemoryAdapter(MemoryAdapter):
 
         sdk_config = config.get("alive_config", {})
 
+        # Wire up LLM provider if API key available
+        # Priority: OPENROUTER_API_KEY > ANTHROPIC_API_KEY
+        llm = None
+        self._llm_calls = 0
+        self._llm_tokens = 0
+
+        openrouter_key = os.environ.get("OPENROUTER_API_KEY")
+        anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
+
+        try:
+            from alive_memory.llm.provider import LLMResponse
+
+            if openrouter_key:
+                from alive_memory.llm.openrouter import OpenRouterProvider
+                model = config.get("llm_model", "anthropic/claude-haiku-4-5")
+                _inner = OpenRouterProvider(api_key=openrouter_key, model=model)
+            elif anthropic_key:
+                from alive_memory.llm.anthropic import AnthropicProvider
+                model = config.get("llm_model", "claude-haiku-4-5-20251001")
+                _inner = AnthropicProvider(api_key=anthropic_key, model=model)
+            else:
+                _inner = None
+
+            if _inner is not None:
+                _adapter = self
+
+                class _TrackingProvider:
+                    async def complete(self, prompt, *, system=None, max_tokens=1000, temperature=0.7) -> LLMResponse:
+                        resp = await _inner.complete(prompt, system=system, max_tokens=max_tokens, temperature=temperature)
+                        _adapter._llm_calls += 1
+                        _adapter._llm_tokens += resp.input_tokens + resp.output_tokens
+                        return resp
+
+                llm = _TrackingProvider()
+        except ImportError:
+            pass  # httpx or anthropic not installed
+
         self._memory = AliveMemory(
             storage=self._db_path,
             memory_dir=memory_dir,
             config=sdk_config or None,
+            llm=llm,
         )
         await self._memory.initialize()
         self._count = 0
+        self._llm_enabled = llm is not None
 
     async def ingest(self, event: BenchEvent) -> None:
         if not self._memory:
@@ -198,8 +240,8 @@ class AliveMemoryAdapter(MemoryAdapter):
         return SystemStats(
             memory_count=self._count,
             storage_bytes=storage,
-            total_llm_calls=0,
-            total_tokens=0,
+            total_llm_calls=self._llm_calls,
+            total_tokens=self._llm_tokens,
         )
 
     async def teardown(self) -> None:

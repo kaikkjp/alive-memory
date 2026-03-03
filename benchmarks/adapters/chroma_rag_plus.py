@@ -27,9 +27,9 @@ except ImportError:
     SentenceTransformer = None  # type: ignore[assignment, misc]
 
 try:
-    import anthropic
+    import httpx as _httpx
 except ImportError:
-    anthropic = None  # type: ignore[assignment]
+    _httpx = None  # type: ignore[assignment]
 
 
 SUMMARIZE_PROMPT = """\
@@ -55,6 +55,8 @@ class ChromaRagPlusAdapter(MemoryAdapter):
         self._llm_calls = 0
         self._llm_tokens = 0
         self._llm_client = None
+        self._llm_base_url = ""
+        self._llm_api_key = ""
         self._model = "claude-haiku-4-5-20251001"
         # Track content hashes for dedup
         self._content_hashes: set[str] = set()
@@ -85,9 +87,18 @@ class ChromaRagPlusAdapter(MemoryAdapter):
         self._embed_model = SentenceTransformer(model_name)
         self._count = 0
 
-        if anthropic:
-            self._llm_client = anthropic.AsyncAnthropic()
+        openrouter_key = os.environ.get("OPENROUTER_API_KEY")
+        anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
+        if openrouter_key:
+            self._llm_base_url = "https://openrouter.ai/api/v1"
+            self._llm_api_key = openrouter_key
+            self._model = config.get("llm_model", "anthropic/claude-haiku-4-5")
+            self._llm_client = _httpx
+        elif anthropic_key and _httpx:
+            self._llm_base_url = "https://api.anthropic.com/v1"
+            self._llm_api_key = anthropic_key
             self._model = config.get("llm_model", self._model)
+            self._llm_client = _httpx
 
     async def ingest(self, event: BenchEvent) -> None:
         # Dedup: skip exact content duplicates
@@ -237,15 +248,28 @@ class ChromaRagPlusAdapter(MemoryAdapter):
         prompt = SUMMARIZE_PROMPT.format(memories=memories)
 
         try:
-            resp = await self._llm_client.messages.create(
-                model=self._model,
-                max_tokens=300,
-                temperature=0,
-                messages=[{"role": "user", "content": prompt}],
-            )
+            async with _httpx.AsyncClient(timeout=30) as client:
+                resp = await client.post(
+                    f"{self._llm_base_url}/messages",
+                    headers={
+                        "x-api-key": self._llm_api_key,
+                        "anthropic-version": "2023-06-01",
+                        "Authorization": f"Bearer {self._llm_api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": self._model,
+                        "max_tokens": 300,
+                        "temperature": 0,
+                        "messages": [{"role": "user", "content": prompt}],
+                    },
+                )
+            resp.raise_for_status()
+            data = resp.json()
             self._llm_calls += 1
-            self._llm_tokens += resp.usage.input_tokens + resp.usage.output_tokens
-            return resp.content[0].text.strip()
+            usage = data.get("usage", {})
+            self._llm_tokens += usage.get("input_tokens", 0) + usage.get("output_tokens", 0)
+            return data["content"][0]["text"].strip()
         except Exception:
             return None
 
