@@ -1,24 +1,35 @@
--- alive-memory initial schema
--- Applied automatically on first initialize()
+-- alive-memory three-tier schema
+-- Tier 1: day_memory (ephemeral salient moments)
+-- Tier 2: hot memory (markdown files on disk, not in DB)
+-- Tier 3: cold_embeddings (vector archive, sleep-only)
 
--- Core memories table
-CREATE TABLE IF NOT EXISTS memories (
+-- Tier 1: Day memory — salient moments from the current day
+CREATE TABLE IF NOT EXISTS day_memory (
     id TEXT PRIMARY KEY,
     content TEXT NOT NULL,
-    memory_type TEXT NOT NULL DEFAULT 'episodic',
-    strength REAL NOT NULL DEFAULT 0.5,
+    event_type TEXT NOT NULL DEFAULT 'conversation',
+    salience REAL NOT NULL DEFAULT 0.5,
     valence REAL NOT NULL DEFAULT 0.0,
-    formed_at TEXT NOT NULL,
-    last_recalled TEXT,
-    recall_count INTEGER NOT NULL DEFAULT 0,
-    source_event TEXT,
-    drive_coupling TEXT DEFAULT '{}',
-    embedding BLOB,
+    drive_snapshot TEXT DEFAULT '{}',
+    timestamp TEXT NOT NULL,
+    processed INTEGER NOT NULL DEFAULT 0,
+    nap_processed INTEGER NOT NULL DEFAULT 0,
     metadata TEXT DEFAULT '{}'
 );
-CREATE INDEX IF NOT EXISTS idx_memories_strength ON memories(strength);
-CREATE INDEX IF NOT EXISTS idx_memories_formed ON memories(formed_at);
-CREATE INDEX IF NOT EXISTS idx_memories_type ON memories(memory_type);
+CREATE INDEX IF NOT EXISTS idx_day_memory_salience ON day_memory(salience);
+CREATE INDEX IF NOT EXISTS idx_day_memory_ts ON day_memory(timestamp);
+CREATE INDEX IF NOT EXISTS idx_day_memory_processed ON day_memory(processed);
+
+-- Tier 3: Cold embeddings — vector archive for sleep search
+CREATE TABLE IF NOT EXISTS cold_embeddings (
+    id TEXT PRIMARY KEY,
+    content TEXT NOT NULL,
+    embedding BLOB NOT NULL,
+    source_moment_id TEXT,
+    metadata TEXT DEFAULT '{}',
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_cold_created ON cold_embeddings(created_at);
 
 -- Drive state (single row)
 CREATE TABLE IF NOT EXISTS drive_state (
@@ -117,14 +128,16 @@ CREATE INDEX IF NOT EXISTS idx_cycle_log_ts ON cycle_log(ts);
 -- Consolidation reports
 CREATE TABLE IF NOT EXISTS consolidation_log (
     id TEXT PRIMARY KEY,
-    memories_strengthened INTEGER DEFAULT 0,
-    memories_weakened INTEGER DEFAULT 0,
-    memories_pruned INTEGER DEFAULT 0,
-    memories_merged INTEGER DEFAULT 0,
+    moments_processed INTEGER DEFAULT 0,
+    journal_entries_written INTEGER DEFAULT 0,
+    reflections_written INTEGER DEFAULT 0,
+    cold_embeddings_added INTEGER DEFAULT 0,
+    cold_echoes_found INTEGER DEFAULT 0,
     dreams TEXT DEFAULT '[]',
     reflections TEXT DEFAULT '[]',
     identity_drift TEXT,
     duration_ms INTEGER DEFAULT 0,
+    depth TEXT DEFAULT 'full',
     ts TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_consolidation_ts ON consolidation_log(ts);

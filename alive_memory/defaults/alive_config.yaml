@@ -2,9 +2,6 @@
 # Override by passing config dict or YAML path to AliveMemory()
 
 memory:
-  default_strength: 0.5
-  min_strength: 0.05          # Below this → prune candidate
-  max_memories: 10000
   embedding_dimensions: 384
 
 intake:
@@ -18,20 +15,16 @@ drives:
   social_sensitivity: 0.5     # How much social events affect social drive
 
 consolidation:
-  decay_rate: 0.01            # Strength decay per hour
-  decay_floor: 0.05           # Minimum strength from decay
-  strengthen_boost: 0.1       # Strength gain per rehearsal
-  merge_similarity: 0.85      # Cosine similarity threshold for merging
-  prune_threshold: 0.05       # Strength below this → prune
+  decay_rate: 0.01            # Kept for meta-controller compat
+  decay_floor: 0.05
   dream_count: 3              # Number of dreams per consolidation
   reflection_count: 2         # Number of reflections per consolidation
+  nap_moment_count: 5         # Max moments to process during nap
+  cold_embed_limit: 50        # Max embeddings to create per sleep cycle
 
 recall:
-  default_limit: 5
-  recency_weight: 0.3
-  strength_weight: 0.3
-  valence_weight: 0.2
-  drive_weight: 0.2
+  default_limit: 10
+  context_lines: 3            # Lines of context around grep matches
 
 identity:
   snapshot_interval: 10       # Consolidation cycles between snapshots

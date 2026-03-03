@@ -1,48 +1,56 @@
 """alive-memory: Cognitive memory layer for persistent AI characters.
 
+Three-tier memory architecture:
+  Tier 1 — Day Memory: ephemeral salient moments in SQLite
+  Tier 2 — Hot Memory: markdown files on disk (journal, visitors, etc.)
+  Tier 3 — Cold Memory: vector embeddings in SQLite (sleep-only)
+
 Usage:
     from alive_memory import AliveMemory
 
-    memory = AliveMemory(storage="sqlite:///memory.db")
+    memory = AliveMemory(storage="memory.db", memory_dir="/data/agent/memory")
     await memory.initialize()
 
-    # Record something
-    await memory.intake(event_type="conversation", content="Hello world")
+    # Record an event (may or may not become a moment)
+    moment = await memory.intake(event_type="conversation", content="Hello world")
 
-    # Remember it
-    results = await memory.recall(query="greetings", limit=3)
+    # Recall from hot memory
+    context = await memory.recall(query="greetings")
 
     # Consolidate (sleep)
     report = await memory.consolidate()
-
-    # Check state
-    state = await memory.state
-    identity = await memory.identity
 """
 
 from __future__ import annotations
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
+import tempfile
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from alive_memory.config import AliveConfig
 from alive_memory.embeddings.base import EmbeddingProvider
 from alive_memory.embeddings.local import LocalEmbeddingProvider
+from alive_memory.hot.reader import MemoryReader
+from alive_memory.hot.writer import MemoryWriter
 from alive_memory.llm.provider import LLMProvider
 from alive_memory.storage.base import BaseStorage
 from alive_memory.storage.sqlite import SQLiteStorage
 from alive_memory.types import (
     CognitiveState,
     ConsolidationReport,
+    DayMoment,
     DriveState,
     EventType,
     Memory,
     MemoryType,
     MoodState,
     Perception,
+    RecallContext,
     SelfModel,
+    SleepReport,
 )
 
 __all__ = [
@@ -52,29 +60,37 @@ __all__ = [
     "SQLiteStorage",
     "LLMProvider",
     "EmbeddingProvider",
+    "MemoryReader",
+    "MemoryWriter",
     "CognitiveState",
     "ConsolidationReport",
+    "DayMoment",
     "DriveState",
     "EventType",
     "Memory",
     "MemoryType",
     "MoodState",
     "Perception",
+    "RecallContext",
     "SelfModel",
+    "SleepReport",
 ]
 
 
 class AliveMemory:
     """Public API for the alive-memory cognitive memory layer.
 
-    Wires together storage, embeddings, LLM, and all cognitive
-    subsystems (intake, recall, consolidation, identity, meta).
+    Three-tier architecture:
+      - intake() records salient moments to day memory (Tier 1)
+      - recall() greps hot memory markdown files (Tier 2)
+      - consolidate() processes moments → writes journal/reflections → embeds to cold (Tier 3)
     """
 
     def __init__(
         self,
         storage: BaseStorage | str = "memory.db",
         *,
+        memory_dir: str | Path | None = None,
         config: AliveConfig | dict | str | None = None,
         llm: LLMProvider | None = None,
         embedder: EmbeddingProvider | None = None,
@@ -83,13 +99,14 @@ class AliveMemory:
 
         Args:
             storage: A BaseStorage instance, or a string path for SQLite.
-                     "sqlite:///path" or just "path.db" both work.
+            memory_dir: Root directory for hot memory files (Tier 2).
+                        If not provided, uses a temp directory.
             config: AliveConfig instance, dict, or YAML file path.
-            llm: LLM provider (needed for consolidation dreaming/reflection).
-            embedder: Embedding provider (needed for vector search).
+            llm: LLM provider (needed for consolidation reflection/dreaming).
+            embedder: Embedding provider (needed for cold archive).
                       Defaults to LocalEmbeddingProvider if not provided.
         """
-        # Storage
+        # Storage (Tier 1 + Tier 3)
         if isinstance(storage, str):
             path = storage
             if path.startswith("sqlite:///"):
@@ -114,6 +131,18 @@ class AliveMemory:
             dimensions=self._config.get("memory.embedding_dimensions", 384)
         )
 
+        # Hot memory (Tier 2)
+        if memory_dir is None:
+            self._memory_dir = Path(tempfile.mkdtemp(prefix="alive_memory_"))
+        else:
+            self._memory_dir = Path(memory_dir)
+
+        self._writer = MemoryWriter(self._memory_dir)
+        self._reader = MemoryReader(self._memory_dir)
+
+        # Track previous drives for salience delta calculation
+        self._prev_drives: DriveState | None = None
+
     async def initialize(self) -> None:
         """Set up storage (create tables, run migrations). Call once before use."""
         await self._storage.initialize()
@@ -130,6 +159,28 @@ class AliveMemory:
         await self.close()
         return False
 
+    # ── Properties ────────────────────────────────────────────────
+
+    @property
+    def storage(self) -> BaseStorage:
+        """Access the underlying storage backend."""
+        return self._storage
+
+    @property
+    def writer(self) -> MemoryWriter:
+        """Access the hot memory writer."""
+        return self._writer
+
+    @property
+    def reader(self) -> MemoryReader:
+        """Access the hot memory reader."""
+        return self._reader
+
+    @property
+    def memory_dir(self) -> Path:
+        """Root directory for hot memory files."""
+        return self._memory_dir
+
     # ── Intake ───────────────────────────────────────────────────
 
     async def intake(
@@ -139,10 +190,10 @@ class AliveMemory:
         *,
         metadata: dict[str, Any] | None = None,
         timestamp: datetime | None = None,
-    ) -> Memory:
-        """Record an event and form a memory.
+    ) -> DayMoment | None:
+        """Record an event. Returns a DayMoment if salient enough, None otherwise.
 
-        Pipeline: event → perception → affect → drives → memory formation
+        Pipeline: event → perception → affect → drives → salience gating → DayMoment
 
         Args:
             event_type: Type of event (conversation, action, observation, system).
@@ -151,12 +202,12 @@ class AliveMemory:
             timestamp: Event time (defaults to now UTC).
 
         Returns:
-            The formed Memory.
+            DayMoment if the event was salient enough to record, None otherwise.
         """
         from alive_memory.intake.thalamus import perceive
         from alive_memory.intake.affect import apply_affect
         from alive_memory.intake.drives import update_drives, update_mood
-        from alive_memory.intake.formation import form_memory
+        from alive_memory.intake.formation import form_moment
 
         # Step 1: Perceive
         perception = perceive(
@@ -169,6 +220,15 @@ class AliveMemory:
         # Step 2: Affect lens
         mood = await self._storage.get_mood_state()
         drives = await self._storage.get_drive_state()
+
+        # Save previous drives for salience delta
+        self._prev_drives = DriveState(
+            curiosity=drives.curiosity,
+            social=drives.social,
+            expression=drives.expression,
+            rest=drives.rest,
+        )
+
         perception = apply_affect(perception, mood, drives)
 
         # Step 3: Update drives
@@ -185,14 +245,14 @@ class AliveMemory:
         )
         await self._storage.set_mood_state(new_mood)
 
-        # Step 5: Form memory
-        memory = await form_memory(
+        # Step 5: Form moment (salience gating)
+        moment = await form_moment(
             perception, new_mood, new_drives, self._storage,
-            embedder=self._embedder,
+            previous_drives=self._prev_drives,
             config=self._config,
         )
 
-        return memory
+        return moment
 
     # ── Recall ───────────────────────────────────────────────────
 
@@ -200,29 +260,26 @@ class AliveMemory:
         self,
         query: str,
         *,
-        limit: int = 5,
-        min_strength: float = 0.0,
-    ) -> list[Memory]:
-        """Retrieve memories relevant to a query.
+        limit: int = 10,
+    ) -> RecallContext:
+        """Retrieve context relevant to a query from hot memory.
 
-        Uses vector search + cognitive re-ranking.
+        Uses markdown-first grep over hot memory files.
+        Cold embeddings are NOT searched here (only during sleep).
 
         Args:
-            query: Search query text.
-            limit: Maximum results.
-            min_strength: Filter out memories below this strength.
+            query: Search query text (keywords).
+            limit: Maximum results per category.
 
         Returns:
-            List of memories ordered by relevance.
+            RecallContext with categorized results.
         """
         from alive_memory.recall.hippocampus import recall as _recall
 
         state = await self._storage.get_cognitive_state()
         return await _recall(
-            query, self._storage, state,
-            embedder=self._embedder,
+            query, self._reader, state,
             limit=limit,
-            min_strength=min_strength,
             config=self._config,
         )
 
@@ -233,34 +290,35 @@ class AliveMemory:
         *,
         whispers: list[dict] | None = None,
         depth: str = "full",
-    ) -> ConsolidationReport:
+    ) -> SleepReport:
         """Run memory consolidation (sleep).
 
-        Phases: strengthen → decay → merge → prune → dream → reflect
+        Full pipeline:
+          1. Get unprocessed day moments
+          2. Per moment: gather context → cold search → LLM reflect → write to hot memory
+          3. Daily summary → batch embed to cold → flush day_memory
 
         Args:
             whispers: Config changes to process as dream perceptions.
             depth: "full" for complete consolidation, "nap" for light.
 
         Returns:
-            ConsolidationReport with statistics.
+            SleepReport with statistics.
         """
         from alive_memory.consolidation import consolidate as _consolidate
 
         return await _consolidate(
             self._storage,
+            writer=self._writer,
+            reader=self._reader,
             llm=self._llm,
+            embedder=self._embedder,
             config=self._config,
             whispers=whispers,
             depth=depth,
         )
 
     # ── State ────────────────────────────────────────────────────
-
-    @property
-    def storage(self) -> BaseStorage:
-        """Access the underlying storage backend."""
-        return self._storage
 
     async def get_state(self) -> CognitiveState:
         """Get the current cognitive state."""
@@ -295,32 +353,31 @@ class AliveMemory:
         content: str,
         *,
         title: str | None = None,
-    ) -> Memory:
-        """Inject a backstory memory (pre-existing knowledge).
+    ) -> DayMoment:
+        """Inject a backstory as a high-salience moment + self-knowledge file.
 
-        Creates a high-strength semantic memory with origin=injected.
+        Creates a DayMoment with max salience and writes to self/ directory.
         """
         import uuid
 
-        memory = Memory(
+        moment = DayMoment(
             id=str(uuid.uuid4()),
             content=content,
-            memory_type=MemoryType.SEMANTIC,
-            strength=0.9,
+            event_type=EventType.SYSTEM,
+            salience=1.0,
             valence=0.0,
-            formed_at=datetime.now(timezone.utc),
-            source_event=EventType.SYSTEM,
+            drive_snapshot={"curiosity": 0.5, "social": 0.5, "expression": 0.5, "rest": 0.5},
+            timestamp=datetime.now(timezone.utc),
             metadata={"origin": "injected", "title": title or "backstory"},
         )
 
-        if self._embedder:
-            try:
-                memory.embedding = await self._embedder.embed(content)
-            except Exception:
-                pass
+        await self._storage.record_moment(moment)
 
-        await self._storage.store_memory(memory)
-        return memory
+        # Also write to self-knowledge
+        filename = title or "backstory"
+        self._writer.write_self_file(filename, f"# {filename}\n\n{content}\n")
+
+        return moment
 
     # ── Meta-Tuning ──────────────────────────────────────────────
 
@@ -329,15 +386,7 @@ class AliveMemory:
         metrics: dict[str, float],
         targets: list | None = None,
     ) -> list:
-        """Run meta-controller for self-tuning parameter adjustment.
-
-        Args:
-            metrics: Current metric name → value mapping.
-            targets: List of MetricTarget objects defining target ranges.
-
-        Returns:
-            List of Experiment objects (adjustments made).
-        """
+        """Run meta-controller for self-tuning parameter adjustment."""
         from alive_memory.meta.controller import run_meta_controller
 
         return await run_meta_controller(

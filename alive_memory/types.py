@@ -1,4 +1,10 @@
-"""Core type system for alive-memory."""
+"""Core type system for alive-memory.
+
+Three-tier architecture:
+  Tier 1 — DayMoment: ephemeral salient moments in SQLite
+  Tier 2 — Hot Memory: markdown files on disk (journal, visitors, etc.)
+  Tier 3 — Cold Memory: vector embeddings in SQLite (sleep-only)
+"""
 
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -30,8 +36,68 @@ class Perception:
 
 
 @dataclass
+class DayMoment:
+    """Tier 1 — A salient moment recorded during the day.
+
+    Only moments that pass the salience threshold are recorded.
+    Flushed after consolidation (sleep) processes them.
+    """
+    id: str
+    content: str
+    event_type: EventType
+    salience: float  # 0-1, computed deterministically
+    valence: float  # -1 to 1
+    drive_snapshot: dict[str, float]  # drive levels at time of moment
+    timestamp: datetime
+    processed: bool = False  # marked True after consolidation
+    nap_processed: bool = False  # marked True after nap processes it
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class RecallContext:
+    """Result of a recall operation — aggregated hot memory context.
+
+    Markdown-first grep over hot memory files, not vector search.
+    """
+    journal_entries: list[str] = field(default_factory=list)
+    visitor_notes: list[str] = field(default_factory=list)
+    self_knowledge: list[str] = field(default_factory=list)
+    reflections: list[str] = field(default_factory=list)
+    thread_context: list[str] = field(default_factory=list)
+    cold_echoes: list[str] = field(default_factory=list)  # from vector search during sleep
+    query: str = ""
+    total_hits: int = 0
+
+
+@dataclass
+class SleepReport:
+    """Report from a consolidation (sleep) cycle.
+
+    Replaces ConsolidationReport with three-tier awareness.
+    """
+    moments_processed: int = 0
+    journal_entries_written: int = 0
+    reflections_written: int = 0
+    cold_embeddings_added: int = 0
+    cold_echoes_found: int = 0
+    dreams: list[str] = field(default_factory=list)
+    reflections: list[str] = field(default_factory=list)
+    identity_drift: Optional[dict] = None
+    duration_ms: int = 0
+    depth: str = "full"
+
+
+# Keep ConsolidationReport as alias for backward compat in logs
+ConsolidationReport = SleepReport
+
+
+@dataclass
 class Memory:
-    """A formed memory with cognitive metadata."""
+    """Legacy Memory type — kept for backward compatibility.
+
+    New code should use DayMoment (Tier 1) and hot memory files (Tier 2).
+    """
     id: str
     content: str
     memory_type: MemoryType
@@ -72,19 +138,6 @@ class CognitiveState:
     cycle_count: int
     last_sleep: Optional[datetime] = None
     memories_total: int = 0
-
-
-@dataclass
-class ConsolidationReport:
-    """Report from a consolidation (sleep) cycle."""
-    memories_strengthened: int = 0
-    memories_weakened: int = 0
-    memories_pruned: int = 0
-    memories_merged: int = 0
-    dreams: list[str] = field(default_factory=list)
-    reflections: list[str] = field(default_factory=list)
-    identity_drift: Optional[dict] = None
-    duration_ms: int = 0
 
 
 @dataclass

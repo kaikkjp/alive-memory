@@ -1,9 +1,9 @@
-"""Intake pipeline: raw events → structured perceptions → memories."""
+"""Intake pipeline: raw events → structured perceptions → day moments."""
 
 from alive_memory.intake.thalamus import perceive
 from alive_memory.intake.affect import apply_affect, compute_valence
 from alive_memory.intake.drives import update_drives, update_mood
-from alive_memory.intake.formation import form_memory
+from alive_memory.intake.formation import form_moment
 
 __all__ = [
     "perceive",
@@ -11,5 +11,5 @@ __all__ = [
     "compute_valence",
     "update_drives",
     "update_mood",
-    "form_memory",
+    "form_moment",
 ]

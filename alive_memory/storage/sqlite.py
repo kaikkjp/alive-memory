@@ -1,6 +1,8 @@
-"""SQLite + sqlite-vec storage adapter for alive-memory.
+"""SQLite storage adapter for alive-memory (three-tier architecture).
 
-Uses aiosqlite for async access and optionally sqlite-vec for vector search.
+Tier 1 — day_memory: ephemeral salient moments
+Tier 3 — cold_embeddings: vector archive (sleep-only)
+(Tier 2 is hot memory on disk, managed by hot/writer.py and hot/reader.py)
 """
 
 from __future__ import annotations
@@ -19,27 +21,24 @@ import aiosqlite
 from alive_memory.storage.base import BaseStorage
 from alive_memory.types import (
     CognitiveState,
-    ConsolidationReport,
+    DayMoment,
     DriveState,
     EventType,
-    Memory,
-    MemoryType,
     MoodState,
     SelfModel,
+    SleepReport,
 )
 
 _MIGRATIONS_DIR = pathlib.Path(__file__).parent / "migrations"
 
 
 def _serialize_embedding(embedding: list[float] | None) -> bytes | None:
-    """Pack a float list into a compact binary blob."""
     if embedding is None:
         return None
     return struct.pack(f"{len(embedding)}f", *embedding)
 
 
 def _deserialize_embedding(blob: bytes | None) -> list[float] | None:
-    """Unpack a binary blob back into a float list."""
     if blob is None:
         return None
     count = len(blob) // 4
@@ -50,32 +49,23 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _row_to_memory(row: aiosqlite.Row) -> Memory:
-    """Convert a DB row to a Memory dataclass."""
-    return Memory(
+def _row_to_moment(row: aiosqlite.Row) -> DayMoment:
+    return DayMoment(
         id=row["id"],
         content=row["content"],
-        memory_type=MemoryType(row["memory_type"]),
-        strength=row["strength"],
+        event_type=EventType(row["event_type"]),
+        salience=row["salience"],
         valence=row["valence"],
-        formed_at=datetime.fromisoformat(row["formed_at"]),
-        last_recalled=(
-            datetime.fromisoformat(row["last_recalled"])
-            if row["last_recalled"]
-            else None
-        ),
-        recall_count=row["recall_count"],
-        source_event=(
-            EventType(row["source_event"]) if row["source_event"] else None
-        ),
-        drive_coupling=json.loads(row["drive_coupling"] or "{}"),
-        embedding=_deserialize_embedding(row["embedding"]),
+        drive_snapshot=json.loads(row["drive_snapshot"] or "{}"),
+        timestamp=datetime.fromisoformat(row["timestamp"]),
+        processed=bool(row["processed"]),
+        nap_processed=bool(row["nap_processed"]),
         metadata=json.loads(row["metadata"] or "{}"),
     )
 
 
 class SQLiteStorage(BaseStorage):
-    """SQLite-backed storage for alive-memory.
+    """SQLite-backed storage for alive-memory (three-tier).
 
     Usage:
         storage = SQLiteStorage("path/to/memory.db")
@@ -84,9 +74,8 @@ class SQLiteStorage(BaseStorage):
         await storage.close()
     """
 
-    def __init__(self, db_path: str = "memory.db", enable_vec: bool = False):
+    def __init__(self, db_path: str = "memory.db"):
         self._db_path = db_path
-        self._enable_vec = enable_vec
         self._db: Optional[aiosqlite.Connection] = None
         self._write_lock = asyncio.Lock()
         self._tx_depth: contextvars.ContextVar[int] = contextvars.ContextVar(
@@ -102,20 +91,9 @@ class SQLiteStorage(BaseStorage):
             await self._db.execute("PRAGMA journal_mode=WAL")
             await self._db.execute("PRAGMA busy_timeout=5000")
             await self._db.execute("PRAGMA foreign_keys=ON")
-
-            if self._enable_vec:
-                try:
-                    import sqlite_vec
-                    await self._db.enable_load_extension(True)
-                    sqlite_vec.load(self._db._conn)
-                    await self._db.enable_load_extension(False)
-                except (ImportError, Exception) as e:
-                    print(f"[Storage] sqlite-vec unavailable: {e}")
-
         return self._db
 
     async def _exec_write(self, sql: str, params: tuple = ()) -> None:
-        """Execute a write with proper serialization."""
         conn = await self._get_db()
         if self._tx_depth.get() > 0:
             await conn.execute(sql, params)
@@ -124,183 +102,159 @@ class SQLiteStorage(BaseStorage):
                 await conn.execute(sql, params)
                 await conn.commit()
 
-    # ── Memory CRUD ──────────────────────────────────────────────
+    # ── Day Memory (Tier 1) ───────────────────────────────────────
 
-    async def store_memory(self, memory: Memory) -> str:
-        if not memory.id:
-            memory.id = str(uuid.uuid4())
+    async def record_moment(self, moment: DayMoment) -> str:
+        if not moment.id:
+            moment.id = str(uuid.uuid4())
         await self._exec_write(
-            """INSERT INTO memories
-               (id, content, memory_type, strength, valence, formed_at,
-                last_recalled, recall_count, source_event, drive_coupling,
-                embedding, metadata)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            """INSERT INTO day_memory
+               (id, content, event_type, salience, valence, drive_snapshot,
+                timestamp, processed, nap_processed, metadata)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
-                memory.id,
-                memory.content,
-                memory.memory_type.value,
-                memory.strength,
-                memory.valence,
-                memory.formed_at.isoformat(),
-                memory.last_recalled.isoformat() if memory.last_recalled else None,
-                memory.recall_count,
-                memory.source_event.value if memory.source_event else None,
-                json.dumps(memory.drive_coupling),
-                _serialize_embedding(memory.embedding),
-                json.dumps(memory.metadata),
+                moment.id,
+                moment.content,
+                moment.event_type.value,
+                moment.salience,
+                moment.valence,
+                json.dumps(moment.drive_snapshot),
+                moment.timestamp.isoformat(),
+                int(moment.processed),
+                int(moment.nap_processed),
+                json.dumps(moment.metadata),
             ),
         )
-        # Update memory count
+        return moment.id
+
+    async def get_unprocessed_moments(self, nap: bool = False) -> list[DayMoment]:
+        conn = await self._get_db()
+        if nap:
+            cursor = await conn.execute(
+                "SELECT * FROM day_memory WHERE nap_processed = 0 ORDER BY timestamp ASC"
+            )
+        else:
+            cursor = await conn.execute(
+                "SELECT * FROM day_memory WHERE processed = 0 ORDER BY timestamp ASC"
+            )
+        rows = await cursor.fetchall()
+        return [_row_to_moment(row) for row in rows]
+
+    async def mark_moment_processed(
+        self, moment_id: str, nap: bool = False
+    ) -> None:
+        if nap:
+            await self._exec_write(
+                "UPDATE day_memory SET nap_processed = 1 WHERE id = ?",
+                (moment_id,),
+            )
+        else:
+            await self._exec_write(
+                "UPDATE day_memory SET processed = 1 WHERE id = ?",
+                (moment_id,),
+            )
+
+    async def flush_day_memory(self) -> int:
         conn = await self._get_db()
         async with self._write_lock:
-            await conn.execute(
-                "UPDATE cognitive_state SET memories_total = memories_total + 1 WHERE id = 1"
+            cursor = await conn.execute(
+                "SELECT COUNT(*) FROM day_memory WHERE processed = 1"
             )
+            row = await cursor.fetchone()
+            count = row[0]
+            await conn.execute("DELETE FROM day_memory WHERE processed = 1")
             await conn.commit()
-        return memory.id
+        return count
 
-    async def get_memory(self, memory_id: str) -> Optional[Memory]:
+    async def get_day_memory_count(self) -> int:
         conn = await self._get_db()
         cursor = await conn.execute(
-            "SELECT * FROM memories WHERE id = ?", (memory_id,)
+            "SELECT COUNT(*) FROM day_memory WHERE processed = 0"
         )
         row = await cursor.fetchone()
-        return _row_to_memory(row) if row else None
+        return row[0]
 
-    async def search_memories(
+    async def get_lowest_salience_moment(self) -> Optional[DayMoment]:
+        conn = await self._get_db()
+        cursor = await conn.execute(
+            "SELECT * FROM day_memory WHERE processed = 0 ORDER BY salience ASC LIMIT 1"
+        )
+        row = await cursor.fetchone()
+        return _row_to_moment(row) if row else None
+
+    async def delete_moment(self, moment_id: str) -> None:
+        await self._exec_write(
+            "DELETE FROM day_memory WHERE id = ?", (moment_id,)
+        )
+
+    async def get_recent_moment_content(
+        self, window_minutes: int = 30
+    ) -> list[str]:
+        conn = await self._get_db()
+        cursor = await conn.execute(
+            """SELECT content FROM day_memory
+               WHERE timestamp >= datetime('now', ?)
+               ORDER BY timestamp DESC""",
+            (f"-{window_minutes} minutes",),
+        )
+        rows = await cursor.fetchall()
+        return [row["content"] for row in rows]
+
+    # ── Cold Embeddings (Tier 3) ──────────────────────────────────
+
+    async def store_cold_embedding(
+        self,
+        content: str,
+        embedding: list[float],
+        source_moment_id: str,
+        metadata: Optional[dict[str, Any]] = None,
+    ) -> str:
+        embed_id = str(uuid.uuid4())
+        await self._exec_write(
+            """INSERT INTO cold_embeddings
+               (id, content, embedding, source_moment_id, metadata, created_at)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (
+                embed_id,
+                content,
+                _serialize_embedding(embedding),
+                source_moment_id,
+                json.dumps(metadata or {}),
+                _now_iso(),
+            ),
+        )
+        return embed_id
+
+    async def search_cold(
         self,
         embedding: list[float],
         limit: int = 5,
-        filters: Optional[dict[str, Any]] = None,
-    ) -> list[Memory]:
+    ) -> list[dict[str, Any]]:
         conn = await self._get_db()
-        # Brute-force cosine similarity search over stored embeddings
         cursor = await conn.execute(
-            "SELECT * FROM memories WHERE embedding IS NOT NULL"
+            "SELECT * FROM cold_embeddings"
         )
         rows = await cursor.fetchall()
 
-        scored: list[tuple[float, Memory]] = []
+        scored: list[tuple[float, dict[str, Any]]] = []
         for row in rows:
-            mem = _row_to_memory(row)
-            if mem.embedding is None:
+            stored_emb = _deserialize_embedding(row["embedding"])
+            if stored_emb is None:
                 continue
-
-            # Apply filters
-            if filters:
-                if "memory_type" in filters and mem.memory_type.value != filters["memory_type"]:
-                    continue
-                if "min_strength" in filters and mem.strength < filters["min_strength"]:
-                    continue
-
-            score = _cosine_similarity(embedding, mem.embedding)
-            scored.append((score, mem))
+            score = _cosine_similarity(embedding, stored_emb)
+            scored.append((score, {
+                "id": row["id"],
+                "content": row["content"],
+                "score": score,
+                "metadata": json.loads(row["metadata"] or "{}"),
+            }))
 
         scored.sort(key=lambda x: x[0], reverse=True)
-        return [mem for _, mem in scored[:limit]]
+        return [item for _, item in scored[:limit]]
 
-    async def search_memories_by_text(
-        self, query: str, limit: int = 5
-    ) -> list[Memory]:
+    async def count_cold_embeddings(self) -> int:
         conn = await self._get_db()
-        cursor = await conn.execute(
-            "SELECT * FROM memories WHERE content LIKE ? ORDER BY strength DESC LIMIT ?",
-            (f"%{query}%", limit),
-        )
-        rows = await cursor.fetchall()
-        return [_row_to_memory(row) for row in rows]
-
-    async def update_memory_strength(
-        self, memory_id: str, strength: float
-    ) -> None:
-        await self._exec_write(
-            "UPDATE memories SET strength = ? WHERE id = ?",
-            (max(0.0, min(1.0, strength)), memory_id),
-        )
-
-    async def update_memory_recall(self, memory_id: str) -> None:
-        await self._exec_write(
-            "UPDATE memories SET recall_count = recall_count + 1, last_recalled = ? WHERE id = ?",
-            (_now_iso(), memory_id),
-        )
-
-    async def delete_memory(self, memory_id: str) -> None:
-        await self._exec_write(
-            "DELETE FROM memories WHERE id = ?", (memory_id,)
-        )
-        conn = await self._get_db()
-        async with self._write_lock:
-            await conn.execute(
-                "UPDATE cognitive_state SET memories_total = MAX(0, memories_total - 1) WHERE id = 1"
-            )
-            await conn.commit()
-
-    async def get_memories_for_consolidation(
-        self, min_age_hours: float = 1.0
-    ) -> list[Memory]:
-        conn = await self._get_db()
-        cursor = await conn.execute(
-            """SELECT * FROM memories
-               WHERE formed_at <= datetime('now', ?)
-               ORDER BY strength ASC""",
-            (f"-{min_age_hours} hours",),
-        )
-        rows = await cursor.fetchall()
-        return [_row_to_memory(row) for row in rows]
-
-    async def merge_memories(
-        self, source_ids: list[str], merged: Memory
-    ) -> None:
-        async with self._write_lock:
-            conn = await self._get_db()
-            self._tx_depth.set(self._tx_depth.get() + 1)
-            try:
-                await conn.execute("BEGIN IMMEDIATE")
-                for sid in source_ids:
-                    await conn.execute(
-                        "DELETE FROM memories WHERE id = ?", (sid,)
-                    )
-                # Insert merged memory
-                if not merged.id:
-                    merged.id = str(uuid.uuid4())
-                await conn.execute(
-                    """INSERT INTO memories
-                       (id, content, memory_type, strength, valence, formed_at,
-                        last_recalled, recall_count, source_event, drive_coupling,
-                        embedding, metadata)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                    (
-                        merged.id,
-                        merged.content,
-                        merged.memory_type.value,
-                        merged.strength,
-                        merged.valence,
-                        merged.formed_at.isoformat(),
-                        merged.last_recalled.isoformat() if merged.last_recalled else None,
-                        merged.recall_count,
-                        merged.source_event.value if merged.source_event else None,
-                        json.dumps(merged.drive_coupling),
-                        _serialize_embedding(merged.embedding),
-                        json.dumps(merged.metadata),
-                    ),
-                )
-                # Adjust count: removed N, added 1
-                count_delta = 1 - len(source_ids)
-                if count_delta != 0:
-                    await conn.execute(
-                        "UPDATE cognitive_state SET memories_total = MAX(0, memories_total + ?) WHERE id = 1",
-                        (count_delta,),
-                    )
-                await conn.commit()
-            except BaseException:
-                await conn.rollback()
-                raise
-            finally:
-                self._tx_depth.set(self._tx_depth.get() - 1)
-
-    async def count_memories(self) -> int:
-        conn = await self._get_db()
-        cursor = await conn.execute("SELECT COUNT(*) FROM memories")
+        cursor = await conn.execute("SELECT COUNT(*) FROM cold_embeddings")
         row = await cursor.fetchone()
         return row[0]
 
@@ -483,23 +437,25 @@ class SQLiteStorage(BaseStorage):
 
     # ── Consolidation Log ────────────────────────────────────────
 
-    async def log_consolidation(self, report: ConsolidationReport) -> None:
+    async def log_consolidation(self, report: SleepReport) -> None:
         await self._exec_write(
             """INSERT INTO consolidation_log
-               (id, memories_strengthened, memories_weakened, memories_pruned,
-                memories_merged, dreams, reflections, identity_drift,
-                duration_ms, ts)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               (id, moments_processed, journal_entries_written,
+                reflections_written, cold_embeddings_added, cold_echoes_found,
+                dreams, reflections, identity_drift, duration_ms, depth, ts)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 str(uuid.uuid4()),
-                report.memories_strengthened,
-                report.memories_weakened,
-                report.memories_pruned,
-                report.memories_merged,
+                report.moments_processed,
+                report.journal_entries_written,
+                report.reflections_written,
+                report.cold_embeddings_added,
+                report.cold_echoes_found,
                 json.dumps(report.dreams),
                 json.dumps(report.reflections),
                 json.dumps(report.identity_drift) if report.identity_drift else None,
                 report.duration_ms,
+                report.depth,
                 _now_iso(),
             ),
         )
@@ -528,7 +484,6 @@ class SQLiteStorage(BaseStorage):
 
 
 def _cosine_similarity(a: list[float], b: list[float]) -> float:
-    """Compute cosine similarity between two vectors."""
     if len(a) != len(b):
         return 0.0
     dot = sum(x * y for x, y in zip(a, b))
