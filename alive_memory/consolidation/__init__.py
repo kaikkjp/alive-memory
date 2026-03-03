@@ -1,13 +1,15 @@
-"""Consolidation (sleep): orchestrates all consolidation phases.
+"""Consolidation (sleep): three-tier processing pipeline.
 
-Extracted from engine/sleep/__init__.py.
-The consolidation pipeline runs these phases in order:
-  1. Strengthening — rehearse and strengthen accessed memories
-  2. Decay — apply time-based strength decay
-  3. Merging — combine similar memories
-  4. Pruning — remove very weak memories
-  5. Dreaming — LLM-driven recombination of memory fragments
-  6. Reflection — LLM-driven self-model update
+Full sleep pipeline:
+  1. Get unprocessed day_memory moments
+  2. Per moment: gather hot context → cold search (full only) → LLM reflect
+     → write journal MD → apply memory_updates → mark processed
+  3. Write daily summary → batch embed to cold → flush day_memory
+
+Nap mode:
+  - Process top N moments by salience
+  - No cold search
+  - Marks nap_processed=1 only
 """
 
 from __future__ import annotations
@@ -15,79 +17,163 @@ from __future__ import annotations
 import time
 
 from alive_memory.config import AliveConfig
-from alive_memory.consolidation.decay import apply_decay
+from alive_memory.consolidation.cold_search import find_cold_echoes
 from alive_memory.consolidation.dreaming import dream
-from alive_memory.consolidation.merging import merge_similar
-from alive_memory.consolidation.pruning import prune_weak
-from alive_memory.consolidation.reflection import reflect
-from alive_memory.consolidation.strengthening import strengthen
+from alive_memory.consolidation.memory_updates import apply_reflection_to_hot_memory
+from alive_memory.consolidation.reflection import reflect_daily_summary, reflect_on_moment
+from alive_memory.embeddings.base import EmbeddingProvider
+from alive_memory.hot.reader import MemoryReader
+from alive_memory.hot.writer import MemoryWriter
 from alive_memory.llm.provider import LLMProvider
 from alive_memory.storage.base import BaseStorage
-from alive_memory.types import ConsolidationReport
+from alive_memory.types import SleepReport
 
 
 async def consolidate(
     storage: BaseStorage,
     *,
+    writer: MemoryWriter | None = None,
+    reader: MemoryReader | None = None,
     llm: LLMProvider | None = None,
+    embedder: EmbeddingProvider | None = None,
     config: AliveConfig | None = None,
     whispers: list[dict] | None = None,
     depth: str = "full",
-) -> ConsolidationReport:
-    """Run the full consolidation pipeline.
+) -> SleepReport:
+    """Run the consolidation (sleep) pipeline.
 
     Args:
-        storage: Storage backend.
-        llm: LLM provider (needed for dreaming and reflection).
+        storage: Storage backend (day_memory + cold_embeddings).
+        writer: MemoryWriter for hot memory (Tier 2 writes).
+        reader: MemoryReader for hot memory (Tier 2 reads for context).
+        llm: LLM provider (needed for reflection and dreaming).
+        embedder: Embedding provider (needed for cold archive writes).
         config: Configuration parameters.
         whispers: Config changes to process as dream perceptions.
-        depth: "full" for complete consolidation, "nap" for light consolidation
-               (skips dreaming and reflection).
+        depth: "full" for complete consolidation, "nap" for light.
 
     Returns:
-        ConsolidationReport with statistics from each phase.
+        SleepReport with statistics.
     """
     cfg = config or AliveConfig()
     start_ms = int(time.monotonic() * 1000)
-    report = ConsolidationReport()
+    report = SleepReport(depth=depth)
 
-    # Fetch memories eligible for consolidation
-    min_age = 0.5 if depth == "nap" else 1.0
-    memories = await storage.get_memories_for_consolidation(min_age_hours=min_age)
+    is_nap = depth == "nap"
 
-    if not memories:
+    # Step 1: Get unprocessed moments
+    moments = await storage.get_unprocessed_moments(nap=is_nap)
+    if not moments:
         report.duration_ms = int(time.monotonic() * 1000) - start_ms
         return report
 
-    # Phase 1: Strengthen recently recalled memories
-    strengthened = await strengthen(memories, storage, config=cfg)
-    report.memories_strengthened = strengthened
+    # For naps, only process the top N most salient moments
+    if is_nap:
+        nap_count = cfg.get("consolidation.nap_moment_count", 5)
+        moments = sorted(moments, key=lambda m: m.salience, reverse=True)
+        moments = moments[:int(nap_count)]
 
-    # Phase 2: Apply time-based decay
-    weakened = await apply_decay(memories, storage, config=cfg)
-    report.memories_weakened = weakened
+    all_cold_echoes: list[dict] = []
 
-    # Phase 3: Merge similar memories
-    merged = await merge_similar(memories, storage, config=cfg)
-    report.memories_merged = merged
+    # Step 2: Per-moment processing
+    for moment in moments:
+        cold_echoes: list[dict] = []
 
-    # Phase 4: Prune very weak memories
-    pruned = await prune_weak(storage, config=cfg)
-    report.memories_pruned = pruned
+        # Cold search (full only) — find echoes from older memories
+        if not is_nap and embedder:
+            cold_echoes = await find_cold_echoes(
+                moment, storage, embedder, limit=3
+            )
+            all_cold_echoes.extend(cold_echoes)
+            report.cold_echoes_found += len(cold_echoes)
 
-    # Phases 5-6: Only in full consolidation (not nap)
-    if depth == "full" and llm:
-        # Phase 5: Dreaming — recombine memory fragments
-        dream_count = cfg.get("consolidation.dream_count", 3)
-        dreams = await dream(storage, llm, count=dream_count, config=cfg)
-        report.dreams = dreams
+        # LLM reflection (if LLM available and writer exists)
+        if llm and writer and reader:
+            reflection = await reflect_on_moment(
+                moment,
+                reader=reader,
+                storage=storage,
+                llm=llm,
+                cold_echoes=cold_echoes,
+                config=cfg,
+            )
 
-        # Phase 6: Reflection — update self-model
-        reflection_count = cfg.get("consolidation.reflection_count", 2)
-        reflections = await reflect(storage, llm, count=reflection_count, config=cfg)
-        report.reflections = reflections
+            if reflection:
+                # Extract visitor name from metadata if present
+                visitor_name = moment.metadata.get("visitor_name")
+                thread_id = moment.metadata.get("thread_id")
 
-    # Process whispers (config changes as dream perceptions)
+                # Write reflection to hot memory
+                counts = apply_reflection_to_hot_memory(
+                    moment, reflection,
+                    writer=writer,
+                    visitor_name=visitor_name,
+                    thread_id=thread_id,
+                )
+                report.journal_entries_written += counts.get("journal", 0)
+                report.reflections.append(reflection)
+        elif writer:
+            # No LLM — write raw moment to journal
+            writer.append_journal(
+                moment.content,
+                date=moment.timestamp,
+                moment_id=moment.id,
+            )
+            report.journal_entries_written += 1
+
+        # Mark processed
+        await storage.mark_moment_processed(moment.id, nap=is_nap)
+        report.moments_processed += 1
+
+    # Step 3 (full only): Daily summary + batch embed + flush
+    if not is_nap:
+        # Daily summary
+        if llm and writer:
+            summary = await reflect_daily_summary(
+                moments, storage=storage, llm=llm, config=cfg,
+            )
+            if summary:
+                writer.append_reflection(summary, label="Daily Summary")
+                report.reflections_written += 1
+
+        # Dreaming
+        if llm:
+            dream_count = int(cfg.get("consolidation.dream_count", 3))
+            dreams = await dream(
+                moments,
+                cold_echoes=all_cold_echoes,
+                llm=llm,
+                count=dream_count,
+                config=cfg,
+            )
+            report.dreams = dreams
+
+        # Batch embed to cold archive (max 50 per cycle)
+        if embedder:
+            embed_limit = int(cfg.get("consolidation.cold_embed_limit", 50))
+            embedded = 0
+            for moment in moments[:embed_limit]:
+                try:
+                    embedding = await embedder.embed(moment.content)
+                    await storage.store_cold_embedding(
+                        content=moment.content,
+                        embedding=embedding,
+                        source_moment_id=moment.id,
+                        metadata={
+                            "event_type": moment.event_type.value,
+                            "valence": moment.valence,
+                            "salience": moment.salience,
+                        },
+                    )
+                    embedded += 1
+                except Exception:
+                    pass
+            report.cold_embeddings_added = embedded
+
+        # Flush processed moments from day_memory
+        await storage.flush_day_memory()
+
+    # Process whispers
     if whispers:
         from alive_memory.consolidation.whisper import process_whispers
         whisper_dreams = await process_whispers(whispers, storage)

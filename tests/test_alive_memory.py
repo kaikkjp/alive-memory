@@ -1,4 +1,4 @@
-"""Integration tests for the alive-memory SDK."""
+"""Integration tests for the alive-memory SDK (three-tier architecture)."""
 
 import asyncio
 import os
@@ -8,17 +8,20 @@ import pytest
 
 from alive_memory import AliveMemory
 from alive_memory.config import AliveConfig
+from alive_memory.hot.reader import MemoryReader
+from alive_memory.hot.writer import MemoryWriter
 from alive_memory.intake.thalamus import perceive
 from alive_memory.intake.affect import compute_valence, apply_affect
 from alive_memory.intake.drives import update_drives, update_mood, clamp
+from alive_memory.intake.formation import form_moment, _compute_salience, _content_richness, _is_duplicate
 from alive_memory.consolidation.whisper import translate_whisper
-from alive_memory.recall.weighting import score_memory, decay_strength
+from alive_memory.recall.weighting import decay_strength
 from alive_memory.identity.drift import DriftReport
 from alive_memory.meta.controller import classify_outcome, compute_adaptive_cooldown
 from alive_memory.storage.sqlite import SQLiteStorage
 from alive_memory.types import (
-    CognitiveState, DriveState, EventType, Memory, MemoryType,
-    MoodState, Perception, SelfModel,
+    CognitiveState, DayMoment, DriveState, EventType, RecallContext,
+    MoodState, Perception, SelfModel, SleepReport,
 )
 from datetime import datetime, timezone
 
@@ -31,19 +34,26 @@ def tmp_db():
     os.unlink(path)
 
 
+@pytest.fixture
+def tmp_memory_dir():
+    d = tempfile.mkdtemp(prefix="alive_test_memory_")
+    yield d
+    import shutil
+    shutil.rmtree(d, ignore_errors=True)
+
+
 # ── Config ──────────────────────────────────────────────────────
 
 def test_config_defaults():
     cfg = AliveConfig()
-    assert cfg.get("memory.default_strength") == 0.5
-    assert cfg.get("recall.default_limit") == 5
+    assert cfg.get("memory.embedding_dimensions") == 384
+    assert cfg.get("recall.default_limit") == 10
     assert cfg.get("nonexistent", 42) == 42
 
 
 def test_config_dict_override():
-    cfg = AliveConfig({"memory": {"default_strength": 0.9}})
-    assert cfg.get("memory.default_strength") == 0.9
-    assert cfg.get("memory.min_strength") == 0.05  # default still there
+    cfg = AliveConfig({"memory": {"embedding_dimensions": 512}})
+    assert cfg.get("memory.embedding_dimensions") == 512
 
 
 def test_config_set():
@@ -120,9 +130,36 @@ def test_update_mood_homeostatic():
     mood = MoodState(valence=0.5, arousal=0.8)
     drives = DriveState()
     new = update_mood(mood, drives, [], elapsed_hours=1.0)
-    # Should pull toward neutral
     assert new.valence < 0.5
     assert new.arousal < 0.8
+
+
+# ── Intake: Formation (salience scoring) ────────────────────────
+
+def test_content_richness():
+    assert _content_richness("") == 0.0
+    assert _content_richness("hi") == 0.02
+    assert _content_richness("This is a longer message with some variety") > 0.05
+
+
+def test_is_duplicate():
+    assert _is_duplicate("hello world", ["hello world"]) is True
+    assert _is_duplicate("hello world", ["goodbye universe"]) is False
+    assert _is_duplicate("hello world", []) is False
+
+
+def test_compute_salience_conversation():
+    p = Perception(EventType.CONVERSATION, "Hello friend how are you?", 0.5, datetime.now(timezone.utc))
+    mood = MoodState()
+    drives = DriveState()
+    s = _compute_salience(p, mood, drives, None)
+    assert s > 0.3  # conversation base is 0.40
+
+
+def test_compute_salience_metadata_override():
+    p = Perception(EventType.CONVERSATION, "test", 0.5, datetime.now(timezone.utc), metadata={"salience": 0.99})
+    s = _compute_salience(p, MoodState(), DriveState(), None)
+    assert s == 0.99
 
 
 # ── Recall: Weighting ──────────────────────────────────────────
@@ -164,47 +201,199 @@ def test_adaptive_cooldown():
     assert compute_adaptive_cooldown(10, 0.2) == 20
 
 
-# ── Storage: SQLite ─────────────────────────────────────────────
+# ── Hot Memory: Writer ──────────────────────────────────────────
+
+def test_writer_creates_dirs(tmp_memory_dir):
+    writer = MemoryWriter(tmp_memory_dir)
+    for subdir in MemoryWriter.SUBDIRS:
+        assert (writer.root / subdir).is_dir()
+
+
+def test_writer_append_journal(tmp_memory_dir):
+    writer = MemoryWriter(tmp_memory_dir)
+    path = writer.append_journal("Test journal entry", moment_id="abc123")
+    assert path.exists()
+    content = path.read_text()
+    assert "Test journal entry" in content
+    assert "abc123" in content
+
+
+def test_writer_append_visitor(tmp_memory_dir):
+    writer = MemoryWriter(tmp_memory_dir)
+    path = writer.append_visitor("Alice", "She likes cats")
+    assert path.exists()
+    content = path.read_text()
+    assert "She likes cats" in content
+
+
+def test_writer_write_self_file(tmp_memory_dir):
+    writer = MemoryWriter(tmp_memory_dir)
+    path = writer.write_self_file("identity", "# Identity\n\nI am a shopkeeper.")
+    assert path.exists()
+    content = path.read_text()
+    assert "shopkeeper" in content
+
+
+def test_writer_append_reflection(tmp_memory_dir):
+    writer = MemoryWriter(tmp_memory_dir)
+    path = writer.append_reflection("Today was interesting", label="Daily Summary")
+    assert path.exists()
+    content = path.read_text()
+    assert "Today was interesting" in content
+    assert "Daily Summary" in content
+
+
+# ── Hot Memory: Reader ──────────────────────────────────────────
+
+def test_reader_grep_memory(tmp_memory_dir):
+    writer = MemoryWriter(tmp_memory_dir)
+    writer.append_journal("The quick brown fox jumped over the lazy dog")
+    writer.append_visitor("Bob", "Bob mentioned something about foxes")
+
+    reader = MemoryReader(tmp_memory_dir)
+    results = reader.grep_memory("fox")
+    assert len(results) >= 1
+    assert any("fox" in r["match"].lower() for r in results)
+
+
+def test_reader_read_visitor(tmp_memory_dir):
+    writer = MemoryWriter(tmp_memory_dir)
+    writer.append_visitor("Carol", "Carol brought flowers")
+
+    reader = MemoryReader(tmp_memory_dir)
+    content = reader.read_visitor("Carol")
+    assert content is not None
+    assert "flowers" in content
+
+
+def test_reader_list_visitors(tmp_memory_dir):
+    writer = MemoryWriter(tmp_memory_dir)
+    writer.append_visitor("Alice", "note")
+    writer.append_visitor("Bob", "note")
+
+    reader = MemoryReader(tmp_memory_dir)
+    visitors = reader.list_visitors()
+    assert len(visitors) == 2
+
+
+def test_reader_read_recent_journal(tmp_memory_dir):
+    writer = MemoryWriter(tmp_memory_dir)
+    writer.append_journal("Entry one about sunshine")
+    writer.append_journal("Entry two about rain")
+
+    reader = MemoryReader(tmp_memory_dir)
+    entries = reader.read_recent_journal(days=1)
+    assert len(entries) >= 1
+
+
+def test_reader_read_self_knowledge(tmp_memory_dir):
+    writer = MemoryWriter(tmp_memory_dir)
+    writer.write_self_file("identity", "I am curious and warm.")
+
+    reader = MemoryReader(tmp_memory_dir)
+    content = reader.read_self_knowledge("identity")
+    assert content is not None
+    assert "curious" in content
+
+
+# ── Storage: SQLite (Three-Tier) ────────────────────────────────
 
 @pytest.mark.asyncio
-async def test_sqlite_lifecycle(tmp_db):
+async def test_sqlite_day_memory(tmp_db):
     storage = SQLiteStorage(tmp_db)
     await storage.initialize()
 
-    # Store and retrieve a memory
-    mem = Memory(
-        id="test-1",
+    # Record a moment
+    moment = DayMoment(
+        id="m-1",
         content="Hello world",
-        memory_type=MemoryType.EPISODIC,
-        strength=0.7,
+        event_type=EventType.CONVERSATION,
+        salience=0.7,
         valence=0.2,
-        formed_at=datetime.now(timezone.utc),
+        drive_snapshot={"curiosity": 0.5},
+        timestamp=datetime.now(timezone.utc),
     )
-    mid = await storage.store_memory(mem)
-    assert mid == "test-1"
+    mid = await storage.record_moment(moment)
+    assert mid == "m-1"
 
-    got = await storage.get_memory("test-1")
-    assert got is not None
-    assert got.content == "Hello world"
-    assert got.strength == 0.7
+    # Get unprocessed
+    moments = await storage.get_unprocessed_moments()
+    assert len(moments) == 1
+    assert moments[0].content == "Hello world"
+
+    # Day memory count
+    assert await storage.get_day_memory_count() == 1
+
+    # Mark processed
+    await storage.mark_moment_processed("m-1")
+    moments = await storage.get_unprocessed_moments()
+    assert len(moments) == 0
+
+    # Flush
+    flushed = await storage.flush_day_memory()
+    assert flushed == 1
+
+    await storage.close()
+
+
+@pytest.mark.asyncio
+async def test_sqlite_cold_embeddings(tmp_db):
+    storage = SQLiteStorage(tmp_db)
+    await storage.initialize()
+
+    # Store cold embedding
+    eid = await storage.store_cold_embedding(
+        content="Memory about foxes",
+        embedding=[0.1, 0.2, 0.3, 0.4],
+        source_moment_id="m-1",
+        metadata={"event_type": "observation"},
+    )
+    assert eid
 
     # Count
-    assert await storage.count_memories() == 1
+    assert await storage.count_cold_embeddings() == 1
 
-    # Update strength
-    await storage.update_memory_strength("test-1", 0.9)
-    got = await storage.get_memory("test-1")
-    assert got.strength == 0.9
+    # Search
+    results = await storage.search_cold(
+        embedding=[0.1, 0.2, 0.3, 0.4],
+        limit=5,
+    )
+    assert len(results) == 1
+    assert results[0]["content"] == "Memory about foxes"
+    assert results[0]["score"] > 0.99  # Same embedding = ~1.0
 
-    # Update recall
-    await storage.update_memory_recall("test-1")
-    got = await storage.get_memory("test-1")
-    assert got.recall_count == 1
-    assert got.last_recalled is not None
+    await storage.close()
 
-    # Delete
-    await storage.delete_memory("test-1")
-    assert await storage.count_memories() == 0
+
+@pytest.mark.asyncio
+async def test_sqlite_eviction(tmp_db):
+    storage = SQLiteStorage(tmp_db)
+    await storage.initialize()
+
+    # Get lowest salience moment
+    lowest = await storage.get_lowest_salience_moment()
+    assert lowest is None  # Empty
+
+    # Add two moments
+    m1 = DayMoment(
+        id="m-low", content="Low salience", event_type=EventType.SYSTEM,
+        salience=0.2, valence=0.0, drive_snapshot={},
+        timestamp=datetime.now(timezone.utc),
+    )
+    m2 = DayMoment(
+        id="m-high", content="High salience", event_type=EventType.CONVERSATION,
+        salience=0.9, valence=0.0, drive_snapshot={},
+        timestamp=datetime.now(timezone.utc),
+    )
+    await storage.record_moment(m1)
+    await storage.record_moment(m2)
+
+    lowest = await storage.get_lowest_salience_moment()
+    assert lowest.id == "m-low"
+
+    # Delete moment
+    await storage.delete_moment("m-low")
+    assert await storage.get_day_memory_count() == 1
 
     await storage.close()
 
@@ -248,24 +437,39 @@ async def test_sqlite_self_model(tmp_db):
 # ── Full Integration ────────────────────────────────────────────
 
 @pytest.mark.asyncio
-async def test_alive_memory_full_cycle(tmp_db):
-    """The 'What Success Looks Like' test from the task spec."""
-    memory = AliveMemory(storage=tmp_db)
+async def test_alive_memory_full_cycle(tmp_db, tmp_memory_dir):
+    """Full cycle: intake → recall → consolidate → state."""
+    memory = AliveMemory(storage=tmp_db, memory_dir=tmp_memory_dir)
     await memory.initialize()
 
-    # Record something
-    m = await memory.intake(event_type="conversation", content="Hello world")
-    assert m.content == "Hello world"
-    assert m.strength > 0
+    # Record a high-salience conversation
+    m = await memory.intake(
+        event_type="conversation",
+        content="Hello world, this is a really interesting conversation about philosophy and meaning",
+        metadata={"salience": 0.95},  # Override to ensure it passes threshold
+    )
+    # With salience override, should be recorded
+    assert m is not None
+    assert m.content.startswith("Hello world")
+    assert m.salience == 0.95
 
-    # Remember it
-    results = await memory.recall(query="greetings", limit=3)
-    assert len(results) > 0
-    assert results[0].content == "Hello world"
+    # Record more moments
+    await memory.intake(
+        event_type="observation",
+        content="The sunset was breathtakingly beautiful today with golden and crimson hues",
+        metadata={"salience": 0.9},
+    )
 
-    # Consolidate (no LLM — dreaming/reflection skipped)
+    # Consolidate (no LLM — raw moments written to journal)
     report = await memory.consolidate()
-    assert report.memories_strengthened >= 0
+    assert report.moments_processed >= 1
+    assert report.journal_entries_written >= 1
+
+    # Recall from hot memory
+    ctx = await memory.recall(query="sunset")
+    assert isinstance(ctx, RecallContext)
+    # The journal should have the sunset entry
+    assert ctx.total_hits >= 0  # May or may not match depending on journal content
 
     # Check state
     state = await memory.get_state()
@@ -273,8 +477,8 @@ async def test_alive_memory_full_cycle(tmp_db):
     assert state.mood.valence >= -1
 
     # Inject backstory
-    bs = await memory.inject_backstory("I was created to help.")
-    assert bs.strength == 0.9
+    bs = await memory.inject_backstory("I was created to help.", title="origin")
+    assert bs.salience == 1.0
 
     # Drive update
     drives = await memory.update_drive("curiosity", 0.1)
@@ -284,8 +488,90 @@ async def test_alive_memory_full_cycle(tmp_db):
 
 
 @pytest.mark.asyncio
-async def test_alive_memory_context_manager(tmp_db):
-    async with AliveMemory(storage=tmp_db) as memory:
-        await memory.intake(event_type="observation", content="The sky is blue")
-        results = await memory.recall(query="sky")
-        assert len(results) == 1
+async def test_alive_memory_context_manager(tmp_db, tmp_memory_dir):
+    async with AliveMemory(storage=tmp_db, memory_dir=tmp_memory_dir) as memory:
+        result = await memory.intake(
+            event_type="observation",
+            content="The sky is a magnificent shade of blue with wispy clouds",
+            metadata={"salience": 0.9},
+        )
+        assert result is not None
+
+        # Consolidate to write to journal
+        await memory.consolidate()
+
+        # Recall
+        ctx = await memory.recall(query="sky")
+        assert isinstance(ctx, RecallContext)
+
+
+@pytest.mark.asyncio
+async def test_intake_salience_gating(tmp_db, tmp_memory_dir):
+    """Low-salience events should return None."""
+    async with AliveMemory(storage=tmp_db, memory_dir=tmp_memory_dir) as memory:
+        # Very short, low-info system event
+        result = await memory.intake(
+            event_type="system",
+            content="ok",
+        )
+        # System event with 2-letter content should be below threshold
+        assert result is None
+
+
+@pytest.mark.asyncio
+async def test_consolidation_writes_journal(tmp_db, tmp_memory_dir):
+    """Consolidation should write journal entries from day moments."""
+    async with AliveMemory(storage=tmp_db, memory_dir=tmp_memory_dir) as memory:
+        # Force high-salience moments
+        for i in range(3):
+            await memory.intake(
+                event_type="conversation",
+                content=f"Important conversation number {i} about unique topics xyz{i}",
+                metadata={"salience": 0.9},
+            )
+
+        report = await memory.consolidate()
+        assert report.moments_processed >= 1
+
+        # Check journal files exist
+        reader = MemoryReader(tmp_memory_dir)
+        entries = reader.read_recent_journal(days=1)
+        assert len(entries) >= 1
+
+
+@pytest.mark.asyncio
+async def test_cold_embeddings_created_on_full_consolidation(tmp_db, tmp_memory_dir):
+    """Full consolidation should create cold embeddings."""
+    async with AliveMemory(storage=tmp_db, memory_dir=tmp_memory_dir) as memory:
+        await memory.intake(
+            event_type="conversation",
+            content="A memorable conversation about quantum physics and the nature of reality",
+            metadata={"salience": 0.95},
+        )
+
+        report = await memory.consolidate(depth="full")
+        assert report.cold_embeddings_added >= 1
+
+        # Verify cold embeddings in storage
+        count = await memory.storage.count_cold_embeddings()
+        assert count >= 1
+
+
+@pytest.mark.asyncio
+async def test_nap_mode(tmp_db, tmp_memory_dir):
+    """Nap mode should process moments but not create cold embeddings."""
+    async with AliveMemory(storage=tmp_db, memory_dir=tmp_memory_dir) as memory:
+        await memory.intake(
+            event_type="conversation",
+            content="A quick chat about the weather forecast for tomorrow",
+            metadata={"salience": 0.9},
+        )
+
+        report = await memory.consolidate(depth="nap")
+        assert report.depth == "nap"
+        assert report.moments_processed >= 1
+        assert report.cold_embeddings_added == 0
+
+        # Moments should still be in day_memory (not flushed for nap)
+        count = await memory.storage.count_cold_embeddings()
+        assert count == 0

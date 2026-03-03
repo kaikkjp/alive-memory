@@ -1,7 +1,7 @@
-"""Dreaming — LLM-driven recombination of memory fragments.
+"""Dreaming — LLM-driven recombination of day moments + cold echoes.
 
 During consolidation, the system "dreams" by asking the LLM to
-recombine random memory fragments into new associative insights.
+recombine today's moments with cold echoes into new associative insights.
 """
 
 from __future__ import annotations
@@ -10,39 +10,51 @@ import random
 
 from alive_memory.config import AliveConfig
 from alive_memory.llm.provider import LLMProvider
-from alive_memory.storage.base import BaseStorage
+from alive_memory.types import DayMoment
 
 
 async def dream(
-    storage: BaseStorage,
-    llm: LLMProvider,
+    moments: list[DayMoment],
     *,
+    cold_echoes: list[dict] | None = None,
+    llm: LLMProvider,
     count: int = 3,
     config: AliveConfig | None = None,
 ) -> list[str]:
-    """Generate dreams by recombining random memory fragments.
+    """Generate dreams by recombining day moments and cold echoes.
 
-    Returns list of dream texts.
+    Args:
+        moments: Today's unprocessed day moments.
+        cold_echoes: Cold archive echoes found during sleep.
+        llm: LLM provider for generation.
+        count: Number of dreams to generate.
+        config: Configuration.
+
+    Returns:
+        List of dream texts.
     """
     dreams: list[str] = []
 
-    memories = await storage.get_memories_for_consolidation(min_age_hours=0)
-    if len(memories) < 3:
+    if len(moments) < 2:
         return dreams
 
+    all_fragments: list[str] = [m.content[:200] for m in moments]
+    if cold_echoes:
+        all_fragments.extend(e["content"][:200] for e in cold_echoes[:5])
+
     for _ in range(count):
-        seed_count = min(random.randint(2, 4), len(memories))
-        seeds = random.sample(memories, seed_count)
-        fragments = [m.content[:200] for m in seeds]
+        seed_count = min(random.randint(2, 4), len(all_fragments))
+        seeds = random.sample(all_fragments, seed_count)
 
         prompt = (
             "You are processing memory fragments during a dream state. "
+            "Some are from today, some are from older memories. "
             "Recombine these fragments into a brief, evocative dream-like "
             "thought or insight. Be creative and associative. "
             "Keep it to 1-2 sentences.\n\n"
             "Memory fragments:\n"
         )
-        for i, frag in enumerate(fragments, 1):
+        for i, frag in enumerate(seeds, 1):
             prompt += f"{i}. {frag}\n"
 
         try:

@@ -1,87 +1,84 @@
-"""Memory retrieval: embed query → search → re-rank → return.
+"""Memory retrieval: markdown-first grep via MemoryReader.
 
-Extracted from engine/pipeline/hippocampus.py.
-Stripped: journal/totem/collection/visitor retrieval (application-specific).
-Kept: generic vector search + re-ranking pipeline.
+Three-tier recall:
+  1. Grep hot memory (journal, visitors, self, reflections, threads)
+  2. Return RecallContext with aggregated results
+  3. Cold search is NOT used here — only during sleep consolidation
 """
 
 from __future__ import annotations
 
 from alive_memory.config import AliveConfig
-from alive_memory.embeddings.base import EmbeddingProvider
-from alive_memory.recall.weighting import score_memory
-from alive_memory.storage.base import BaseStorage
-from alive_memory.types import CognitiveState, Memory
+from alive_memory.hot.reader import MemoryReader
+from alive_memory.types import CognitiveState, RecallContext
 
 
 async def recall(
     query: str,
-    storage: BaseStorage,
+    reader: MemoryReader,
     state: CognitiveState,
     *,
-    embedder: EmbeddingProvider | None = None,
-    limit: int = 5,
-    min_strength: float = 0.0,
+    limit: int = 10,
     config: AliveConfig | None = None,
-) -> list[Memory]:
-    """Retrieve memories relevant to a query.
+) -> RecallContext:
+    """Retrieve context relevant to a query via hot memory grep.
 
-    Pipeline: embed query → vector search → re-rank by cognitive state → return
+    Pipeline: grep hot memory files → categorize results → return RecallContext
+
+    This is the PRIMARY recall mechanism. No vector search.
+    Cold embeddings are only searched during sleep consolidation.
 
     Args:
-        query: Search query text.
-        storage: Storage backend.
-        state: Current cognitive state (for mood-congruent recall).
-        embedder: Embedding provider (if None, falls back to text search).
-        limit: Maximum results.
-        min_strength: Filter out memories below this strength.
+        query: Search query text (keywords).
+        reader: MemoryReader for hot memory files.
+        state: Current cognitive state (for mood-biased ranking).
+        limit: Maximum results per category.
         config: Configuration parameters.
 
     Returns:
-        List of memories ordered by relevance score.
+        RecallContext with categorized results.
     """
-    cfg = config or AliveConfig()
-    search_limit = limit * 3  # Over-fetch for re-ranking
+    ctx = RecallContext(query=query)
 
-    if embedder:
-        # Vector search
-        try:
-            query_embedding = await embedder.embed(query)
-            candidates = await storage.search_memories(
-                embedding=query_embedding,
-                limit=search_limit,
-                filters={"min_strength": min_strength} if min_strength > 0 else None,
-            )
-        except Exception:
-            # Fallback to text search on embedding failure
-            candidates = await storage.search_memories_by_text(
-                query=query, limit=search_limit
-            )
-    else:
-        # Text search fallback
-        candidates = await storage.search_memories_by_text(
-            query=query, limit=search_limit
-        )
+    # Grep across all hot memory
+    hits = reader.grep_memory(query, limit=limit * 3)
+    ctx.total_hits = len(hits)
 
-    # Filter by minimum strength
-    if min_strength > 0:
-        candidates = [m for m in candidates if m.strength >= min_strength]
+    # Categorize results by subdirectory
+    for hit in hits:
+        subdir = hit.get("subdir", "")
+        context = hit.get("context", hit.get("match", ""))
 
-    # Re-rank by cognitive state
-    scored = []
-    for mem in candidates:
-        score = score_memory(mem, state, config=cfg)
-        scored.append((score, mem))
+        if subdir == "journal":
+            if len(ctx.journal_entries) < limit:
+                ctx.journal_entries.append(context)
+        elif subdir == "visitors":
+            if len(ctx.visitor_notes) < limit:
+                ctx.visitor_notes.append(context)
+        elif subdir == "self":
+            if len(ctx.self_knowledge) < limit:
+                ctx.self_knowledge.append(context)
+        elif subdir == "reflections":
+            if len(ctx.reflections) < limit:
+                ctx.reflections.append(context)
+        elif subdir == "threads":
+            if len(ctx.thread_context) < limit:
+                ctx.thread_context.append(context)
 
-    scored.sort(key=lambda x: x[0], reverse=True)
+    # Also pull recent journal entries if query matches "recent" patterns
+    # and we don't have many journal hits yet
+    if len(ctx.journal_entries) < 3:
+        recent = reader.read_recent_journal(days=2, max_entries=3)
+        for entry in recent:
+            if entry not in ctx.journal_entries:
+                ctx.journal_entries.append(entry)
+                if len(ctx.journal_entries) >= limit:
+                    break
 
-    # Update recall counts for returned memories
-    results = [mem for _, mem in scored[:limit]]
-    for mem in results:
-        try:
-            await storage.update_memory_recall(mem.id)
-            mem.recall_count += 1
-        except Exception:
-            pass  # best-effort
+    # Pull self-knowledge for broad context
+    if not ctx.self_knowledge:
+        identity = reader.read_self_knowledge("identity")
+        if identity:
+            ctx.self_knowledge.append(identity)
 
-    return results
+    return ctx
