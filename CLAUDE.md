@@ -2,15 +2,28 @@
 
 ## Project
 
-Standalone cognitive memory layer for persistent AI characters. Python 3.12+, SQLite (aiosqlite).
+Standalone cognitive memory layer for persistent AI characters. Python 3.12+, SQLite (aiosqlite), three-tier architecture.
 
 Extracted from the Shopkeeper engine into a reusable package.
 
 ## Repository Structure
 
 ```
-alive_memory/       # The SDK package
+alive_memory/       # The SDK package (three-tier: day → hot → cold)
+  intake/           # Event → Perception → DayMoment (salience gating)
+  recall/           # Keyword grep over hot memory markdown files
+  consolidation/    # Sleep pipeline: moments → journal → cold embeddings
+  hot/              # Tier 2: MemoryReader/MemoryWriter for markdown files
+  identity/         # Self-model, drift detection, evolution
+  meta/             # Self-tuning parameter controller
+  storage/          # SQLite backend (Tier 1 + Tier 3)
+  embeddings/       # Vector providers (hash-based local, OpenAI API)
+  llm/              # LLM providers (Anthropic, OpenRouter)
+  server/           # Optional REST API (FastAPI)
+  adapters/         # Optional LangChain integration
 tests/              # Integration tests
+benchmarks/         # Comparative benchmark framework (7 systems)
+docs/               # Integration guide, architecture plans
 pyproject.toml      # Package config (hatchling)
 ```
 

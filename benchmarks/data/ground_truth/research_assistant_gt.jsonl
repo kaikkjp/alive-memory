@@ -1,0 +1,74 @@
+{"query_id": "q_0001", "expected_memories": ["distributed training", "alice"]}
+{"query_id": "q_0002", "expected_memories": ["agent memory systems"]}
+{"query_id": "q_0003", "expected_memories": ["AI safety and alignment", "code generation", "AI benchmarks and evaluation"]}
+{"query_id": "q_0004", "expected_memories": ["tool use in agents", "agent memory systems", "reinforcement learning"]}
+{"query_id": "q_0005", "expected_memories": [], "forbidden_memories": ["quantum computing"]}
+{"query_id": "q_0006", "expected_memories": ["distributed training", "alice"]}
+{"query_id": "q_0007", "expected_memories": ["reinforcement learning"]}
+{"query_id": "q_0008", "expected_memories": ["Schr\u00f6dinger"]}
+{"query_id": "q_0009", "expected_memories": ["tool use in agents", "neural architecture search", "AI safety and alignment"]}
+{"query_id": "q_0010", "expected_memories": ["tool use in agents", "neural architecture search", "AI safety and alignment"]}
+{"query_id": "q_0011", "expected_memories": [], "forbidden_memories": ["quantum computing"]}
+{"query_id": "q_0012", "expected_memories": ["distributed training", "alice"]}
+{"query_id": "q_0013", "expected_memories": ["agent memory systems"]}
+{"query_id": "q_0014", "expected_memories": ["Schr\u00f6dinger"]}
+{"query_id": "q_0015", "expected_memories": ["agent memory systems", "reinforcement learning", "transformer architectures"]}
+{"query_id": "q_0016", "expected_memories": ["tool use in agents", "prompt engineering", "neural architecture search"]}
+{"query_id": "q_0017", "expected_memories": ["tool use in agents", "neural architecture search", "agent memory systems"]}
+{"query_id": "q_0018", "expected_memories": [], "forbidden_memories": ["quantum computing"]}
+{"query_id": "q_0019", "expected_memories": ["distributed training", "alice"]}
+{"query_id": "q_0020", "expected_memories": ["attention mechanisms"]}
+{"query_id": "q_0021", "expected_memories": ["semantic chunking"], "current_fact": "semantic chunking", "stale_fact": "naive chunking"}
+{"query_id": "q_0022", "expected_memories": ["Schr\u00f6dinger"]}
+{"query_id": "q_0023", "expected_memories": ["agent memory systems", "reinforcement learning", "transformer architectures"]}
+{"query_id": "q_0024", "expected_memories": ["agent memory systems", "reinforcement learning", "transformer architectures"]}
+{"query_id": "q_0025", "expected_memories": ["tool use in agents", "neural architecture search", "agent memory systems"]}
+{"query_id": "q_0026", "expected_memories": [], "forbidden_memories": ["quantum computing"]}
+{"query_id": "q_0027", "expected_memories": ["distributed training", "alice"]}
+{"query_id": "q_0028", "expected_memories": ["attention mechanisms"]}
+{"query_id": "q_0029", "expected_memories": ["distributed training", "alice"]}
+{"query_id": "q_0030", "expected_memories": ["Anthropic"], "current_fact": "Anthropic", "stale_fact": "Google"}
+{"query_id": "q_0031", "expected_memories": ["35%"], "current_fact": "35%", "stale_fact": "40%"}
+{"query_id": "q_0032", "expected_memories": ["Stanford"], "current_fact": "Stanford", "stale_fact": "MIT"}
+{"query_id": "q_0033", "expected_memories": ["autonomous agent"], "current_fact": "autonomous agent", "stale_fact": "chatbot"}
+{"query_id": "q_0034", "expected_memories": ["Claude 4"], "current_fact": "Claude 4", "stale_fact": "GPT-4"}
+{"query_id": "q_0035", "expected_memories": ["semantic chunking"], "current_fact": "semantic chunking", "stale_fact": "naive chunking"}
+{"query_id": "q_0036", "expected_memories": ["plateauing"], "current_fact": "plateauing", "stale_fact": "increasing exponentially"}
+{"query_id": "q_0037", "expected_memories": ["Schr\u00f6dinger"]}
+{"query_id": "q_0038", "expected_memories": ["July 14th"]}
+{"query_id": "q_0039", "expected_memories": ["Attention Is All You Need"]}
+{"query_id": "q_0040", "expected_memories": ["agent memory systems", "reinforcement learning", "transformer architectures"]}
+{"query_id": "q_0041", "expected_memories": ["agent memory systems", "reinforcement learning", "transformer architectures"]}
+{"query_id": "q_0042", "expected_memories": ["tool use in agents", "neural architecture search", "agent memory systems"]}
+{"query_id": "q_0043", "expected_memories": [], "forbidden_memories": ["quantum computing"]}
+{"query_id": "q_0044", "expected_memories": ["distributed training", "alice"]}
+{"query_id": "q_0045", "expected_memories": ["AI safety and alignment"]}
+{"query_id": "q_0046", "expected_memories": ["distributed training", "alice"]}
+{"query_id": "q_0047", "expected_memories": ["Anthropic"], "current_fact": "Anthropic", "stale_fact": "Google"}
+{"query_id": "q_0048", "expected_memories": ["35%"], "current_fact": "35%", "stale_fact": "40%"}
+{"query_id": "q_0049", "expected_memories": ["multimodal AI"], "current_fact": "multimodal AI", "stale_fact": "NLP"}
+{"query_id": "q_0050", "expected_memories": ["delayed to Q3 2026"], "current_fact": "delayed to Q3 2026", "stale_fact": "March 2026"}
+{"query_id": "q_0051", "expected_memories": ["Stanford"], "current_fact": "Stanford", "stale_fact": "MIT"}
+{"query_id": "q_0052", "expected_memories": ["UN AI Treaty"], "current_fact": "UN AI Treaty", "stale_fact": "EU AI Act"}
+{"query_id": "q_0053", "expected_memories": ["autonomous agent"], "current_fact": "autonomous agent", "stale_fact": "chatbot"}
+{"query_id": "q_0054", "expected_memories": ["Claude 4"], "current_fact": "Claude 4", "stale_fact": "GPT-4"}
+{"query_id": "q_0055", "expected_memories": ["engineering manager"], "current_fact": "engineering manager", "stale_fact": "researcher"}
+{"query_id": "q_0056", "expected_memories": ["semantic chunking"], "current_fact": "semantic chunking", "stale_fact": "naive chunking"}
+{"query_id": "q_0057", "expected_memories": ["London"], "current_fact": "London", "stale_fact": "San Francisco"}
+{"query_id": "q_0058", "expected_memories": ["plateauing"], "current_fact": "plateauing", "stale_fact": "increasing exponentially"}
+{"query_id": "q_0059", "expected_memories": ["acquired by Meta"], "current_fact": "acquired by Meta", "stale_fact": "startup"}
+{"query_id": "q_0060", "expected_memories": ["1M tokens"], "current_fact": "1M tokens", "stale_fact": "128K tokens"}
+{"query_id": "q_0061", "expected_memories": ["robotics"], "current_fact": "robotics", "stale_fact": "computer vision"}
+{"query_id": "q_0062", "expected_memories": ["Schr\u00f6dinger"]}
+{"query_id": "q_0063", "expected_memories": ["July 14th"]}
+{"query_id": "q_0064", "expected_memories": ["Attention Is All You Need"]}
+{"query_id": "q_0065", "expected_memories": ["neurons42"]}
+{"query_id": "q_0066", "expected_memories": ["Emergent Communication in Multi-Agent Systems"]}
+{"query_id": "q_0067", "expected_memories": ["agent memory systems", "reinforcement learning", "transformer architectures"]}
+{"query_id": "q_0068", "expected_memories": ["agent memory systems", "reinforcement learning", "transformer architectures"]}
+{"query_id": "q_0069", "expected_memories": ["tool use in agents", "neural architecture search", "agent memory systems"]}
+{"query_id": "q_0070", "expected_memories": [], "forbidden_memories": ["quantum computing"]}
+{"query_id": "q_0071", "expected_memories": ["Schr\u00f6dinger"], "forgotten_content": ["Schr\u00f6dinger"]}
+{"query_id": "q_0072", "expected_memories": ["July 14th"], "forgotten_content": ["July 14th"]}
+{"query_id": "q_0073", "expected_memories": ["Attention Is All You Need"], "forgotten_content": ["Attention Is All You Need"]}
+{"query_id": "q_0074", "expected_memories": ["Emergent Communication in Multi-Agent Systems"], "forgotten_content": ["Emergent Communication in Multi-Agent Systems"]}
