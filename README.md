@@ -98,15 +98,9 @@ alive_memory/
 ## Development
 
 ```bash
-make test          # Run tests
-make lint          # Lint with ruff
-make typecheck     # Type check with mypy
-make coverage      # Run tests with coverage
-make format        # Auto-format code
-make check         # Run all checks (lint + typecheck + test)
+pip install -e ".[dev]"
+pytest
 ```
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development workflow.
 
 ## License
 

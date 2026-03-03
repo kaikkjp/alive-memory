@@ -1,2 +1,0 @@
-# Curated readings — empty by default.
-# Managers add content per-agent via the lounge feed UI.

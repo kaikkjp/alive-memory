@@ -1,1 +1,0 @@
-1. Rule 1: Rearranges characters and modifies certain letters. 2. Rule 2: Introduces new characters or modifies existing ones significantly. 3. Rule 3: Stabilizes the output with fewer changes. 4. Rule 4: Maintains structure established in earlier transformations. 5. Rule 5: Consistent outputs based on previous transformations.

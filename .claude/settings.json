@@ -4,15 +4,9 @@
       "Read",
       "Write",
       "Edit",
+      "Bash(pytest*)",
       "Bash(python -m pytest*)",
-      "Bash(python scripts/*)",
       "Bash(git *)",
-      "Bash(cat *)",
-      "Bash(head *)",
-      "Bash(tail *)",
-      "Bash(grep *)",
-      "Bash(find *)",
-      "Bash(wc *)",
       "Bash(ls *)",
       "Glob",
       "Grep",
@@ -21,11 +15,7 @@
     "deny": [
       "Bash(rm -rf *)",
       "Bash(git push --force*)",
-      "Bash(git reset --hard*)",
-      "Bash(pip install*)",
-      "Bash(npm install*)",
-      "Bash(python heartbeat_server.py*)",
-      "Bash(python heartbeat.py*)"
+      "Bash(git reset --hard*)"
     ]
   }
 }

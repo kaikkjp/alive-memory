@@ -1,4 +1,0 @@
-call_site,model,calls,cost_usd
-cortex,claude-sonnet-4-5-20250929,714,8.248245
-cortex,minimax/minimax-m2.5,333,0.609549
-reflect,minimax/minimax-m2.5,14,0.013689

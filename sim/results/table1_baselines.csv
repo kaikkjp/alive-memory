@@ -1,9 +1,0 @@
-System,Initiative (%),Entropy,Knowledge,Recall (%),Taste,Emotional Range,Unprompted Memories,Depth Gradient
-full,100.0,0.657,0,100.0,0.941,1.33,0,1.301
-no_affect,100.0,1.473,0,15.6,0.931,0.0,0,0.794
-no_basal_ganglia,100.0,1.158,0,53.3,0.764,0.3,0,2.988
-no_drives,100.0,1.072,0,100.0,0.959,0.0,0,0.917
-no_memory,100.0,1.158,0,53.3,0.764,0.3,0,2.988
-no_sleep,100.0,1.353,0,86.5,0.978,0.4,0,0.988
-react,99.9,0.864,0,100.0,0.993,0.0,0,0.607
-stateless,100.0,0.852,0,100.0,0.966,0.0,0,0.848

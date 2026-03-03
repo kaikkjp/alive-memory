@@ -1,8 +1,0 @@
-[llm]
-model = "qwen/qwen3.5-397b-a17b"
-base_url = "https://openrouter.ai/api/v1"
-api_key = "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"
-api_type = "openai"
-api_version = ""
-temperature = 0.3
-max_tokens = 12288
