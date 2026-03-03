@@ -1,0 +1,30 @@
+# alive-memory benchmark framework dependencies
+# All versions pinned for reproducibility. Results dated March 2026.
+
+# === Core (required) ===
+anthropic>=0.43.0
+
+# === Adapters ===
+
+# RAG baseline + RAG+
+chromadb==0.5.23
+sentence-transformers==3.4.1
+
+# LangChain adapters
+langchain==0.3.20
+langchain-anthropic==0.3.10
+langchain-core==0.3.41
+
+# Mem0
+mem0ai==0.1.45
+
+# Zep
+zep-cloud==2.9.0
+
+# === Metrics & Reporting ===
+matplotlib>=3.9.0
+numpy>=1.26.0
+psutil>=6.0.0
+
+# === Optional: for running generate_streams with LLM ===
+# (core anthropic package above covers this)

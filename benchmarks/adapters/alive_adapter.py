@@ -40,6 +40,10 @@ class AliveMemoryAdapter(MemoryAdapter):
         self._db_path: Optional[str] = None
         self._tmp_dir: Optional[str] = None
         self._count = 0
+        self._salience_map: dict[int, float] = {}  # cycle -> salience
+        self._consolidation_reports: list[dict] = []
+        self._total_dreams = 0
+        self._total_reflections = 0
 
     async def setup(self, config: dict) -> None:
         self._tmp_dir = tempfile.mkdtemp(prefix="bench_alive_")
@@ -63,11 +67,15 @@ class AliveMemoryAdapter(MemoryAdapter):
         self._count += 1
         event_type = _EVENT_TYPE_MAP.get(event.event_type, EventType.CONVERSATION)
 
-        await self._memory.intake(
+        moment = await self._memory.intake(
             event_type=event_type,
             content=event.content,
             metadata=event.metadata,
         )
+
+        # Capture salience if DayMoment returned
+        if moment is not None and hasattr(moment, "salience"):
+            self._salience_map[event.cycle] = float(moment.salience)
 
     async def recall(self, query: str, limit: int = 5) -> list[RecallResult]:
         if not self._memory:
@@ -77,12 +85,13 @@ class AliveMemoryAdapter(MemoryAdapter):
 
         results = []
         # Convert RecallContext entries to RecallResults
+        # Journal entries are "hot" tier (recent working memory)
         for entry in ctx.journal_entries:
             results.append(
                 RecallResult(
                     content=entry,
                     score=1.0,
-                    metadata={"source": "journal"},
+                    metadata={"source": "journal", "tier": "hot"},
                 )
             )
         for note in ctx.visitor_notes:
@@ -90,7 +99,7 @@ class AliveMemoryAdapter(MemoryAdapter):
                 RecallResult(
                     content=note,
                     score=0.9,
-                    metadata={"source": "visitors"},
+                    metadata={"source": "visitors", "tier": "hot"},
                 )
             )
         for knowledge in ctx.self_knowledge:
@@ -98,16 +107,54 @@ class AliveMemoryAdapter(MemoryAdapter):
                 RecallResult(
                     content=knowledge,
                     score=0.8,
-                    metadata={"source": "self"},
+                    metadata={"source": "self", "tier": "cold"},
                 )
             )
+
+        # Include reflections if available (cold tier — consolidated insights)
+        if hasattr(ctx, "reflections"):
+            for ref in ctx.reflections or []:
+                content = ref if isinstance(ref, str) else str(ref)
+                results.append(
+                    RecallResult(
+                        content=content,
+                        score=0.7,
+                        metadata={"source": "reflection", "tier": "cold"},
+                    )
+                )
+
+        # Include cold echoes if available
+        if hasattr(ctx, "cold_echoes"):
+            for echo in ctx.cold_echoes or []:
+                content = echo if isinstance(echo, str) else str(echo)
+                results.append(
+                    RecallResult(
+                        content=content,
+                        score=0.6,
+                        metadata={"source": "cold_echo", "tier": "cold"},
+                    )
+                )
 
         return results[:limit]
 
     async def consolidate(self) -> None:
         if not self._memory:
             return
-        await self._memory.consolidate(depth="nap")
+        report = await self._memory.consolidate(depth="nap")
+
+        # Capture consolidation report if SleepReport returned
+        if report is not None:
+            report_data = {}
+            if hasattr(report, "dreams"):
+                dreams = report.dreams or []
+                report_data["dreams"] = [str(d) for d in dreams]
+                self._total_dreams += len(dreams)
+            if hasattr(report, "reflections"):
+                reflections = report.reflections or []
+                report_data["reflections"] = [str(r) for r in reflections]
+                self._total_reflections += len(reflections)
+            if report_data:
+                self._consolidation_reports.append(report_data)
 
     async def get_state(self) -> Optional[dict]:
         if not self._memory:
@@ -130,6 +177,14 @@ class AliveMemoryAdapter(MemoryAdapter):
             }
         except Exception:
             return None
+
+    async def get_adapter_data(self) -> dict:
+        return {
+            "salience_map": dict(self._salience_map),
+            "consolidation_reports": list(self._consolidation_reports),
+            "total_dreams": self._total_dreams,
+            "total_reflections": self._total_reflections,
+        }
 
     async def get_stats(self) -> SystemStats:
         storage = 0
