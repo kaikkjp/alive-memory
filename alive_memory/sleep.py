@@ -246,15 +246,12 @@ async def sleep_cycle(
         except ImportError:
             logger.warning("Wake module not available, skipping phase")
         else:
-            from alive_memory.consolidation.wake import WakeConfig as _WakeConfig
-
             wake_report = await _run_phase(
                 "wake",
                 run_wake_transition(
                     storage,
                     hooks=wake_hooks,
                     embedder=embedder,
-                    config=_WakeConfig(),
                 ),
                 report,
                 ft,
