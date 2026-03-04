@@ -171,7 +171,7 @@ def _whisper_social_readiness(old: float, new: float) -> str:
         )
     return (
         "A quieter morning. The thought of others feels heavy — "
-            "best to ease into the day alone."
+        "best to ease into the day alone."
     )
 
 

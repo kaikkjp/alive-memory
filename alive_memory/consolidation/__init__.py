@@ -42,8 +42,8 @@ async def consolidate(
     config: AliveConfig | None = None,
     whispers: list[dict] | None = None,
     depth: str = "full",
-    wake_hooks: object | None = None,
-    wake_config: object | None = None,
+    wake_hooks: "WakeHooks | None" = None,
+    wake_config: "WakeConfig | None" = None,
 ) -> SleepReport:
     """Run the consolidation (sleep) pipeline.
 
