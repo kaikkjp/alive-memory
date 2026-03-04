@@ -152,6 +152,25 @@ class BaseStorage(ABC):
     async def save_self_model(self, model: SelfModel) -> None:
         ...
 
+    # ── Drift Baseline ──────────────────────────────────────────
+
+    @abstractmethod
+    async def get_drift_baseline(self) -> dict[str, Any]:
+        """Get the current behavioral baseline for drift detection."""
+        ...
+
+    @abstractmethod
+    async def save_drift_baseline(self, baseline: dict[str, Any]) -> None:
+        """Save updated behavioral baseline."""
+        ...
+
+    # ── Evolution Decision Log ───────────────────────────────────
+
+    @abstractmethod
+    async def log_evolution_decision(self, decision: dict[str, Any]) -> None:
+        """Log an identity evolution decision for audit trail."""
+        ...
+
     # ── Parameters ───────────────────────────────────────────────
 
     @abstractmethod

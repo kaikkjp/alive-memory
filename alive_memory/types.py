@@ -145,6 +145,10 @@ class SelfModel:
     """Persistent self-model."""
     traits: dict[str, float] = field(default_factory=dict)
     behavioral_summary: str = ""
+    self_narrative: str = ""
+    behavioral_signature: dict[str, Any] = field(default_factory=dict)
+    relational_stance: dict[str, float] = field(default_factory=dict)
     drift_history: list[dict] = field(default_factory=list)
     version: int = 0
     snapshot_at: Optional[datetime] = None
+    narrative_version: int = 0

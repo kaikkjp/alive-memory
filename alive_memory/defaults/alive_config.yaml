@@ -30,3 +30,12 @@ identity:
   snapshot_interval: 10       # Consolidation cycles between snapshots
   drift_window: 50            # Cycles to look back for drift detection
   drift_threshold: 0.15       # Trait change magnitude to flag as drift
+  ema_alpha: 0.05             # EMA smoothing for trait updates
+  trait_bounds_min: 0.0       # default lower bound for traits
+  trait_bounds_max: 1.0       # default upper bound for traits
+  notable_threshold: 0.3      # composite drift score → notable
+  significant_threshold: 0.6  # composite drift score → significant
+  cooldown_cycles: 5          # min cycles between drift events
+  max_updates_per_sleep: 5    # guard rail: max corrections per sleep
+  min_sustained_cycles: 3     # guard rail: min cycles before accept
+  narrative_regen_threshold: 0.2  # trait delta to trigger narrative regen

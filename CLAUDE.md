@@ -50,3 +50,7 @@ pytest
 pip install -e ".[dev]"     # dev install
 pip install build && python -m build  # build wheel
 ```
+
+## Known Gotchas
+
+- **DriftDetector cooldown initialization**: When implementing cycle-based cooldown, initialize `_last_drift_cycle` to `None` (not `0`), otherwise the first detection at any cycle < cooldown_cycles will be suppressed. Check `is not None` before comparing.
