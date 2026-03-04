@@ -164,3 +164,25 @@ class SelfModel:
     version: int = 0
     snapshot_at: Optional[datetime] = None
     narrative_version: int = 0
+
+
+@dataclass
+class SleepCycleReport:
+    """Results from a complete sleep_cycle() orchestration."""
+    # Consolidation results (from the inner consolidate() call)
+    moments_consolidated: int = 0
+    journal_entries_written: int = 0
+    dreams_generated: int = 0
+    # Meta results
+    experiments_evaluated: int = 0
+    parameters_adjusted: int = 0
+    # Identity results
+    drift_detected: bool = False
+    evolution_decisions: list = field(default_factory=list)  # EvolutionDecision items
+    # Wake
+    wake_completed: bool = False
+    # Orchestrator metadata
+    phases_completed: list[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)  # non-fatal errors
+    duration_seconds: float = 0.0
+    depth: str = "full"
