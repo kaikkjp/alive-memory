@@ -39,3 +39,11 @@ identity:
   max_updates_per_sleep: 5    # guard rail: max corrections per sleep
   min_sustained_cycles: 3     # guard rail: min cycles before accept
   narrative_regen_threshold: 0.2  # trait delta to trigger narrative regen
+
+sleep:
+  fault_tolerant: true
+  enable_whispers: true
+  enable_meta_review: true
+  enable_meta_controller: true
+  enable_identity_evolution: true
+  enable_wake: true

@@ -23,7 +23,7 @@ Usage:
 
 from __future__ import annotations
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 import tempfile
 from datetime import datetime, timezone
@@ -37,6 +37,7 @@ from alive_memory.embeddings.local import LocalEmbeddingProvider
 from alive_memory.hot.reader import MemoryReader
 from alive_memory.hot.writer import MemoryWriter
 from alive_memory.llm.provider import LLMProvider
+from alive_memory.sleep import SleepConfig, nap, sleep_cycle
 from alive_memory.storage.base import BaseStorage
 from alive_memory.storage.sqlite import SQLiteStorage
 from alive_memory.types import (
@@ -51,6 +52,7 @@ from alive_memory.types import (
     Perception,
     RecallContext,
     SelfModel,
+    SleepCycleReport,
     SleepReport,
     WakeReport,
 )
@@ -75,10 +77,14 @@ __all__ = [
     "Perception",
     "RecallContext",
     "SelfModel",
+    "SleepConfig",
+    "SleepCycleReport",
     "SleepReport",
     "WakeConfig",
     "WakeHooks",
     "WakeReport",
+    "nap",
+    "sleep_cycle",
 ]
 
 
@@ -390,6 +396,25 @@ class AliveMemory:
         self._writer.write_self_file(filename, f"# {filename}\n\n{content}\n")
 
         return moment
+
+    # ── Sleep Cycle ──────────────────────────────────────────────
+
+    async def sleep(
+        self, *, sleep_config: SleepConfig | None = None, **kwargs: Any
+    ) -> SleepCycleReport:
+        """Run the full sleep cycle orchestrator."""
+        from alive_memory.sleep import sleep_cycle
+
+        return await sleep_cycle(
+            self._storage,
+            self._writer,
+            self._reader,
+            self._llm,
+            embedder=self._embedder,
+            config=self._config,
+            sleep_config=sleep_config,
+            **kwargs,
+        )
 
     # ── Meta-Tuning ──────────────────────────────────────────────
 
