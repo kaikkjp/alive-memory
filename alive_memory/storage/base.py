@@ -60,6 +60,11 @@ class BaseStorage(ABC):
         ...
 
     @abstractmethod
+    async def flush_stale_moments(self, stale_hours: int = 72) -> int:
+        """Delete unprocessed moments older than stale_hours. Returns count deleted."""
+        ...
+
+    @abstractmethod
     async def get_day_memory_count(self) -> int:
         """Return the number of unprocessed moments in day memory."""
         ...

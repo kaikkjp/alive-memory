@@ -42,6 +42,8 @@ async def consolidate(
     config: AliveConfig | None = None,
     whispers: list[dict] | None = None,
     depth: str = "full",
+    wake_hooks: "WakeHooks | None" = None,
+    wake_config: "WakeConfig | None" = None,
 ) -> SleepReport:
     """Run the consolidation (sleep) pipeline.
 
@@ -54,6 +56,8 @@ async def consolidate(
         config: Configuration parameters.
         whispers: Config changes to process as dream perceptions.
         depth: "full" for complete consolidation, "nap" for light.
+        wake_hooks: Optional WakeHooks protocol implementation.
+        wake_config: Optional WakeConfig for the wake transition.
 
     Returns:
         SleepReport with statistics.
@@ -181,6 +185,18 @@ async def consolidate(
         from alive_memory.consolidation.whisper import process_whispers
         whisper_dreams = await process_whispers(whispers, storage)
         report.dreams.extend(whisper_dreams)
+
+    # Wake phase (full only, if hooks provided)
+    if not is_nap and wake_hooks is not None:
+        from alive_memory.consolidation.wake import run_wake_transition, WakeConfig
+        wake_cfg = wake_config if wake_config is not None else WakeConfig()
+        wake_report = await run_wake_transition(
+            storage,
+            hooks=wake_hooks,
+            embedder=embedder,
+            config=wake_cfg,
+        )
+        report.wake_report = wake_report
 
     report.duration_ms = int(time.monotonic() * 1000) - start_ms
 
