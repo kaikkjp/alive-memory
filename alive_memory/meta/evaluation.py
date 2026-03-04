@@ -7,7 +7,10 @@ and reverts if it caused degradation or side effects.
 
 from __future__ import annotations
 
-from alive_memory.meta.controller import Experiment, classify_outcome
+from datetime import UTC, datetime
+
+from alive_memory.meta.controller import Experiment, MetricTarget, classify_outcome
+from alive_memory.meta.protocols import MetricsProvider
 from alive_memory.storage.base import BaseStorage
 
 
@@ -56,6 +59,76 @@ async def evaluate_experiment(
         experiment.confidence = min(1.0, experiment.confidence + 0.1)
 
     return experiment
+
+
+async def evaluate_pending_experiments(
+    storage: BaseStorage,
+    current_metrics: dict[str, float],
+    targets: list[MetricTarget],
+    *,
+    min_age_cycles: int = 2,
+    metrics_provider: MetricsProvider | None = None,
+) -> list[Experiment]:
+    """Evaluate all pending experiments that are old enough.
+
+    Age-gating: experiments must be at least min_age_cycles old
+    to allow effects to manifest before judging.
+
+    Args:
+        storage: Storage backend.
+        current_metrics: Current metric values.
+        targets: Metric targets for finding target ranges.
+        min_age_cycles: Minimum cycles before evaluating.
+        metrics_provider: Optional provider (unused here, reserved for future).
+
+    Returns:
+        List of evaluated experiments.
+    """
+    pending = await storage.get_pending_experiments(min_age_cycles=min_age_cycles)
+
+    # Build target range lookup
+    target_ranges: dict[str, tuple[float, float]] = {}
+    for t in targets:
+        target_ranges[t.name] = (t.min_value, t.max_value)
+
+    evaluated: list[Experiment] = []
+    now = datetime.now(UTC)
+
+    for row in pending:
+        metric_name = row["target_metric"]
+        if metric_name not in target_ranges:
+            continue
+
+        target_min, target_max = target_ranges[metric_name]
+
+        exp = Experiment(
+            id=row["id"],
+            param_key=row["param_key"],
+            old_value=row["old_value"],
+            new_value=row["new_value"],
+            target_metric=row["target_metric"],
+            metric_at_change=row["metric_at_change"],
+            confidence=row["confidence"],
+            side_effects=row["side_effects"],
+            cycle_at_creation=row.get("cycle_at_creation", 0),
+        )
+
+        exp = await evaluate_experiment(exp, current_metrics, target_min, target_max, storage)
+
+        # Persist confidence to storage
+        await storage.set_confidence(exp.param_key, exp.target_metric, exp.confidence)
+
+        # Persist experiment outcome
+        await storage.update_experiment(exp.id, {
+            "outcome": exp.outcome,
+            "confidence": exp.confidence,
+            "side_effects": exp.side_effects,
+            "evaluated_at": now.isoformat(),
+        })
+
+        evaluated.append(exp)
+
+    return evaluated
 
 
 def detect_side_effects(
