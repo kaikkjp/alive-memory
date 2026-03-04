@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.3.0 (2026-03-04)
+
+Full sleep cycle orchestration, meta-cognition enhancements, and identity evolution.
+
+### Added
+- **Sleep orchestrator** (`sleep.py`): `sleep_cycle()` chains whisper → consolidation → meta-review → meta-controller → identity evolution → wake with per-phase fault tolerance
+- **Nap variant**: `nap()` convenience function for lightweight mid-cycle consolidation
+- **SleepConfig**: dataclass to enable/disable individual sleep phases
+- **SleepCycleReport**: comprehensive report with per-phase results and error collection
+- **AliveMemory.sleep()**: convenience method on the main API class
+- **docs/architecture.md**: full architecture documentation with sleep cycle diagrams
+- **docs/sleep-guide.md**: integration guide for sleep cycle
+
+### Changed
+- Version bumped to 0.3.0
+
 ## 0.2.0 (2026-03-04)
 
 Three-tier memory architecture, REST API, and framework integrations.
