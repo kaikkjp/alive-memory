@@ -59,11 +59,6 @@ class _DriveProvider:
         return {"social": ["social"]}
 
 
-class _MetricsProvider:
-    async def collect_metrics(self) -> dict[str, float]:
-        return {"m": 0.1}
-
-
 class _FailingMetricsProvider:
     async def collect_metrics(self) -> dict[str, float]:
         raise RuntimeError("metrics exploded")
