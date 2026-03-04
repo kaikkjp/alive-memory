@@ -19,20 +19,28 @@ ADAPTER_REGISTRY = {
     "rag+": ("benchmarks.adapters.chroma_rag_plus", "ChromaRagPlusAdapter"),
     "alive": ("benchmarks.adapters.alive_adapter", "AliveMemoryAdapter"),
     "lcb": ("benchmarks.adapters.langchain_buffer", "LangChainBufferAdapter"),
+}
+
+# LLM-per-event adapters: excluded from --all due to O(n) or O(n²) API cost.
+# Run explicitly: --systems lcs,mem0,zep
+EXPENSIVE_ADAPTER_REGISTRY = {
     "lcs": ("benchmarks.adapters.langchain_summary", "LangChainSummaryAdapter"),
     "mem0": ("benchmarks.adapters.mem0_adapter", "Mem0Adapter"),
     "zep": ("benchmarks.adapters.zep_adapter", "ZepAdapter"),
 }
 
+ALL_ADAPTERS = {**ADAPTER_REGISTRY, **EXPENSIVE_ADAPTER_REGISTRY}
+
 
 def _load_adapter(system_id: str):
     """Dynamically load an adapter class."""
-    if system_id not in ADAPTER_REGISTRY:
+    if system_id not in ALL_ADAPTERS:
         print(f"Unknown system: {system_id}")
-        print(f"Available: {', '.join(ADAPTER_REGISTRY)}")
+        print(f"Standard: {', '.join(ADAPTER_REGISTRY)}")
+        print(f"Expensive (LLM-per-event): {', '.join(EXPENSIVE_ADAPTER_REGISTRY)}")
         sys.exit(1)
 
-    module_path, class_name = ADAPTER_REGISTRY[system_id]
+    module_path, class_name = ALL_ADAPTERS[system_id]
     import importlib
 
     module = importlib.import_module(module_path)
