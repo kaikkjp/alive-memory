@@ -164,6 +164,38 @@ class BaseStorage(ABC):
     ) -> None:
         ...
 
+    # ── Meta Experiments ─────────────────────────────────────────
+
+    @abstractmethod
+    async def save_experiment(self, experiment: dict[str, Any]) -> None:
+        """Persist a meta-controller experiment."""
+        ...
+
+    @abstractmethod
+    async def get_pending_experiments(self, min_age_cycles: int = 0) -> list[dict[str, Any]]:
+        """Get experiments with outcome='pending', optionally age-gated by cycle count."""
+        ...
+
+    @abstractmethod
+    async def update_experiment(self, experiment_id: str, updates: dict[str, Any]) -> None:
+        """Update an experiment's outcome, confidence, side_effects, evaluated_at."""
+        ...
+
+    @abstractmethod
+    async def get_confidence(self, param_key: str, metric_name: str) -> float:
+        """Get persisted confidence for a param→metric link. Returns 0.5 if none."""
+        ...
+
+    @abstractmethod
+    async def set_confidence(self, param_key: str, metric_name: str, confidence: float) -> None:
+        """Persist confidence for a param→metric link."""
+        ...
+
+    @abstractmethod
+    async def get_parameter_bounds(self, key: str) -> tuple[float | None, float | None]:
+        """Get (min_bound, max_bound) for a parameter. Returns (None, None) if unset."""
+        ...
+
     # ── Cycle Log ────────────────────────────────────────────────
 
     @abstractmethod

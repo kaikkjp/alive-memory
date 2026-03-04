@@ -1,20 +1,44 @@
 """Meta-cognition: self-tuning parameter adjustments."""
 
 from alive_memory.meta.controller import (
-    run_meta_controller,
+    Experiment,
+    HardFloor,
+    MetricTarget,
     classify_outcome,
     compute_adaptive_cooldown,
-    MetricTarget,
-    Experiment,
+    request_correction,
+    run_meta_controller,
 )
-from alive_memory.meta.evaluation import evaluate_experiment, detect_side_effects
+from alive_memory.meta.evaluation import (
+    detect_side_effects,
+    evaluate_experiment,
+    evaluate_pending_experiments,
+)
+from alive_memory.meta.protocols import DriveProvider, MetricsProvider
+from alive_memory.meta.review import (
+    ReviewResult,
+    StabilityReport,
+    review_self_modifications,
+    review_trait_stability,
+    run_meta_review,
+)
 
 __all__ = [
     "run_meta_controller",
     "classify_outcome",
     "compute_adaptive_cooldown",
+    "request_correction",
     "evaluate_experiment",
+    "evaluate_pending_experiments",
     "detect_side_effects",
+    "run_meta_review",
+    "review_trait_stability",
+    "review_self_modifications",
     "MetricTarget",
     "Experiment",
+    "HardFloor",
+    "MetricsProvider",
+    "DriveProvider",
+    "StabilityReport",
+    "ReviewResult",
 ]

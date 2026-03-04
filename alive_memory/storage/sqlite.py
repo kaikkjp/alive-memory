@@ -407,6 +407,107 @@ class SQLiteStorage(BaseStorage):
             (key, old_value, value, "system", reason, now),
         )
 
+    # ── Meta Experiments ─────────────────────────────────────────
+
+    async def save_experiment(self, experiment: dict[str, Any]) -> None:
+        await self._exec_write(
+            """INSERT INTO meta_experiments
+               (id, param_key, old_value, new_value, target_metric,
+                metric_at_change, outcome, confidence, side_effects,
+                created_at, evaluated_at, cycle_at_creation)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                experiment["id"],
+                experiment["param_key"],
+                experiment["old_value"],
+                experiment["new_value"],
+                experiment["target_metric"],
+                experiment["metric_at_change"],
+                experiment.get("outcome", "pending"),
+                experiment.get("confidence", 0.5),
+                json.dumps(experiment.get("side_effects", [])),
+                experiment["created_at"],
+                experiment.get("evaluated_at"),
+                experiment.get("cycle_at_creation", 0),
+            ),
+        )
+
+    async def get_pending_experiments(self, min_age_cycles: int = 0) -> list[dict[str, Any]]:
+        conn = await self._get_db()
+        cursor = await conn.execute(
+            """SELECT * FROM meta_experiments
+               WHERE outcome = 'pending'
+                 AND cycle_at_creation + ? <= (SELECT COUNT(*) FROM cycle_log)""",
+            (min_age_cycles,),
+        )
+        rows = await cursor.fetchall()
+        results: list[dict[str, Any]] = []
+        for row in rows:
+            results.append({
+                "id": row["id"],
+                "param_key": row["param_key"],
+                "old_value": row["old_value"],
+                "new_value": row["new_value"],
+                "target_metric": row["target_metric"],
+                "metric_at_change": row["metric_at_change"],
+                "outcome": row["outcome"],
+                "confidence": row["confidence"],
+                "side_effects": json.loads(row["side_effects"] or "[]"),
+                "created_at": row["created_at"],
+                "evaluated_at": row["evaluated_at"],
+                "cycle_at_creation": row["cycle_at_creation"],
+            })
+        return results
+
+    async def update_experiment(self, experiment_id: str, updates: dict[str, Any]) -> None:
+        allowed = {"outcome", "confidence", "side_effects", "evaluated_at"}
+        set_clauses = []
+        params: list[Any] = []
+        for key, value in updates.items():
+            if key not in allowed:
+                continue
+            set_clauses.append(f"{key} = ?")
+            if key == "side_effects":
+                params.append(json.dumps(value))
+            else:
+                params.append(value)
+        if not set_clauses:
+            return
+        params.append(experiment_id)
+        await self._exec_write(
+            f"UPDATE meta_experiments SET {', '.join(set_clauses)} WHERE id = ?",
+            tuple(params),
+        )
+
+    async def get_confidence(self, param_key: str, metric_name: str) -> float:
+        conn = await self._get_db()
+        cursor = await conn.execute(
+            "SELECT confidence FROM meta_confidence WHERE param_key = ? AND metric_name = ?",
+            (param_key, metric_name),
+        )
+        row = await cursor.fetchone()
+        return row["confidence"] if row else 0.5
+
+    async def set_confidence(self, param_key: str, metric_name: str, confidence: float) -> None:
+        await self._exec_write(
+            """INSERT INTO meta_confidence (param_key, metric_name, confidence, updated_at)
+               VALUES (?, ?, ?, ?)
+               ON CONFLICT(param_key, metric_name)
+               DO UPDATE SET confidence = excluded.confidence, updated_at = excluded.updated_at""",
+            (param_key, metric_name, confidence, _now_iso()),
+        )
+
+    async def get_parameter_bounds(self, key: str) -> tuple[float | None, float | None]:
+        conn = await self._get_db()
+        cursor = await conn.execute(
+            "SELECT min_bound, max_bound FROM parameters WHERE key = ?",
+            (key,),
+        )
+        row = await cursor.fetchone()
+        if row is None:
+            return (None, None)
+        return (row["min_bound"], row["max_bound"])
+
     # ── Cycle Log ────────────────────────────────────────────────
 
     async def log_cycle(self, entry: dict[str, Any]) -> None:
@@ -464,8 +565,7 @@ class SQLiteStorage(BaseStorage):
 
     async def initialize(self) -> None:
         conn = await self._get_db()
-        migration_file = _MIGRATIONS_DIR / "001_initial.sql"
-        if migration_file.exists():
+        for migration_file in sorted(_MIGRATIONS_DIR.glob("*.sql")):
             sql = migration_file.read_text()
             for stmt in sql.split(";"):
                 cleaned = "\n".join(
