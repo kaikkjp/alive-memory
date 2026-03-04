@@ -69,7 +69,10 @@ class ChromaRagPlusAdapter(MemoryAdapter):
             return psutil.Process().memory_info().rss
         except ImportError:
             import resource
-            return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * 1024
+            import sys
+
+            ru = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+            return ru if sys.platform == "darwin" else ru * 1024
 
     async def setup(self, config: dict) -> None:
         if chromadb is None:
