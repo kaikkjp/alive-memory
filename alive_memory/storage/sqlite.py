@@ -359,9 +359,14 @@ class SQLiteStorage(BaseStorage):
         conn = await self._get_db()
         cursor = await conn.execute("SELECT * FROM self_model WHERE id = 1")
         row = await cursor.fetchone()
+        # Handle new columns gracefully (may not exist pre-migration)
+        keys = row.keys() if row else []
         return SelfModel(
             traits=json.loads(row["traits"] or "{}"),
             behavioral_summary=row["behavioral_summary"],
+            self_narrative=row["self_narrative"] if "self_narrative" in keys else "",
+            behavioral_signature=json.loads(row["behavioral_signature"] or "{}") if "behavioral_signature" in keys else {},
+            relational_stance=json.loads(row["relational_stance"] or "{}") if "relational_stance" in keys else {},
             drift_history=json.loads(row["drift_history"] or "[]"),
             version=row["version"],
             snapshot_at=(
@@ -369,20 +374,95 @@ class SQLiteStorage(BaseStorage):
                 if row["snapshot_at"]
                 else None
             ),
+            narrative_version=row["narrative_version"] if "narrative_version" in keys else 0,
         )
 
     async def save_self_model(self, model: SelfModel) -> None:
+        # Check if new columns exist by trying the full update
+        try:
+            await self._exec_write(
+                """UPDATE self_model SET
+                   traits=?, behavioral_summary=?, self_narrative=?,
+                   behavioral_signature=?, relational_stance=?,
+                   drift_history=?, version=?, snapshot_at=?, narrative_version=?
+                   WHERE id = 1""",
+                (
+                    json.dumps(model.traits),
+                    model.behavioral_summary,
+                    model.self_narrative,
+                    json.dumps(model.behavioral_signature),
+                    json.dumps(model.relational_stance),
+                    json.dumps(model.drift_history),
+                    model.version,
+                    model.snapshot_at.isoformat() if model.snapshot_at else _now_iso(),
+                    model.narrative_version,
+                ),
+            )
+        except Exception:
+            # Fallback: pre-migration schema without new columns
+            await self._exec_write(
+                """UPDATE self_model SET
+                   traits=?, behavioral_summary=?, drift_history=?,
+                   version=?, snapshot_at=?
+                   WHERE id = 1""",
+                (
+                    json.dumps(model.traits),
+                    model.behavioral_summary,
+                    json.dumps(model.drift_history),
+                    model.version,
+                    model.snapshot_at.isoformat() if model.snapshot_at else _now_iso(),
+                ),
+            )
+
+    # ── Drift Baseline ──────────────────────────────────────────
+
+    async def get_drift_baseline(self) -> dict[str, Any]:
+        conn = await self._get_db()
+        cursor = await conn.execute("SELECT * FROM drift_baseline WHERE id = 1")
+        row = await cursor.fetchone()
+        if not row:
+            return {}
+        return {
+            "action_frequencies": json.loads(row["action_frequencies"] or "{}"),
+            "scalar_metrics": json.loads(row["scalar_metrics"] or "{}"),
+            "sample_count": row["sample_count"],
+            "last_updated_cycle": row["last_updated_cycle"],
+        }
+
+    async def save_drift_baseline(self, baseline: dict[str, Any]) -> None:
         await self._exec_write(
-            """UPDATE self_model SET
-               traits=?, behavioral_summary=?, drift_history=?,
-               version=?, snapshot_at=?
+            """UPDATE drift_baseline SET
+               action_frequencies=?, scalar_metrics=?,
+               sample_count=?, last_updated_cycle=?, updated_at=?
                WHERE id = 1""",
             (
-                json.dumps(model.traits),
-                model.behavioral_summary,
-                json.dumps(model.drift_history),
-                model.version,
-                model.snapshot_at.isoformat() if model.snapshot_at else _now_iso(),
+                json.dumps(baseline.get("action_frequencies", {})),
+                json.dumps(baseline.get("scalar_metrics", {})),
+                baseline.get("sample_count", 0),
+                baseline.get("last_updated_cycle", 0),
+                _now_iso(),
+            ),
+        )
+
+    # ── Evolution Decision Log ───────────────────────────────────
+
+    async def log_evolution_decision(self, decision: dict[str, Any]) -> None:
+        decision_id = decision.get("id", str(uuid.uuid4()))
+        await self._exec_write(
+            """INSERT INTO evolution_log
+               (id, action, trait, reason, correction_value,
+                composite_score, severity, cycle, ts)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                decision_id,
+                decision.get("action", ""),
+                decision.get("trait", ""),
+                decision.get("reason", ""),
+                decision.get("correction_value"),
+                decision.get("composite_score"),
+                decision.get("severity"),
+                decision.get("cycle"),
+                _now_iso(),
             ),
         )
 
@@ -580,6 +660,22 @@ class SQLiteStorage(BaseStorage):
 
     # ── Lifecycle ────────────────────────────────────────────────
 
+    async def _run_alter_columns(self) -> None:
+        """Add new columns to self_model table. Idempotent (catches duplicate column errors)."""
+        conn = await self._get_db()
+        alters = [
+            "ALTER TABLE self_model ADD COLUMN self_narrative TEXT NOT NULL DEFAULT ''",
+            "ALTER TABLE self_model ADD COLUMN behavioral_signature TEXT NOT NULL DEFAULT '{}'",
+            "ALTER TABLE self_model ADD COLUMN relational_stance TEXT NOT NULL DEFAULT '{}'",
+            "ALTER TABLE self_model ADD COLUMN narrative_version INTEGER NOT NULL DEFAULT 0",
+        ]
+        for sql in alters:
+            try:
+                await conn.execute(sql)
+            except Exception:
+                pass  # Column already exists
+        await conn.commit()
+
     async def initialize(self) -> None:
         conn = await self._get_db()
         for migration_file in sorted(_MIGRATIONS_DIR.glob("*.sql")):
@@ -593,6 +689,8 @@ class SQLiteStorage(BaseStorage):
                 if cleaned:
                     await conn.execute(cleaned)
             await conn.commit()
+        # Add new columns to self_model (idempotent ALTER TABLEs)
+        await self._run_alter_columns()
 
     async def close(self) -> None:
         if self._db:
