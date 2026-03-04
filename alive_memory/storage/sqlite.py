@@ -13,7 +13,7 @@ import json
 import pathlib
 import struct
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 import aiosqlite
@@ -163,6 +163,23 @@ class SQLiteStorage(BaseStorage):
             row = await cursor.fetchone()
             count = row[0]
             await conn.execute("DELETE FROM day_memory WHERE processed = 1")
+            await conn.commit()
+        return count
+
+    async def flush_stale_moments(self, stale_hours: int = 72) -> int:
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=stale_hours)
+        conn = await self._get_db()
+        async with self._write_lock:
+            cursor = await conn.execute(
+                "SELECT COUNT(*) FROM day_memory WHERE timestamp < ? AND processed = 0",
+                (cutoff.isoformat(),),
+            )
+            row = await cursor.fetchone()
+            count = row[0]
+            await conn.execute(
+                "DELETE FROM day_memory WHERE timestamp < ? AND processed = 0",
+                (cutoff.isoformat(),),
+            )
             await conn.commit()
         return count
 
