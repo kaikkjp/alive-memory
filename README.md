@@ -2,7 +2,7 @@
 
 Cognitive memory layer for persistent AI characters. Three-tier architecture with salience-gated intake, markdown-based hot recall, and vector-embedded cold archive.
 
-**Status:** v0.2.0 (alpha)
+**Status:** v0.3.0 (alpha)
 
 ## Quick start
 
@@ -48,6 +48,11 @@ async with AliveMemory(
     # Consolidate (sleep) — processes day moments, writes journal, embeds to cold
     report = await memory.consolidate()
     print(f"Processed {report.moments_processed} moments")
+
+    # Full sleep cycle (with optional providers)
+    from alive_memory import SleepConfig
+    cycle_report = await memory.sleep()
+    print(f"Consolidated {cycle_report.moments_consolidated} moments, {cycle_report.dreams_generated} dreams")
 ```
 
 ## Three-tier architecture
@@ -62,6 +67,7 @@ async with AliveMemory(
 alive_memory/
 ├── types.py              # Core type system (DayMoment, RecallContext, SleepReport, etc.)
 ├── config.py             # YAML/dict config loader
+├── sleep.py              # Sleep cycle orchestrator (sleep_cycle, nap)
 ├── intake/               # Event → Perception → DayMoment (salience gating)
 │   ├── thalamus.py       #   Event → Perception (salience scoring)
 │   ├── affect.py         #   Emotional valence computation
@@ -115,6 +121,7 @@ alive_memory/
 - **Consolidation**: Periodic "sleep" that processes day moments through context gathering, cold echo search, LLM reflection, journal writing, and vector embedding. Supports `"full"` (complete pipeline) and `"nap"` (light, no cold search or dreams) modes.
 - **Identity**: A persistent self-model with trait tracking, behavioral drift detection, and three-tier change resolution (accept/correct/defer).
 - **Meta**: Self-tuning parameters that adjust cognitive behavior based on closed-loop evaluation with adaptive cooldowns.
+- **Sleep Cycle**: Full orchestrated sleep with whisper → consolidation → meta-review → meta-controller → identity evolution → wake. Each phase is fault-tolerant. Lightweight `nap()` variant for mid-cycle consolidation.
 
 ## Extras
 
