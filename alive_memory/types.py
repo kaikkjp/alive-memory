@@ -71,6 +71,17 @@ class RecallContext:
 
 
 @dataclass
+class WakeReport:
+    """Report from a wake transition."""
+    threads_managed: int = 0
+    pool_items_cleaned: int = 0
+    stale_moments_flushed: int = 0
+    cold_embeddings_added: int = 0
+    day_memory_flushed: int = 0
+    duration_ms: int = 0
+
+
+@dataclass
 class SleepReport:
     """Report from a consolidation (sleep) cycle.
 
@@ -86,6 +97,7 @@ class SleepReport:
     identity_drift: Optional[dict] = None
     duration_ms: int = 0
     depth: str = "full"
+    wake_report: Optional[WakeReport] = None
 
 
 # Keep ConsolidationReport as alias for backward compat in logs

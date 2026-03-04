@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Any
 
 from alive_memory.config import AliveConfig
+from alive_memory.consolidation.wake import WakeConfig, WakeHooks
 from alive_memory.embeddings.base import EmbeddingProvider
 from alive_memory.embeddings.local import LocalEmbeddingProvider
 from alive_memory.hot.reader import MemoryReader
@@ -51,6 +52,7 @@ from alive_memory.types import (
     RecallContext,
     SelfModel,
     SleepReport,
+    WakeReport,
 )
 
 __all__ = [
@@ -74,6 +76,9 @@ __all__ = [
     "RecallContext",
     "SelfModel",
     "SleepReport",
+    "WakeConfig",
+    "WakeHooks",
+    "WakeReport",
 ]
 
 
@@ -290,6 +295,8 @@ class AliveMemory:
         *,
         whispers: list[dict] | None = None,
         depth: str = "full",
+        wake_hooks: WakeHooks | None = None,
+        wake_config: WakeConfig | None = None,
     ) -> SleepReport:
         """Run memory consolidation (sleep).
 
@@ -297,10 +304,13 @@ class AliveMemory:
           1. Get unprocessed day moments
           2. Per moment: gather context → cold search → LLM reflect → write to hot memory
           3. Daily summary → batch embed to cold → flush day_memory
+          4. (optional) Wake transition if *wake_hooks* provided
 
         Args:
             whispers: Config changes to process as dream perceptions.
             depth: "full" for complete consolidation, "nap" for light.
+            wake_hooks: Optional WakeHooks protocol implementation.
+            wake_config: Optional WakeConfig for the wake transition.
 
         Returns:
             SleepReport with statistics.
@@ -316,6 +326,8 @@ class AliveMemory:
             config=self._config,
             whispers=whispers,
             depth=depth,
+            wake_hooks=wake_hooks,
+            wake_config=wake_config,
         )
 
     # ── State ────────────────────────────────────────────────────
