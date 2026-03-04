@@ -7,7 +7,7 @@
  */
 
 import { AliveMemoryClient, type AliveClientConfig } from "./client";
-import type { MemoryResponse } from "./types";
+import type { RecallContextResponse } from "./types";
 
 export { AliveMemoryClient } from "./client";
 export type { AliveClientConfig } from "./client";
@@ -71,13 +71,24 @@ function getClient(runtime: IAgentRuntime): AliveMemoryClient {
   return new AliveMemoryClient({ baseUrl, apiKey });
 }
 
-function formatMemories(memories: MemoryResponse[]): string {
-  if (memories.length === 0) return "";
-  const lines = memories.map(
-    (m) =>
-      `[${m.memory_type}|strength:${m.strength.toFixed(2)}|valence:${m.valence.toFixed(2)}] ${m.content}`,
-  );
-  return `Recalled memories:\n${lines.join("\n")}`;
+function formatRecallContext(ctx: RecallContextResponse): string {
+  const sections: string[] = [];
+
+  if (ctx.journal_entries.length > 0) {
+    sections.push(`Journal:\n${ctx.journal_entries.join("\n")}`);
+  }
+  if (ctx.visitor_notes.length > 0) {
+    sections.push(`Visitor notes:\n${ctx.visitor_notes.join("\n")}`);
+  }
+  if (ctx.self_knowledge.length > 0) {
+    sections.push(`Self-knowledge:\n${ctx.self_knowledge.join("\n")}`);
+  }
+  if (ctx.reflections.length > 0) {
+    sections.push(`Reflections:\n${ctx.reflections.join("\n")}`);
+  }
+
+  if (sections.length === 0) return "";
+  return `Recalled memories (${ctx.total_hits} hits):\n${sections.join("\n\n")}`;
 }
 
 // ── REMEMBER Action ─────────────────────────────────────────────
@@ -152,11 +163,11 @@ const memoryProvider: Provider = {
 
     try {
       const client = getClient(runtime);
-      const memories = await client.recall({
+      const ctx = await client.recall({
         query: message.content.text,
         limit: 5,
       });
-      return formatMemories(memories);
+      return formatRecallContext(ctx);
     } catch {
       return "";
     }

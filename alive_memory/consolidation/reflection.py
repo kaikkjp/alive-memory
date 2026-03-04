@@ -7,7 +7,11 @@ The reflection output is written to hot memory.
 
 from __future__ import annotations
 
+import logging
+
 from alive_memory.config import AliveConfig
+
+logger = logging.getLogger(__name__)
 from alive_memory.hot.reader import MemoryReader
 from alive_memory.llm.provider import LLMProvider
 from alive_memory.storage.base import BaseStorage
@@ -82,6 +86,7 @@ async def reflect_on_moment(
         )
         return response.text.strip()
     except Exception:
+        logger.warning("Moment reflection failed for %s", moment.id, exc_info=True)
         return ""
 
 
@@ -130,6 +135,7 @@ async def reflect_daily_summary(
         )
         return response.text.strip()
     except Exception:
+        logger.warning("Daily summary reflection failed", exc_info=True)
         return ""
 
 

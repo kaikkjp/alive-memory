@@ -91,12 +91,18 @@ class AliveMessageHistory(BaseChatMessageHistory):
             )
 
     def clear(self) -> None:
-        """Not supported — memories don't get bulk-deleted."""
-        pass
+        """Not supported — alive-memory has no bulk-delete by design."""
+        raise NotImplementedError(
+            "alive-memory does not support bulk-deleting memories. "
+            "Memories decay naturally through consolidation."
+        )
 
     async def aclear(self) -> None:
-        """Not supported — memories don't get bulk-deleted."""
-        pass
+        """Not supported — alive-memory has no bulk-delete by design."""
+        raise NotImplementedError(
+            "alive-memory does not support bulk-deleting memories. "
+            "Memories decay naturally through consolidation."
+        )
 
 
 class AliveRetriever(BaseRetriever):

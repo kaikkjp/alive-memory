@@ -1,5 +1,8 @@
 /**
  * TypeScript types matching the alive-memory REST API models.
+ *
+ * These types correspond to the Pydantic response models in
+ * alive_memory/server/models.py. Keep in sync with the Python source.
  */
 
 export interface IntakeRequest {
@@ -12,7 +15,6 @@ export interface IntakeRequest {
 export interface RecallRequest {
   query: string;
   limit?: number;
-  min_strength?: number;
 }
 
 export interface ConsolidateRequest {
@@ -29,18 +31,27 @@ export interface BackstoryRequest {
   title?: string;
 }
 
-export interface MemoryResponse {
+/** Response from POST /intake and POST /backstory (Tier 1 day moment). */
+export interface DayMomentResponse {
   id: string;
   content: string;
-  memory_type: string;
-  strength: number;
+  event_type: string;
+  salience: number;
   valence: number;
-  formed_at: string;
-  last_recalled: string | null;
-  recall_count: number;
-  source_event: string | null;
-  drive_coupling: Record<string, number>;
+  drive_snapshot: Record<string, number>;
+  timestamp: string;
   metadata: Record<string, unknown>;
+}
+
+/** Response from POST /recall (Tier 2 hot memory grep results). */
+export interface RecallContextResponse {
+  journal_entries: string[];
+  visitor_notes: string[];
+  self_knowledge: string[];
+  reflections: string[];
+  thread_context: string[];
+  query: string;
+  total_hits: number;
 }
 
 export interface MoodResponse {
@@ -73,15 +84,18 @@ export interface SelfModelResponse {
   snapshot_at: string | null;
 }
 
-export interface ConsolidationReportResponse {
-  memories_strengthened: number;
-  memories_weakened: number;
-  memories_pruned: number;
-  memories_merged: number;
+/** Response from POST /consolidate (sleep report). */
+export interface SleepReportResponse {
+  moments_processed: number;
+  journal_entries_written: number;
+  reflections_written: number;
+  cold_embeddings_added: number;
+  cold_echoes_found: number;
   dreams: string[];
   reflections: string[];
   identity_drift: Record<string, unknown> | null;
   duration_ms: number;
+  depth: string;
 }
 
 export interface HealthResponse {

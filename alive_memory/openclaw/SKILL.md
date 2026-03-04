@@ -64,7 +64,7 @@ curl -s -X POST "$ALIVE_MEMORY_URL/recall" \
   -d '{"query": "user preferences", "limit": 5}'
 ```
 
-Returns a JSON array of memories ranked by cognitive relevance (not just text similarity — considers emotional valence, drive coupling, recency, and strength).
+Returns a `RecallContextResponse` with categorized results from hot memory (journal entries, visitor notes, self-knowledge, reflections). Results are ranked by keyword relevance with mood-congruent and drive-coupled re-ranking.
 
 ### Check Cognitive State
 
@@ -115,7 +115,7 @@ curl -s -X POST "$ALIVE_MEMORY_URL/consolidate" \
   -d '{"depth": "nap"}'
 ```
 
-Run periodically to strengthen important memories, decay weak ones, merge duplicates, and prune forgotten ones. Use `"full"` for deep consolidation with dreaming (requires LLM on the server side).
+Run periodically to process day moments into journal entries, generate reflections, embed to cold archive, and optionally dream. Use `"full"` for complete consolidation (requires LLM on the server side) or `"nap"` for light processing.
 
 ### Health Check
 

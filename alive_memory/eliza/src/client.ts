@@ -6,14 +6,15 @@ import type {
   BackstoryRequest,
   CognitiveStateResponse,
   ConsolidateRequest,
-  ConsolidationReportResponse,
+  DayMomentResponse,
   DriveStateResponse,
   DriveUpdateRequest,
   HealthResponse,
   IntakeRequest,
-  MemoryResponse,
+  RecallContextResponse,
   RecallRequest,
   SelfModelResponse,
+  SleepReportResponse,
 } from "./types";
 
 export interface AliveClientConfig {
@@ -60,17 +61,20 @@ export class AliveMemoryClient {
     return this.request("GET", "/health");
   }
 
-  async intake(req: IntakeRequest): Promise<MemoryResponse> {
+  /** Record an event. Returns a DayMoment if salient enough, null otherwise. */
+  async intake(req: IntakeRequest): Promise<DayMomentResponse | null> {
     return this.request("POST", "/intake", req);
   }
 
-  async recall(req: RecallRequest): Promise<MemoryResponse[]> {
+  /** Retrieve context from hot memory (Tier 2 markdown grep). */
+  async recall(req: RecallRequest): Promise<RecallContextResponse> {
     return this.request("POST", "/recall", req);
   }
 
+  /** Run consolidation (sleep). */
   async consolidate(
     req: ConsolidateRequest = {},
-  ): Promise<ConsolidationReportResponse> {
+  ): Promise<SleepReportResponse> {
     return this.request("POST", "/consolidate", req);
   }
 
@@ -89,7 +93,7 @@ export class AliveMemoryClient {
     return this.request("POST", `/drives/${name}`, req);
   }
 
-  async injectBackstory(req: BackstoryRequest): Promise<MemoryResponse> {
+  async injectBackstory(req: BackstoryRequest): Promise<DayMomentResponse> {
     return this.request("POST", "/backstory", req);
   }
 }

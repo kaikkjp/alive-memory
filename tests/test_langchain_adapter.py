@@ -62,10 +62,12 @@ async def test_message_history_add_and_retrieve(memory):
 
 
 @pytest.mark.asyncio
-async def test_message_history_clear_noop(memory):
+async def test_message_history_clear_raises(memory):
     history = AliveMessageHistory(memory=memory)
-    # clear is a no-op, should not raise
-    await history.aclear()
+    with pytest.raises(NotImplementedError):
+        history.clear()
+    with pytest.raises(NotImplementedError):
+        await history.aclear()
 
 
 # ── AliveRetriever ───────────────────────────────────────────────

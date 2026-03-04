@@ -14,9 +14,12 @@ Nap mode:
 
 from __future__ import annotations
 
+import logging
 import time
 
 from alive_memory.config import AliveConfig
+
+logger = logging.getLogger(__name__)
 from alive_memory.consolidation.cold_search import find_cold_echoes
 from alive_memory.consolidation.dreaming import dream
 from alive_memory.consolidation.memory_updates import apply_reflection_to_hot_memory
@@ -167,7 +170,7 @@ async def consolidate(
                     )
                     embedded += 1
                 except Exception:
-                    pass
+                    logger.warning("Failed to embed moment %s to cold archive", moment.id, exc_info=True)
             report.cold_embeddings_added = embedded
 
         # Flush processed moments from day_memory

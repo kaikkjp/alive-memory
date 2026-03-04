@@ -6,9 +6,12 @@ recombine today's moments with cold echoes into new associative insights.
 
 from __future__ import annotations
 
+import logging
 import random
 
 from alive_memory.config import AliveConfig
+
+logger = logging.getLogger(__name__)
 from alive_memory.llm.provider import LLMProvider
 from alive_memory.types import DayMoment
 
@@ -67,6 +70,6 @@ async def dream(
             if response.text.strip():
                 dreams.append(response.text.strip())
         except Exception:
-            pass
+            logger.warning("Dream generation failed", exc_info=True)
 
     return dreams

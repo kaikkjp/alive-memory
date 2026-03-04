@@ -15,8 +15,11 @@ Usage:
 
 from __future__ import annotations
 
+import logging
 import pathlib
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 _DEFAULTS_PATH = pathlib.Path(__file__).parent / "defaults" / "alive_config.yaml"
 
@@ -78,6 +81,7 @@ def _load_yaml(path: pathlib.Path) -> dict:
         # Fallback: parse simple YAML without pyyaml
         return _parse_simple_yaml(path)
     except Exception:
+        logger.warning("Failed to load YAML config from %s", path, exc_info=True)
         return {}
 
 

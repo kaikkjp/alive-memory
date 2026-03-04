@@ -6,6 +6,10 @@ import os
 import tempfile
 
 import pytest
+
+pytest.importorskip("fastapi", reason="server tests require pip install alive-memory[server]")
+pytest.importorskip("httpx", reason="server tests require httpx")
+
 from httpx import ASGITransport, AsyncClient
 
 from alive_memory import AliveMemory

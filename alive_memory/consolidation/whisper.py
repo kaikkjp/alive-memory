@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import logging
+
 from alive_memory.storage.base import BaseStorage
+
+logger = logging.getLogger(__name__)
 
 _TRANSLATION_TABLE: list[tuple[str, str, str]] = [
     ("curiosity",
@@ -54,5 +58,5 @@ async def process_whispers(
         try:
             await storage.set_parameter(param, new, reason=f"whisper: {dream_text[:50]}")
         except Exception:
-            pass
+            logger.warning("Failed to set parameter %s via whisper", param, exc_info=True)
     return dreams

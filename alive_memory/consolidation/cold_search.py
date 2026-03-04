@@ -9,7 +9,11 @@ Used during sleep only. NOT used for real-time recall.
 
 from __future__ import annotations
 
+import logging
+
 from alive_memory.embeddings.base import EmbeddingProvider
+
+logger = logging.getLogger(__name__)
 from alive_memory.storage.base import BaseStorage
 from alive_memory.types import DayMoment
 
@@ -37,6 +41,7 @@ async def find_cold_echoes(
     try:
         embedding = await embedder.embed(moment.content)
     except Exception:
+        logger.warning("Failed to embed moment for cold search: %s", moment.id, exc_info=True)
         return []
 
     results = await storage.search_cold(embedding=embedding, limit=limit)
