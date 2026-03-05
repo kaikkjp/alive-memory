@@ -39,7 +39,7 @@ async def main():
         # Use the LangChain retriever
         from alive_memory.adapters.langchain import AliveRetriever
 
-        retriever = AliveRetriever(memory=memory, k=3)
+        retriever = AliveRetriever(memory=memory, recall_limit=3)
 
         # Retrieve relevant documents
         print("\n=== Retrieving 'Mars moons' ===")
@@ -58,10 +58,12 @@ async def main():
         # Use as chat message history
         from alive_memory.adapters.langchain import AliveMessageHistory
 
+        from langchain_core.messages import AIMessage, HumanMessage
+
         history = AliveMessageHistory(memory=memory)
         await history.aadd_messages([
-            {"type": "human", "content": "Tell me about Mars"},
-            {"type": "ai", "content": "Mars is the fourth planet from the Sun..."},
+            HumanMessage(content="Tell me about Mars"),
+            AIMessage(content="Mars is the fourth planet from the Sun..."),
         ])
 
         messages = await history.aget_messages()
