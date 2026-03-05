@@ -5,6 +5,7 @@ Run with:
 """
 
 import asyncio
+
 from alive_memory import AliveMemory
 
 
@@ -53,7 +54,7 @@ async def main():
 
         # 4. Check cognitive state
         state = await memory.get_state()
-        print(f"\nCognitive state:")
+        print("\nCognitive state:")
         print(f"  Mood: {state.mood.word} (valence={state.mood.valence:.2f})")
         print(f"  Drives: curiosity={state.drives.curiosity:.2f}, social={state.drives.social:.2f}")
 
@@ -65,7 +66,8 @@ async def main():
         print(f"\nBackstory injected: {bs.content[:50]}...")
 
     # Cleanup
-    import os, shutil
+    import os
+    import shutil
     os.unlink("example.db")
     shutil.rmtree("example_memory", ignore_errors=True)
     print("\nDone!")

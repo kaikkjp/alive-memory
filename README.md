@@ -30,6 +30,7 @@ from alive_memory import AliveMemory
 async with AliveMemory(
     storage="my_agent.db",
     memory_dir="/data/agent/memory",
+    llm="anthropic",  # or "openrouter" — reads API key from env
 ) as memory:
 
     # Record an event (returns DayMoment if salient enough, None otherwise)
@@ -54,6 +55,8 @@ async with AliveMemory(
     cycle_report = await memory.sleep()
     print(f"Consolidated {cycle_report.moments_consolidated} moments, {cycle_report.dreams_generated} dreams")
 ```
+
+No LLM? Basic intake and recall work without one — consolidation writes raw journal entries instead of LLM-reflected ones.
 
 ## Three-tier architecture
 
@@ -135,6 +138,15 @@ pip install alive-memory[all]         # Everything
 ```
 
 See [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) for REST API reference, LangChain usage, and ElizaOS integration.
+
+## Examples
+
+| Example | What it shows |
+|---------|---------------|
+| [`simple_bot.py`](examples/simple_bot.py) | Intake → recall → consolidate (no LLM) |
+| [`chatbot_with_memory.py`](examples/chatbot_with_memory.py) | Conversation → LLM reflection → dreams |
+| [`sleep_cycle.py`](examples/sleep_cycle.py) | Full sleep orchestrator with identity |
+| [`langchain_rag.py`](examples/langchain_rag.py) | LangChain retriever + chat history |
 
 ## Development
 

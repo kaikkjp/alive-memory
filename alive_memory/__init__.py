@@ -88,6 +88,43 @@ __all__ = [
 ]
 
 
+def _resolve_llm(llm: LLMProvider | str | None) -> LLMProvider | None:
+    """Resolve an LLM provider from a string shorthand or pass through."""
+    if llm is None or isinstance(llm, LLMProvider):
+        return llm
+    if not isinstance(llm, str):
+        return llm  # duck-typed provider
+    name = llm.lower()
+    if name == "anthropic":
+        from alive_memory.llm.anthropic import AnthropicProvider
+        return AnthropicProvider()
+    if name == "openrouter":
+        from alive_memory.llm.openrouter import OpenRouterProvider
+        return OpenRouterProvider()
+    raise ValueError(
+        f"Unknown LLM provider {llm!r}. Use 'anthropic', 'openrouter', "
+        f"or pass an LLMProvider instance."
+    )
+
+
+def _resolve_embedder(
+    embedder: EmbeddingProvider | str | None, default_dims: int
+) -> EmbeddingProvider:
+    """Resolve an embedding provider from a string shorthand or pass through."""
+    if embedder is None or (isinstance(embedder, str) and embedder.lower() == "local"):
+        return LocalEmbeddingProvider(dimensions=default_dims)
+    if isinstance(embedder, str):
+        name = embedder.lower()
+        if name == "openai":
+            from alive_memory.embeddings.api import OpenAIEmbeddingProvider
+            return OpenAIEmbeddingProvider()
+        raise ValueError(
+            f"Unknown embedding provider {embedder!r}. Use 'openai', 'local', "
+            f"or pass an EmbeddingProvider instance."
+        )
+    return embedder
+
+
 class AliveMemory:
     """Public API for the alive-memory cognitive memory layer.
 
@@ -103,8 +140,8 @@ class AliveMemory:
         *,
         memory_dir: str | Path | None = None,
         config: AliveConfig | dict | str | None = None,
-        llm: LLMProvider | None = None,
-        embedder: EmbeddingProvider | None = None,
+        llm: LLMProvider | str | None = None,
+        embedder: EmbeddingProvider | str | None = None,
     ):
         """Initialize AliveMemory.
 
@@ -113,8 +150,13 @@ class AliveMemory:
             memory_dir: Root directory for hot memory files (Tier 2).
                         If not provided, uses a temp directory.
             config: AliveConfig instance, dict, or YAML file path.
-            llm: LLM provider (needed for consolidation reflection/dreaming).
-            embedder: Embedding provider (needed for cold archive).
+            llm: LLM provider instance, or a string shorthand:
+                 "anthropic" — uses ANTHROPIC_API_KEY env var
+                 "openrouter" — uses OPENROUTER_API_KEY env var
+                 Needed for consolidation reflection/dreaming.
+            embedder: Embedding provider instance, or a string shorthand:
+                      "openai" — uses OPENAI_API_KEY env var
+                      "local" — hash-based (no API, default)
                       Defaults to LocalEmbeddingProvider if not provided.
         """
         # Storage (Tier 1 + Tier 3)
@@ -135,11 +177,11 @@ class AliveMemory:
             self._config = AliveConfig()
 
         # LLM
-        self._llm = llm
+        self._llm = _resolve_llm(llm)
 
         # Embedder (default to local hash-based)
-        self._embedder = embedder or LocalEmbeddingProvider(
-            dimensions=self._config.get("memory.embedding_dimensions", 384)
+        self._embedder = _resolve_embedder(
+            embedder, self._config.get("memory.embedding_dimensions", 384)
         )
 
         # Hot memory (Tier 2)
@@ -411,7 +453,16 @@ class AliveMemory:
     async def sleep(
         self, *, sleep_config: SleepConfig | None = None, **kwargs: Any
     ) -> SleepCycleReport:
-        """Run the full sleep cycle orchestrator."""
+        """Run the full sleep cycle orchestrator.
+
+        Raises:
+            RuntimeError: If no LLM provider is configured.
+        """
+        if self._llm is None:
+            raise RuntimeError(
+                "sleep() requires an LLM provider. Pass llm='anthropic' or "
+                "llm='openrouter' to AliveMemory(), or provide an LLMProvider instance."
+            )
         from alive_memory.sleep import sleep_cycle
 
         return await sleep_cycle(
