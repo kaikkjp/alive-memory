@@ -210,7 +210,7 @@ class SQLiteStorage(BaseStorage):
         conn = await self._get_db()
         cursor = await conn.execute(
             """SELECT content FROM day_memory
-               WHERE timestamp >= datetime('now', ?)
+               WHERE timestamp >= strftime('%Y-%m-%dT%H:%M:%S+00:00', 'now', ?)
                ORDER BY timestamp DESC""",
             (f"-{window_minutes} minutes",),
         )

@@ -348,6 +348,8 @@ class AliveMemory:
 
     # ── Drive Management ─────────────────────────────────────────
 
+    _VALID_DRIVES = frozenset({"curiosity", "social", "expression", "rest"})
+
     async def update_drive(self, drive: str, delta: float) -> DriveState:
         """Manually adjust a drive value.
 
@@ -357,9 +359,16 @@ class AliveMemory:
 
         Returns:
             Updated DriveState.
+
+        Raises:
+            ValueError: If drive name is not a known drive field.
         """
+        if drive not in self._VALID_DRIVES:
+            raise ValueError(
+                f"Unknown drive {drive!r}, must be one of {sorted(self._VALID_DRIVES)}"
+            )
         drives = await self._storage.get_drive_state()
-        current = getattr(drives, drive, 0.5)
+        current = getattr(drives, drive)
         setattr(drives, drive, max(0.0, min(1.0, current + delta)))
         await self._storage.set_drive_state(drives)
         return drives
