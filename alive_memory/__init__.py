@@ -558,3 +558,45 @@ class AliveMemory:
         """Get a summary of identity development over time."""
         from alive_memory.identity.history import summarize_development
         return await summarize_development(self._storage)
+
+    # ── Quickstart ────────────────────────────────────────────────
+
+    @classmethod
+    def quickstart(
+        cls,
+        name: str = "agent",
+        *,
+        llm: LLMProvider | str | None = None,
+        data_dir: str | Path | None = None,
+    ) -> AliveMemory:
+        """Create an AliveMemory instance with sensible defaults.
+
+        Zero-config convenience constructor. Stores data in
+        ~/.alive/{name}/ with SQLite + local embeddings.
+
+        Args:
+            name: Agent name (used for data directory).
+            llm: Optional LLM provider for consolidation.
+                 Pass "anthropic", "openrouter", "gemini", or an instance.
+            data_dir: Override the data directory (default: ~/.alive/{name}).
+
+        Returns:
+            An AliveMemory instance (call .initialize() or use as async context manager).
+
+        Usage:
+            async with AliveMemory.quickstart("my-agent") as memory:
+                await memory.intake(event_type="conversation", content="Hello!")
+                context = await memory.recall("hello")
+        """
+        if data_dir is None:
+            root = Path.home() / ".alive" / name
+        else:
+            root = Path(data_dir)
+
+        root.mkdir(parents=True, exist_ok=True)
+
+        return cls(
+            storage=str(root / "memory.db"),
+            memory_dir=root / "hot",
+            llm=llm,
+        )
