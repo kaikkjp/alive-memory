@@ -142,9 +142,6 @@ def main() -> None:
 
         if auto_refresh:
             st.caption("Refreshing every 5 seconds")
-            import time
-            time.sleep(0.1)  # let page render
-            st.rerun()
 
     # Health check
     health = api_get("/health", api_url, api_key)

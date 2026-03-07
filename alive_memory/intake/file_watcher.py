@@ -143,19 +143,21 @@ class FileWatcher:
 
         for path in sorted(new_files):
             if path.name.startswith("."):
-                continue  # skip hidden files
+                self._seen.add(path)
+                continue
 
             logger.info("New file detected: %s", path.name)
             success = await self.ingest_file(path)
 
-            if success and self._delete_after:
-                try:
-                    path.unlink()
-                    logger.info("Deleted after ingest: %s", path.name)
-                except OSError:
-                    logger.warning("Could not delete: %s", path.name)
-
-        self._seen = current_files
+            if success:
+                self._seen.add(path)
+                if self._delete_after:
+                    try:
+                        path.unlink()
+                        logger.info("Deleted after ingest: %s", path.name)
+                    except OSError:
+                        logger.warning("Could not delete: %s", path.name)
+            # Failed files are NOT added to _seen, so they retry on next scan
 
     async def _ingest_text(self, path: Path) -> bool:
         """Read and ingest a text file."""
