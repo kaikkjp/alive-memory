@@ -31,6 +31,7 @@ dependencies = [
 [project.optional-dependencies]
 anthropic = ["anthropic>=0.40.0"]
 openrouter = ["httpx>=0.27.0"]
+gemini = ["google-genai>=1.0.0"]
 embeddings = ["openai>=1.0.0"]
 server = [
     "fastapi>=0.115.0",
@@ -41,6 +42,7 @@ langchain = ["langchain-core>=0.3.0"]
 all = [
     "anthropic>=0.40.0",
     "httpx>=0.27.0",
+    "google-genai>=1.0.0",
     "openai>=1.0.0",
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
