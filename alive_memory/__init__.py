@@ -101,9 +101,12 @@ def _resolve_llm(llm: LLMProvider | str | None) -> LLMProvider | None:
     if name == "openrouter":
         from alive_memory.llm.openrouter import OpenRouterProvider
         return OpenRouterProvider()
+    if name == "gemini":
+        from alive_memory.llm.gemini import GeminiProvider
+        return GeminiProvider()
     raise ValueError(
         f"Unknown LLM provider {llm!r}. Use 'anthropic', 'openrouter', "
-        f"or pass an LLMProvider instance."
+        f"'gemini', or pass an LLMProvider instance."
     )
 
 
@@ -307,6 +310,57 @@ class AliveMemory:
 
         return moment
 
+    # ── Media Intake ─────────────────────────────────────────────
+
+    async def intake_media(
+        self,
+        file_path: str | Path,
+        *,
+        media_llm: object | None = None,
+        event_type: str | EventType = EventType.OBSERVATION,
+        prompt: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> DayMoment | None:
+        """Ingest a media file (image, audio, video, PDF) into memory.
+
+        Uses a multimodal LLM (default: Gemini) to perceive the media,
+        then feeds the text description through the standard intake pipeline.
+
+        Args:
+            file_path: Path to the media file.
+            media_llm: A provider with perceive_media() (e.g. GeminiProvider).
+                       Falls back to self._llm if it supports perceive_media().
+            event_type: Event type for the resulting moment (default: observation).
+            prompt: Custom perception prompt for the LLM.
+            metadata: Additional metadata to attach.
+
+        Returns:
+            DayMoment if salient enough, None otherwise.
+
+        Raises:
+            RuntimeError: If no multimodal-capable LLM is available.
+        """
+        from alive_memory.intake.multimodal import perceive_media
+
+        provider = media_llm or self._llm
+        if provider is None or not hasattr(provider, "perceive_media"):
+            raise RuntimeError(
+                "intake_media() requires a multimodal LLM with perceive_media(). "
+                "Pass media_llm=GeminiProvider(...) or set llm='gemini' on AliveMemory."
+            )
+
+        text = await perceive_media(file_path, provider, prompt=prompt)
+
+        meta = metadata or {}
+        meta["media_source"] = str(file_path)
+        meta["media_perceived"] = True
+
+        return await self.intake(
+            event_type=event_type,
+            content=text,
+            metadata=meta,
+        )
+
     # ── Recall ───────────────────────────────────────────────────
 
     async def recall(
@@ -504,3 +558,45 @@ class AliveMemory:
         """Get a summary of identity development over time."""
         from alive_memory.identity.history import summarize_development
         return await summarize_development(self._storage)
+
+    # ── Quickstart ────────────────────────────────────────────────
+
+    @classmethod
+    def quickstart(
+        cls,
+        name: str = "agent",
+        *,
+        llm: LLMProvider | str | None = None,
+        data_dir: str | Path | None = None,
+    ) -> AliveMemory:
+        """Create an AliveMemory instance with sensible defaults.
+
+        Zero-config convenience constructor. Stores data in
+        ~/.alive/{name}/ with SQLite + local embeddings.
+
+        Args:
+            name: Agent name (used for data directory).
+            llm: Optional LLM provider for consolidation.
+                 Pass "anthropic", "openrouter", "gemini", or an instance.
+            data_dir: Override the data directory (default: ~/.alive/{name}).
+
+        Returns:
+            An AliveMemory instance (call .initialize() or use as async context manager).
+
+        Usage:
+            async with AliveMemory.quickstart("my-agent") as memory:
+                await memory.intake(event_type="conversation", content="Hello!")
+                context = await memory.recall("hello")
+        """
+        if data_dir is None:
+            root = Path.home() / ".alive" / name
+        else:
+            root = Path(data_dir)
+
+        root.mkdir(parents=True, exist_ok=True)
+
+        return cls(
+            storage=str(root / "memory.db"),
+            memory_dir=root / "hot",
+            llm=llm,
+        )
