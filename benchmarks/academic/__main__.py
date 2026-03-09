@@ -102,8 +102,11 @@ async def cmd_run(args):
                 judge_config = None
                 if args.judge_model:
                     judge_config = {"model": args.judge_model}
-                    if args.api_key:
-                        judge_config["api_key"] = args.api_key
+                    judge_key = args.judge_api_key or args.api_key
+                    if judge_key:
+                        judge_config["api_key"] = judge_key
+                    if args.judge_base_url:
+                        judge_config["base_url"] = args.judge_base_url
 
                 runner = AcademicBenchmarkRunner(
                     dataset=dataset,
@@ -252,6 +255,10 @@ def main():
                        help="Sessions between consolidation calls")
     run_p.add_argument("--judge-model", default=None,
                        help="LLM model for LLM-as-Judge scoring (enables judge metric)")
+    run_p.add_argument("--judge-api-key", default=None,
+                       help="API key for judge LLM (defaults to --api-key)")
+    run_p.add_argument("--judge-base-url", default=None,
+                       help="Base URL for judge LLM (defaults to OpenRouter)")
 
     # --- list ---
     sub.add_parser("list", help="List available benchmarks and systems")

@@ -237,11 +237,13 @@ async def llm_judge(
 
     Returns:
         1.0 if the judge says yes, 0.0 otherwise.
+
+    Raises:
+        RuntimeError: If the judge call fails (auth error, timeout, etc.)
+            so infrastructure errors are surfaced rather than silently
+            recorded as model failures.
     """
-    try:
-        import httpx
-    except ImportError:
-        return 0.0
+    import httpx
 
     # Select prompt template
     if benchmark == "longmemeval" and question_type in _LONGMEMEVAL_JUDGE_PROMPTS:
@@ -261,26 +263,23 @@ async def llm_judge(
     model = judge_config.get("model", "anthropic/claude-haiku-4-5")
     base_url = judge_config.get("base_url", "https://openrouter.ai/api/v1")
 
-    try:
-        async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.post(
-                f"{base_url}/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": model,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "max_tokens": 10,
-                    "temperature": 0,
-                },
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            response_text = data["choices"][0]["message"]["content"].strip().lower()
-            # Parse as exact yes/no — avoid substring matches like "yesterday"
-            first_word = response_text.split()[0].strip(".,!") if response_text else ""
-            return 1.0 if first_word == "yes" else 0.0
-    except Exception:
-        return 0.0
+    async with httpx.AsyncClient(timeout=30) as client:
+        resp = await client.post(
+            f"{base_url}/chat/completions",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": model,
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": 10,
+                "temperature": 0,
+            },
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        response_text = data["choices"][0]["message"]["content"].strip().lower()
+        # Parse as exact yes/no — avoid substring matches like "yesterday"
+        first_word = response_text.split()[0].strip(".,!") if response_text else ""
+        return 1.0 if first_word == "yes" else 0.0
