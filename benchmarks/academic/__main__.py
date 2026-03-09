@@ -101,10 +101,9 @@ async def cmd_run(args):
                 # LLM-as-Judge config (optional)
                 judge_config = None
                 if args.judge_model:
-                    judge_config = {
-                        "model": args.judge_model,
-                        "api_key": args.api_key or "",
-                    }
+                    judge_config = {"model": args.judge_model}
+                    if args.api_key:
+                        judge_config["api_key"] = args.api_key
 
                 runner = AcademicBenchmarkRunner(
                     dataset=dataset,

@@ -279,6 +279,8 @@ async def llm_judge(
             resp.raise_for_status()
             data = resp.json()
             response_text = data["choices"][0]["message"]["content"].strip().lower()
-            return 1.0 if "yes" in response_text else 0.0
+            # Parse as exact yes/no — avoid substring matches like "yesterday"
+            first_word = response_text.split()[0].strip(".,!") if response_text else ""
+            return 1.0 if first_word == "yes" else 0.0
     except Exception:
         return 0.0
