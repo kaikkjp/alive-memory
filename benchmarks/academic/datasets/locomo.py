@@ -30,6 +30,7 @@ from benchmarks.academic.harness.base import (
 )
 from benchmarks.academic.harness.scoring import (
     abstention_score,
+    llm_judge,
     rouge_l,
     substring_match,
     token_f1,
@@ -191,7 +192,11 @@ class LoCoMoDataset(DatasetAdapter):
                 answer=answer,
                 category=category,
                 evidence=evidence,
-                metadata={"is_adversarial": is_adversarial},
+                metadata={
+                    "is_adversarial": is_adversarial,
+                    "question": question,
+                    "adversarial_answer": item.get("adversarial_answer", ""),
+                },
             )
 
         return queries, gt
@@ -215,11 +220,13 @@ class LoCoMoDataset(DatasetAdapter):
         self,
         predictions: dict[str, str],
         ground_truth: dict[str, GroundTruth],
+        judge_config: dict | None = None,
     ) -> list[EvalResult]:
         """Evaluate using token F1 (LoCoMo's primary metric).
 
         Category 5 (adversarial) uses abstention scoring.
         Category 1 (multi_hop) splits answers on ',' for partial scoring.
+        If judge_config is provided, also runs LLM-as-Judge scoring.
         """
         results: list[EvalResult] = []
 
@@ -270,6 +277,24 @@ class LoCoMoDataset(DatasetAdapter):
                     "evidence_hit": hit,
                     "accuracy": max(hit, 1.0 if f1_scores["f1"] > 0.5 else 0.0),
                 }
+
+            # LLM-as-Judge (optional)
+            if judge_config:
+                q_type = "adversarial" if is_adversarial else gt.category
+                # Adversarial items have empty gt.answer; use adversarial_answer
+                judge_answer = (
+                    gt.metadata.get("adversarial_answer", gt.answer)
+                    if is_adversarial else gt.answer
+                )
+                judge_score = await llm_judge(
+                    question=gt.metadata.get("question", query_id),
+                    prediction=pred,
+                    answer=judge_answer or gt.answer,
+                    judge_config=judge_config,
+                    question_type=q_type,
+                    benchmark="locomo",
+                )
+                scores["llm_judge"] = judge_score
 
             results.append(EvalResult(
                 query_id=query_id,

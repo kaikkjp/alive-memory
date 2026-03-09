@@ -174,6 +174,7 @@ class MemoryAgentBenchDataset(DatasetAdapter):
         self,
         predictions: dict[str, str],
         ground_truth: dict[str, GroundTruth],
+        judge_config: dict | None = None,
     ) -> list[EvalResult]:
         """Evaluate using task completion rate and accuracy."""
         results: list[EvalResult] = []

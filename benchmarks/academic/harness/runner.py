@@ -30,12 +30,14 @@ class AcademicBenchmarkRunner:
         llm_config: Optional[dict] = None,
         consolidation_interval: int = 500,
         reset_between_sessions: bool = False,
+        judge_config: Optional[dict] = None,
     ):
         self.dataset = dataset
         self.system = system
         self.llm_config = llm_config or {}
         self.consolidation_interval = consolidation_interval
         self.reset_between_sessions = reset_between_sessions
+        self.judge_config = judge_config
 
     async def run(self, seed: int = 42) -> BenchmarkRunResult:
         """Run the full benchmark pipeline.
@@ -110,7 +112,11 @@ class AcademicBenchmarkRunner:
         print(f"  [{self.system.system_id}] Done: {total_turns} turns, {len(predictions)} queries answered")
 
         # Evaluate
-        eval_results = await self.dataset.evaluate(predictions, all_ground_truth)
+        if self.judge_config:
+            print(f"  [{self.system.system_id}] Running LLM-as-Judge evaluation...")
+        eval_results = await self.dataset.evaluate(
+            predictions, all_ground_truth, judge_config=self.judge_config,
+        )
 
         # Collect metrics (last instance + cumulative from earlier instances)
         sys_metrics = await self.system.get_metrics()
