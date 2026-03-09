@@ -173,8 +173,12 @@ class DatasetAdapter(ABC):
         evaluated in isolation. The system is reset between instances.
 
         By default, returns a single instance with all data (no isolation).
-        Override for benchmarks with independent samples (e.g., LoCoMo)
-        or per-question haystacks (e.g., LongMemEval).
+        This is correct for benchmarks where all sessions contribute to a
+        shared context (e.g., MemoryAgentBench, MemoryArena).
+
+        Override for benchmarks with independent samples (e.g., LoCoMo
+        returns per-conversation instances) or per-question haystacks
+        (e.g., LongMemEval returns per-question instances).
         """
         return [(self.get_sessions(), self.get_queries(), self.get_ground_truth())]
 
