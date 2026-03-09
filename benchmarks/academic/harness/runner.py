@@ -36,7 +36,13 @@ class AcademicBenchmarkRunner:
         self.consolidation_interval = consolidation_interval
 
     async def run(self, seed: int = 42) -> BenchmarkRunResult:
-        """Run the full benchmark pipeline."""
+        """Run the full benchmark pipeline.
+
+        Queries are answered in session-isolated order: after each session
+        is ingested, any queries scoped to that session are answered before
+        the next session is loaded. This prevents cross-session information
+        leakage. Queries without a session_id are answered after all sessions.
+        """
         print(f"  [{self.system.system_id}] Loading dataset {self.dataset.benchmark_id}...")
         sessions = self.dataset.get_sessions()
         queries = self.dataset.get_queries()
@@ -44,9 +50,20 @@ class AcademicBenchmarkRunner:
 
         print(f"  [{self.system.system_id}] {len(sessions)} sessions, {len(queries)} queries")
 
-        # Phase 1: Ingest all conversations
+        # Index queries by session_id for isolated evaluation
+        queries_by_session: dict[str, list] = {}
+        global_queries: list = []
+        for q in queries:
+            if q.session_id:
+                queries_by_session.setdefault(q.session_id, []).append(q)
+            else:
+                global_queries.append(q)
+
+        # Phase 1+2: Ingest sessions and answer session-scoped queries
         total_turns = 0
         ingest_latencies: list[float] = []
+        predictions: dict[str, str] = {}
+        query_latencies: list[float] = []
 
         for i, session in enumerate(sessions):
             t0 = time.perf_counter()
@@ -59,6 +76,16 @@ class AcademicBenchmarkRunner:
             if (i + 1) % self.consolidation_interval == 0:
                 await self.system.consolidate()
 
+            # Answer queries scoped to this session
+            session_id = session[0].session_id if session else ""
+            if session_id and session_id in queries_by_session:
+                for query in queries_by_session[session_id]:
+                    t0 = time.perf_counter()
+                    answer = await self.system.answer_query(query, self.llm_config)
+                    elapsed_ms = (time.perf_counter() - t0) * 1000
+                    query_latencies.append(elapsed_ms)
+                    predictions[query.query_id] = answer
+
             if (i + 1) % 10 == 0:
                 print(f"  [{self.system.system_id}] Ingested {i + 1}/{len(sessions)} sessions ({total_turns} turns)")
 
@@ -66,21 +93,16 @@ class AcademicBenchmarkRunner:
         await self.system.consolidate()
         print(f"  [{self.system.system_id}] Ingestion complete: {total_turns} turns")
 
-        # Phase 2: Answer queries
-        predictions: dict[str, str] = {}
-        query_latencies: list[float] = []
-
-        for i, query in enumerate(queries):
+        # Phase 2b: Answer global queries (no session_id) after all sessions
+        for i, query in enumerate(global_queries):
             t0 = time.perf_counter()
             answer = await self.system.answer_query(query, self.llm_config)
             elapsed_ms = (time.perf_counter() - t0) * 1000
             query_latencies.append(elapsed_ms)
             predictions[query.query_id] = answer
 
-            if (i + 1) % 50 == 0:
-                print(f"  [{self.system.system_id}] Answered {i + 1}/{len(queries)} queries")
-
-        print(f"  [{self.system.system_id}] All {len(queries)} queries answered")
+        answered = len(predictions)
+        print(f"  [{self.system.system_id}] All {answered} queries answered")
 
         # Phase 3: Evaluate
         eval_results = await self.dataset.evaluate(predictions, ground_truth)
