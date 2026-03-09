@@ -139,6 +139,7 @@ class RAGMemorySystem(MemorySystemAdapter):
             except Exception:
                 pass
         self._count = 0
+        self._tracker = LLMTracker()
 
     async def teardown(self) -> None:
         if self._client:

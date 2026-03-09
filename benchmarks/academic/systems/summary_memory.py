@@ -107,3 +107,4 @@ class SummaryMemorySystem(MemorySystemAdapter):
     async def reset(self) -> None:
         self._summary = ""
         self._pending_turns = []
+        self._tracker = LLMTracker()
