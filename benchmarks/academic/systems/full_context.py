@@ -63,3 +63,4 @@ class FullContextSystem(MemorySystemAdapter):
 
     async def reset(self) -> None:
         self._history = []
+        self._tracker = LLMTracker()
