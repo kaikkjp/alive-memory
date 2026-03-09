@@ -1,0 +1,54 @@
+name: cross_session_recall
+description: "User discusses project details, returns 3 days later"
+category: cross_session
+turns:
+  - role: user
+    content: "I'm working on a React dashboard for Q3 metrics"
+    action: intake
+    simulated_time: "2026-03-01T10:00:00Z"
+
+  - role: user
+    content: "The main KPIs are MRR, churn rate, and NPS"
+    action: intake
+    simulated_time: "2026-03-01T10:05:00Z"
+
+  - role: user
+    content: "We're using Recharts for the visualization library"
+    action: intake
+    simulated_time: "2026-03-01T10:10:00Z"
+
+  - role: user
+    content: "The backend API is FastAPI with PostgreSQL"
+    action: intake
+    simulated_time: "2026-03-01T10:15:00Z"
+
+  - role: system
+    action: consolidate
+
+  - role: system
+    action: advance_time
+    advance_seconds: 259200
+
+  - role: user
+    content: "What metrics was I tracking?"
+    action: recall
+    simulated_time: "2026-03-04T10:00:00Z"
+    expected_recall:
+      must_contain: ["MRR", "churn"]
+      min_results: 1
+
+  - role: user
+    content: "What visualization library was I using?"
+    action: recall
+    simulated_time: "2026-03-04T10:01:00Z"
+    expected_recall:
+      must_contain: ["Recharts"]
+      min_results: 1
+
+  - role: user
+    content: "What was my backend stack?"
+    action: recall
+    simulated_time: "2026-03-04T10:02:00Z"
+    expected_recall:
+      must_contain: ["FastAPI"]
+      min_results: 1
