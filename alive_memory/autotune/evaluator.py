@@ -13,6 +13,10 @@ def score_recall(result: RecallResult) -> tuple[float, float]:
 
     text = result.recalled_text.lower()
 
+    # Check min_results requirement
+    if result.num_results < expected.min_results:
+        return 0.0, 0.0
+
     # Completeness: % of must_contain keywords found
     if expected.must_contain:
         found = sum(1 for kw in expected.must_contain if kw.lower() in text)
@@ -68,8 +72,12 @@ def score_simulation(result: SimulationResult, *, category: str = "") -> MemoryS
     decay_accuracy = 0.0
 
     if category == "dedup":
-        # Good dedup = high rejection rate for near-duplicate content
-        dedup_accuracy = result.moments_rejected / total_intake if total_intake > 0 else 0.0
+        # Good dedup = recall still finds the key facts (not over-filtered)
+        # AND some duplicates were rejected. Use recall completeness as primary
+        # signal and add a small bonus for rejecting some duplicates.
+        rejection_rate = result.moments_rejected / total_intake if total_intake > 0 else 0.0
+        # Penalize both extremes: 0 rejections (no dedup) and near-total rejection (over-filtering)
+        dedup_accuracy = recall_completeness * min(rejection_rate * 2.0, 1.0)
 
     if category == "forgetting":
         # Forgetting quality is measured by recall — important info found, chitchat not.

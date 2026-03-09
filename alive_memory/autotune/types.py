@@ -46,6 +46,7 @@ class RecallResult:
     query: str
     recalled_text: str  # flattened recall context
     expected: ExpectedRecall
+    num_results: int = 0  # total recall hits
     elapsed_ms: int = 0
 
 
