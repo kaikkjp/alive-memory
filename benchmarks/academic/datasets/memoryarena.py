@@ -170,6 +170,7 @@ class MemoryArenaDataset(DatasetAdapter):
         self,
         predictions: dict[str, str],
         ground_truth: dict[str, GroundTruth],
+        judge_config: dict | None = None,
     ) -> list[EvalResult]:
         """Evaluate using task completion and accuracy."""
         results: list[EvalResult] = []

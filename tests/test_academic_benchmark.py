@@ -17,6 +17,8 @@ from benchmarks.academic.harness.base import (
     SystemMetrics,
 )
 from benchmarks.academic.harness.scoring import (
+    _GENERIC_JUDGE_PROMPT,
+    _LONGMEMEVAL_JUDGE_PROMPTS,
     abstention_score,
     exact_match,
     normalize_text,
@@ -272,6 +274,38 @@ class TestMemoryArenaDataset:
         assert "preference_planning" in TASK_FAMILIES
         assert "progressive_search" in TASK_FAMILIES
         assert "sequential_reasoning" in TASK_FAMILIES
+
+
+class TestLLMJudgePrompts:
+    def test_generic_prompt_has_placeholders(self):
+        assert "{question}" in _GENERIC_JUDGE_PROMPT
+        assert "{answer}" in _GENERIC_JUDGE_PROMPT
+        assert "{prediction}" in _GENERIC_JUDGE_PROMPT
+
+    def test_longmemeval_prompts_cover_all_types(self):
+        expected = {
+            "single-session-user", "single-session-assistant",
+            "multi-session", "temporal-reasoning",
+            "knowledge-update", "single-session-preference",
+            "abstention",
+        }
+        assert set(_LONGMEMEVAL_JUDGE_PROMPTS.keys()) == expected
+
+    def test_longmemeval_temporal_has_off_by_one(self):
+        prompt = _LONGMEMEVAL_JUDGE_PROMPTS["temporal-reasoning"]
+        assert "off-by-one" in prompt
+
+    def test_longmemeval_preference_has_rubric(self):
+        prompt = _LONGMEMEVAL_JUDGE_PROMPTS["single-session-preference"]
+        assert "Rubric" in prompt
+
+    def test_generic_prompt_formats(self):
+        result = _GENERIC_JUDGE_PROMPT.format(
+            question="What color?", answer="blue", prediction="It is blue"
+        )
+        assert "What color?" in result
+        assert "blue" in result
+        assert "It is blue" in result
 
 
 class TestCLIList:

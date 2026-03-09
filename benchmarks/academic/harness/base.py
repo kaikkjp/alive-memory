@@ -156,8 +156,14 @@ class DatasetAdapter(ABC):
         self,
         predictions: dict[str, str],
         ground_truth: dict[str, GroundTruth],
+        judge_config: Optional[dict] = None,
     ) -> list[EvalResult]:
-        """Score predictions against ground truth using benchmark-native metrics."""
+        """Score predictions against ground truth using benchmark-native metrics.
+
+        Args:
+            judge_config: If provided, also run LLM-as-Judge scoring and include
+                'llm_judge' in the scores dict. Keys: 'api_key', 'model', 'base_url'.
+        """
         ...
 
     def get_categories(self) -> list[str]:

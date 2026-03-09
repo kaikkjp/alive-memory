@@ -3,6 +3,7 @@
 Usage:
     python -m benchmarks.academic run --benchmark locomo --systems alive,rag
     python -m benchmarks.academic run --benchmark longmemeval --all
+    python -m benchmarks.academic run --benchmark locomo --all --judge-model anthropic/claude-haiku-4-5
     python -m benchmarks.academic list
     python -m benchmarks.academic report --results-dir benchmarks/academic/results/
 """
@@ -97,11 +98,22 @@ async def cmd_run(args):
                     config["api_key"] = args.api_key
                 await system.setup(config)
 
+                # LLM-as-Judge config (optional)
+                judge_config = None
+                if args.judge_model:
+                    judge_config = {"model": args.judge_model}
+                    judge_key = args.judge_api_key or args.api_key
+                    if judge_key:
+                        judge_config["api_key"] = judge_key
+                    if args.judge_base_url:
+                        judge_config["base_url"] = args.judge_base_url
+
                 runner = AcademicBenchmarkRunner(
                     dataset=dataset,
                     system=system,
                     llm_config=llm_config,
                     consolidation_interval=args.consolidation_interval,
+                    judge_config=judge_config,
                 )
                 result = await runner.run(seed=seed)
 
@@ -241,6 +253,12 @@ def main():
                        help="Directory to save results")
     run_p.add_argument("--consolidation-interval", type=int, default=10,
                        help="Sessions between consolidation calls")
+    run_p.add_argument("--judge-model", default=None,
+                       help="LLM model for LLM-as-Judge scoring (enables judge metric)")
+    run_p.add_argument("--judge-api-key", default=None,
+                       help="API key for judge LLM (defaults to --api-key)")
+    run_p.add_argument("--judge-base-url", default=None,
+                       help="Base URL for judge LLM (defaults to OpenRouter)")
 
     # --- list ---
     sub.add_parser("list", help="List available benchmarks and systems")

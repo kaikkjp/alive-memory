@@ -28,6 +28,7 @@ from benchmarks.academic.harness.base import (
 from benchmarks.academic.harness.scoring import (
     abstention_score,
     exact_match,
+    llm_judge,
     substring_match,
     token_f1,
 )
@@ -162,6 +163,7 @@ class LongMemEvalDataset(DatasetAdapter):
                 metadata={
                     "is_abstention": is_abstention,
                     "question_type": question_type,
+                    "question": item["question"],
                 },
             )
             self._ground_truth[question_id] = gt_entry
@@ -223,18 +225,21 @@ class LongMemEvalDataset(DatasetAdapter):
         self,
         predictions: dict[str, str],
         ground_truth: dict[str, GroundTruth],
+        judge_config: dict | None = None,
     ) -> list[EvalResult]:
         """Evaluate using accuracy and ability-specific metrics.
 
         Abstention questions are scored on whether the system correctly
         identifies the question as unanswerable. All other questions use
         token F1 and substring matching.
+        If judge_config is provided, also runs LLM-as-Judge scoring.
         """
         results: list[EvalResult] = []
 
         for query_id, gt in ground_truth.items():
             pred = predictions.get(query_id, "")
             is_abstention = gt.metadata.get("is_abstention", False)
+            question_type = gt.metadata.get("question_type", "")
 
             scores: dict[str, float] = {}
 
@@ -253,6 +258,19 @@ class LongMemEvalDataset(DatasetAdapter):
                     scores["substring_hit"],
                     1.0 if scores["f1"] > 0.5 else 0.0,
                 )
+
+            # LLM-as-Judge (optional, uses official LongMemEval prompts)
+            if judge_config:
+                j_type = "abstention" if is_abstention else question_type
+                judge_score = await llm_judge(
+                    question=gt.metadata.get("question", query_id),
+                    prediction=pred,
+                    answer=gt.answer,
+                    judge_config=judge_config,
+                    question_type=j_type,
+                    benchmark="longmemeval",
+                )
+                scores["llm_judge"] = judge_score
 
             results.append(EvalResult(
                 query_id=query_id,
