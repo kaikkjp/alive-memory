@@ -5,3 +5,4 @@ commit	metric	status	description
 c0d78d3	86	keep	experiment 3
 b52408f	89	keep	experiment 4
 10e482b	89	discard	experiment 5 (no changes)
+4c1a2c6	99	keep	experiment 6
