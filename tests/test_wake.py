@@ -300,3 +300,38 @@ async def test_flush_stale_moments_storage(tmp_db):
     assert remaining[0].id == "m-recent"
 
     await storage.close()
+
+
+@pytest.mark.asyncio
+async def test_wake_does_not_duplicate_cold_embeddings_across_runs(tmp_db):
+    """A moment embedded during wake should not be embedded again next wake."""
+    storage = SQLiteStorage(tmp_db)
+    await storage.initialize()
+
+    moment = DayMoment(
+        id="m-dup",
+        content="Moment that should be embedded only once",
+        event_type=EventType.CONVERSATION,
+        salience=0.8,
+        valence=0.2,
+        drive_snapshot={},
+        timestamp=datetime.now(UTC),
+    )
+    await storage.record_moment(moment)
+
+    class _Embedder:
+        async def embed(self, content: str) -> list[float]:
+            return [0.1, 0.2, 0.3]
+
+    embedder = _Embedder()
+    await run_wake_transition(storage, embedder=embedder)
+    first_count = await storage.count_cold_embeddings()
+
+    await run_wake_transition(storage, embedder=embedder)
+    second_count = await storage.count_cold_embeddings()
+
+    assert first_count == 1
+    assert second_count == 1
+    assert await storage.get_unprocessed_moments() == []
+
+    await storage.close()

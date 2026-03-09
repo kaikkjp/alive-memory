@@ -133,6 +133,8 @@ async def run_wake_transition(
                             "salience": moment.salience,
                         },
                     )
+                    # Prevent duplicate wake embeddings on subsequent runs.
+                    await storage.mark_moment_processed(moment.id)
                     embedded += 1
                 except Exception:
                     logger.warning(

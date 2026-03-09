@@ -12,6 +12,7 @@ import pytest
 
 from alive_memory.hot.reader import MemoryReader
 from alive_memory.hot.writer import MemoryWriter
+from alive_memory.identity.drift import DriftReport
 from alive_memory.sleep import SleepConfig, nap, sleep_cycle
 from alive_memory.storage.sqlite import SQLiteStorage
 from alive_memory.types import DayMoment, EventType, SleepCycleReport
@@ -48,6 +49,43 @@ def writer(tmp_memory_dir):
 @pytest.fixture
 def reader(tmp_memory_dir):
     return MemoryReader(tmp_memory_dir)
+
+
+class _DriveProvider:
+    async def get_drive_values(self) -> dict[str, float]:
+        return {"social": 0.5}
+
+    def get_category_drive_map(self) -> dict[str, list[str]]:
+        return {"social": ["social"]}
+
+
+class _MetricsProvider:
+    async def collect_metrics(self) -> dict[str, float]:
+        return {"m": 0.1}
+
+
+class _FailingMetricsProvider:
+    async def collect_metrics(self) -> dict[str, float]:
+        raise RuntimeError("metrics exploded")
+
+
+class _WakeHooks:
+    async def manage_threads(self, dormant_hours: int, archive_days: int) -> int:
+        return 1
+
+    async def cleanup_pool(self, max_unseen: int) -> int:
+        return 2
+
+    async def reset_drives(self, defaults: dict[str, float], preserve: list[str]) -> None:
+        return None
+
+    async def update_self_files(self) -> None:
+        return None
+
+
+class _CorrectionProvider:
+    def __init__(self):
+        self.request_correction = AsyncMock(return_value=True)
 
 
 # ── Test 1: Minimal sleep_cycle ──────────────────────────────────
@@ -212,3 +250,143 @@ async def test_sleep_report_duration(storage, writer, reader):
     """Assert duration_seconds > 0 after any sleep_cycle() call."""
     report = await sleep_cycle(storage, writer, reader, llm=None)
     assert report.duration_seconds > 0
+
+
+@pytest.mark.asyncio
+async def test_meta_review_runs_with_drive_provider(storage, writer, reader):
+    """Meta-review should run when a DriveProvider is supplied."""
+    report = await sleep_cycle(
+        storage,
+        writer,
+        reader,
+        llm=None,
+        drive_provider=_DriveProvider(),
+        sleep_config=SleepConfig(
+            enable_identity_evolution=False,
+            enable_meta_controller=False,
+            enable_wake=False,
+        ),
+    )
+    assert "meta_review" in report.phases_completed
+    assert all("meta_review" not in err for err in report.errors)
+
+
+@pytest.mark.asyncio
+async def test_meta_controller_metric_collection_fault_tolerant(storage, writer, reader):
+    """Metric collection failures should be non-fatal when fault_tolerant=True."""
+    report = await sleep_cycle(
+        storage,
+        writer,
+        reader,
+        llm=None,
+        metrics_provider=_FailingMetricsProvider(),
+        sleep_config=SleepConfig(
+            fault_tolerant=True,
+            enable_identity_evolution=False,
+            enable_meta_review=False,
+            enable_wake=False,
+        ),
+    )
+    assert "meta_controller" not in report.phases_completed
+    assert any("metric collection failed" in err for err in report.errors)
+
+
+@pytest.mark.asyncio
+async def test_meta_controller_metric_collection_non_fault_tolerant_raises(storage, writer, reader):
+    """Metric collection failures should raise when fault_tolerant=False."""
+    with pytest.raises(RuntimeError, match="metrics exploded"):
+        await sleep_cycle(
+            storage,
+            writer,
+            reader,
+            llm=None,
+            metrics_provider=_FailingMetricsProvider(),
+            sleep_config=SleepConfig(
+                fault_tolerant=False,
+                enable_identity_evolution=False,
+                enable_meta_review=False,
+                enable_wake=False,
+            ),
+        )
+
+
+@pytest.mark.asyncio
+async def test_wake_phase_reports_completion_only_on_success(storage, writer, reader):
+    """Wake completion flag should track real wake phase success."""
+    report = await sleep_cycle(
+        storage,
+        writer,
+        reader,
+        llm=None,
+        wake_hooks=_WakeHooks(),
+        sleep_config=SleepConfig(
+            enable_identity_evolution=False,
+            enable_meta_review=False,
+            enable_meta_controller=False,
+        ),
+    )
+    assert "wake" in report.phases_completed
+    assert report.wake_completed is True
+
+
+@pytest.mark.asyncio
+async def test_wake_phase_failure_does_not_mark_completed(storage, writer, reader):
+    """Wake completion should remain False if wake phase fails."""
+    with patch(
+        "alive_memory.consolidation.wake.run_wake_transition",
+        new_callable=AsyncMock,
+        side_effect=RuntimeError("wake exploded"),
+    ):
+        report = await sleep_cycle(
+            storage,
+            writer,
+            reader,
+            llm=None,
+            wake_hooks=_WakeHooks(),
+            sleep_config=SleepConfig(
+                enable_identity_evolution=False,
+                enable_meta_review=False,
+                enable_meta_controller=False,
+                fault_tolerant=True,
+            ),
+        )
+    assert "wake" not in report.phases_completed
+    assert report.wake_completed is False
+    assert any("wake exploded" in err for err in report.errors)
+
+
+@pytest.mark.asyncio
+async def test_correction_provider_is_used_in_identity_phase(storage, writer, reader):
+    """Identity evolution should call correction provider for moderate-confidence drift."""
+    drift = DriftReport(
+        trait="warmth",
+        direction="increase",
+        magnitude=0.25,
+        old_value=0.4,
+        new_value=0.65,
+        confidence=0.5,
+        window_cycles=4,
+    )
+    correction_provider = _CorrectionProvider()
+
+    with patch(
+        "alive_memory.identity.drift.detect_drift",
+        new_callable=AsyncMock,
+        return_value=[drift],
+    ):
+        report = await sleep_cycle(
+            storage,
+            writer,
+            reader,
+            llm=None,
+            correction_provider=correction_provider,
+            sleep_config=SleepConfig(
+                enable_meta_review=False,
+                enable_meta_controller=False,
+                enable_wake=False,
+            ),
+        )
+
+    correction_provider.request_correction.assert_awaited_once()
+    assert report.drift_detected is True
+    assert report.evolution_decisions[0].action == "correct"

@@ -64,6 +64,23 @@ async def _run_phase(
         raise
 
 
+async def _collect_metrics(
+    provider: Any,
+    report: SleepCycleReport,
+    fault_tolerant: bool,
+) -> dict[str, float] | None:
+    """Collect metrics while honoring fault-tolerant mode."""
+    try:
+        return await provider.collect_metrics()
+    except Exception as exc:
+        msg = f"Phase 'meta_controller' metric collection failed: {exc}"
+        logger.error(msg, exc_info=True)
+        if fault_tolerant:
+            report.errors.append(msg)
+            return None
+        raise
+
+
 async def sleep_cycle(
     storage: BaseStorage,
     writer: MemoryWriter,
@@ -164,7 +181,7 @@ async def sleep_cycle(
         else:
             await _run_phase(
                 "meta_review",
-                run_meta_review(storage, drive_provider, config=cfg),
+                run_meta_review(storage, drive_provider=drive_provider, config=cfg),
                 report,
                 ft,
             )
@@ -176,29 +193,28 @@ async def sleep_cycle(
         except ImportError:
             logger.warning("Meta-controller module not available, skipping phase")
         else:
-            # Collect metrics from provider
-            metrics = await metrics_provider.collect_metrics()
-
-            # Run controller
-            experiments = await _run_phase(
-                "meta_controller",
-                run_meta_controller(
-                    storage,
-                    metrics,
-                    metric_targets or [],
-                    config=cfg,
-                ),
-                report,
-                ft,
-            )
-            if experiments:
-                report.parameters_adjusted = len(experiments)
+            metrics = await _collect_metrics(metrics_provider, report, ft)
+            if metrics is not None:
+                # Run controller
+                experiments = await _run_phase(
+                    "meta_controller",
+                    run_meta_controller(
+                        storage,
+                        metrics,
+                        metric_targets or [],
+                        config=cfg,
+                    ),
+                    report,
+                    ft,
+                )
+                if experiments:
+                    report.parameters_adjusted = len(experiments)
 
     # ── Phase 5: Identity evolution ──────────────────────────────
     if sc.enable_identity_evolution:
         try:
             from alive_memory.identity.drift import detect_drift
-            from alive_memory.identity.evolution import apply_decision, evaluate_drift
+            from alive_memory.identity.evolution import GuardRailConfig, IdentityEvolution
         except ImportError:
             logger.warning("Identity modules not available, skipping phase")
         else:
@@ -210,11 +226,17 @@ async def sleep_cycle(
             )
             if drift_reports:
                 report.drift_detected = True
+                evolution = IdentityEvolution(
+                    storage,
+                    guard_rails=GuardRailConfig(
+                        protected_traits=protected_traits or {}
+                    ),
+                    correction_provider=correction_provider,
+                )
+                evolution.reset_sleep_counter()
                 for dr in drift_reports:
-                    decision = await evaluate_drift(
-                        dr, storage, protected_traits=protected_traits, config=cfg
-                    )
-                    await apply_decision(decision, storage)
+                    decision = await evolution.evaluate(dr)
+                    await evolution.apply(decision)
                     report.evolution_decisions.append(decision)
 
     # ── Phase 6: Wake ────────────────────────────────────────────
@@ -226,16 +248,18 @@ async def sleep_cycle(
         else:
             from alive_memory.consolidation.wake import WakeConfig as _WakeConfig
 
-            wake_result = await _run_phase(
+            wake_report = await _run_phase(
                 "wake",
                 run_wake_transition(
-                    storage, hooks=wake_hooks, embedder=embedder, config=_WakeConfig()
+                    storage,
+                    hooks=wake_hooks,
+                    embedder=embedder,
+                    config=_WakeConfig(),
                 ),
                 report,
                 ft,
             )
-            if wake_result is not None:
-                report.wake_completed = True
+            report.wake_completed = wake_report is not None
 
     # ── Finalize ─────────────────────────────────────────────────
     report.duration_seconds = time.monotonic() - start
