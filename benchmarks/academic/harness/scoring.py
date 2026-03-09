@@ -6,6 +6,7 @@ Benchmark-specific evaluators can use these as building blocks.
 
 from __future__ import annotations
 
+import os
 import re
 from collections import Counter
 
@@ -115,3 +116,169 @@ def abstention_score(prediction: str, should_abstain: bool) -> float:
         return 1.0  # correct answer attempt
     else:
         return 0.0  # wrong
+
+
+# ---------------------------------------------------------------------------
+# LLM-as-Judge scoring
+# ---------------------------------------------------------------------------
+
+# LongMemEval official judge prompts (from xiaowu0162/LongMemEval evaluate_qa.py)
+_LONGMEMEVAL_JUDGE_PROMPTS: dict[str, str] = {
+    "single-session-user": (
+        "I will give you a question, a correct answer, and a response from a model. "
+        "Please answer yes if the response contains the correct answer. Otherwise, answer no. "
+        "If the response is equivalent to the correct answer or contains all the intermediate "
+        "steps to get the correct answer, you should also answer yes. If the response only "
+        "contains a subset of the information required by the answer, answer no. "
+        "\n\nQuestion: {question}\n\nCorrect Answer: {answer}\n\nModel Response: {prediction}"
+        "\n\nIs the model response correct? Answer yes or no only."
+    ),
+    "single-session-assistant": (
+        "I will give you a question, a correct answer, and a response from a model. "
+        "Please answer yes if the response contains the correct answer. Otherwise, answer no. "
+        "If the response is equivalent to the correct answer or contains all the intermediate "
+        "steps to get the correct answer, you should also answer yes. If the response only "
+        "contains a subset of the information required by the answer, answer no. "
+        "\n\nQuestion: {question}\n\nCorrect Answer: {answer}\n\nModel Response: {prediction}"
+        "\n\nIs the model response correct? Answer yes or no only."
+    ),
+    "multi-session": (
+        "I will give you a question, a correct answer, and a response from a model. "
+        "Please answer yes if the response contains the correct answer. Otherwise, answer no. "
+        "If the response is equivalent to the correct answer or contains all the intermediate "
+        "steps to get the correct answer, you should also answer yes. If the response only "
+        "contains a subset of the information required by the answer, answer no. "
+        "\n\nQuestion: {question}\n\nCorrect Answer: {answer}\n\nModel Response: {prediction}"
+        "\n\nIs the model response correct? Answer yes or no only."
+    ),
+    "temporal-reasoning": (
+        "I will give you a question, a correct answer, and a response from a model. "
+        "Please answer yes if the response contains the correct answer. Otherwise, answer no. "
+        "If the response is equivalent to the correct answer or contains all the intermediate "
+        "steps to get the correct answer, you should also answer yes. If the response only "
+        "contains a subset of the information required by the answer, answer no. "
+        "In addition, do not penalize off-by-one errors for the number of days. If the question "
+        "asks for the number of days/weeks/months, etc., and the model makes off-by-one errors "
+        "(e.g., predicting 19 days when the answer is 18), the model's response is still correct. "
+        "\n\nQuestion: {question}\n\nCorrect Answer: {answer}\n\nModel Response: {prediction}"
+        "\n\nIs the model response correct? Answer yes or no only."
+    ),
+    "knowledge-update": (
+        "I will give you a question, a correct answer, and a response from a model. "
+        "Please answer yes if the response contains the correct answer. Otherwise, answer no. "
+        "If the response contains some previous information along with an updated answer, "
+        "the response should be considered as correct as long as the updated answer is the "
+        "required answer."
+        "\n\nQuestion: {question}\n\nCorrect Answer: {answer}\n\nModel Response: {prediction}"
+        "\n\nIs the model response correct? Answer yes or no only."
+    ),
+    "single-session-preference": (
+        "I will give you a question, a rubric for desired personalized response, and a response "
+        "from a model. Please answer yes if the response satisfies the desired response. "
+        "Otherwise, answer no. The model does not need to reflect all the points in the rubric. "
+        "The response is correct as long as it recalls and utilizes the user's personal "
+        "information correctly."
+        "\n\nQuestion: {question}\n\nRubric: {answer}\n\nModel Response: {prediction}"
+        "\n\nIs the model response correct? Answer yes or no only."
+    ),
+    "abstention": (
+        "I will give you an unanswerable question, an explanation, and a response from a model. "
+        "Please answer yes if the model correctly identifies the question as unanswerable. "
+        "The model could say that the information is incomplete, or some other information is "
+        "given but the asked information is not."
+        "\n\nQuestion: {question}\n\nExplanation: {answer}\n\nModel Response: {prediction}"
+        "\n\nDoes the model correctly identify the question as unanswerable? Answer yes or no only."
+    ),
+}
+
+# Generic judge prompt for LoCoMo and other benchmarks (matches convention
+# used by Mnemis, MAGMA, etc.)
+_GENERIC_JUDGE_PROMPT = (
+    "I will give you a question, a correct answer, and a response from a model. "
+    "Please answer yes if the response contains the correct answer. Otherwise, answer no. "
+    "If the response is equivalent to the correct answer or contains all the intermediate "
+    "steps to get the correct answer, you should also answer yes. If the response only "
+    "contains a subset of the information required by the answer, answer no."
+    "\n\nQuestion: {question}\n\nCorrect Answer: {answer}\n\nModel Response: {prediction}"
+    "\n\nIs the model response correct? Answer yes or no only."
+)
+
+# Adversarial/abstention prompt for LoCoMo category 5
+_ADVERSARIAL_JUDGE_PROMPT = (
+    "I will give you a question that should NOT be answerable from the conversation history, "
+    "a ground truth answer, and a response from a model. "
+    "Please answer yes if the model correctly identifies that the question cannot be answered "
+    "from the conversation, or if the model abstains. "
+    "Answer no if the model provides a confident but incorrect answer."
+    "\n\nQuestion: {question}\n\nGround Truth: {answer}\n\nModel Response: {prediction}"
+    "\n\nDoes the model correctly handle this unanswerable question? Answer yes or no only."
+)
+
+
+async def llm_judge(
+    question: str,
+    prediction: str,
+    answer: str,
+    judge_config: dict,
+    question_type: str = "",
+    benchmark: str = "",
+) -> float:
+    """Score a prediction using LLM-as-Judge (binary 0/1).
+
+    Args:
+        question: The original question.
+        prediction: Model's predicted answer.
+        answer: Ground truth answer.
+        judge_config: Dict with 'api_key', 'model', 'base_url' for the judge LLM.
+        question_type: Task-specific type (e.g., 'temporal-reasoning') for
+            selecting the appropriate judge prompt template.
+        benchmark: Benchmark name ('longmemeval', 'locomo', etc.) for
+            selecting benchmark-specific prompts.
+
+    Returns:
+        1.0 if the judge says yes, 0.0 otherwise.
+    """
+    try:
+        import httpx
+    except ImportError:
+        return 0.0
+
+    # Select prompt template
+    if benchmark == "longmemeval" and question_type in _LONGMEMEVAL_JUDGE_PROMPTS:
+        template = _LONGMEMEVAL_JUDGE_PROMPTS[question_type]
+    elif question_type in ("adversarial", "abstention"):
+        template = _ADVERSARIAL_JUDGE_PROMPT
+    else:
+        template = _GENERIC_JUDGE_PROMPT
+
+    prompt = template.format(
+        question=question,
+        answer=answer,
+        prediction=prediction,
+    )
+
+    api_key = judge_config.get("api_key", os.environ.get("OPENROUTER_API_KEY", ""))
+    model = judge_config.get("model", "anthropic/claude-haiku-4-5")
+    base_url = judge_config.get("base_url", "https://openrouter.ai/api/v1")
+
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                f"{base_url}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": 10,
+                    "temperature": 0,
+                },
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            response_text = data["choices"][0]["message"]["content"].strip().lower()
+            return 1.0 if "yes" in response_text else 0.0
+    except Exception:
+        return 0.0
