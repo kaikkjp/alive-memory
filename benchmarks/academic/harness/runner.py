@@ -62,6 +62,7 @@ class AcademicBenchmarkRunner:
         # Phase 1+2: Ingest sessions and answer session-scoped queries
         total_turns = 0
         ingest_latencies: list[float] = []
+        consolidate_latencies: list[float] = []
         predictions: dict[str, str] = {}
         query_latencies: list[float] = []
 
@@ -74,13 +75,17 @@ class AcademicBenchmarkRunner:
 
             # Periodic consolidation
             if (i + 1) % self.consolidation_interval == 0:
+                t0 = time.perf_counter()
                 await self.system.consolidate()
+                consolidate_latencies.append((time.perf_counter() - t0) * 1000)
 
             # Answer queries scoped to this session, then reset state
             # to prevent cross-session information leakage
             session_id = session[0].session_id if session else ""
             if session_id and session_id in queries_by_session:
+                t0 = time.perf_counter()
                 await self.system.consolidate()
+                consolidate_latencies.append((time.perf_counter() - t0) * 1000)
                 for query in queries_by_session[session_id]:
                     t0 = time.perf_counter()
                     answer = await self.system.answer_query(query, self.llm_config)
@@ -94,7 +99,9 @@ class AcademicBenchmarkRunner:
                 print(f"  [{self.system.system_id}] Ingested {i + 1}/{len(sessions)} sessions ({total_turns} turns)")
 
         # Final consolidation
+        t0 = time.perf_counter()
         await self.system.consolidate()
+        consolidate_latencies.append((time.perf_counter() - t0) * 1000)
         print(f"  [{self.system.system_id}] Ingestion complete: {total_turns} turns")
 
         # Phase 2b: Answer global queries (no session_id) after all sessions
@@ -115,6 +122,7 @@ class AcademicBenchmarkRunner:
         sys_metrics = await self.system.get_metrics()
         sys_metrics.query_latencies_ms = query_latencies
         sys_metrics.ingest_latencies_ms = ingest_latencies
+        sys_metrics.consolidate_latencies_ms = consolidate_latencies
 
         # Build result
         result = BenchmarkRunResult(
@@ -174,6 +182,8 @@ def save_result(result: BenchmarkRunResult, path: str) -> None:
             "memory_count": result.system_metrics.memory_count,
             "median_query_latency_ms": result.system_metrics.median_query_latency_ms,
             "p95_query_latency_ms": result.system_metrics.p95_query_latency_ms,
+            "median_consolidate_latency_ms": result.system_metrics.median_consolidate_latency_ms,
+            "p95_consolidate_latency_ms": result.system_metrics.p95_consolidate_latency_ms,
         },
         "config": result.config,
         "eval_results": [

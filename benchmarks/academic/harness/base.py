@@ -66,6 +66,7 @@ class SystemMetrics:
     total_latency_ms: float = 0.0
     query_latencies_ms: list[float] = field(default_factory=list)
     ingest_latencies_ms: list[float] = field(default_factory=list)
+    consolidate_latencies_ms: list[float] = field(default_factory=list)
     storage_bytes: int = 0
     memory_count: int = 0
 
@@ -81,6 +82,20 @@ class SystemMetrics:
         if not self.query_latencies_ms:
             return 0.0
         s = sorted(self.query_latencies_ms)
+        return s[int(len(s) * 0.95)]
+
+    @property
+    def median_consolidate_latency_ms(self) -> float:
+        if not self.consolidate_latencies_ms:
+            return 0.0
+        s = sorted(self.consolidate_latencies_ms)
+        return s[len(s) // 2]
+
+    @property
+    def p95_consolidate_latency_ms(self) -> float:
+        if not self.consolidate_latencies_ms:
+            return 0.0
+        s = sorted(self.consolidate_latencies_ms)
         return s[int(len(s) * 0.95)]
 
 
