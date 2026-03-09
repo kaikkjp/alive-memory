@@ -10,9 +10,9 @@ Dynamic threshold, dedup guard, lowest-salience eviction.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
 from difflib import SequenceMatcher
 
+from alive_memory.clock import Clock, SystemClock
 from alive_memory.config import AliveConfig
 from alive_memory.intake.affect import compute_valence
 from alive_memory.storage.base import BaseStorage
@@ -51,6 +51,7 @@ async def form_moment(
     *,
     previous_drives: DriveState | None = None,
     config: AliveConfig | None = None,
+    clock: Clock | None = None,
 ) -> DayMoment | None:
     """Form a DayMoment from a perception, or return None if below threshold.
 
@@ -69,23 +70,32 @@ async def form_moment(
         DayMoment if the perception is salient enough, None otherwise.
     """
     cfg = config or AliveConfig()
+    _clock = clock or SystemClock()
+
+    # Read tunable constants from config (with hardcoded defaults for compat)
+    max_day_moments = cfg.get("intake.max_day_moments", MAX_DAY_MOMENTS)
+    base_threshold = cfg.get("intake.salience_threshold", BASE_THRESHOLD)
+    max_threshold = cfg.get("intake.max_salience_threshold", MAX_THRESHOLD)
+    dedup_window = cfg.get("intake.dedup_window_minutes", DEDUP_WINDOW_MINUTES)
+    dedup_similarity = cfg.get("intake.dedup_similarity", 0.85)
 
     # Compute deterministic salience
     salience = _compute_salience(perception, mood, drives, previous_drives)
 
-    # Dynamic threshold: rises from BASE_THRESHOLD → MAX_THRESHOLD as count → MAX
+    # Dynamic threshold: rises from base → max as count → capacity
     current_count = await storage.get_day_memory_count()
-    fill_ratio = min(1.0, current_count / MAX_DAY_MOMENTS)
-    threshold = BASE_THRESHOLD + (MAX_THRESHOLD - BASE_THRESHOLD) * fill_ratio
+    fill_ratio = min(1.0, current_count / max_day_moments)
+    threshold = base_threshold + (max_threshold - base_threshold) * fill_ratio
 
     if salience < threshold:
         return None
 
     # Dedup guard: reject near-duplicate content within window
+    ref_time = _clock.now().isoformat()
     recent_contents = await storage.get_recent_moment_content(
-        window_minutes=DEDUP_WINDOW_MINUTES
+        window_minutes=dedup_window, reference_time=ref_time
     )
-    if _is_duplicate(perception.content, recent_contents):
+    if _is_duplicate(perception.content, recent_contents, threshold=dedup_similarity):
         return None
 
     # Compute valence
@@ -106,12 +116,12 @@ async def form_moment(
         salience=salience,
         valence=valence,
         drive_snapshot=drive_snapshot,
-        timestamp=perception.timestamp or datetime.now(timezone.utc),
+        timestamp=perception.timestamp or _clock.now(),
         metadata=perception.metadata,
     )
 
     # Eviction: if at capacity, remove lowest-salience moment if new one is better
-    if current_count >= MAX_DAY_MOMENTS:
+    if current_count >= max_day_moments:
         lowest = await storage.get_lowest_salience_moment()
         if lowest and lowest.salience < salience:
             await storage.delete_moment(lowest.id)
@@ -190,10 +200,12 @@ def _content_richness(content: str) -> float:
     return min(0.20, length_factor + unique_ratio * 0.08 + question_bonus)
 
 
-def _is_duplicate(content: str, recent_contents: list[str]) -> bool:
+def _is_duplicate(
+    content: str, recent_contents: list[str], *, threshold: float = 0.85
+) -> bool:
     """Check if content is a near-duplicate of recent moments.
 
-    Uses SequenceMatcher for fuzzy matching. Threshold: 0.85 similarity.
+    Uses SequenceMatcher for fuzzy matching.
     """
     if not recent_contents:
         return False
@@ -201,6 +213,6 @@ def _is_duplicate(content: str, recent_contents: list[str]) -> bool:
     content_lower = content.lower().strip()
     for recent in recent_contents:
         ratio = SequenceMatcher(None, content_lower, recent.lower().strip()).ratio()
-        if ratio >= 0.85:
+        if ratio >= threshold:
             return True
     return False

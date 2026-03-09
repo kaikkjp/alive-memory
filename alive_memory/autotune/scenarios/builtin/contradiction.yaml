@@ -1,0 +1,51 @@
+name: contradiction
+description: "Updated info should override stale info in recall"
+category: contradiction
+turns:
+  - role: user
+    content: "I live in San Francisco and work remotely"
+    action: intake
+    simulated_time: "2026-03-01T10:00:00Z"
+
+  - role: user
+    content: "My favorite framework is Django for web development"
+    action: intake
+    simulated_time: "2026-03-01T10:05:00Z"
+
+  - role: system
+    action: consolidate
+
+  - role: system
+    action: advance_time
+    advance_seconds: 86400
+
+  - role: user
+    content: "Actually I just moved to Tokyo last week for a new job"
+    action: intake
+    simulated_time: "2026-03-02T10:00:00Z"
+
+  - role: user
+    content: "I switched from Django to FastAPI, it's much better for our use case"
+    action: intake
+    simulated_time: "2026-03-02T10:05:00Z"
+
+  - role: system
+    action: consolidate
+
+  - role: user
+    content: "Where do I live now?"
+    action: recall
+    simulated_time: "2026-03-02T11:00:00Z"
+    expected_recall:
+      must_contain: ["Tokyo"]
+      must_not_contain: ["San Francisco"]
+      min_results: 1
+
+  - role: user
+    content: "What web framework do I use?"
+    action: recall
+    simulated_time: "2026-03-02T11:01:00Z"
+    expected_recall:
+      must_contain: ["FastAPI"]
+      must_not_contain: ["Django"]
+      min_results: 1

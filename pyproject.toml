@@ -63,6 +63,7 @@ dev = [
 
 [project.scripts]
 alive-memory-server = "alive_memory.server.app:main"
+alive-memory-autotune = "alive_memory.autotune.cli:main"
 
 [project.urls]
 Repository = "https://github.com/TriMinhPham/Alive-sdk"

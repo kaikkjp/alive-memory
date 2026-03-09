@@ -205,15 +205,23 @@ class SQLiteStorage(BaseStorage):
         )
 
     async def get_recent_moment_content(
-        self, window_minutes: int = 30
+        self, window_minutes: int = 30, *, reference_time: str | None = None
     ) -> list[str]:
         conn = await self._get_db()
-        cursor = await conn.execute(
-            """SELECT content FROM day_memory
-               WHERE timestamp >= strftime('%Y-%m-%dT%H:%M:%S+00:00', 'now', ?)
-               ORDER BY timestamp DESC""",
-            (f"-{window_minutes} minutes",),
-        )
+        if reference_time:
+            cursor = await conn.execute(
+                """SELECT content FROM day_memory
+                   WHERE timestamp >= strftime('%Y-%m-%dT%H:%M:%S+00:00', ?, ?)
+                   ORDER BY timestamp DESC""",
+                (reference_time, f"-{window_minutes} minutes"),
+            )
+        else:
+            cursor = await conn.execute(
+                """SELECT content FROM day_memory
+                   WHERE timestamp >= strftime('%Y-%m-%dT%H:%M:%S+00:00', 'now', ?)
+                   ORDER BY timestamp DESC""",
+                (f"-{window_minutes} minutes",),
+            )
         rows = await cursor.fetchall()
         return [row["content"] for row in rows]
 

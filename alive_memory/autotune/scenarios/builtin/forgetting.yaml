@@ -1,0 +1,54 @@
+name: forgetting
+description: "Chitchat shouldn't pollute recall of important information"
+category: forgetting
+turns:
+  - role: user
+    content: "I'm allergic to peanuts, this is very important for my safety"
+    action: intake
+    simulated_time: "2026-03-01T10:00:00Z"
+
+  - role: user
+    content: "Nice weather today"
+    action: intake
+    simulated_time: "2026-03-01T10:01:00Z"
+
+  - role: user
+    content: "Yeah it's pretty sunny outside"
+    action: intake
+    simulated_time: "2026-03-01T10:02:00Z"
+
+  - role: user
+    content: "I wonder if it'll rain later"
+    action: intake
+    simulated_time: "2026-03-01T10:03:00Z"
+
+  - role: user
+    content: "The clouds look like they might bring rain"
+    action: intake
+    simulated_time: "2026-03-01T10:04:00Z"
+
+  - role: user
+    content: "But who knows with weather these days"
+    action: intake
+    simulated_time: "2026-03-01T10:05:00Z"
+
+  - role: user
+    content: "Weather has been unpredictable lately"
+    action: intake
+    simulated_time: "2026-03-01T10:06:00Z"
+
+  - role: user
+    content: "Anyway, back to what I was saying"
+    action: intake
+    simulated_time: "2026-03-01T10:07:00Z"
+
+  - role: system
+    action: consolidate
+
+  - role: user
+    content: "Do I have any food allergies?"
+    action: recall
+    simulated_time: "2026-03-01T10:10:00Z"
+    expected_recall:
+      must_contain: ["peanut"]
+      min_results: 1

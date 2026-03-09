@@ -7,9 +7,10 @@ Kept: event-to-perception conversion, salience scoring.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
+from alive_memory.clock import Clock, SystemClock
 from alive_memory.config import AliveConfig
 from alive_memory.types import EventType, Perception
 
@@ -21,6 +22,7 @@ def perceive(
     config: AliveConfig | None = None,
     metadata: dict[str, Any] | None = None,
     timestamp: datetime | None = None,
+    clock: Clock | None = None,
 ) -> Perception:
     """Convert a raw event into a structured Perception.
 
@@ -45,7 +47,8 @@ def perceive(
     else:
         et = event_type
 
-    ts = timestamp or datetime.now(timezone.utc)
+    _clock = clock or SystemClock()
+    ts = timestamp or _clock.now()
     meta = metadata or {}
 
     # Compute salience

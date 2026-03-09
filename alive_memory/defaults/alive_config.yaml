@@ -8,6 +8,11 @@ intake:
   base_salience: 0.5
   conversation_boost: 0.2     # Conversations get salience bump
   novelty_weight: 0.3
+  max_day_moments: 30         # Capacity before eviction kicks in
+  salience_threshold: 0.35    # Min salience to record a moment
+  max_salience_threshold: 0.55  # Threshold when at capacity
+  dedup_window_minutes: 30    # Window for duplicate detection
+  dedup_similarity: 0.85      # Fuzzy match threshold for dedup
 
 drives:
   equilibrium_pull: 0.02      # Rate drives return to 0.5

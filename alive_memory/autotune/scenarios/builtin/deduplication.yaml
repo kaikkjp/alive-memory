@@ -1,0 +1,57 @@
+name: deduplication
+description: "Same fact stated 5 different ways, should dedup correctly"
+category: dedup
+turns:
+  - role: user
+    content: "I really love Thai food, especially pad thai"
+    action: intake
+    simulated_time: "2026-03-01T10:00:00Z"
+
+  - role: user
+    content: "Thai cuisine is my absolute favorite, pad thai in particular"
+    action: intake
+    simulated_time: "2026-03-01T10:01:00Z"
+
+  - role: user
+    content: "My favorite food is Thai, I especially enjoy pad thai"
+    action: intake
+    simulated_time: "2026-03-01T10:02:00Z"
+
+  - role: user
+    content: "I could eat pad thai every day, Thai food is the best"
+    action: intake
+    simulated_time: "2026-03-01T10:03:00Z"
+
+  - role: user
+    content: "Nothing beats a good pad thai from a Thai restaurant"
+    action: intake
+    simulated_time: "2026-03-01T10:04:00Z"
+
+  - role: user
+    content: "I also play guitar in a jazz band on Thursdays"
+    action: intake
+    simulated_time: "2026-03-01T10:10:00Z"
+
+  - role: user
+    content: "My cat is named Whiskers and she's a tabby"
+    action: intake
+    simulated_time: "2026-03-01T10:15:00Z"
+
+  - role: system
+    action: consolidate
+
+  - role: user
+    content: "What food do I like?"
+    action: recall
+    simulated_time: "2026-03-01T10:20:00Z"
+    expected_recall:
+      must_contain: ["Thai", "pad thai"]
+      min_results: 1
+
+  - role: user
+    content: "What musical instrument do I play?"
+    action: recall
+    simulated_time: "2026-03-01T10:21:00Z"
+    expected_recall:
+      must_contain: ["guitar"]
+      min_results: 1

@@ -81,9 +81,14 @@ class BaseStorage(ABC):
 
     @abstractmethod
     async def get_recent_moment_content(
-        self, window_minutes: int = 30
+        self, window_minutes: int = 30, *, reference_time: str | None = None
     ) -> list[str]:
-        """Get content of recent moments for dedup checking."""
+        """Get content of recent moments for dedup checking.
+
+        Args:
+            window_minutes: How many minutes back to look.
+            reference_time: ISO 8601 reference time (defaults to wall clock).
+        """
         ...
 
     # ── Cold Embeddings (Tier 3) ──────────────────────────────────

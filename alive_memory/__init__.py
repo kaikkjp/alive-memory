@@ -26,10 +26,11 @@ from __future__ import annotations
 __version__ = "0.3.0"
 
 import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from alive_memory.clock import Clock, SystemClock
 from alive_memory.config import AliveConfig
 from alive_memory.consolidation.wake import WakeConfig, WakeHooks
 from alive_memory.embeddings.base import EmbeddingProvider
@@ -145,6 +146,7 @@ class AliveMemory:
         config: AliveConfig | dict | str | None = None,
         llm: LLMProvider | str | None = None,
         embedder: EmbeddingProvider | str | None = None,
+        clock: Clock | None = None,
     ):
         """Initialize AliveMemory.
 
@@ -195,6 +197,9 @@ class AliveMemory:
 
         self._writer = MemoryWriter(self._memory_dir)
         self._reader = MemoryReader(self._memory_dir)
+
+        # Clock
+        self._clock = clock or SystemClock()
 
         # Track previous drives for salience delta calculation
         self._prev_drives: DriveState | None = None
@@ -260,10 +265,10 @@ class AliveMemory:
         Returns:
             DayMoment if the event was salient enough to record, None otherwise.
         """
-        from alive_memory.intake.thalamus import perceive
         from alive_memory.intake.affect import apply_affect
         from alive_memory.intake.drives import update_drives, update_mood
         from alive_memory.intake.formation import form_moment
+        from alive_memory.intake.thalamus import perceive
 
         # Step 1: Perceive
         perception = perceive(
@@ -271,6 +276,7 @@ class AliveMemory:
             config=self._config,
             metadata=metadata,
             timestamp=timestamp,
+            clock=self._clock,
         )
 
         # Step 2: Affect lens
@@ -306,6 +312,7 @@ class AliveMemory:
             perception, new_mood, new_drives, self._storage,
             previous_drives=self._prev_drives,
             config=self._config,
+            clock=self._clock,
         )
 
         return moment
@@ -490,7 +497,7 @@ class AliveMemory:
             salience=1.0,
             valence=0.0,
             drive_snapshot={"curiosity": 0.5, "social": 0.5, "expression": 0.5, "rest": 0.5},
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             metadata={"origin": "injected", "title": title or "backstory"},
         )
 
@@ -558,6 +565,46 @@ class AliveMemory:
         """Get a summary of identity development over time."""
         from alive_memory.identity.history import summarize_development
         return await summarize_development(self._storage)
+
+    # ── Autotune ─────────────────────────────────────────────────
+
+    async def autotune(
+        self,
+        budget: int = 50,
+        scenarios: str = "builtin",
+        *,
+        scoring_weights: dict | None = None,
+        verbose: bool = True,
+    ) -> Any:
+        """Run parameter auto-tuning.
+
+        Args:
+            budget: Number of iterations.
+            scenarios: "builtin" or path to custom scenario directory.
+            scoring_weights: Override default MemoryScore weights.
+            verbose: Print progress during tuning.
+
+        Returns:
+            AutotuneResult with best_config, experiment_log, and report.
+        """
+        from alive_memory.autotune import AutotuneConfig
+        from alive_memory.autotune import autotune as _autotune
+
+        result = await _autotune(
+            config=self._config,
+            autotune_config=AutotuneConfig(
+                budget=budget,
+                scenarios=scenarios,
+                scoring_weights=scoring_weights,
+                verbose=verbose,
+            ),
+        )
+        return result
+
+    def apply_tuned_config(self, result: Any) -> None:
+        """Apply an AutotuneResult's best config to this instance."""
+        for key, value in result.best_config.items():
+            self._config.set(key, value)
 
     # ── Quickstart ────────────────────────────────────────────────
 
