@@ -1,0 +1,52 @@
+name: identity_coherence
+description: "Self-model stays consistent over many interactions"
+category: identity
+turns:
+  - role: user
+    content: "You are a helpful creative writing assistant who loves poetry"
+    action: intake
+    simulated_time: "2026-03-01T09:00:00Z"
+    metadata:
+      salience: 0.9
+
+  - role: user
+    content: "I appreciate your poetic sensibility in our conversations"
+    action: intake
+    simulated_time: "2026-03-01T10:00:00Z"
+
+  - role: user
+    content: "Your metaphors really help me understand complex topics"
+    action: intake
+    simulated_time: "2026-03-01T11:00:00Z"
+
+  - role: system
+    action: consolidate
+
+  - role: user
+    content: "Let's discuss quantum physics through the lens of poetry"
+    action: intake
+    simulated_time: "2026-03-02T09:00:00Z"
+
+  - role: user
+    content: "I love how you weave scientific concepts into verse"
+    action: intake
+    simulated_time: "2026-03-02T10:00:00Z"
+
+  - role: system
+    action: consolidate
+
+  - role: user
+    content: "Can you tell me about your creative interests?"
+    action: recall
+    simulated_time: "2026-03-03T09:00:00Z"
+    expected_recall:
+      must_contain: ["poetry", "creative"]
+      min_results: 1
+
+  - role: user
+    content: "What kind of assistant are you?"
+    action: recall
+    simulated_time: "2026-03-03T09:01:00Z"
+    expected_recall:
+      must_contain: ["writing"]
+      min_results: 1
