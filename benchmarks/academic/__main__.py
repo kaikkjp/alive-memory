@@ -92,6 +92,8 @@ async def cmd_run(args):
                 config = {"seed": seed}
                 if args.llm_model:
                     config["llm_model"] = args.llm_model
+                if args.api_key:
+                    config["api_key"] = args.api_key
                 await system.setup(config)
 
                 runner = AcademicBenchmarkRunner(
