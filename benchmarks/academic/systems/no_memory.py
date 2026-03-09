@@ -39,6 +39,9 @@ class NoMemorySystem(MemorySystemAdapter):
             tracker=self._tracker,
         )
 
+    async def reset(self) -> None:
+        self._tracker = LLMTracker()
+
     async def get_metrics(self) -> SystemMetrics:
         return SystemMetrics(
             total_llm_calls=self._tracker.total_calls,

@@ -39,3 +39,7 @@ coverage.xml
 # Claude Code runtime
 .claude/worktrees/
 .claude/settings.local.json
+
+# Benchmark data (large datasets)
+benchmarks/academic/data/
+benchmarks/results/
