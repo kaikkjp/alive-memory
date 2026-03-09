@@ -36,7 +36,12 @@ class SummaryMemorySystem(MemorySystemAdapter):
         self._tracker = LLMTracker()
         self._pending_turns = []
         self._summarize_every = config.get("summarize_every", 20)
-        self._llm_config = config  # preserve for summarization calls
+        # Build llm_config with keys that llm_answer() expects
+        self._llm_config: dict = {}
+        if "llm_model" in config:
+            self._llm_config["model"] = config["llm_model"]
+        if "api_key" in config:
+            self._llm_config["api_key"] = config["api_key"]
 
     async def add_conversation(self, turns: list[ConversationTurn]) -> None:
         for turn in turns:

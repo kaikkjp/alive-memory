@@ -48,6 +48,7 @@ class AliveMemorySystem(MemorySystemAdapter):
         return "alive"
 
     async def setup(self, config: dict) -> None:
+        self._setup_config = config  # preserve for reset() re-initialization
         self._tmp_dir = tempfile.mkdtemp(prefix="bench_alive_academic_")
         self._db_path = os.path.join(self._tmp_dir, "bench.db")
         memory_dir = os.path.join(self._tmp_dir, "memory")
@@ -178,8 +179,10 @@ class AliveMemorySystem(MemorySystemAdapter):
     async def reset(self) -> None:
         if self._memory:
             await self._memory.close()
-        self._memory = None
-        # Re-setup would be needed
+            self._memory = None
+        # Reinitialize with the original config so subsequent sessions work
+        if hasattr(self, "_setup_config"):
+            await self.setup(self._setup_config)
 
     async def teardown(self) -> None:
         if self._memory:
