@@ -40,89 +40,68 @@ class AcademicBenchmarkRunner:
     async def run(self, seed: int = 42) -> BenchmarkRunResult:
         """Run the full benchmark pipeline.
 
-        Queries are answered after their scoped session is ingested. Memory
-        state is preserved across sessions by default (required for benchmarks
-        like LongMemEval multi_session_reasoning). Set reset_between_sessions=True
-        only for benchmarks with truly independent sessions.
-        Queries without a session_id are answered after all sessions.
+        Uses get_instances() to obtain independent evaluation units.
+        The system is reset between instances to prevent cross-contamination.
+        Within each instance, sessions are ingested and then queries answered.
         """
         print(f"  [{self.system.system_id}] Loading dataset {self.dataset.benchmark_id}...")
-        sessions = self.dataset.get_sessions()
-        queries = self.dataset.get_queries()
-        ground_truth = self.dataset.get_ground_truth()
+        instances = self.dataset.get_instances()
+        total_queries = sum(len(qs) for _, qs, _ in instances)
 
-        print(f"  [{self.system.system_id}] {len(sessions)} sessions, {len(queries)} queries")
+        print(f"  [{self.system.system_id}] {len(instances)} instances, {total_queries} queries")
 
-        # Index queries by session_id for isolated evaluation
-        queries_by_session: dict[str, list] = {}
-        global_queries: list = []
-        for q in queries:
-            if q.session_id:
-                queries_by_session.setdefault(q.session_id, []).append(q)
-            else:
-                global_queries.append(q)
-
-        # Phase 1+2: Ingest sessions and answer session-scoped queries
         total_turns = 0
         ingest_latencies: list[float] = []
         consolidate_latencies: list[float] = []
         predictions: dict[str, str] = {}
         query_latencies: list[float] = []
+        all_ground_truth: dict[str, "GroundTruth"] = {}
 
-        for i, session in enumerate(sessions):
-            t0 = time.perf_counter()
-            await self.system.add_conversation(session)
-            elapsed_ms = (time.perf_counter() - t0) * 1000
-            ingest_latencies.append(elapsed_ms)
-            total_turns += len(session)
+        for inst_idx, (sessions, queries, ground_truth) in enumerate(instances):
+            all_ground_truth.update(ground_truth)
 
-            # Periodic consolidation
-            if (i + 1) % self.consolidation_interval == 0:
+            # Ingest all sessions for this instance
+            for i, session in enumerate(sessions):
                 t0 = time.perf_counter()
-                await self.system.consolidate()
-                consolidate_latencies.append((time.perf_counter() - t0) * 1000)
+                await self.system.add_conversation(session)
+                elapsed_ms = (time.perf_counter() - t0) * 1000
+                ingest_latencies.append(elapsed_ms)
+                total_turns += len(session)
 
-            # Answer queries scoped to this session, then reset state
-            # to prevent cross-session information leakage
-            session_id = session[0].session_id if session else ""
-            if session_id and session_id in queries_by_session:
-                t0 = time.perf_counter()
-                await self.system.consolidate()
-                consolidate_latencies.append((time.perf_counter() - t0) * 1000)
-                for query in queries_by_session[session_id]:
+                # Periodic consolidation
+                if (i + 1) % self.consolidation_interval == 0:
                     t0 = time.perf_counter()
-                    answer = await self.system.answer_query(query, self.llm_config)
-                    elapsed_ms = (time.perf_counter() - t0) * 1000
-                    query_latencies.append(elapsed_ms)
-                    predictions[query.query_id] = answer
-                # Only reset if sessions are explicitly independent
-                if self.reset_between_sessions:
-                    await self.system.reset()
+                    await self.system.consolidate()
+                    consolidate_latencies.append((time.perf_counter() - t0) * 1000)
 
-            if (i + 1) % 10 == 0:
-                print(f"  [{self.system.system_id}] Ingested {i + 1}/{len(sessions)} sessions ({total_turns} turns)")
-
-        # Final consolidation
-        t0 = time.perf_counter()
-        await self.system.consolidate()
-        consolidate_latencies.append((time.perf_counter() - t0) * 1000)
-        print(f"  [{self.system.system_id}] Ingestion complete: {total_turns} turns")
-
-        # Phase 2b: Answer global queries (no session_id) after all sessions
-        for i, query in enumerate(global_queries):
+            # Consolidate before answering queries
             t0 = time.perf_counter()
-            answer = await self.system.answer_query(query, self.llm_config)
-            elapsed_ms = (time.perf_counter() - t0) * 1000
-            query_latencies.append(elapsed_ms)
-            predictions[query.query_id] = answer
+            await self.system.consolidate()
+            consolidate_latencies.append((time.perf_counter() - t0) * 1000)
 
-        answered = len(predictions)
-        print(f"  [{self.system.system_id}] All {answered} queries answered")
+            # Answer all queries for this instance
+            for query in queries:
+                t0 = time.perf_counter()
+                answer = await self.system.answer_query(query, self.llm_config)
+                elapsed_ms = (time.perf_counter() - t0) * 1000
+                query_latencies.append(elapsed_ms)
+                predictions[query.query_id] = answer
 
-        # Phase 3: Evaluate
-        eval_results = await self.dataset.evaluate(predictions, ground_truth)
+            # Reset between instances
+            if inst_idx < len(instances) - 1:
+                await self.system.reset()
 
-        # Phase 4: Collect metrics
+            answered = len(predictions)
+            print(f"  [{self.system.system_id}] Instance {inst_idx + 1}/{len(instances)}: "
+                  f"{len(sessions)} sessions, {len(queries)} queries, "
+                  f"{answered} total answered")
+
+        print(f"  [{self.system.system_id}] Done: {total_turns} turns, {len(predictions)} queries answered")
+
+        # Evaluate
+        eval_results = await self.dataset.evaluate(predictions, all_ground_truth)
+
+        # Collect metrics
         sys_metrics = await self.system.get_metrics()
         sys_metrics.query_latencies_ms = query_latencies
         sys_metrics.ingest_latencies_ms = ingest_latencies
@@ -138,7 +117,6 @@ class AcademicBenchmarkRunner:
             seed=seed,
         )
 
-        # Aggregate scores
         result.aggregate_scores = _aggregate(eval_results)
         result.scores_by_category = _aggregate_by_category(eval_results)
 

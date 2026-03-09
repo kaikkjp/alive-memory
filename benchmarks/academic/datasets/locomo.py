@@ -56,6 +56,8 @@ class LoCoMoDataset(DatasetAdapter):
         self._sessions: list[list[ConversationTurn]] = []
         self._queries: list[MemoryQuery] = []
         self._ground_truth: dict[str, GroundTruth] = {}
+        # Per-sample instances for isolated evaluation
+        self._instances: list[tuple[list[list[ConversationTurn]], list[MemoryQuery], dict[str, GroundTruth]]] = []
         self._loaded = False
 
     @property
@@ -98,6 +100,9 @@ class LoCoMoDataset(DatasetAdapter):
             self._queries.extend(queries)
             self._ground_truth.update(gt)
             total_qa += len(queries)
+
+            # Store per-sample instance for isolated evaluation
+            self._instances.append((sessions, queries, gt))
 
         self._loaded = True
         print(f"  [locomo] Loaded {len(raw)} conversations, "
@@ -200,6 +205,12 @@ class LoCoMoDataset(DatasetAdapter):
     def get_ground_truth(self) -> dict[str, GroundTruth]:
         return self._ground_truth
 
+    def get_instances(
+        self,
+    ) -> list[tuple[list[list[ConversationTurn]], list[MemoryQuery], dict[str, GroundTruth]]]:
+        """Return per-sample instances. Each LoCoMo conversation is independent."""
+        return self._instances
+
     async def evaluate(
         self,
         predictions: dict[str, str],
@@ -225,21 +236,23 @@ class LoCoMoDataset(DatasetAdapter):
                     "accuracy": abst,
                 }
             elif gt.category == "multi_hop":
-                # Multi-hop: split answer on ';', average F1 across parts
+                # Multi-hop: check containment of each sub-answer, then
+                # compute overall F1 against the full answer string
                 sub_answers = [a.strip() for a in gt.answer.split(";") if a.strip()]
                 if not sub_answers:
                     sub_answers = [gt.answer]
-                part_f1s = []
-                for sub_ans in sub_answers:
-                    f1_scores = token_f1(pred, sub_ans)
-                    part_f1s.append(f1_scores["f1"])
-                avg_f1 = sum(part_f1s) / len(part_f1s) if part_f1s else 0.0
+                # Check how many sub-answers are present in prediction
+                hits = sum(1 for sa in sub_answers if substring_match(pred, [sa]) > 0)
+                sub_hit_rate = hits / len(sub_answers) if sub_answers else 0.0
 
+                # F1 against full answer (not split)
+                f1_scores = token_f1(pred, gt.answer)
                 rl_scores = rouge_l(pred, gt.answer)
                 scores = {
-                    "f1": avg_f1,
+                    "f1": f1_scores["f1"],
+                    "sub_hit_rate": sub_hit_rate,
                     "rouge_l_f1": rl_scores["rouge_l_f1"],
-                    "accuracy": 1.0 if avg_f1 > 0.5 else 0.0,
+                    "accuracy": max(sub_hit_rate, 1.0 if f1_scores["f1"] > 0.5 else 0.0),
                 }
             else:
                 # Standard: token F1

@@ -65,6 +65,8 @@ class LongMemEvalDataset(DatasetAdapter):
         self._sessions: list[list[ConversationTurn]] = []
         self._queries: list[MemoryQuery] = []
         self._ground_truth: dict[str, GroundTruth] = {}
+        # Per-question instances for isolated evaluation
+        self._instances: list[tuple[list[list[ConversationTurn]], list[MemoryQuery], dict[str, GroundTruth]]] = []
         self._loaded = False
 
     @property
@@ -103,9 +105,8 @@ class LongMemEvalDataset(DatasetAdapter):
 
         raw = json.loads(data_file.read_text())
 
-        # Deduplicate sessions across all questions
+        # Each question has its own haystack — build per-question instances
         seen_session_ids: set[str] = set()
-        all_sessions: list[list[ConversationTurn]] = []
 
         for item in raw:
             question_id = item["question_id"]
@@ -118,37 +119,42 @@ class LongMemEvalDataset(DatasetAdapter):
             else:
                 ability = _TYPE_TO_ABILITY.get(question_type, question_type)
 
-            # Collect unique sessions from this question's haystack
+            # Parse this question's haystack sessions
             haystack_ids = item.get("haystack_session_ids", [])
             haystack_dates = item.get("haystack_dates", [])
             haystack_sessions = item.get("haystack_sessions", [])
 
+            question_sessions: list[list[ConversationTurn]] = []
             for idx, (sess_id, session_turns) in enumerate(
                 zip(haystack_ids, haystack_sessions)
             ):
+                date = haystack_dates[idx] if idx < len(haystack_dates) else ""
+                turns = self._parse_session(sess_id, session_turns, date)
+                if turns:
+                    question_sessions.append(turns)
+                # Track globally for get_sessions()
                 if sess_id not in seen_session_ids:
                     seen_session_ids.add(sess_id)
-                    date = haystack_dates[idx] if idx < len(haystack_dates) else ""
-                    turns = self._parse_session(sess_id, session_turns, date)
                     if turns:
-                        all_sessions.append(turns)
+                        self._sessions.append(turns)
 
             # Build query
             answer = item.get("answer", "")
-            self._queries.append(MemoryQuery(
+            query = MemoryQuery(
                 query_id=question_id,
                 question=item["question"],
                 category=ability,
-                session_id="",  # global query (needs all sessions)
+                session_id="",
                 metadata={
                     "question_type": question_type,
                     "question_date": item.get("question_date", ""),
                     "answer_session_ids": item.get("answer_session_ids", []),
                     "is_abstention": is_abstention,
                 },
-            ))
+            )
+            self._queries.append(query)
 
-            self._ground_truth[question_id] = GroundTruth(
+            gt_entry = GroundTruth(
                 query_id=question_id,
                 answer=str(answer),
                 category=ability,
@@ -158,13 +164,21 @@ class LongMemEvalDataset(DatasetAdapter):
                     "question_type": question_type,
                 },
             )
+            self._ground_truth[question_id] = gt_entry
 
-        self._sessions = all_sessions
+            # Per-question instance: own haystack + single query
+            self._instances.append((
+                question_sessions,
+                [query],
+                {question_id: gt_entry},
+            ))
+
         self._loaded = True
 
         abs_count = sum(1 for q in self._queries
                         if q.metadata.get("is_abstention"))
-        print(f"  [longmemeval] Loaded {len(self._sessions)} unique sessions, "
+        print(f"  [longmemeval] Loaded {len(self._instances)} instances "
+              f"({len(self._sessions)} unique sessions), "
               f"{len(self._queries)} questions ({abs_count} abstention), "
               f"from {data_file.name}")
 
@@ -198,6 +212,12 @@ class LongMemEvalDataset(DatasetAdapter):
 
     def get_ground_truth(self) -> dict[str, GroundTruth]:
         return self._ground_truth
+
+    def get_instances(
+        self,
+    ) -> list[tuple[list[list[ConversationTurn]], list[MemoryQuery], dict[str, GroundTruth]]]:
+        """Return per-question instances. Each question has its own haystack."""
+        return self._instances
 
     async def evaluate(
         self,

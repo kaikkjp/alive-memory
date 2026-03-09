@@ -164,6 +164,20 @@ class DatasetAdapter(ABC):
         """Return distinct query categories in this benchmark."""
         return list({q.category for q in self.get_queries()})
 
+    def get_instances(
+        self,
+    ) -> list[tuple[list[list["ConversationTurn"]], list["MemoryQuery"], dict[str, "GroundTruth"]]]:
+        """Return independent evaluation instances.
+
+        Each instance is (sessions, queries, ground_truth) that should be
+        evaluated in isolation. The system is reset between instances.
+
+        By default, returns a single instance with all data (no isolation).
+        Override for benchmarks with independent samples (e.g., LoCoMo)
+        or per-question haystacks (e.g., LongMemEval).
+        """
+        return [(self.get_sessions(), self.get_queries(), self.get_ground_truth())]
+
 
 class MemorySystemAdapter(ABC):
     """Wraps a memory system for use in the academic benchmark harness.
