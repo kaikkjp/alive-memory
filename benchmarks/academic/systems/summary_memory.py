@@ -51,7 +51,6 @@ class SummaryMemorySystem(MemorySystemAdapter):
             return
 
         new_content = "\n".join(self._pending_turns)
-        self._pending_turns = []
 
         prompt = (
             f"You are maintaining a running summary of a conversation.\n\n"
@@ -71,6 +70,8 @@ class SummaryMemorySystem(MemorySystemAdapter):
 
         if not answer.startswith("[error"):
             self._summary = answer
+            self._pending_turns = []
+        # On failure, pending turns are preserved for the next attempt
 
     async def consolidate(self) -> None:
         """Flush any pending turns into the summary."""
