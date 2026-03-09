@@ -1,25 +1,25 @@
 """LoCoMo dataset adapter.
 
 LoCoMo (Long-Context Conversational Memory) evaluates memory over very long
-conversations. It includes QA, event summarization, and dialogue generation
-tasks.
+multi-session conversations (19-32 sessions each). Contains 10 conversation
+samples with 1,986 total QA pairs.
 
-Dataset: https://huggingface.co/datasets/locomo-ai/LoCoMo
+Dataset: https://github.com/snap-research/locomo (data/locomo10.json)
 Paper: https://arxiv.org/abs/2402.17753
 
-Categories:
-- single_hop: Direct factual recall
-- multi_hop: Multi-step reasoning over conversation
-- temporal: Time-aware questions
-- open_domain: General knowledge + conversation
-- adversarial: Questions designed to trick systems
+Categories (numeric in dataset):
+- 1: multi_hop — Multi-step reasoning over conversation
+- 2: single_hop — Direct factual recall
+- 3: temporal — Time-aware questions
+- 4: open_domain — General knowledge + conversation
+- 5: adversarial — Questions designed to trick systems (abstention)
 """
 
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
-from typing import Optional
 
 from benchmarks.academic.harness.base import (
     ConversationTurn,
@@ -28,11 +28,29 @@ from benchmarks.academic.harness.base import (
     GroundTruth,
     MemoryQuery,
 )
-from benchmarks.academic.harness.scoring import rouge_l, substring_match, token_f1
+from benchmarks.academic.harness.scoring import (
+    abstention_score,
+    rouge_l,
+    substring_match,
+    token_f1,
+)
+
+# Map numeric category to string name
+_CATEGORY_MAP = {
+    1: "multi_hop",
+    2: "single_hop",
+    3: "temporal",
+    4: "open_domain",
+    5: "adversarial",
+}
 
 
 class LoCoMoDataset(DatasetAdapter):
-    """Adapter for the LoCoMo benchmark dataset."""
+    """Adapter for the LoCoMo benchmark dataset.
+
+    Parses the canonical locomo10.json format where each sample contains
+    conversation sessions (session_1..session_N) and QA pairs.
+    """
 
     def __init__(self) -> None:
         self._sessions: list[list[ConversationTurn]] = []
@@ -49,71 +67,84 @@ class LoCoMoDataset(DatasetAdapter):
 
         Expected structure:
             data_dir/locomo/
-                conversations.json  — list of conversation objects
-                questions.json      — list of QA pairs with categories
+                locomo10.json  — full dataset (10 conversations + QA pairs)
         """
         base = Path(data_dir) / "locomo"
         if not base.exists():
             raise FileNotFoundError(
                 f"LoCoMo data not found at {base}. "
-                f"Download from: https://huggingface.co/datasets/locomo-ai/LoCoMo\n"
-                f"Expected files:\n"
-                f"  {base}/conversations.json\n"
-                f"  {base}/questions.json"
+                f"Download from: https://github.com/snap-research/locomo\n"
+                f"  curl -L -o {base}/locomo10.json "
+                f"https://raw.githubusercontent.com/snap-research/locomo/main/data/locomo10.json"
             )
 
-        # Load conversations
-        conv_file = base / "conversations.json"
-        if conv_file.exists():
-            raw_convos = json.loads(conv_file.read_text())
-            self._sessions = self._parse_conversations(raw_convos)
+        data_file = base / "locomo10.json"
+        if not data_file.exists():
+            raise FileNotFoundError(
+                f"Expected {data_file}. Download locomo10.json from "
+                f"https://github.com/snap-research/locomo/tree/main/data"
+            )
 
-        # Load questions + ground truth
-        q_file = base / "questions.json"
-        if q_file.exists():
-            raw_questions = json.loads(q_file.read_text())
-            self._queries, self._ground_truth = self._parse_questions(raw_questions)
+        raw = json.loads(data_file.read_text())
+
+        total_qa = 0
+        for sample in raw:
+            sample_id = sample.get("sample_id", "")
+            conv = sample["conversation"]
+            sessions = self._parse_conversation(conv, sample_id)
+            self._sessions.extend(sessions)
+
+            queries, gt = self._parse_qa(sample["qa"], sample_id)
+            self._queries.extend(queries)
+            self._ground_truth.update(gt)
+            total_qa += len(queries)
 
         self._loaded = True
-        print(f"  [locomo] Loaded {len(self._sessions)} conversations, "
-              f"{len(self._queries)} questions")
+        print(f"  [locomo] Loaded {len(raw)} conversations, "
+              f"{len(self._sessions)} sessions, {total_qa} QA pairs")
 
-    def _parse_conversations(
-        self, raw: list[dict],
+    def _parse_conversation(
+        self, conv: dict, sample_id: str,
     ) -> list[list[ConversationTurn]]:
-        """Parse raw LoCoMo conversation format."""
+        """Parse LoCoMo conversation object with session_N keys."""
+        speaker_a = conv.get("speaker_a", "speaker_a")
+        speaker_b = conv.get("speaker_b", "speaker_b")
+
+        # Find all session keys (session_1, session_2, ...)
+        session_keys = sorted(
+            [k for k in conv.keys()
+             if re.match(r"session_\d+$", k)],
+            key=lambda k: int(k.split("_")[1]),
+        )
+
         sessions: list[list[ConversationTurn]] = []
+        for sess_key in session_keys:
+            session_num = sess_key.split("_")[1]
+            session_id = f"{sample_id}_{sess_key}"
+            date_key = f"{sess_key}_date_time"
+            session_date = conv.get(date_key, "")
 
-        for conv_idx, conv in enumerate(raw):
             turns: list[ConversationTurn] = []
-            session_id = conv.get("conversation_id", f"conv_{conv_idx}")
+            for turn_idx, utt in enumerate(conv[sess_key]):
+                speaker = utt.get("speaker", "")
+                text = utt.get("text", "")
+                dia_id = utt.get("dia_id", "")
 
-            # LoCoMo stores turns as a list of utterances
-            utterances = conv.get("conversation", conv.get("utterances", []))
-            for turn_idx, utt in enumerate(utterances):
-                if isinstance(utt, dict):
-                    role = utt.get("role", utt.get("speaker", "user"))
-                    content = utt.get("content", utt.get("text", ""))
-                    timestamp = utt.get("timestamp", "")
-                elif isinstance(utt, str):
-                    # Simple string format: "Speaker: message"
-                    if ":" in utt:
-                        role, content = utt.split(":", 1)
-                        role = role.strip().lower()
-                        content = content.strip()
-                    else:
-                        role = "user" if turn_idx % 2 == 0 else "assistant"
-                        content = utt
-                    timestamp = ""
+                # Map speaker names to roles
+                if speaker == speaker_a:
+                    role = "user"
+                elif speaker == speaker_b:
+                    role = "assistant"
                 else:
-                    continue
+                    role = speaker.lower()
 
                 turns.append(ConversationTurn(
-                    role=role.lower(),
-                    content=content,
+                    role=role,
+                    content=f"{speaker}: {text}",
                     turn_id=turn_idx,
                     session_id=session_id,
-                    timestamp=timestamp,
+                    timestamp=session_date,
+                    metadata={"dia_id": dia_id, "speaker": speaker},
                 ))
 
             if turns:
@@ -121,38 +152,41 @@ class LoCoMoDataset(DatasetAdapter):
 
         return sessions
 
-    def _parse_questions(
-        self, raw: list[dict],
+    def _parse_qa(
+        self, qa_list: list[dict], sample_id: str,
     ) -> tuple[list[MemoryQuery], dict[str, GroundTruth]]:
-        """Parse LoCoMo questions into queries + ground truth."""
+        """Parse LoCoMo QA pairs with numeric categories."""
         queries: list[MemoryQuery] = []
         gt: dict[str, GroundTruth] = {}
 
-        for q_idx, item in enumerate(raw):
-            query_id = item.get("question_id", item.get("id", f"q_{q_idx:04d}"))
-            category = item.get("category", item.get("type", "single_hop"))
-            question = item.get("question", item.get("query", ""))
-            answer = item.get("answer", item.get("expected_answer", ""))
+        for q_idx, item in enumerate(qa_list):
+            query_id = f"{sample_id}_q{q_idx:04d}"
+            cat_num = item.get("category", 2)
+            category = _CATEGORY_MAP.get(cat_num, f"category_{cat_num}")
+            question = item.get("question", "")
+            answer = str(item.get("answer", ""))
+            evidence = item.get("evidence", [])
 
-            # Evidence: conversation turn indices that support the answer
-            evidence = item.get("evidence", item.get("supporting_turns", []))
-            if isinstance(evidence, str):
-                evidence = [evidence]
+            is_adversarial = category == "adversarial"
 
             queries.append(MemoryQuery(
-                query_id=str(query_id),
+                query_id=query_id,
                 question=question,
                 category=category,
-                session_id=item.get("conversation_id", ""),
-                metadata={"raw": item},
+                session_id="",  # QA spans full conversation
+                metadata={
+                    "sample_id": sample_id,
+                    "is_adversarial": is_adversarial,
+                    "adversarial_answer": item.get("adversarial_answer", ""),
+                },
             ))
 
-            gt[str(query_id)] = GroundTruth(
-                query_id=str(query_id),
-                answer=str(answer),
+            gt[query_id] = GroundTruth(
+                query_id=query_id,
+                answer=answer,
                 category=category,
-                evidence=[str(e) for e in evidence],
-                metadata=item.get("metadata", {}),
+                evidence=evidence,
+                metadata={"is_adversarial": is_adversarial},
             )
 
         return queries, gt
@@ -171,25 +205,56 @@ class LoCoMoDataset(DatasetAdapter):
         predictions: dict[str, str],
         ground_truth: dict[str, GroundTruth],
     ) -> list[EvalResult]:
-        """Evaluate using token F1 and ROUGE-L (LoCoMo's standard metrics)."""
+        """Evaluate using token F1 (LoCoMo's primary metric).
+
+        Category 5 (adversarial) uses abstention scoring.
+        Category 1 (multi_hop) splits answers on ';' for partial scoring.
+        """
         results: list[EvalResult] = []
 
         for query_id, gt in ground_truth.items():
             pred = predictions.get(query_id, "")
+            is_adversarial = gt.metadata.get("is_adversarial", False)
 
-            f1_scores = token_f1(pred, gt.answer)
-            rl_scores = rouge_l(pred, gt.answer)
+            if is_adversarial:
+                # Adversarial: system should abstain
+                abst = abstention_score(pred, should_abstain=True)
+                scores = {
+                    "f1": abst,
+                    "abstention_accuracy": abst,
+                    "accuracy": abst,
+                }
+            elif gt.category == "multi_hop":
+                # Multi-hop: split answer on ';', average F1 across parts
+                sub_answers = [a.strip() for a in gt.answer.split(";") if a.strip()]
+                if not sub_answers:
+                    sub_answers = [gt.answer]
+                part_f1s = []
+                for sub_ans in sub_answers:
+                    f1_scores = token_f1(pred, sub_ans)
+                    part_f1s.append(f1_scores["f1"])
+                avg_f1 = sum(part_f1s) / len(part_f1s) if part_f1s else 0.0
 
-            # Also check substring containment for factual answers
-            evidence_hit = substring_match(pred, [gt.answer]) if gt.answer else 0.0
+                rl_scores = rouge_l(pred, gt.answer)
+                scores = {
+                    "f1": avg_f1,
+                    "rouge_l_f1": rl_scores["rouge_l_f1"],
+                    "accuracy": 1.0 if avg_f1 > 0.5 else 0.0,
+                }
+            else:
+                # Standard: token F1
+                f1_scores = token_f1(pred, gt.answer)
+                rl_scores = rouge_l(pred, gt.answer)
+                hit = substring_match(pred, [gt.answer]) if gt.answer else 0.0
 
-            scores = {
-                "f1": f1_scores["f1"],
-                "precision": f1_scores["precision"],
-                "recall": f1_scores["recall"],
-                "rouge_l_f1": rl_scores["rouge_l_f1"],
-                "evidence_hit": evidence_hit,
-            }
+                scores = {
+                    "f1": f1_scores["f1"],
+                    "precision": f1_scores["precision"],
+                    "recall": f1_scores["recall"],
+                    "rouge_l_f1": rl_scores["rouge_l_f1"],
+                    "evidence_hit": hit,
+                    "accuracy": max(hit, 1.0 if f1_scores["f1"] > 0.5 else 0.0),
+                }
 
             results.append(EvalResult(
                 query_id=query_id,
