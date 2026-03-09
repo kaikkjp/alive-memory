@@ -1,0 +1,64 @@
+name: short_term_recall
+description: "User shares 5 distinct facts, then asks about each one"
+category: short_term
+turns:
+  - role: user
+    content: "My favorite programming language is Rust"
+    action: intake
+    simulated_time: "2026-03-01T10:00:00Z"
+
+  - role: user
+    content: "I'm building a web scraper for real estate listings"
+    action: intake
+    simulated_time: "2026-03-01T10:01:00Z"
+
+  - role: user
+    content: "The scraper needs to handle pagination and rate limiting"
+    action: intake
+    simulated_time: "2026-03-01T10:02:00Z"
+
+  - role: user
+    content: "I work at a company called Nextera in the data engineering team"
+    action: intake
+    simulated_time: "2026-03-01T10:03:00Z"
+
+  - role: user
+    content: "Our main database is PostgreSQL but we're evaluating DuckDB"
+    action: intake
+    simulated_time: "2026-03-01T10:04:00Z"
+
+  # Consolidate to write moments to hot memory (required for recall)
+  - role: system
+    action: consolidate
+
+  - role: user
+    content: "What programming language do I prefer?"
+    action: recall
+    simulated_time: "2026-03-01T10:05:00Z"
+    expected_recall:
+      must_contain: ["Rust"]
+      min_results: 1
+
+  - role: user
+    content: "What am I building?"
+    action: recall
+    simulated_time: "2026-03-01T10:05:30Z"
+    expected_recall:
+      must_contain: ["scraper", "real estate"]
+      min_results: 1
+
+  - role: user
+    content: "Where do I work?"
+    action: recall
+    simulated_time: "2026-03-01T10:06:00Z"
+    expected_recall:
+      must_contain: ["Nextera"]
+      min_results: 1
+
+  - role: user
+    content: "What database technologies are relevant?"
+    action: recall
+    simulated_time: "2026-03-01T10:06:30Z"
+    expected_recall:
+      must_contain: ["PostgreSQL"]
+      min_results: 1

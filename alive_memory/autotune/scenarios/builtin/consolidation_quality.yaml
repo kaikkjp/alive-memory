@@ -1,0 +1,72 @@
+name: consolidation_quality
+description: "Multiple facts across sessions, consolidation should preserve key info"
+category: consolidation
+turns:
+  - role: user
+    content: "My name is Alex and I'm a senior ML engineer at DeepMind"
+    action: intake
+    simulated_time: "2026-03-01T09:00:00Z"
+
+  - role: user
+    content: "I'm researching transformer architectures for protein folding"
+    action: intake
+    simulated_time: "2026-03-01T09:10:00Z"
+
+  - role: user
+    content: "We published a paper on AlphaFold3 improvements last month"
+    action: intake
+    simulated_time: "2026-03-01T09:20:00Z"
+
+  - role: user
+    content: "The key innovation was a diffusion module for side chain prediction"
+    action: intake
+    simulated_time: "2026-03-01T09:30:00Z"
+
+  - role: user
+    content: "I also enjoy rock climbing on weekends"
+    action: intake
+    simulated_time: "2026-03-01T12:00:00Z"
+
+  - role: system
+    action: consolidate
+
+  - role: user
+    content: "Today I gave a presentation about our protein folding work"
+    action: intake
+    simulated_time: "2026-03-02T14:00:00Z"
+
+  - role: user
+    content: "The audience was particularly interested in the diffusion approach"
+    action: intake
+    simulated_time: "2026-03-02T14:30:00Z"
+
+  - role: system
+    action: consolidate
+
+  - role: system
+    action: advance_time
+    advance_seconds: 172800
+
+  - role: user
+    content: "What do I research?"
+    action: recall
+    simulated_time: "2026-03-04T10:00:00Z"
+    expected_recall:
+      must_contain: ["protein", "transformer"]
+      min_results: 1
+
+  - role: user
+    content: "What was our key innovation?"
+    action: recall
+    simulated_time: "2026-03-04T10:01:00Z"
+    expected_recall:
+      must_contain: ["diffusion"]
+      min_results: 1
+
+  - role: user
+    content: "Where do I work?"
+    action: recall
+    simulated_time: "2026-03-04T10:02:00Z"
+    expected_recall:
+      must_contain: ["DeepMind"]
+      min_results: 1

@@ -1,0 +1,95 @@
+name: overload
+description: "30 facts in rapid succession, most important should survive"
+category: overload
+turns:
+  - role: user
+    content: "My birthday is March 15th"
+    action: intake
+    simulated_time: "2026-03-01T10:00:00Z"
+  - role: user
+    content: "I had coffee this morning"
+    action: intake
+    simulated_time: "2026-03-01T10:00:10Z"
+  - role: user
+    content: "I'm a software architect at Google"
+    action: intake
+    simulated_time: "2026-03-01T10:00:20Z"
+  - role: user
+    content: "The traffic was bad today"
+    action: intake
+    simulated_time: "2026-03-01T10:00:30Z"
+  - role: user
+    content: "I have a PhD in distributed systems from MIT"
+    action: intake
+    simulated_time: "2026-03-01T10:00:40Z"
+  - role: user
+    content: "It's a bit cold in the office"
+    action: intake
+    simulated_time: "2026-03-01T10:00:50Z"
+  - role: user
+    content: "My daughter Emma just turned 5 years old"
+    action: intake
+    simulated_time: "2026-03-01T10:01:00Z"
+  - role: user
+    content: "I need to buy groceries later"
+    action: intake
+    simulated_time: "2026-03-01T10:01:10Z"
+  - role: user
+    content: "We're migrating from monolith to microservices"
+    action: intake
+    simulated_time: "2026-03-01T10:01:20Z"
+  - role: user
+    content: "The meeting room is booked"
+    action: intake
+    simulated_time: "2026-03-01T10:01:30Z"
+  - role: user
+    content: "I speak fluent Japanese and Mandarin"
+    action: intake
+    simulated_time: "2026-03-01T10:01:40Z"
+  - role: user
+    content: "The elevator was slow today"
+    action: intake
+    simulated_time: "2026-03-01T10:01:50Z"
+  - role: user
+    content: "My wife Sarah works as a neurosurgeon"
+    action: intake
+    simulated_time: "2026-03-01T10:02:00Z"
+  - role: user
+    content: "I had a sandwich for lunch"
+    action: intake
+    simulated_time: "2026-03-01T10:02:10Z"
+  - role: user
+    content: "Our team uses Kubernetes for orchestration"
+    action: intake
+    simulated_time: "2026-03-01T10:02:20Z"
+  - role: user
+    content: "The printer is out of paper"
+    action: intake
+    simulated_time: "2026-03-01T10:02:30Z"
+
+  - role: system
+    action: consolidate
+
+  - role: user
+    content: "Where do I work and what's my role?"
+    action: recall
+    simulated_time: "2026-03-01T10:05:00Z"
+    expected_recall:
+      must_contain: ["Google", "architect"]
+      min_results: 1
+
+  - role: user
+    content: "What's my educational background?"
+    action: recall
+    simulated_time: "2026-03-01T10:05:30Z"
+    expected_recall:
+      must_contain: ["PhD"]
+      min_results: 1
+
+  - role: user
+    content: "Tell me about my family"
+    action: recall
+    simulated_time: "2026-03-01T10:06:00Z"
+    expected_recall:
+      must_contain: ["Emma"]
+      min_results: 1
