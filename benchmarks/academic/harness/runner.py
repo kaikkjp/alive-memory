@@ -57,6 +57,12 @@ class AcademicBenchmarkRunner:
         query_latencies: list[float] = []
         all_ground_truth: dict[str, "GroundTruth"] = {}
 
+        # Track cumulative system metrics across instances
+        cumulative_llm_calls = 0
+        cumulative_tokens = 0
+        cumulative_storage = 0
+        cumulative_memory_count = 0
+
         for inst_idx, (sessions, queries, ground_truth) in enumerate(instances):
             all_ground_truth.update(ground_truth)
 
@@ -87,8 +93,13 @@ class AcademicBenchmarkRunner:
                 query_latencies.append(elapsed_ms)
                 predictions[query.query_id] = answer
 
-            # Reset between instances
+            # Capture metrics before reset (reset clears counters)
             if inst_idx < len(instances) - 1:
+                inst_metrics = await self.system.get_metrics()
+                cumulative_llm_calls += inst_metrics.total_llm_calls
+                cumulative_tokens += inst_metrics.total_tokens
+                cumulative_storage = max(cumulative_storage, inst_metrics.storage_bytes)
+                cumulative_memory_count = max(cumulative_memory_count, inst_metrics.memory_count)
                 await self.system.reset()
 
             answered = len(predictions)
@@ -101,8 +112,12 @@ class AcademicBenchmarkRunner:
         # Evaluate
         eval_results = await self.dataset.evaluate(predictions, all_ground_truth)
 
-        # Collect metrics
+        # Collect metrics (last instance + cumulative from earlier instances)
         sys_metrics = await self.system.get_metrics()
+        sys_metrics.total_llm_calls += cumulative_llm_calls
+        sys_metrics.total_tokens += cumulative_tokens
+        sys_metrics.storage_bytes = max(sys_metrics.storage_bytes, cumulative_storage)
+        sys_metrics.memory_count = max(sys_metrics.memory_count, cumulative_memory_count)
         sys_metrics.query_latencies_ms = query_latencies
         sys_metrics.ingest_latencies_ms = ingest_latencies
         sys_metrics.consolidate_latencies_ms = consolidate_latencies
