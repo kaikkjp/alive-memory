@@ -60,8 +60,8 @@ class AliveMemorySystem(MemorySystemAdapter):
         self._llm_calls = 0
         self._llm_tokens = 0
 
-        openrouter_key = os.environ.get("OPENROUTER_API_KEY")
-        anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
+        openrouter_key = config.get("api_key", os.environ.get("OPENROUTER_API_KEY", ""))
+        anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
 
         try:
             from alive_memory.llm.provider import LLMResponse
@@ -180,6 +180,13 @@ class AliveMemorySystem(MemorySystemAdapter):
         if self._memory:
             await self._memory.close()
             self._memory = None
+        # Clean up old temp directory to avoid leaking storage
+        old_tmp = self._tmp_dir
+        if old_tmp and os.path.isdir(old_tmp):
+            import shutil
+            shutil.rmtree(old_tmp, ignore_errors=True)
+        self._tmp_dir = None
+        self._db_path = None
         # Reinitialize with the original config so subsequent sessions work
         if hasattr(self, "_setup_config"):
             await self.setup(self._setup_config)

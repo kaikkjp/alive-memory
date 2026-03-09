@@ -29,19 +29,22 @@ class AcademicBenchmarkRunner:
         system: MemorySystemAdapter,
         llm_config: Optional[dict] = None,
         consolidation_interval: int = 500,
+        reset_between_sessions: bool = False,
     ):
         self.dataset = dataset
         self.system = system
         self.llm_config = llm_config or {}
         self.consolidation_interval = consolidation_interval
+        self.reset_between_sessions = reset_between_sessions
 
     async def run(self, seed: int = 42) -> BenchmarkRunResult:
         """Run the full benchmark pipeline.
 
-        Queries are answered in session-isolated order: after each session
-        is ingested, any queries scoped to that session are answered before
-        the next session is loaded. This prevents cross-session information
-        leakage. Queries without a session_id are answered after all sessions.
+        Queries are answered after their scoped session is ingested. Memory
+        state is preserved across sessions by default (required for benchmarks
+        like LongMemEval multi_session_reasoning). Set reset_between_sessions=True
+        only for benchmarks with truly independent sessions.
+        Queries without a session_id are answered after all sessions.
         """
         print(f"  [{self.system.system_id}] Loading dataset {self.dataset.benchmark_id}...")
         sessions = self.dataset.get_sessions()
@@ -92,8 +95,9 @@ class AcademicBenchmarkRunner:
                     elapsed_ms = (time.perf_counter() - t0) * 1000
                     query_latencies.append(elapsed_ms)
                     predictions[query.query_id] = answer
-                # Reset memory state between independent sessions
-                await self.system.reset()
+                # Only reset if sessions are explicitly independent
+                if self.reset_between_sessions:
+                    await self.system.reset()
 
             if (i + 1) % 10 == 0:
                 print(f"  [{self.system.system_id}] Ingested {i + 1}/{len(sessions)} sessions ({total_turns} turns)")
