@@ -18,6 +18,7 @@ DATASET_REGISTRY = {
     "locomo": ("benchmarks.academic.datasets.locomo", "LoCoMoDataset"),
     "longmemeval": ("benchmarks.academic.datasets.longmemeval", "LongMemEvalDataset"),
     "memoryagentbench": ("benchmarks.academic.datasets.memoryagentbench", "MemoryAgentBenchDataset"),
+    "memoryarena": ("benchmarks.academic.datasets.memoryarena", "MemoryArenaDataset"),
 }
 
 SYSTEM_REGISTRY = {

@@ -1,12 +1,16 @@
-"""MemoryAgentBench dataset adapter.
+"""MemoryArena dataset adapter.
 
-MemoryAgentBench evaluates memory in incremental multi-turn agent settings:
-- Accurate Retrieval (AR): finding relevant past information
-- Test-Time Learning (TTL): adapting from accumulated context
-- Long-Range Understanding (LRU): connecting distant events
-- Conflict Resolution (CR): resolving contradictory information
+MemoryArena evaluates interdependent multi-session agentic memory across
+four task families:
+- Web navigation
+- Preference-constrained planning
+- Progressive information search
+- Sequential formal reasoning
 
-Paper: https://arxiv.org/abs/2501.14200
+Paper: states release at project site.
+
+Note: This is a Phase 2 adapter. The dataset format will be finalized
+once the MemoryArena dataset is publicly released.
 """
 
 from __future__ import annotations
@@ -24,26 +28,20 @@ from benchmarks.academic.harness.base import (
 from benchmarks.academic.harness.scoring import exact_match, substring_match, token_f1
 
 
-CATEGORIES = [
-    "accurate_retrieval",
-    "test_time_learning",
-    "long_range_understanding",
-    "conflict_resolution",
+TASK_FAMILIES = [
+    "web_navigation",
+    "preference_planning",
+    "progressive_search",
+    "sequential_reasoning",
 ]
 
-# Map legacy category names to standardized names
-_CATEGORY_ALIASES = {
-    "retrieval": "accurate_retrieval",
-    "ar": "accurate_retrieval",
-    "ttl": "test_time_learning",
-    "lru": "long_range_understanding",
-    "selective_forgetting": "conflict_resolution",
-    "cr": "conflict_resolution",
-}
 
+class MemoryArenaDataset(DatasetAdapter):
+    """Adapter for the MemoryArena benchmark dataset.
 
-class MemoryAgentBenchDataset(DatasetAdapter):
-    """Adapter for the MemoryAgentBench benchmark dataset."""
+    MemoryArena is reserved for Phase 2 because it exposes weaknesses not
+    visible on long-context memory benchmarks alone.
+    """
 
     def __init__(self) -> None:
         self._sessions: list[list[ConversationTurn]] = []
@@ -53,56 +51,55 @@ class MemoryAgentBenchDataset(DatasetAdapter):
 
     @property
     def benchmark_id(self) -> str:
-        return "memoryagentbench"
+        return "memoryarena"
 
     async def load(self, data_dir: str, split: str = "test") -> None:
-        """Load MemoryAgentBench dataset.
+        """Load MemoryArena dataset.
 
         Expected structure:
-            data_dir/memoryagentbench/
-                episodes.json   — multi-turn agent episodes
-                questions.json  — evaluation queries by category
+            data_dir/memoryarena/
+                tasks.json    — multi-session agentic tasks
+                queries.json  — evaluation queries by task family
         """
-        base = Path(data_dir) / "memoryagentbench"
+        base = Path(data_dir) / "memoryarena"
         if not base.exists():
             raise FileNotFoundError(
-                f"MemoryAgentBench data not found at {base}. "
-                f"See: https://arxiv.org/abs/2501.14200\n"
+                f"MemoryArena data not found at {base}. "
+                f"This is a Phase 2 benchmark — dataset may not be released yet.\n"
                 f"Expected files:\n"
-                f"  {base}/episodes.json\n"
-                f"  {base}/questions.json"
+                f"  {base}/tasks.json\n"
+                f"  {base}/queries.json"
             )
 
-        # Load episodes as sessions
-        episodes_file = base / "episodes.json"
-        if episodes_file.exists():
-            raw_episodes = json.loads(episodes_file.read_text())
-            self._sessions = self._parse_episodes(raw_episodes)
+        # Load tasks as sessions
+        tasks_file = base / "tasks.json"
+        if tasks_file.exists():
+            raw_tasks = json.loads(tasks_file.read_text())
+            self._sessions = self._parse_tasks(raw_tasks)
 
-        # Load questions
-        q_file = base / "questions.json"
+        # Load queries
+        q_file = base / "queries.json"
         if q_file.exists():
             raw_questions = json.loads(q_file.read_text())
-            self._queries, self._ground_truth = self._parse_questions(raw_questions)
+            self._queries, self._ground_truth = self._parse_queries(raw_questions)
 
         self._loaded = True
-        print(f"  [memoryagentbench] Loaded {len(self._sessions)} episodes, "
-              f"{len(self._queries)} questions")
+        print(f"  [memoryarena] Loaded {len(self._sessions)} task sessions, "
+              f"{len(self._queries)} queries")
 
-    def _parse_episodes(
+    def _parse_tasks(
         self, raw: list[dict],
     ) -> list[list[ConversationTurn]]:
-        """Parse agent episodes into conversation turn format."""
+        """Parse agentic task sessions."""
         sessions: list[list[ConversationTurn]] = []
 
-        for ep_idx, episode in enumerate(raw):
+        for task_idx, task in enumerate(raw):
             turns: list[ConversationTurn] = []
-            session_id = episode.get("episode_id", f"ep_{ep_idx}")
+            session_id = task.get("task_id", f"arena_{task_idx}")
 
-            steps = episode.get("steps", episode.get("turns", episode.get("interactions", [])))
+            steps = task.get("steps", task.get("interactions", []))
             for step_idx, step in enumerate(steps):
                 if isinstance(step, dict):
-                    # Agent episodes may have: observation, action, feedback
                     role = step.get("role", step.get("type", "user"))
                     content = step.get("content", step.get("text", ""))
                     if not content and "observation" in step:
@@ -130,17 +127,16 @@ class MemoryAgentBenchDataset(DatasetAdapter):
 
         return sessions
 
-    def _parse_questions(
+    def _parse_queries(
         self, raw: list[dict],
     ) -> tuple[list[MemoryQuery], dict[str, GroundTruth]]:
-        """Parse evaluation queries."""
+        """Parse evaluation queries by task family."""
         queries: list[MemoryQuery] = []
         gt: dict[str, GroundTruth] = {}
 
         for q_idx, item in enumerate(raw):
-            query_id = item.get("question_id", item.get("id", f"mab_q_{q_idx:04d}"))
-            raw_category = item.get("category", item.get("type", "accurate_retrieval"))
-            category = _CATEGORY_ALIASES.get(raw_category, raw_category)
+            query_id = item.get("query_id", item.get("id", f"arena_q_{q_idx:04d}"))
+            category = item.get("task_family", item.get("category", "web_navigation"))
             question = item.get("question", item.get("query", ""))
             answer = item.get("answer", item.get("expected_answer", ""))
 
@@ -148,7 +144,7 @@ class MemoryAgentBenchDataset(DatasetAdapter):
                 query_id=str(query_id),
                 question=question,
                 category=category,
-                session_id=item.get("episode_id", ""),
+                session_id=item.get("task_id", ""),
                 metadata={"raw": item},
             ))
 
@@ -175,7 +171,7 @@ class MemoryAgentBenchDataset(DatasetAdapter):
         predictions: dict[str, str],
         ground_truth: dict[str, GroundTruth],
     ) -> list[EvalResult]:
-        """Evaluate using task completion rate and accuracy."""
+        """Evaluate using task completion and accuracy."""
         results: list[EvalResult] = []
 
         for query_id, gt in ground_truth.items():
@@ -185,7 +181,6 @@ class MemoryAgentBenchDataset(DatasetAdapter):
             em = exact_match(pred, gt.answer)
             hit = substring_match(pred, [gt.answer])
 
-            # Task completion: generous — any meaningful match counts
             task_complete = max(em, hit, 1.0 if f1_scores["f1"] > 0.5 else 0.0)
 
             scores = {

@@ -233,6 +233,47 @@ class TestFullContextSystem:
 # --- CLI test ---
 
 
+class TestConsolidateMetrics:
+    def test_median_empty(self):
+        m = SystemMetrics()
+        assert m.median_consolidate_latency_ms == 0.0
+
+    def test_median(self):
+        m = SystemMetrics(consolidate_latencies_ms=[50, 100, 150, 200, 250])
+        assert m.median_consolidate_latency_ms == 150.0
+
+    def test_p95(self):
+        m = SystemMetrics(consolidate_latencies_ms=list(range(100)))
+        assert m.p95_consolidate_latency_ms == 95.0
+
+
+class TestMemoryAgentBenchCategories:
+    def test_categories(self):
+        from benchmarks.academic.datasets.memoryagentbench import CATEGORIES, _CATEGORY_ALIASES
+
+        assert "accurate_retrieval" in CATEGORIES
+        assert "conflict_resolution" in CATEGORIES
+        assert "selective_forgetting" not in CATEGORIES
+        assert _CATEGORY_ALIASES["retrieval"] == "accurate_retrieval"
+        assert _CATEGORY_ALIASES["selective_forgetting"] == "conflict_resolution"
+
+
+class TestMemoryArenaDataset:
+    def test_benchmark_id(self):
+        from benchmarks.academic.datasets.memoryarena import MemoryArenaDataset
+
+        dataset = MemoryArenaDataset()
+        assert dataset.benchmark_id == "memoryarena"
+
+    def test_task_families(self):
+        from benchmarks.academic.datasets.memoryarena import TASK_FAMILIES
+
+        assert "web_navigation" in TASK_FAMILIES
+        assert "preference_planning" in TASK_FAMILIES
+        assert "progressive_search" in TASK_FAMILIES
+        assert "sequential_reasoning" in TASK_FAMILIES
+
+
 class TestCLIList:
     @pytest.mark.asyncio
     async def test_list(self, capsys):
@@ -244,4 +285,5 @@ class TestCLIList:
         await cmd_list(FakeArgs())
         captured = capsys.readouterr()
         assert "locomo" in captured.out
+        assert "memoryarena" in captured.out
         assert "alive" in captured.out
