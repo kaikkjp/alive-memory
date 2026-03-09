@@ -125,6 +125,7 @@ class TestEvaluator:
             query="test",
             recalled_text="I love Rust programming",
             expected=ExpectedRecall(must_contain=["Rust"]),
+            num_results=1,
         )
         precision, completeness = score_recall(result)
         assert precision == 1.0
@@ -136,6 +137,7 @@ class TestEvaluator:
             query="test",
             recalled_text="I love Python programming",
             expected=ExpectedRecall(must_contain=["Rust", "Go"]),
+            num_results=1,
         )
         precision, completeness = score_recall(result)
         assert precision == 1.0
@@ -147,6 +149,7 @@ class TestEvaluator:
             query="test",
             recalled_text="I use Rust and Python",
             expected=ExpectedRecall(must_contain=["Rust", "Go"]),
+            num_results=1,
         )
         _, completeness = score_recall(result)
         assert completeness == 0.5
@@ -160,10 +163,23 @@ class TestEvaluator:
                 must_contain=["Tokyo"],
                 must_not_contain=["San Francisco"],
             ),
+            num_results=1,
         )
         precision, completeness = score_recall(result)
         assert precision == 1.0
         assert completeness == 1.0
+
+    def test_score_recall_min_results_not_met(self):
+        result = RecallResult(
+            turn_index=0,
+            query="test",
+            recalled_text="I love Rust",
+            expected=ExpectedRecall(must_contain=["Rust"], min_results=3),
+            num_results=0,
+        )
+        precision, completeness = score_recall(result)
+        assert precision == 0.0
+        assert completeness == 0.0
 
     def test_score_simulation(self):
         sim_result = SimulationResult(
@@ -174,6 +190,7 @@ class TestEvaluator:
                     query="q",
                     recalled_text="found keyword",
                     expected=ExpectedRecall(must_contain=["keyword"]),
+                    num_results=1,
                     elapsed_ms=10,
                 ),
             ],

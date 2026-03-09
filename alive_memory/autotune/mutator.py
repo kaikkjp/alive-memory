@@ -69,7 +69,9 @@ def select_strategy(
     iteration: int, history: list[ExperimentRecord]
 ) -> MutationStrategy:
     """Select a mutation strategy based on iteration and history."""
-    if iteration < len(PROFILES):
+    # Use profile swaps for the first N iterations (excluding "default")
+    non_default_profiles = len(PROFILES) - 1
+    if iteration < non_default_profiles:
         return MutationStrategy.PROFILE_SWAP
 
     # If no improvement in last 5 iterations, try correlated pair
@@ -91,7 +93,8 @@ def mutate(
     diff: dict = {}
 
     if strategy == MutationStrategy.PROFILE_SWAP:
-        profile_names = list(PROFILES.keys())
+        # Skip "default" profile (it's the baseline — already evaluated)
+        profile_names = [k for k in PROFILES if k != "default"]
         idx = iteration % len(profile_names)
         profile_name = profile_names[idx]
         profile = PROFILES[profile_name]

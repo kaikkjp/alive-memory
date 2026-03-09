@@ -95,6 +95,7 @@ async def run_scenario(
                         query=turn.content,
                         recalled_text=all_text,
                         expected=turn.expected_recall,
+                        num_results=context.total_hits,
                         elapsed_ms=recall_ms,
                     )
                     result.recall_results.append(recall_result)
