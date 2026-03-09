@@ -195,6 +195,7 @@ class LoCoMoDataset(DatasetAdapter):
                 metadata={
                     "is_adversarial": is_adversarial,
                     "question": question,
+                    "adversarial_answer": item.get("adversarial_answer", ""),
                 },
             )
 
@@ -280,10 +281,15 @@ class LoCoMoDataset(DatasetAdapter):
             # LLM-as-Judge (optional)
             if judge_config:
                 q_type = "adversarial" if is_adversarial else gt.category
+                # Adversarial items have empty gt.answer; use adversarial_answer
+                judge_answer = (
+                    gt.metadata.get("adversarial_answer", gt.answer)
+                    if is_adversarial else gt.answer
+                )
                 judge_score = await llm_judge(
                     question=gt.metadata.get("question", query_id),
                     prediction=pred,
-                    answer=gt.answer,
+                    answer=judge_answer or gt.answer,
                     judge_config=judge_config,
                     question_type=q_type,
                     benchmark="locomo",
