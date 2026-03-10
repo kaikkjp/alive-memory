@@ -41,7 +41,7 @@ async def llm_answer(
         return "[error: httpx not installed]"
 
     api_key = llm_config.get("api_key", os.environ.get("OPENROUTER_API_KEY", ""))
-    model = llm_config.get("model", "anthropic/claude-haiku-4-5")
+    model = llm_config.get("model", "openai/gpt-4o-mini")
     base_url = llm_config.get("base_url", "https://openrouter.ai/api/v1")
 
     if context:
