@@ -11,6 +11,7 @@ import asyncio
 import contextvars
 import json
 import pathlib
+import re
 import struct
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -720,7 +721,7 @@ class SQLiteStorage(BaseStorage):
 
     async def search_totems(self, query: str, *, limit: int = 10) -> list[Totem]:
         conn = await self._get_db()
-        keywords = [kw.lower() for kw in query.split() if len(kw) >= 2]
+        keywords = [kw for kw in (re.sub(r"[^\w]", "", w).lower() for w in query.split()) if len(kw) >= 2]
         if not keywords:
             return []
         # Search entity and context fields
@@ -799,7 +800,7 @@ class SQLiteStorage(BaseStorage):
 
     async def search_traits(self, query: str, *, limit: int = 10) -> list[VisitorTrait]:
         conn = await self._get_db()
-        keywords = [kw.lower() for kw in query.split() if len(kw) >= 2]
+        keywords = [kw for kw in (re.sub(r"[^\w]", "", w).lower() for w in query.split()) if len(kw) >= 2]
         if not keywords:
             return []
         conditions = []

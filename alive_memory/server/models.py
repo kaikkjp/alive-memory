@@ -74,13 +74,15 @@ class DayMomentResponse(BaseModel):
 
 
 class RecallContextResponse(BaseModel):
-    """Recall results from hot memory (Tier 2)."""
+    """Recall results from hot memory (Tier 2) and structured facts."""
 
     journal_entries: list[str] = Field(default_factory=list)
     visitor_notes: list[str] = Field(default_factory=list)
     self_knowledge: list[str] = Field(default_factory=list)
     reflections: list[str] = Field(default_factory=list)
     thread_context: list[str] = Field(default_factory=list)
+    totem_facts: list[str] = Field(default_factory=list)
+    trait_facts: list[str] = Field(default_factory=list)
     query: str = ""
     total_hits: int = 0
 
@@ -162,6 +164,8 @@ def recall_context_to_response(ctx: RecallContext) -> RecallContextResponse:
         self_knowledge=ctx.self_knowledge,
         reflections=ctx.reflections,
         thread_context=ctx.thread_context,
+        totem_facts=ctx.totem_facts,
+        trait_facts=ctx.trait_facts,
         query=ctx.query,
         total_hits=ctx.total_hits,
     )
