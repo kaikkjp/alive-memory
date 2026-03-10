@@ -1,16 +1,21 @@
-"""Memory retrieval: markdown-first grep via MemoryReader.
+"""Memory retrieval: markdown grep + structured semantic search.
 
 Three-tier recall:
   1. Grep hot memory (journal, visitors, self, reflections, threads)
-  2. Return RecallContext with aggregated results
-  3. Cold search is NOT used here — only during sleep consolidation
+  2. Search totems and traits tables (structured facts)
+  3. Return RecallContext with aggregated results
 """
 
 from __future__ import annotations
 
+import logging
+
 from alive_memory.config import AliveConfig
 from alive_memory.hot.reader import MemoryReader
+from alive_memory.storage.base import BaseStorage
 from alive_memory.types import CognitiveState, RecallContext
+
+logger = logging.getLogger(__name__)
 
 
 async def recall(
@@ -20,13 +25,15 @@ async def recall(
     *,
     limit: int = 10,
     config: AliveConfig | None = None,
+    storage: BaseStorage | None = None,
 ) -> RecallContext:
-    """Retrieve context relevant to a query via hot memory grep.
+    """Retrieve context relevant to a query via hot memory grep + semantic search.
 
-    Pipeline: grep hot memory files → categorize results → return RecallContext
-
-    This is the PRIMARY recall mechanism. No vector search.
-    Cold embeddings are only searched during sleep consolidation.
+    Pipeline:
+      1. Grep hot memory files → categorize results
+      2. Search totems table for matching facts
+      3. Search traits table for matching observations
+      4. Return combined RecallContext
 
     Args:
         query: Search query text (keywords).
@@ -34,6 +41,7 @@ async def recall(
         state: Current cognitive state (for mood-biased ranking).
         limit: Maximum results per category.
         config: Configuration parameters.
+        storage: Storage backend for totem/trait search (optional for backward compat).
 
     Returns:
         RecallContext with categorized results.
@@ -64,6 +72,32 @@ async def recall(
         elif subdir == "threads":
             if len(ctx.thread_context) < limit:
                 ctx.thread_context.append(context)
+
+    # Search structured facts (totems + traits)
+    if storage is not None:
+        try:
+            totems = await storage.search_totems(query, limit=limit)
+            for totem in totems:
+                fact = f"{totem.entity}"
+                if totem.context:
+                    fact += f" — {totem.context}"
+                if totem.visitor_id:
+                    fact += f" (about: {totem.visitor_id})"
+                ctx.totem_facts.append(fact)
+                ctx.total_hits += 1
+        except Exception:
+            logger.debug("Totem search failed", exc_info=True)
+
+        try:
+            traits = await storage.search_traits(query, limit=limit)
+            for trait in traits:
+                fact = f"{trait.trait_key}: {trait.trait_value}"
+                if trait.visitor_id:
+                    fact += f" (about: {trait.visitor_id})"
+                ctx.trait_facts.append(fact)
+                ctx.total_hits += 1
+        except Exception:
+            logger.debug("Trait search failed", exc_info=True)
 
     # Also pull recent journal entries if query matches "recent" patterns
     # and we don't have many journal hits yet

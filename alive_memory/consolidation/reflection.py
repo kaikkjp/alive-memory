@@ -1,13 +1,16 @@
 """Reflection — per-moment LLM reflection during consolidation.
 
 For each day moment, gather hot context + cold echoes,
-then ask the LLM to reflect on its significance.
-The reflection output is written to hot memory.
+then ask the LLM to reflect on its significance AND extract structured facts.
+Single LLM call produces both the journal reflection and memory updates
+(totems + traits), matching Shopkeeper's cortex → hippocampus_write pattern.
 """
 
 from __future__ import annotations
 
+import json
 import logging
+from dataclasses import dataclass, field
 
 from alive_memory.config import AliveConfig
 
@@ -18,6 +21,14 @@ from alive_memory.storage.base import BaseStorage
 from alive_memory.types import DayMoment
 
 
+@dataclass
+class ReflectionResult:
+    """Output of a single-moment reflection: journal text + structured facts."""
+    text: str = ""
+    totems: list[dict] = field(default_factory=list)
+    traits: list[dict] = field(default_factory=list)
+
+
 async def reflect_on_moment(
     moment: DayMoment,
     *,
@@ -26,11 +37,13 @@ async def reflect_on_moment(
     llm: LLMProvider,
     cold_echoes: list[dict] | None = None,
     config: AliveConfig | None = None,
-) -> str:
-    """Generate a reflection for a single day moment.
+) -> ReflectionResult:
+    """Generate a reflection + extract facts for a single day moment.
 
-    Gathers hot memory context and cold echoes, then asks the LLM
-    to reflect on the moment's significance.
+    Single LLM call produces:
+      - A journal-style reflection (2-4 sentences)
+      - Structured totems (facts/entities)
+      - Structured traits (observations about people)
 
     Args:
         moment: The day moment to reflect on.
@@ -41,15 +54,13 @@ async def reflect_on_moment(
         config: Configuration.
 
     Returns:
-        Reflection text from the LLM.
+        ReflectionResult with text, totems, and traits.
     """
     # Gather hot context via grep
     keywords = _extract_keywords(moment.content)
     hot_hits = reader.grep_memory(keywords, limit=5) if keywords else []
     hot_context = "\n".join(h.get("context", h.get("match", "")) for h in hot_hits)
 
-    # Get self-model for traits
-    self_model = await storage.get_self_model()
     state = await storage.get_cognitive_state()
 
     # Build cold echoes section
@@ -64,30 +75,68 @@ async def reflect_on_moment(
     if hot_context:
         related_text = f"\nRelated context from memory:\n{hot_context[:500]}\n"
 
+    visitor_name = moment.metadata.get("visitor_name", "unknown")
+
     prompt = (
-        "Reflect on this moment and what it means. "
-        "Write a brief journal-style reflection (2-4 sentences). "
+        "Process this moment. Return a JSON object with three fields:\n\n"
+        '1. "reflection": A brief journal-style reflection (2-4 sentences). '
         "Focus on significance, feelings, and connections.\n\n"
-        f"The moment: {moment.content[:500]}\n"
+        '2. "totems": An array of facts, entities, or concepts mentioned. Each has:\n'
+        '   - "entity": the fact or thing (string, be specific)\n'
+        '   - "weight": importance 0.0-1.0\n'
+        '   - "context": brief context explaining relevance\n'
+        '   - "category": one of "personal", "preference", "relationship", '
+        '"location", "event", "general"\n\n'
+        '3. "traits": An array of observations about people mentioned. Each has:\n'
+        '   - "trait_category": one of "personal", "preference", "demographic", '
+        '"relationship", "behavioral", "emotional"\n'
+        '   - "trait_key": specific attribute name (e.g. "gender_identity", "favorite_food")\n'
+        '   - "trait_value": the observed value\n'
+        '   - "confidence": 0.0-1.0\n\n'
+        "Only extract facts clearly stated in the text. Do not infer.\n"
+        "If no facts are found, use empty arrays.\n\n"
+        f"The moment: {moment.content[:800]}\n"
         f"Event type: {moment.event_type.value}\n"
         f"Emotional valence: {moment.valence:.2f}\n"
         f"Current mood: {state.mood.word} (valence: {state.mood.valence:.1f})\n"
-        f"Current traits: {self_model.traits}\n"
+        f"Visitor: {visitor_name}\n"
         f"{related_text}"
-        f"{echoes_text}"
+        f"{echoes_text}\n"
+        "Return ONLY valid JSON, no markdown fencing."
     )
 
     try:
         response = await llm.complete(
             prompt,
-            system="You are a reflective mind processing the day's experiences into journal entries.",
-            max_tokens=200,
-            temperature=0.7,
+            system=(
+                "You are a reflective mind processing experiences. "
+                "You write journal reflections and extract structured facts. "
+                "Return only valid JSON."
+            ),
+            max_tokens=600,
+            temperature=0.5,
         )
-        return response.text.strip()
+        text = response.text.strip()
+        # Strip markdown code fences if present
+        if text.startswith("```"):
+            text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+            if text.endswith("```"):
+                text = text[:-3]
+            text = text.strip()
+
+        data = json.loads(text)
+        return ReflectionResult(
+            text=data.get("reflection", ""),
+            totems=data.get("totems", []),
+            traits=data.get("traits", []),
+        )
+    except json.JSONDecodeError:
+        # If JSON parsing fails, treat the whole response as reflection text
+        logger.debug("Reflection JSON parse failed for %s, using as plain text", moment.id)
+        return ReflectionResult(text=response.text.strip())
     except Exception:
         logger.warning("Moment reflection failed for %s", moment.id, exc_info=True)
-        return ""
+        return ReflectionResult()
 
 
 async def reflect_daily_summary(

@@ -20,6 +20,9 @@ from alive_memory.types import (
     MoodState,
     SelfModel,
     SleepReport,
+    Totem,
+    Visitor,
+    VisitorTrait,
 )
 
 
@@ -239,6 +242,104 @@ class BaseStorage(ABC):
 
     @abstractmethod
     async def log_consolidation(self, report: SleepReport) -> None:
+        ...
+
+    # ── Totems (Semantic Facts) ────────────────────────────────────
+
+    @abstractmethod
+    async def insert_totem(
+        self,
+        entity: str,
+        *,
+        visitor_id: Optional[str] = None,
+        weight: float = 0.5,
+        context: str = "",
+        category: str = "general",
+        source_moment_id: Optional[str] = None,
+    ) -> str:
+        """Insert a totem (semantic fact). Returns totem ID."""
+        ...
+
+    @abstractmethod
+    async def get_totems(
+        self,
+        *,
+        visitor_id: Optional[str] = None,
+        min_weight: float = 0.0,
+        limit: int = 10,
+    ) -> list[Totem]:
+        """Get totems, optionally filtered by visitor."""
+        ...
+
+    @abstractmethod
+    async def search_totems(self, query: str, *, limit: int = 10) -> list[Totem]:
+        """Search totems by entity or context keyword match."""
+        ...
+
+    @abstractmethod
+    async def update_totem_weight(
+        self, entity: str, *, visitor_id: Optional[str] = None, weight: float
+    ) -> None:
+        """Update a totem's weight and last_referenced timestamp."""
+        ...
+
+    # ── Visitor Traits ──────────────────────────────────────────────
+
+    @abstractmethod
+    async def insert_trait(
+        self,
+        visitor_id: str,
+        trait_category: str,
+        trait_key: str,
+        trait_value: str,
+        *,
+        confidence: float = 0.5,
+        source_moment_id: Optional[str] = None,
+    ) -> str:
+        """Insert a trait observation. Returns trait ID."""
+        ...
+
+    @abstractmethod
+    async def get_traits(
+        self, visitor_id: str, *, category: Optional[str] = None, limit: int = 20
+    ) -> list[VisitorTrait]:
+        """Get traits for a visitor, optionally filtered by category."""
+        ...
+
+    @abstractmethod
+    async def search_traits(self, query: str, *, limit: int = 10) -> list[VisitorTrait]:
+        """Search traits by key or value keyword match."""
+        ...
+
+    @abstractmethod
+    async def get_latest_trait(
+        self, visitor_id: str, category: str, key: str
+    ) -> Optional[VisitorTrait]:
+        """Get the most recent trait observation for a specific key."""
+        ...
+
+    # ── Visitors ────────────────────────────────────────────────────
+
+    @abstractmethod
+    async def upsert_visitor(
+        self,
+        visitor_id: str,
+        name: str,
+        *,
+        emotional_imprint: Optional[str] = None,
+        summary: Optional[str] = None,
+    ) -> None:
+        """Create or update a visitor record. Increments visit_count on update."""
+        ...
+
+    @abstractmethod
+    async def get_visitor(self, visitor_id: str) -> Optional[Visitor]:
+        """Get a visitor by ID."""
+        ...
+
+    @abstractmethod
+    async def search_visitors(self, query: str, *, limit: int = 5) -> list[Visitor]:
+        """Search visitors by name or summary."""
         ...
 
     # ── Lifecycle ────────────────────────────────────────────────

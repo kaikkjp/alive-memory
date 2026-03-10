@@ -3,7 +3,7 @@
 Full sleep pipeline:
   1. Get unprocessed day_memory moments
   2. Per moment: gather hot context → cold search (full only) → LLM reflect
-     → write journal MD → apply memory_updates → mark processed
+     → write journal MD → write facts to DB → mark processed
   3. Write daily summary → batch embed to cold → flush day_memory
 
 Nap mode:
@@ -22,6 +22,7 @@ from alive_memory.config import AliveConfig
 logger = logging.getLogger(__name__)
 from alive_memory.consolidation.cold_search import find_cold_echoes
 from alive_memory.consolidation.dreaming import dream
+from alive_memory.consolidation.fact_extraction import TraitCache, write_extracted_facts
 from alive_memory.consolidation.memory_updates import apply_reflection_to_hot_memory
 from alive_memory.consolidation.reflection import reflect_daily_summary, reflect_on_moment
 from alive_memory.embeddings.base import EmbeddingProvider
@@ -81,6 +82,7 @@ async def consolidate(
         moments = moments[:int(nap_count)]
 
     all_cold_echoes: list[dict] = []
+    trait_cache: TraitCache = {}
 
     # Step 2: Per-moment processing
     for moment in moments:
@@ -94,9 +96,9 @@ async def consolidate(
             all_cold_echoes.extend(cold_echoes)
             report.cold_echoes_found += len(cold_echoes)
 
-        # LLM reflection (if LLM available and writer exists)
+        # LLM reflection + fact extraction (single call)
         if llm and writer and reader:
-            reflection = await reflect_on_moment(
+            result = await reflect_on_moment(
                 moment,
                 reader=reader,
                 storage=storage,
@@ -105,20 +107,31 @@ async def consolidate(
                 config=cfg,
             )
 
-            if reflection:
+            if result.text:
                 # Extract visitor name from metadata if present
                 visitor_name = moment.metadata.get("visitor_name")
                 thread_id = moment.metadata.get("thread_id")
 
                 # Write reflection to hot memory
                 counts = apply_reflection_to_hot_memory(
-                    moment, reflection,
+                    moment, result.text,
                     writer=writer,
                     visitor_name=visitor_name,
                     thread_id=thread_id,
                 )
                 report.journal_entries_written += counts.get("journal", 0)
-                report.reflections.append(reflection)
+                report.reflections.append(result.text)
+
+            # Write extracted facts (totems + traits) to storage
+            if result.totems or result.traits:
+                try:
+                    await write_extracted_facts(
+                        moment, totems=result.totems, traits=result.traits,
+                        storage=storage, trait_cache=trait_cache,
+                    )
+                except Exception:
+                    logger.debug("Fact writing failed for moment %s", moment.id, exc_info=True)
+
         elif writer:
             # No LLM — write raw moment to journal
             writer.append_journal(
@@ -131,6 +144,20 @@ async def consolidate(
         # Mark processed
         await storage.mark_moment_processed(moment.id, nap=is_nap)
         report.moments_processed += 1
+
+    # Upsert visitors (full only — nap moments are re-processed during full sleep,
+    # so upserting during nap would double-count the visit)
+    if not is_nap:
+        seen_visitors: set[str] = set()
+        for moment in moments:
+            visitor_name = moment.metadata.get("visitor_name")
+            visitor_id = moment.metadata.get("visitor_id") or visitor_name
+            if visitor_id and visitor_name and visitor_id not in seen_visitors:
+                seen_visitors.add(visitor_id)
+                try:
+                    await storage.upsert_visitor(visitor_id, visitor_name)
+                except Exception:
+                    logger.debug("Failed to upsert visitor %s", visitor_id, exc_info=True)
 
     # Step 3 (full only): Daily summary + batch embed + flush
     if not is_nap:

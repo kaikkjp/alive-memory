@@ -1,0 +1,13 @@
+{
+  "version": "0.1.0",
+  "created": "2026-03-09",
+  "last_updated": "2026-03-09",
+  "case_count": 5,
+  "category_distribution": {
+    "short_term_recall": 1,
+    "cross_session_recall": 1,
+    "noise_decay": 1,
+    "relational_recall": 1,
+    "high_volume_stress": 1
+  }
+}
