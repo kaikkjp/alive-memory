@@ -56,9 +56,11 @@ class AliveMemorySystem(MemorySystemAdapter):
         sdk_config = config.get("alive_config", {})
 
         # Benchmark defaults: let everything through for maximum recall
-        sdk_config.setdefault("intake.salience_threshold", 0.0)
-        sdk_config.setdefault("intake.max_salience_threshold", 0.0)
-        sdk_config.setdefault("intake.max_day_moments", 999999)
+        # Use nested dict structure so AliveConfig.get() resolves them
+        intake = sdk_config.setdefault("intake", {})
+        intake.setdefault("salience_threshold", 0.0)
+        intake.setdefault("max_salience_threshold", 0.0)
+        intake.setdefault("max_day_moments", 999999)
 
         # Wire up LLM provider for consolidation
         llm = None
@@ -112,7 +114,9 @@ class AliveMemorySystem(MemorySystemAdapter):
 
         for turn in turns:
             event_type = _ROLE_TO_EVENT.get(turn.role, EventType.CONVERSATION)
-            # Extract speaker name from metadata or content
+            # Pass the speaker so consolidation can attribute facts correctly.
+            # The content already includes "Speaker: text" so the LLM can
+            # distinguish who said what — visitor_name just sets the default.
             speaker = (turn.metadata or {}).get("speaker", "")
             metadata = {
                 "session_id": turn.session_id,

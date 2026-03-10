@@ -127,15 +127,20 @@ async def recall(
 
 
 async def _identify_visitor(query: str, storage: BaseStorage) -> str | None:
-    """Try to identify a visitor mentioned in the query by matching known names."""
+    """Try to identify a visitor mentioned in the query by matching known names.
+
+    Tokenizes the query and searches for each word that looks like a proper name
+    (capitalized), since search_visitors() uses LIKE which fails on full sentences.
+    """
     try:
-        # Get all known visitors and check if any name appears in the query
-        query_lower = query.lower()
-        # Search visitors by query keywords — returns matches on name/summary
-        visitors = await storage.search_visitors(query, limit=5)
-        for visitor in visitors:
-            if visitor.name.lower() in query_lower:
-                return visitor.id
+        # Extract candidate names: capitalized words from the query
+        import re
+        words = re.findall(r"[A-Z][a-z]+", query)
+        for word in words:
+            visitors = await storage.search_visitors(word, limit=3)
+            for visitor in visitors:
+                if visitor.name.lower() == word.lower():
+                    return visitor.id
     except Exception:
         logger.debug("Visitor identification failed", exc_info=True)
     return None
