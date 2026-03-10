@@ -3,6 +3,10 @@
 Tier 2 of the three-tier memory architecture.
 All writes are append-only (no overwrites except self-knowledge files).
 Directory structure is created on first use.
+
+All content is passed through scrub_numbers() before writing to prevent
+raw numeric state (valence=0.84, 73%, etc.) from leaking into conscious
+memory. Dates and times are preserved.
 """
 
 from __future__ import annotations
@@ -11,6 +15,8 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+
+from alive_memory.hot.translator import scrub_numbers
 
 
 class MemoryWriter:
@@ -69,7 +75,7 @@ class MemoryWriter:
             if os.path.getsize(filepath) == 0 if filepath.exists() else True:
                 f.write(f"# Journal — {date_str}\n")
             f.write(header)
-            f.write(content.strip())
+            f.write(scrub_numbers(content.strip()))
             f.write("\n")
 
         return filepath
@@ -96,7 +102,7 @@ class MemoryWriter:
             if not filepath.exists() or os.path.getsize(filepath) == 0:
                 f.write(f"# {visitor_name}\n\n")
             f.write(f"\n### {time_str}\n\n")
-            f.write(content.strip())
+            f.write(scrub_numbers(content.strip()))
             f.write("\n")
 
         return filepath
@@ -125,7 +131,7 @@ class MemoryWriter:
             if label:
                 header += f"**{label}**\n\n"
             f.write(header)
-            f.write(content.strip())
+            f.write(scrub_numbers(content.strip()))
             f.write("\n")
 
         return filepath
@@ -152,7 +158,7 @@ class MemoryWriter:
             if not filepath.exists() or os.path.getsize(filepath) == 0:
                 f.write(f"# Thread {thread_id}\n\n")
             f.write(f"\n### {time_str}\n\n")
-            f.write(content.strip())
+            f.write(scrub_numbers(content.strip()))
             f.write("\n")
 
         return filepath
@@ -175,7 +181,7 @@ class MemoryWriter:
         filepath = self._root / "self" / safe_name
 
         with open(filepath, "w", encoding="utf-8") as f:
-            f.write(content)
+            f.write(scrub_numbers(content))
 
         return filepath
 
@@ -196,7 +202,7 @@ class MemoryWriter:
         with open(filepath, "a", encoding="utf-8") as f:
             if not filepath.exists() or os.path.getsize(filepath) == 0:
                 f.write(f"# {item_name}\n\n")
-            f.write(content.strip())
+            f.write(scrub_numbers(content.strip()))
             f.write("\n\n")
 
         return filepath
