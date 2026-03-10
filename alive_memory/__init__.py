@@ -36,6 +36,11 @@ from alive_memory.consolidation.wake import WakeConfig, WakeHooks
 from alive_memory.embeddings.base import EmbeddingProvider
 from alive_memory.embeddings.local import LocalEmbeddingProvider
 from alive_memory.hot.reader import MemoryReader
+from alive_memory.hot.translator import (
+    scrub_numbers,
+    translate_drives_summary,
+    translate_mood,
+)
 from alive_memory.hot.writer import MemoryWriter
 from alive_memory.llm.provider import LLMProvider
 from alive_memory.sleep import SleepConfig, nap, sleep_cycle
@@ -91,7 +96,10 @@ __all__ = [
     "VisitorTrait",
     "WakeReport",
     "nap",
+    "scrub_numbers",
     "sleep_cycle",
+    "translate_drives_summary",
+    "translate_mood",
 ]
 
 
