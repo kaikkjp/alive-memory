@@ -216,18 +216,16 @@ async def test_get_visitor_not_found(storage):
 
 async def test_trait_dedup():
     """Test trait dedup cooldown logic."""
-    from alive_memory.consolidation.fact_extraction import _recent_traits, _trait_is_duplicate
-    # Clear state
-    _recent_traits.clear()
+    from alive_memory.consolidation.fact_extraction import _trait_is_duplicate
+
+    cache: dict = {}
 
     # First write should not be duplicate
-    assert not _trait_is_duplicate("v1", "personal", "age", "30")
+    assert not _trait_is_duplicate("v1", "personal", "age", "30", cache)
     # Same write immediately should be duplicate
-    assert _trait_is_duplicate("v1", "personal", "age", "30")
+    assert _trait_is_duplicate("v1", "personal", "age", "30", cache)
     # Different value should not be duplicate
-    assert not _trait_is_duplicate("v1", "personal", "age", "31")
-
-    _recent_traits.clear()
+    assert not _trait_is_duplicate("v1", "personal", "age", "31", cache)
 
 
 # ── Recall Integration ────────────────────────────────────────────

@@ -21,11 +21,14 @@ logger = logging.getLogger(__name__)
 # Trait dedup cooldown — prevents writing the same trait within a short window.
 # Without this, the LLM reads back its own trait and reinforces it (feedback loop).
 TRAIT_COOLDOWN_SECONDS = 300
-_recent_traits: dict[tuple[str, str, str], tuple[str, float]] = {}
+
+# Type alias for the dedup cache: (visitor_id, category, key) → (value, timestamp)
+TraitCache = dict[tuple[str, str, str], tuple[str, float]]
 
 
 def _trait_is_duplicate(
-    visitor_id: str, category: str, key: str, value: str
+    visitor_id: str, category: str, key: str, value: str,
+    cache: TraitCache,
 ) -> bool:
     """Check if this trait was already written recently."""
     now = time.monotonic()
@@ -33,18 +36,18 @@ def _trait_is_duplicate(
 
     # Prune stale entries
     stale = [
-        k for k, (_, ts) in _recent_traits.items()
+        k for k, (_, ts) in cache.items()
         if now - ts > TRAIT_COOLDOWN_SECONDS
     ]
     for k in stale:
-        del _recent_traits[k]
+        del cache[k]
 
-    if cache_key in _recent_traits:
-        cached_value, _ = _recent_traits[cache_key]
+    if cache_key in cache:
+        cached_value, _ = cache[cache_key]
         if cached_value == value:
             return True
 
-    _recent_traits[cache_key] = (value, now)
+    cache[cache_key] = (value, now)
     return False
 
 
@@ -54,6 +57,7 @@ async def write_extracted_facts(
     totems: list[dict],
     traits: list[dict],
     storage: BaseStorage,
+    trait_cache: TraitCache | None = None,
 ) -> dict[str, int]:
     """Write pre-extracted totems and traits to storage.
 
@@ -99,8 +103,8 @@ async def write_extracted_facts(
         if not (cat and key and val and visitor_id):
             continue
 
-        # Dedup check
-        if _trait_is_duplicate(visitor_id, cat, key, val):
+        # Dedup check (skip if no cache provided)
+        if trait_cache is not None and _trait_is_duplicate(visitor_id, cat, key, val, trait_cache):
             logger.debug("Trait dedup: skipped %s=%s", key, val)
             continue
 

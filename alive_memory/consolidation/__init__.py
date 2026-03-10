@@ -22,7 +22,7 @@ from alive_memory.config import AliveConfig
 logger = logging.getLogger(__name__)
 from alive_memory.consolidation.cold_search import find_cold_echoes
 from alive_memory.consolidation.dreaming import dream
-from alive_memory.consolidation.fact_extraction import write_extracted_facts
+from alive_memory.consolidation.fact_extraction import TraitCache, write_extracted_facts
 from alive_memory.consolidation.memory_updates import apply_reflection_to_hot_memory
 from alive_memory.consolidation.reflection import reflect_daily_summary, reflect_on_moment
 from alive_memory.embeddings.base import EmbeddingProvider
@@ -82,6 +82,7 @@ async def consolidate(
         moments = moments[:int(nap_count)]
 
     all_cold_echoes: list[dict] = []
+    trait_cache: TraitCache = {}
 
     # Step 2: Per-moment processing
     for moment in moments:
@@ -126,7 +127,7 @@ async def consolidate(
                 try:
                     await write_extracted_facts(
                         moment, totems=result.totems, traits=result.traits,
-                        storage=storage,
+                        storage=storage, trait_cache=trait_cache,
                     )
                 except Exception:
                     logger.debug("Fact writing failed for moment %s", moment.id, exc_info=True)
