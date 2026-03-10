@@ -55,10 +55,58 @@ class DayMoment:
 
 
 @dataclass
+class Totem:
+    """A weighted semantic association (fact, entity, concept).
+
+    Totems store structured facts extracted during consolidation.
+    Can be global (visitor_id is None) or visitor-specific.
+    """
+    id: str
+    entity: str
+    weight: float  # 0-1, importance
+    visitor_id: Optional[str] = None
+    context: str = ""
+    category: str = "general"
+    first_seen: Optional[datetime] = None
+    last_referenced: Optional[datetime] = None
+    source_moment_id: Optional[str] = None
+
+
+@dataclass
+class VisitorTrait:
+    """A structured observation about a visitor.
+
+    Traits capture specific knowledge: preferences, personality,
+    demographics, relationships, etc.
+    """
+    id: str
+    visitor_id: str
+    trait_category: str  # e.g. "personal", "preference", "relationship"
+    trait_key: str  # e.g. "gender_identity", "favorite_food"
+    trait_value: str  # e.g. "transgender woman", "sushi"
+    confidence: float = 0.5  # 0-1
+    source_moment_id: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+
+@dataclass
+class Visitor:
+    """Knowledge about a person the agent interacts with."""
+    id: str
+    name: str
+    trust_level: str = "stranger"  # stranger → returner → regular → familiar
+    visit_count: int = 1
+    first_visit: Optional[datetime] = None
+    last_visit: Optional[datetime] = None
+    emotional_imprint: str = ""
+    summary: str = ""
+
+
+@dataclass
 class RecallContext:
     """Result of a recall operation — aggregated hot memory context.
 
-    Markdown-first grep over hot memory files, not vector search.
+    Markdown-first grep over hot memory files, plus structured semantic search.
     """
     journal_entries: list[str] = field(default_factory=list)
     visitor_notes: list[str] = field(default_factory=list)
@@ -66,6 +114,8 @@ class RecallContext:
     reflections: list[str] = field(default_factory=list)
     thread_context: list[str] = field(default_factory=list)
     cold_echoes: list[str] = field(default_factory=list)  # from vector search during sleep
+    totem_facts: list[str] = field(default_factory=list)  # from totems table
+    trait_facts: list[str] = field(default_factory=list)  # from visitor_traits table
     query: str = ""
     total_hits: int = 0
 

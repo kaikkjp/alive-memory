@@ -55,6 +55,9 @@ from alive_memory.types import (
     SelfModel,
     SleepCycleReport,
     SleepReport,
+    Totem,
+    Visitor,
+    VisitorTrait,
     WakeReport,
 )
 
@@ -83,6 +86,9 @@ __all__ = [
     "SleepReport",
     "WakeConfig",
     "WakeHooks",
+    "Totem",
+    "Visitor",
+    "VisitorTrait",
     "WakeReport",
     "nap",
     "sleep_cycle",
@@ -395,6 +401,7 @@ class AliveMemory:
             query, self._reader, state,
             limit=limit,
             config=self._config,
+            storage=self._storage,
         )
 
     # ── Consolidation ────────────────────────────────────────────

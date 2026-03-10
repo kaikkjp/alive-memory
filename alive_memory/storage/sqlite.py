@@ -11,6 +11,7 @@ import asyncio
 import contextvars
 import json
 import pathlib
+import re
 import struct
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -27,6 +28,9 @@ from alive_memory.types import (
     MoodState,
     SelfModel,
     SleepReport,
+    Totem,
+    Visitor,
+    VisitorTrait,
 )
 
 _MIGRATIONS_DIR = pathlib.Path(__file__).parent / "migrations"
@@ -666,6 +670,226 @@ class SQLiteStorage(BaseStorage):
             ),
         )
 
+    # ── Totems (Semantic Facts) ────────────────────────────────────
+
+    async def insert_totem(
+        self,
+        entity: str,
+        *,
+        visitor_id: str | None = None,
+        weight: float = 0.5,
+        context: str = "",
+        category: str = "general",
+        source_moment_id: str | None = None,
+    ) -> str:
+        totem_id = str(uuid.uuid4())
+        now = _now_iso()
+        await self._exec_write(
+            """INSERT INTO totems
+               (id, visitor_id, entity, weight, context, category,
+                first_seen, last_referenced, source_moment_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (totem_id, visitor_id, entity, weight, context, category,
+             now, now, source_moment_id),
+        )
+        return totem_id
+
+    async def get_totems(
+        self,
+        *,
+        visitor_id: str | None = None,
+        min_weight: float = 0.0,
+        limit: int = 10,
+    ) -> list[Totem]:
+        conn = await self._get_db()
+        if visitor_id:
+            cursor = await conn.execute(
+                """SELECT * FROM totems
+                   WHERE visitor_id = ? AND weight >= ?
+                   ORDER BY weight DESC LIMIT ?""",
+                (visitor_id, min_weight, limit),
+            )
+        else:
+            cursor = await conn.execute(
+                """SELECT * FROM totems
+                   WHERE weight >= ?
+                   ORDER BY weight DESC LIMIT ?""",
+                (min_weight, limit),
+            )
+        rows = await cursor.fetchall()
+        return [_row_to_totem(row) for row in rows]
+
+    async def search_totems(self, query: str, *, limit: int = 10) -> list[Totem]:
+        conn = await self._get_db()
+        keywords = [kw for kw in (re.sub(r"[^\w]", "", w).lower() for w in query.split()) if len(kw) >= 2]
+        if not keywords:
+            return []
+        # Search entity and context fields
+        conditions = []
+        params: list[Any] = []
+        for kw in keywords:
+            conditions.append("(LOWER(entity) LIKE ? OR LOWER(context) LIKE ?)")
+            params.extend([f"%{kw}%", f"%{kw}%"])
+        where = " OR ".join(conditions)
+        cursor = await conn.execute(
+            f"SELECT * FROM totems WHERE {where} ORDER BY weight DESC LIMIT ?",
+            (*params, limit),
+        )
+        rows = await cursor.fetchall()
+        return [_row_to_totem(row) for row in rows]
+
+    async def update_totem_weight(
+        self, entity: str, *, visitor_id: str | None = None, weight: float
+    ) -> None:
+        now = _now_iso()
+        if visitor_id is not None:
+            await self._exec_write(
+                "UPDATE totems SET weight = ?, last_referenced = ? WHERE entity = ? AND visitor_id = ?",
+                (weight, now, entity, visitor_id),
+            )
+        else:
+            await self._exec_write(
+                "UPDATE totems SET weight = ?, last_referenced = ? WHERE entity = ? AND visitor_id IS NULL",
+                (weight, now, entity),
+            )
+
+    # ── Visitor Traits ──────────────────────────────────────────────
+
+    async def insert_trait(
+        self,
+        visitor_id: str,
+        trait_category: str,
+        trait_key: str,
+        trait_value: str,
+        *,
+        confidence: float = 0.5,
+        source_moment_id: str | None = None,
+    ) -> str:
+        trait_id = str(uuid.uuid4())
+        now = _now_iso()
+        await self._exec_write(
+            """INSERT INTO visitor_traits
+               (id, visitor_id, trait_category, trait_key, trait_value,
+                confidence, source_moment_id, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (trait_id, visitor_id, trait_category, trait_key, trait_value,
+             confidence, source_moment_id, now),
+        )
+        return trait_id
+
+    async def get_traits(
+        self, visitor_id: str, *, category: str | None = None, limit: int = 20
+    ) -> list[VisitorTrait]:
+        conn = await self._get_db()
+        if category:
+            cursor = await conn.execute(
+                """SELECT * FROM visitor_traits
+                   WHERE visitor_id = ? AND trait_category = ?
+                   ORDER BY created_at DESC LIMIT ?""",
+                (visitor_id, category, limit),
+            )
+        else:
+            cursor = await conn.execute(
+                """SELECT * FROM visitor_traits
+                   WHERE visitor_id = ?
+                   ORDER BY created_at DESC LIMIT ?""",
+                (visitor_id, limit),
+            )
+        rows = await cursor.fetchall()
+        return [_row_to_trait(row) for row in rows]
+
+    async def search_traits(self, query: str, *, limit: int = 10) -> list[VisitorTrait]:
+        conn = await self._get_db()
+        keywords = [kw for kw in (re.sub(r"[^\w]", "", w).lower() for w in query.split()) if len(kw) >= 2]
+        if not keywords:
+            return []
+        conditions = []
+        params: list[Any] = []
+        for kw in keywords:
+            conditions.append(
+                "(LOWER(trait_key) LIKE ? OR LOWER(trait_value) LIKE ? OR LOWER(trait_category) LIKE ?)"
+            )
+            params.extend([f"%{kw}%", f"%{kw}%", f"%{kw}%"])
+        where = " OR ".join(conditions)
+        cursor = await conn.execute(
+            f"SELECT * FROM visitor_traits WHERE {where} ORDER BY confidence DESC LIMIT ?",
+            (*params, limit),
+        )
+        rows = await cursor.fetchall()
+        return [_row_to_trait(row) for row in rows]
+
+    async def get_latest_trait(
+        self, visitor_id: str, category: str, key: str
+    ) -> VisitorTrait | None:
+        conn = await self._get_db()
+        cursor = await conn.execute(
+            """SELECT * FROM visitor_traits
+               WHERE visitor_id = ? AND trait_category = ? AND trait_key = ?
+               ORDER BY created_at DESC LIMIT 1""",
+            (visitor_id, category, key),
+        )
+        row = await cursor.fetchone()
+        return _row_to_trait(row) if row else None
+
+    # ── Visitors ────────────────────────────────────────────────────
+
+    async def upsert_visitor(
+        self,
+        visitor_id: str,
+        name: str,
+        *,
+        emotional_imprint: str | None = None,
+        summary: str | None = None,
+    ) -> None:
+        conn = await self._get_db()
+        now = _now_iso()
+        cursor = await conn.execute(
+            "SELECT id FROM visitors WHERE id = ?", (visitor_id,)
+        )
+        existing = await cursor.fetchone()
+        if existing:
+            updates = ["last_visit = ?", "visit_count = visit_count + 1"]
+            params: list[Any] = [now]
+            if emotional_imprint is not None:
+                updates.append("emotional_imprint = ?")
+                params.append(emotional_imprint)
+            if summary is not None:
+                updates.append("summary = ?")
+                params.append(summary)
+            params.append(visitor_id)
+            await self._exec_write(
+                f"UPDATE visitors SET {', '.join(updates)} WHERE id = ?",
+                tuple(params),
+            )
+        else:
+            await self._exec_write(
+                """INSERT INTO visitors
+                   (id, name, trust_level, visit_count, first_visit, last_visit,
+                    emotional_imprint, summary)
+                   VALUES (?, ?, 'stranger', 1, ?, ?, ?, ?)""",
+                (visitor_id, name, now, now,
+                 emotional_imprint or "", summary or ""),
+            )
+
+    async def get_visitor(self, visitor_id: str) -> Visitor | None:
+        conn = await self._get_db()
+        cursor = await conn.execute(
+            "SELECT * FROM visitors WHERE id = ?", (visitor_id,)
+        )
+        row = await cursor.fetchone()
+        return _row_to_visitor(row) if row else None
+
+    async def search_visitors(self, query: str, *, limit: int = 5) -> list[Visitor]:
+        conn = await self._get_db()
+        cursor = await conn.execute(
+            """SELECT * FROM visitors
+               WHERE LOWER(name) LIKE ? OR LOWER(summary) LIKE ?
+               ORDER BY last_visit DESC LIMIT ?""",
+            (f"%{query.lower()}%", f"%{query.lower()}%", limit),
+        )
+        rows = await cursor.fetchall()
+        return [_row_to_visitor(row) for row in rows]
+
     # ── Lifecycle ────────────────────────────────────────────────
 
     async def _run_alter_columns(self) -> None:
@@ -704,6 +928,46 @@ class SQLiteStorage(BaseStorage):
         if self._db:
             await self._db.close()
             self._db = None
+
+
+def _row_to_totem(row: aiosqlite.Row) -> Totem:
+    return Totem(
+        id=row["id"],
+        entity=row["entity"],
+        weight=row["weight"],
+        visitor_id=row["visitor_id"],
+        context=row["context"],
+        category=row["category"],
+        first_seen=datetime.fromisoformat(row["first_seen"]) if row["first_seen"] else None,
+        last_referenced=datetime.fromisoformat(row["last_referenced"]) if row["last_referenced"] else None,
+        source_moment_id=row["source_moment_id"],
+    )
+
+
+def _row_to_trait(row: aiosqlite.Row) -> VisitorTrait:
+    return VisitorTrait(
+        id=row["id"],
+        visitor_id=row["visitor_id"],
+        trait_category=row["trait_category"],
+        trait_key=row["trait_key"],
+        trait_value=row["trait_value"],
+        confidence=row["confidence"],
+        source_moment_id=row["source_moment_id"],
+        created_at=datetime.fromisoformat(row["created_at"]) if row["created_at"] else None,
+    )
+
+
+def _row_to_visitor(row: aiosqlite.Row) -> Visitor:
+    return Visitor(
+        id=row["id"],
+        name=row["name"],
+        trust_level=row["trust_level"],
+        visit_count=row["visit_count"],
+        first_visit=datetime.fromisoformat(row["first_visit"]) if row["first_visit"] else None,
+        last_visit=datetime.fromisoformat(row["last_visit"]) if row["last_visit"] else None,
+        emotional_imprint=row["emotional_imprint"],
+        summary=row["summary"],
+    )
 
 
 def _cosine_similarity(a: list[float], b: list[float]) -> float:

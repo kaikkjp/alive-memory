@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "EvalCase",
+  "description": "JSON Schema for an evolve eval case.",
+  "type": "object",
+  "required": ["id", "category", "difficulty", "conversation", "queries"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier for this eval case."
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "short_term_recall",
+        "cross_session_recall",
+        "consolidation_survival",
+        "noise_decay",
+        "contradiction_handling",
+        "high_volume_stress",
+        "emotional_weighting",
+        "relational_recall"
+      ],
+      "description": "Failure category this case targets."
+    },
+    "difficulty": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Difficulty level (higher = harder)."
+    },
+    "difficulty_axes": {
+      "type": "object",
+      "default": {},
+      "description": "Named axes contributing to difficulty (e.g. volume, time_span)."
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": [],
+      "description": "Free-form tags for filtering."
+    },
+    "conversation": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/ConversationTurn"
+      },
+      "description": "The conversation to replay."
+    },
+    "time_gaps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TimeGap"
+      },
+      "default": [],
+      "description": "Time gaps injected between turns."
+    },
+    "queries": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/EvalQuery"
+      },
+      "description": "Recall queries to evaluate after replay."
+    },
+    "metadata": {
+      "type": "object",
+      "default": {},
+      "description": "Arbitrary metadata."
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "ConversationTurn": {
+      "type": "object",
+      "required": ["turn", "time", "role", "content"],
+      "properties": {
+        "turn": {
+          "type": "integer",
+          "description": "Turn index (0-based)."
+        },
+        "time": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp for this turn."
+        },
+        "role": {
+          "type": "string",
+          "description": "Speaker role (e.g. user, assistant)."
+        },
+        "content": {
+          "type": "string",
+          "description": "Message content."
+        }
+      },
+      "additionalProperties": false
+    },
+    "TimeGap": {
+      "type": "object",
+      "required": ["after_turn", "skip_to"],
+      "properties": {
+        "after_turn": {
+          "type": "integer",
+          "description": "Insert gap after this turn index."
+        },
+        "skip_to": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp to advance the clock to."
+        },
+        "consolidation_expected": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether consolidation should run during this gap."
+        }
+      },
+      "additionalProperties": false
+    },
+    "EvalQuery": {
+      "type": "object",
+      "required": ["time", "query", "ground_truth"],
+      "properties": {
+        "time": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Simulated time of the query."
+        },
+        "query": {
+          "type": "string",
+          "description": "The recall query text."
+        },
+        "ground_truth": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1,
+          "description": "Strings that must appear in recall results."
+        },
+        "bonus_inferences": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Extra inferences that score bonus points if recalled."
+        },
+        "should_not_recall": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Strings that should NOT appear in recall results."
+        },
+        "expected_emotional_weight": {
+          "type": ["string", "null"],
+          "default": null,
+          "description": "Expected emotional weight label (e.g. high, low)."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
