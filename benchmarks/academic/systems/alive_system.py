@@ -68,7 +68,7 @@ class AliveMemorySystem(MemorySystemAdapter):
 
             if openrouter_key:
                 from alive_memory.llm.openrouter import OpenRouterProvider
-                model = config.get("llm_model", "anthropic/claude-haiku-4-5")
+                model = config.get("llm_model", "openai/gpt-4o-mini")
                 _inner = OpenRouterProvider(api_key=openrouter_key, model=model)
             elif anthropic_key:
                 from alive_memory.llm.anthropic import AnthropicProvider
