@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from alive_memory.evolve.types import EvolveResult, EvolveScore, FailureCategory, IterationRecord
+from tools.evolve.types import EvolveResult, EvolveScore
 
 
 def generate_report(result: EvolveResult) -> str:

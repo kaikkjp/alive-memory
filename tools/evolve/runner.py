@@ -2,22 +2,21 @@
 
 from __future__ import annotations
 
+import logging
 import tempfile
 import time
-import logging
 from datetime import UTC, datetime
 
-from alive_memory.evolve.types import (
+from alive_memory.clock import SimulatedClock
+from alive_memory.config import AliveConfig
+from tools.evolve.scorer import aggregate_split, score_case, score_query
+from tools.evolve.types import (
     CaseResult,
     EvalCase,
-    EvalQuery,
     EvolveScore,
     RecallScore,
     SplitResult,
 )
-from alive_memory.evolve.scorer import score_query, score_case, aggregate_split
-from alive_memory.clock import SimulatedClock
-from alive_memory.config import AliveConfig
 
 logger = logging.getLogger(__name__)
 

@@ -26,11 +26,11 @@ DEFAULT_TARGET_FILES: list[str] = [
 
 # Modules the agent must NOT import (prevent gaming the eval)
 FORBIDDEN_IMPORTS: set[str] = {
-    "alive_memory.evolve.scorer",
-    "alive_memory.evolve.runner",
-    "alive_memory.evolve.analyzer",
-    "alive_memory.evolve.suite",
-    "alive_memory.evolve.types",
+    "tools.evolve.scorer",
+    "tools.evolve.runner",
+    "tools.evolve.analyzer",
+    "tools.evolve.suite",
+    "tools.evolve.types",
 }
 
 # ── Prompt fragments ─────────────────────────────────────────────
@@ -56,7 +56,7 @@ _OUTPUT_FORMAT_INSTRUCTIONS = (
     "- Output the FULL modified file content (not a diff)\n"
     "- Only include files you actually changed\n"
     "- Keep all existing function signatures unchanged\n"
-    "- Do NOT import any modules from alive_memory.evolve.*\n"
+    "- Do NOT import any modules from tools.evolve.*\n"
     "- Start your response with a one-sentence description of the change, "
     "then the code blocks\n"
 )

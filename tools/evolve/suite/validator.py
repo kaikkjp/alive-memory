@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from alive_memory.evolve.stopwords import STOPWORDS
-from alive_memory.evolve.types import ConversationTurn, EvalCase, FailureCategory
+from tools.evolve.stopwords import STOPWORDS
+from tools.evolve.types import ConversationTurn, EvalCase, FailureCategory
 
 from .loader import EvalSuite
 

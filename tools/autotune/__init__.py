@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from alive_memory.autotune.engine import autotune
-from alive_memory.autotune.types import AutotuneConfig, AutotuneResult
+from tools.autotune.engine import autotune
+from tools.autotune.types import AutotuneConfig, AutotuneResult
 
 __all__ = ["autotune", "AutotuneConfig", "AutotuneResult"]

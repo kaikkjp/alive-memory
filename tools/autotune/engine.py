@@ -7,17 +7,17 @@ import random
 import time
 from datetime import UTC, datetime
 
-from alive_memory.autotune.evaluator import aggregate_scores, score_simulation
-from alive_memory.autotune.mutator import mutate, select_strategy
-from alive_memory.autotune.scenarios.loader import load_scenarios
-from alive_memory.autotune.simulator import run_scenario
-from alive_memory.autotune.types import (
+from alive_memory.config import AliveConfig
+from tools.autotune.evaluator import aggregate_scores, score_simulation
+from tools.autotune.mutator import mutate, select_strategy
+from tools.autotune.scenarios.loader import load_scenarios
+from tools.autotune.simulator import run_scenario
+from tools.autotune.types import (
     AutotuneConfig,
     AutotuneResult,
     ExperimentRecord,
     MemoryScore,
 )
-from alive_memory.config import AliveConfig
 
 logger = logging.getLogger(__name__)
 
