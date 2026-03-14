@@ -1,29 +1,17 @@
-"""alive-memory: Cognitive memory layer for persistent AI characters.
-
-Three-tier memory architecture:
-  Tier 1 — Day Memory: ephemeral salient moments in SQLite
-  Tier 2 — Hot Memory: markdown files on disk (journal, visitors, etc.)
-  Tier 3 — Cold Memory: vector embeddings in SQLite (sleep-only)
+"""alive-memory: Cognitive memory infrastructure for AI agents.
 
 Usage:
     from alive_memory import AliveMemory
 
-    memory = AliveMemory(storage="memory.db", memory_dir="/data/agent/memory")
-    await memory.initialize()
-
-    # Record an event (may or may not become a moment)
-    moment = await memory.intake(event_type="conversation", content="Hello world")
-
-    # Recall from hot memory
-    context = await memory.recall(query="greetings")
-
-    # Consolidate (sleep)
-    report = await memory.consolidate()
+    async with AliveMemory(storage="agent.db") as memory:
+        await memory.intake("conversation", "User said hello")
+        context = await memory.recall("greetings")
+        print(context.to_prompt())
 """
 
 from __future__ import annotations
 
-__version__ = "0.3.0"
+__version__ = "1.0.0a1"
 
 import tempfile
 from datetime import UTC, datetime
@@ -36,83 +24,82 @@ from alive_memory.consolidation.wake import WakeConfig, WakeHooks
 from alive_memory.embeddings.base import EmbeddingProvider
 from alive_memory.embeddings.local import LocalEmbeddingProvider
 from alive_memory.hot.reader import MemoryReader
-from alive_memory.hot.translator import (
-    scrub_numbers,
-    translate_drives_summary,
-    translate_mood,
-)
 from alive_memory.hot.writer import MemoryWriter
 from alive_memory.llm.provider import LLMProvider
-from alive_memory.sleep import SleepConfig, nap, sleep_cycle
+from alive_memory.sleep import SleepConfig
 from alive_memory.storage.base import BaseStorage
 from alive_memory.storage.sqlite import SQLiteStorage
 from alive_memory.types import (
     CognitiveState,
-    ConsolidationReport,
     DayMoment,
     DriveState,
     EventType,
-    Memory,
-    MemoryType,
     MoodState,
-    Perception,
     RecallContext,
     SelfModel,
     SleepCycleReport,
     SleepReport,
-    Totem,
-    Visitor,
-    VisitorTrait,
-    WakeReport,
 )
 
 __all__ = [
     "AliveMemory",
     "AliveConfig",
-    "BaseStorage",
-    "SQLiteStorage",
-    "LLMProvider",
-    "EmbeddingProvider",
-    "MemoryReader",
-    "MemoryWriter",
+    "RecallContext",
     "CognitiveState",
-    "ConsolidationReport",
     "DayMoment",
     "DriveState",
     "EventType",
-    "Memory",
-    "MemoryType",
     "MoodState",
-    "Perception",
-    "RecallContext",
     "SelfModel",
     "SleepConfig",
-    "SleepCycleReport",
     "SleepReport",
-    "WakeConfig",
-    "WakeHooks",
-    "Totem",
-    "Visitor",
-    "VisitorTrait",
-    "WakeReport",
-    "nap",
-    "scrub_numbers",
-    "sleep_cycle",
-    "translate_drives_summary",
-    "translate_mood",
+    "SleepCycleReport",
+    "LLMProvider",
+    "BaseStorage",
 ]
 
 
-def _resolve_llm(llm: LLMProvider | str | None) -> LLMProvider | None:
-    """Resolve an LLM provider from a string shorthand or pass through."""
+class _CallableLLM:
+    """Wrap an async/sync callable as an LLMProvider."""
+
+    def __init__(self, fn):
+        self._fn = fn
+
+    async def complete(self, prompt, *, system=None, max_tokens=1000, temperature=0.7):
+        import inspect
+
+        from alive_memory.llm.provider import LLMResponse
+        sig = inspect.signature(self._fn)
+        params = sig.parameters
+        kwargs: dict[str, Any] = {}
+        if "system" in params:
+            kwargs["system"] = system or ""
+        if "max_tokens" in params:
+            kwargs["max_tokens"] = max_tokens
+        if "temperature" in params:
+            kwargs["temperature"] = temperature
+
+        result = self._fn(prompt, **kwargs)
+        if hasattr(result, "__await__"):
+            result = await result
+        return LLMResponse(text=str(result))
+
+
+def _resolve_llm(llm) -> LLMProvider | None:
+    """Resolve an LLM provider from a string shorthand, callable, or pass through."""
     if llm is None or isinstance(llm, LLMProvider):
         return llm
+    if callable(llm) and not isinstance(llm, str):
+        return _CallableLLM(llm)
     if not isinstance(llm, str):
         return llm  # duck-typed provider
     name = llm.lower()
     if name == "anthropic":
         from alive_memory.llm.anthropic import AnthropicProvider
         return AnthropicProvider()
+    if name == "openai":
+        from alive_memory.llm.openai import OpenAIProvider
+        return OpenAIProvider()
     if name == "openrouter":
         from alive_memory.llm.openrouter import OpenRouterProvider
         return OpenRouterProvider()
@@ -120,9 +107,33 @@ def _resolve_llm(llm: LLMProvider | str | None) -> LLMProvider | None:
         from alive_memory.llm.gemini import GeminiProvider
         return GeminiProvider()
     raise ValueError(
-        f"Unknown LLM provider {llm!r}. Use 'anthropic', 'openrouter', "
-        f"'gemini', or pass an LLMProvider instance."
+        f"Unknown LLM provider {llm!r}. Use 'anthropic', 'openai', "
+        f"'openrouter', 'gemini', or pass a callable/LLMProvider."
     )
+
+
+class _SyncRunner:
+    """Persistent event loop for sync wrappers.
+
+    Each AliveMemory instance gets one runner. The loop stays alive
+    so aiosqlite connections created during init can be reused.
+    """
+
+    def __init__(self):
+        import asyncio
+        import threading
+        self._loop = asyncio.new_event_loop()
+        self._thread = threading.Thread(target=self._loop.run_forever, daemon=True)
+        self._thread.start()
+
+    def run(self, coro):
+        import asyncio
+        future = asyncio.run_coroutine_threadsafe(coro, self._loop)
+        return future.result()
+
+    def close(self):
+        self._loop.call_soon_threadsafe(self._loop.stop)
+        self._thread.join(timeout=5)
 
 
 def _resolve_embedder(
@@ -169,10 +180,13 @@ class AliveMemory:
             memory_dir: Root directory for hot memory files (Tier 2).
                         If not provided, uses a temp directory.
             config: AliveConfig instance, dict, or YAML file path.
-            llm: LLM provider instance, or a string shorthand:
+            llm: LLM provider for consolidation/reflection. Options:
                  "anthropic" — uses ANTHROPIC_API_KEY env var
+                 "openai" — uses OPENAI_API_KEY env var
                  "openrouter" — uses OPENROUTER_API_KEY env var
-                 Needed for consolidation reflection/dreaming.
+                 A callable: async def(prompt, system="") -> str
+                 An LLMProvider instance
+                 Not needed for basic intake/recall.
             embedder: Embedding provider instance, or a string shorthand:
                       "openai" — uses OPENAI_API_KEY env var
                       "local" — hash-based (no API, default)
@@ -217,10 +231,15 @@ class AliveMemory:
 
         # Track previous drives for salience delta calculation
         self._prev_drives: DriveState | None = None
+        self._initialized = False
+        self._sync_runner: _SyncRunner | None = None
 
     async def initialize(self) -> None:
         """Set up storage (create tables, run migrations). Call once before use."""
+        if self._initialized:
+            return
         await self._storage.initialize()
+        self._initialized = True
 
     async def close(self) -> None:
         """Release resources."""
@@ -585,6 +604,40 @@ class AliveMemory:
         """Get a summary of identity development over time."""
         from alive_memory.identity.history import summarize_development
         return await summarize_development(self._storage)
+
+    # ── Sync Wrappers ─────────────────────────────────────────────
+
+    def _get_sync_runner(self) -> _SyncRunner:
+        """Get or create the sync runner, auto-initializing storage."""
+        if self._sync_runner is None:
+            self._sync_runner = _SyncRunner()
+        if not self._initialized:
+            self._sync_runner.run(self.initialize())
+        return self._sync_runner
+
+    def intake_sync(
+        self,
+        event_type: str | EventType,
+        content: str,
+        *,
+        metadata: dict[str, Any] | None = None,
+    ) -> DayMoment | None:
+        """Sync wrapper for intake(). Auto-initializes on first call."""
+        return self._get_sync_runner().run(
+            self.intake(event_type, content, metadata=metadata)
+        )
+
+    def recall_sync(self, query: str, *, limit: int = 10) -> RecallContext:
+        """Sync wrapper for recall(). Auto-initializes on first call."""
+        return self._get_sync_runner().run(self.recall(query, limit=limit))
+
+    def consolidate_sync(self, *, depth: str = "full") -> SleepReport:
+        """Sync wrapper for consolidate(). Auto-initializes on first call."""
+        return self._get_sync_runner().run(self.consolidate(depth=depth))
+
+    def sleep_sync(self) -> SleepCycleReport:
+        """Sync wrapper for sleep(). Auto-initializes on first call."""
+        return self._get_sync_runner().run(self.sleep())
 
     # ── Quickstart ────────────────────────────────────────────────
 
