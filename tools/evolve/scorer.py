@@ -7,20 +7,18 @@ into case-level and split-level results with category-specific adjustments.
 
 from __future__ import annotations
 
-import asyncio
 import inspect
 import math
 import re
 from typing import Any
 
-from alive_memory.evolve.stopwords import STOPWORDS
-from alive_memory.evolve.types import (
+from tools.evolve.stopwords import STOPWORDS
+from tools.evolve.types import (
     CATEGORY_SCORING_ADJUSTMENTS,
     CaseResult,
     EvalQuery,
     RecallScore,
 )
-
 
 # ---------------------------------------------------------------------------
 # Text helpers

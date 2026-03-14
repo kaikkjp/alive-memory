@@ -9,10 +9,10 @@ import logging
 
 
 async def _run(args: argparse.Namespace) -> None:
-    from alive_memory.autotune.engine import autotune
-    from alive_memory.autotune.report import generate_report
-    from alive_memory.autotune.types import AutotuneConfig
     from alive_memory.config import AliveConfig
+    from tools.autotune.engine import autotune
+    from tools.autotune.report import generate_report
+    from tools.autotune.types import AutotuneConfig
 
     logging.basicConfig(
         level=logging.INFO,

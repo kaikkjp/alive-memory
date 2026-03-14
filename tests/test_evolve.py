@@ -4,15 +4,15 @@ from __future__ import annotations
 
 import pytest
 
-from alive_memory.evolve.agent import (
+from tools.evolve.agent import (
     validate_changes,
 )
-from alive_memory.evolve.analyzer import (
+from tools.evolve.analyzer import (
     cluster_failures,
     generate_failure_report,
 )
-from alive_memory.evolve.engine import should_promote
-from alive_memory.evolve.scorer import (
+from tools.evolve.engine import should_promote
+from tools.evolve.scorer import (
     aggregate_split,
     cosine_similarity,
     exact_match,
@@ -21,12 +21,12 @@ from alive_memory.evolve.scorer import (
     match_fact,
     score_query,
 )
-from alive_memory.evolve.suite.loader import load_seed_suite
-from alive_memory.evolve.suite.validator import (
+from tools.evolve.suite.loader import load_seed_suite
+from tools.evolve.suite.validator import (
     fact_traceable_to_conversation,
     validate_case,
 )
-from alive_memory.evolve.types import (
+from tools.evolve.types import (
     CaseResult,
     ConversationTurn,
     EvalCase,
@@ -554,7 +554,7 @@ class TestAgentValidation:
         assert any("syntax" in e.lower() for e in errors)
 
     def test_validate_changes_forbidden_import(self):
-        code = "import alive_memory.evolve.scorer\nx = 1\n"
+        code = "import tools.evolve.scorer\nx = 1\n"
         changes = {"alive_memory/recall/hippocampus.py": code}
         errors = validate_changes(
             changes, allowed_files=["alive_memory/recall/hippocampus.py"]

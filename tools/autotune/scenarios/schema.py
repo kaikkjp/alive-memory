@@ -5,7 +5,7 @@ from __future__ import annotations
 import pathlib
 from typing import Any
 
-from alive_memory.autotune.types import ExpectedRecall, Scenario, ScenarioTurn
+from tools.autotune.types import ExpectedRecall, Scenario, ScenarioTurn
 
 
 def parse_scenario_yaml(path: pathlib.Path) -> Scenario:

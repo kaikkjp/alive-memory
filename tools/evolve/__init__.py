@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from alive_memory.evolve.engine import evolve
-from alive_memory.evolve.types import EvolveConfig, EvolveResult
+from tools.evolve.engine import evolve
+from tools.evolve.types import EvolveConfig, EvolveResult
 
 __all__ = ["evolve", "EvolveConfig", "EvolveResult"]

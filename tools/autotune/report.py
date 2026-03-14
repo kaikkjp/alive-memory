@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from alive_memory.autotune.types import AutotuneResult
+from tools.autotune.types import AutotuneResult
 
 
 def generate_report(result: AutotuneResult) -> str:

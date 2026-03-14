@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pathlib
 
-from alive_memory.autotune.scenarios.schema import parse_scenario_yaml
-from alive_memory.autotune.types import Scenario
+from tools.autotune.scenarios.schema import parse_scenario_yaml
+from tools.autotune.types import Scenario
 
 _BUILTIN_DIR = pathlib.Path(__file__).parent / "builtin"
 

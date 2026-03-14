@@ -7,8 +7,8 @@ import pathlib
 from dataclasses import dataclass, field
 from typing import Any
 
-from alive_memory.evolve.suite.manifest import read_manifest
-from alive_memory.evolve.types import (
+from tools.evolve.suite.manifest import read_manifest
+from tools.evolve.types import (
     ConversationTurn,
     EvalCase,
     EvalQuery,

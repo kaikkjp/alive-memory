@@ -7,17 +7,17 @@ import tempfile
 import time
 from datetime import UTC, datetime
 
-from alive_memory.evolve.agent import (
+from tools.evolve.agent import (
     CodingAgent,
     apply_changes,
     reload_memory_modules,
     revert_changes,
     validate_changes,
 )
-from alive_memory.evolve.analyzer import generate_failure_report
-from alive_memory.evolve.runner import run_full_eval
-from alive_memory.evolve.suite.loader import EvalSuite, load_seed_suite, load_suite
-from alive_memory.evolve.types import (
+from tools.evolve.analyzer import generate_failure_report
+from tools.evolve.runner import run_full_eval
+from tools.evolve.suite.loader import EvalSuite, load_seed_suite, load_suite
+from tools.evolve.types import (
     EvolveConfig,
     EvolveResult,
     EvolveScore,

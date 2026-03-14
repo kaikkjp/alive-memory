@@ -9,9 +9,9 @@ import logging
 
 
 async def _run(args: argparse.Namespace) -> None:
-    from alive_memory.evolve import evolve
-    from alive_memory.evolve.report import generate_report
-    from alive_memory.evolve.types import EvolveConfig
+    from tools.evolve import evolve
+    from tools.evolve.report import generate_report
+    from tools.evolve.types import EvolveConfig
 
     logging.basicConfig(
         level=logging.INFO if not args.quiet else logging.WARNING,

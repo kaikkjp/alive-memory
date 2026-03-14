@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from alive_memory.autotune.types import MemoryScore, RecallResult, SimulationResult
+from tools.autotune.types import MemoryScore, RecallResult, SimulationResult
 
 
 def score_recall(result: RecallResult) -> tuple[float, float]:

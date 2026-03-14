@@ -6,9 +6,9 @@ import random
 from dataclasses import dataclass
 from enum import Enum
 
-from alive_memory.autotune.profiles import PROFILES
-from alive_memory.autotune.types import ExperimentRecord
 from alive_memory.config import AliveConfig
+from tools.autotune.profiles import PROFILES
+from tools.autotune.types import ExperimentRecord
 
 
 @dataclass

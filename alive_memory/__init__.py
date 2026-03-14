@@ -586,46 +586,6 @@ class AliveMemory:
         from alive_memory.identity.history import summarize_development
         return await summarize_development(self._storage)
 
-    # ── Autotune ─────────────────────────────────────────────────
-
-    async def autotune(
-        self,
-        budget: int = 50,
-        scenarios: str = "builtin",
-        *,
-        scoring_weights: dict | None = None,
-        verbose: bool = True,
-    ) -> Any:
-        """Run parameter auto-tuning.
-
-        Args:
-            budget: Number of iterations.
-            scenarios: "builtin" or path to custom scenario directory.
-            scoring_weights: Override default MemoryScore weights.
-            verbose: Print progress during tuning.
-
-        Returns:
-            AutotuneResult with best_config, experiment_log, and report.
-        """
-        from alive_memory.autotune import AutotuneConfig
-        from alive_memory.autotune import autotune as _autotune
-
-        result = await _autotune(
-            config=self._config,
-            autotune_config=AutotuneConfig(
-                budget=budget,
-                scenarios=scenarios,
-                scoring_weights=scoring_weights,
-                verbose=verbose,
-            ),
-        )
-        return result
-
-    def apply_tuned_config(self, result: Any) -> None:
-        """Apply an AutotuneResult's best config to this instance."""
-        for key, value in result.best_config.items():
-            self._config.set(key, value)
-
     # ── Quickstart ────────────────────────────────────────────────
 
     @classmethod

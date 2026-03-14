@@ -7,21 +7,23 @@ from datetime import UTC, datetime
 
 import pytest
 
-from alive_memory.autotune.evaluator import (
+from alive_memory.clock import SimulatedClock, SystemClock
+from alive_memory.config import AliveConfig
+from tools.autotune.evaluator import (
     aggregate_scores,
     score_recall,
     score_simulation,
 )
-from alive_memory.autotune.mutator import (
+from tools.autotune.mutator import (
     TUNABLE_PARAMS,
     MutationStrategy,
     mutate,
     select_strategy,
 )
-from alive_memory.autotune.profiles import PROFILES
-from alive_memory.autotune.report import generate_report
-from alive_memory.autotune.scenarios.loader import load_scenarios
-from alive_memory.autotune.types import (
+from tools.autotune.profiles import PROFILES
+from tools.autotune.report import generate_report
+from tools.autotune.scenarios.loader import load_scenarios
+from tools.autotune.types import (
     AutotuneConfig,
     AutotuneResult,
     ExpectedRecall,
@@ -30,8 +32,6 @@ from alive_memory.autotune.types import (
     RecallResult,
     SimulationResult,
 )
-from alive_memory.clock import SimulatedClock, SystemClock
-from alive_memory.config import AliveConfig
 
 # ── Clock Tests ──────────────────────────────────────────────────
 
@@ -326,7 +326,7 @@ class TestReport:
 @pytest.mark.asyncio
 async def test_simulator_short_term():
     """Run the short_term_recall scenario and verify it completes."""
-    from alive_memory.autotune.simulator import run_scenario
+    from tools.autotune.simulator import run_scenario
 
     scenarios = load_scenarios("builtin")
     short_term = next(s for s in scenarios if s.name == "short_term_recall")
@@ -343,7 +343,7 @@ async def test_simulator_short_term():
 @pytest.mark.asyncio
 async def test_autotune_3_iterations():
     """Run a 3-iteration autotune and verify it produces a result."""
-    from alive_memory.autotune.engine import autotune
+    from tools.autotune.engine import autotune
 
     result = await autotune(
         autotune_config=AutotuneConfig(budget=3, verbose=False),
@@ -356,11 +356,12 @@ async def test_autotune_3_iterations():
 
 
 @pytest.mark.asyncio
-async def test_alive_memory_autotune_method():
-    """Test the AliveMemory.autotune() convenience method."""
-    from alive_memory import AliveMemory
+async def test_autotune_standalone():
+    """Test autotune called standalone (not via AliveMemory method)."""
+    from tools.autotune.engine import autotune
 
-    async with AliveMemory(storage=":memory:") as mem:
-        result = await mem.autotune(budget=2, verbose=False)
-        assert result.total_iterations == 2
-        assert result.best_config
+    result = await autotune(
+        autotune_config=AutotuneConfig(budget=2, verbose=False),
+    )
+    assert result.total_iterations == 2
+    assert result.best_config

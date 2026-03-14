@@ -7,9 +7,9 @@ import tempfile
 import time
 from datetime import UTC, datetime
 
-from alive_memory.autotune.types import RecallResult, Scenario, SimulationResult
 from alive_memory.clock import SimulatedClock
 from alive_memory.config import AliveConfig
+from tools.autotune.types import RecallResult, Scenario, SimulationResult
 
 
 def _parse_iso(s: str) -> datetime:
