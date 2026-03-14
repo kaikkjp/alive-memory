@@ -26,11 +26,11 @@ DEFAULT_TARGET_FILES: list[str] = [
 
 # Modules the agent must NOT import (prevent gaming the eval)
 FORBIDDEN_IMPORTS: set[str] = {
-    "alive_memory.evolve.scorer",
-    "alive_memory.evolve.runner",
-    "alive_memory.evolve.analyzer",
-    "alive_memory.evolve.suite",
-    "alive_memory.evolve.types",
+    "tools.evolve.scorer",
+    "tools.evolve.runner",
+    "tools.evolve.analyzer",
+    "tools.evolve.suite",
+    "tools.evolve.types",
 }
 
 # ── Prompt fragments ─────────────────────────────────────────────

@@ -554,7 +554,7 @@ class TestAgentValidation:
         assert any("syntax" in e.lower() for e in errors)
 
     def test_validate_changes_forbidden_import(self):
-        code = "import alive_memory.evolve.scorer\nx = 1\n"
+        code = "import tools.evolve.scorer\nx = 1\n"
         changes = {"alive_memory/recall/hippocampus.py": code}
         errors = validate_changes(
             changes, allowed_files=["alive_memory/recall/hippocampus.py"]
