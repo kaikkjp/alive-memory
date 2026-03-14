@@ -59,7 +59,7 @@
   },
   "config": {
     "model": "anthropic/claude-haiku-4-5",
-    "api_key": "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"
+    "api_key": "REDACTED"
   },
   "eval_results": [
     {
