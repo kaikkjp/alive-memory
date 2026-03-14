@@ -104,20 +104,89 @@ class Visitor:
 
 @dataclass
 class RecallContext:
-    """Result of a recall operation — aggregated hot memory context.
+    """Result of a recall operation — aggregated memory context.
 
-    Markdown-first grep over hot memory files, plus structured semantic search.
+    Categorized results from hot memory grep and structured fact search.
+
+    Public API fields (use these):
+        episodic     — what happened (events, conversations)
+        observations — notes about the user
+        semantic     — general knowledge / facts
+        reflections  — past reflections
+        thread       — current conversation context
+        entities     — structured objects / items
+        traits       — user attributes / characteristics
+
+    Legacy aliases (backward compat): journal_entries, visitor_notes,
+    self_knowledge, thread_context, totem_facts, trait_facts
     """
+    # Internal storage fields (used by hippocampus, adapters, etc.)
     journal_entries: list[str] = field(default_factory=list)
     visitor_notes: list[str] = field(default_factory=list)
     self_knowledge: list[str] = field(default_factory=list)
     reflections: list[str] = field(default_factory=list)
     thread_context: list[str] = field(default_factory=list)
-    cold_echoes: list[str] = field(default_factory=list)  # from vector search during sleep
-    totem_facts: list[str] = field(default_factory=list)  # from totems table
-    trait_facts: list[str] = field(default_factory=list)  # from visitor_traits table
+    cold_echoes: list[str] = field(default_factory=list)
+    totem_facts: list[str] = field(default_factory=list)
+    trait_facts: list[str] = field(default_factory=list)
     query: str = ""
     total_hits: int = 0
+
+    # ── Public API aliases ────────────────────────────────────────
+
+    @property
+    def episodic(self) -> list[str]:
+        """What happened — events, conversations, journal entries."""
+        return self.journal_entries
+
+    @property
+    def observations(self) -> list[str]:
+        """Notes about the user / visitor."""
+        return self.visitor_notes
+
+    @property
+    def semantic(self) -> list[str]:
+        """General knowledge, facts, self-knowledge."""
+        return self.self_knowledge
+
+    @property
+    def thread(self) -> list[str]:
+        """Current conversation / thread context."""
+        return self.thread_context
+
+    @property
+    def entities(self) -> list[str]:
+        """Structured objects, items, associations."""
+        return self.totem_facts
+
+    @property
+    def traits(self) -> list[str]:
+        """User attributes, characteristics, preferences."""
+        return self.trait_facts
+
+    def to_prompt(self) -> str:
+        """Format recall results as clean text for LLM prompt injection.
+
+        Produces readable text with section headers.
+        Empty sections are omitted.
+        """
+        sections: list[str] = []
+        _sections = [
+            ("Recent Events", self.journal_entries),
+            ("User Info", self.visitor_notes),
+            ("Knowledge", self.self_knowledge),
+            ("Reflections", self.reflections),
+            ("Conversation", self.thread_context),
+            ("Entities", self.totem_facts),
+            ("Traits", self.trait_facts),
+        ]
+        for title, items in _sections:
+            if items:
+                body = "\n".join(f"- {item}" for item in items)
+                sections.append(f"### {title}\n{body}")
+        if not sections:
+            return ""
+        return "## Relevant Context\n\n" + "\n\n".join(sections)
 
 
 @dataclass
