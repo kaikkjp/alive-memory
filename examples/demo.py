@@ -60,7 +60,7 @@ async def main():
 
         # 5. Check cognitive state
         state = await memory.get_state()
-        print(f"\nCognitive state:")
+        print("\nCognitive state:")
         print(f"  Mood: {state.mood.word} (valence={state.mood.valence:.2f})")
         print(f"  Drives: curiosity={state.drives.curiosity:.2f}, social={state.drives.social:.2f}")
         print(f"  Cycle: {state.cycle_count}")
