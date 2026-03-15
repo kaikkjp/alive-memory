@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.0.0a1 (2026-03-15)
+
+First public alpha release on PyPI.
+
+### Added
+- Generic public API: `RecallContext` fields renamed (episodic, observations, semantic, thread, entities, traits)
+- `to_prompt()` convenience method for LLM prompt injection
+- OpenAI LLM provider
+- Callable LLM support (pass any async/sync function)
+- Sync wrappers: `intake_sync()`, `recall_sync()`, `consolidate_sync()`, `sleep_sync()`
+
+### Changed
+- Split autotune/evolve into `tools/` (not shipped in wheel)
+- Version: 1.0.0a1
+
 ## 0.3.0 (2026-03-04)
 
 Full sleep cycle orchestration, meta-cognition enhancements, and identity evolution.

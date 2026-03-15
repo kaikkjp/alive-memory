@@ -71,9 +71,21 @@ class AliveMessageHistory(BaseChatMessageHistory):
             limit=self._recall_limit,
         )
         result: list[BaseMessage] = []
-        # Use journal entries as message history proxy
+        # Journal entries may include markdown headers from consolidation
+        # (e.g., "## 01:16 [id]\n\n[role:ai] hello"). Search anywhere
+        # in the entry for role tags, not just startswith().
         for entry in ctx.journal_entries:
-            result.append(HumanMessage(content=entry))
+            if "[role:ai] " in entry:
+                # Extract content after the role tag
+                idx = entry.index("[role:ai] ")
+                content = entry[idx + len("[role:ai] "):]
+                result.append(AIMessage(content=content))
+            elif "[role:human] " in entry:
+                idx = entry.index("[role:human] ")
+                content = entry[idx + len("[role:human] "):]
+                result.append(HumanMessage(content=content))
+            else:
+                result.append(HumanMessage(content=entry))
         return result
 
     def add_message(self, message: BaseMessage) -> None:
@@ -84,9 +96,11 @@ class AliveMessageHistory(BaseChatMessageHistory):
         """Store messages as moments via intake."""
         for msg in messages:
             role = "ai" if isinstance(msg, AIMessage) else "human"
+            # Prefix content with role so it survives hot memory roundtrip
+            tagged = f"[role:{role}] {msg.content}"
             await self._memory.intake(
                 event_type="conversation",
-                content=msg.content,
+                content=tagged,
                 metadata={"role": role},
             )
 

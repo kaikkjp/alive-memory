@@ -244,6 +244,10 @@ class AliveMemory:
     async def close(self) -> None:
         """Release resources."""
         await self._storage.close()
+        if self._sync_runner is not None:
+            self._sync_runner.close()
+            self._sync_runner = None
+        self._initialized = False
 
     async def __aenter__(self):
         await self.initialize()

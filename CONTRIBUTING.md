@@ -3,8 +3,8 @@
 ## Development Setup
 
 ```bash
-git clone git@github.com:TriMinhPham/Alive-sdk.git
-cd Alive-sdk
+git clone git@github.com:TriMinhPham/alive-memory.git
+cd alive-memory
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[all,dev]"
@@ -28,7 +28,7 @@ pytest tests/test_server.py  # server tests only (needs [server] extra)
 
 ## Making Changes
 
-1. Create a branch from `alive-sdk-extraction`
+1. Create a branch from `main`
 2. Make your changes
 3. Run `ruff check .` and `pytest`
 4. Open a PR with a clear description of what changed and why

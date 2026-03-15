@@ -2,6 +2,8 @@
 
 Cognitive memory infrastructure for AI agents. Three-tier architecture: salience-gated intake, keyword-based recall, and LLM-powered consolidation with identity tracking.
 
+> **Alpha release.** API may change. [Feedback welcome.](https://github.com/TriMinhPham/alive-memory/issues)
+
 ```bash
 pip install alive-memory
 ```
@@ -137,8 +139,8 @@ Events pass through a perception pipeline with salience gating — not everythin
 ## Development
 
 ```bash
-git clone https://github.com/TriMinhPham/Alive-sdk.git
-cd Alive-sdk
+git clone https://github.com/TriMinhPham/alive-memory.git
+cd alive-memory
 pip install -e ".[dev]"
 pytest
 ```

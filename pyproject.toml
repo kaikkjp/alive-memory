@@ -66,9 +66,9 @@ dev = [
 alive-memory-server = "alive_memory.server.app:main"
 
 [project.urls]
-Homepage = "https://github.com/TriMinhPham/Alive-sdk"
-Repository = "https://github.com/TriMinhPham/Alive-sdk"
-Issues = "https://github.com/TriMinhPham/Alive-sdk/issues"
+Homepage = "https://github.com/TriMinhPham/alive-memory"
+Repository = "https://github.com/TriMinhPham/alive-memory"
+Issues = "https://github.com/TriMinhPham/alive-memory/issues"
 
 # --- Tool configs ---
 

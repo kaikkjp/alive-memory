@@ -42,6 +42,7 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
     async def lifespan(app: FastAPI):
         memory = AliveMemory(
             storage=config.db_path,
+            memory_dir=config.memory_dir,
             config=config.config_path,
         )
         await memory.initialize()
