@@ -74,7 +74,7 @@ class AliveConfig:
 def _load_yaml(path: pathlib.Path) -> dict:
     """Load a YAML file. Returns empty dict on error."""
     try:
-        import yaml
+        import yaml  # type: ignore[import-untyped]
         with open(path) as f:
             return yaml.safe_load(f) or {}
     except ImportError:

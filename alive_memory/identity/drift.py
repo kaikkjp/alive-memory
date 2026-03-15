@@ -204,8 +204,8 @@ class DriftDetector:
         freq = current_data.get("action_frequencies")
         if isinstance(freq, dict):
             for k, v in freq.items():
-                old = baseline.action_frequencies.get(k, v)
-                baseline.action_frequencies[k] = alpha * v + (1 - alpha) * old
+                old = baseline.action_frequencies.get(k, float(v))
+                baseline.action_frequencies[k] = alpha * float(v) + (1 - alpha) * old
 
         # Update scalar metrics
         for k, v in current_data.items():

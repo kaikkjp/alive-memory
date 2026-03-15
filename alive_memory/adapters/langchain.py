@@ -57,9 +57,9 @@ class AliveMessageHistory(BaseChatMessageHistory):
         self._recall_limit = recall_limit
 
     @property
-    def messages(self) -> list[BaseMessage]:
+    def messages(self) -> list[BaseMessage]:  # type: ignore[override]
         """Retrieve messages (sync wrapper)."""
-        return _run_async(self.aget_messages())
+        return _run_async(self.aget_messages())  # type: ignore[no-any-return]
 
     async def aget_messages(self) -> list[BaseMessage]:
         """Retrieve recent messages from alive-memory.
@@ -137,7 +137,7 @@ class AliveRetriever(BaseRetriever):
 
     def _get_relevant_documents(self, query: str, **kwargs: Any) -> list[Document]:
         """Retrieve documents (sync wrapper)."""
-        return _run_async(self._aget_relevant_documents(query, **kwargs))
+        return _run_async(self._aget_relevant_documents(query, **kwargs))  # type: ignore[no-any-return]
 
     async def _aget_relevant_documents(
         self, query: str, **kwargs: Any

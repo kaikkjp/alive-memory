@@ -71,7 +71,7 @@ async def _collect_metrics(
 ) -> dict[str, float] | None:
     """Collect metrics while honoring fault-tolerant mode."""
     try:
-        return await provider.collect_metrics()
+        return await provider.collect_metrics()  # type: ignore[no-any-return]
     except Exception as exc:
         msg = f"Phase 'meta_controller' metric collection failed: {exc}"
         logger.error(msg, exc_info=True)

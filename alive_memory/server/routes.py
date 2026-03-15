@@ -30,7 +30,7 @@ router = APIRouter()
 
 
 def _get_memory(request: Request) -> AliveMemory:
-    return request.app.state.memory
+    return request.app.state.memory  # type: ignore[no-any-return]
 
 
 @router.get("/health", response_model=HealthResponse)

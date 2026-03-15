@@ -92,7 +92,7 @@ def _resolve_llm(llm) -> LLMProvider | None:
     if callable(llm) and not isinstance(llm, str):
         return _CallableLLM(llm)
     if not isinstance(llm, str):
-        return llm  # duck-typed provider
+        return llm  # type: ignore[return-value,no-any-return]  # duck-typed provider
     name = llm.lower()
     if name == "anthropic":
         from alive_memory.llm.anthropic import AnthropicProvider
@@ -199,7 +199,7 @@ class AliveMemory:
                 path = path[len("sqlite:///"):]
             self._storage = SQLiteStorage(path)
         else:
-            self._storage = storage
+            self._storage = storage  # type: ignore[assignment]
 
         # Config
         if isinstance(config, AliveConfig):
@@ -627,21 +627,21 @@ class AliveMemory:
         metadata: dict[str, Any] | None = None,
     ) -> DayMoment | None:
         """Sync wrapper for intake(). Auto-initializes on first call."""
-        return self._get_sync_runner().run(
+        return self._get_sync_runner().run(  # type: ignore[no-any-return]
             self.intake(event_type, content, metadata=metadata)
         )
 
     def recall_sync(self, query: str, *, limit: int = 10) -> RecallContext:
         """Sync wrapper for recall(). Auto-initializes on first call."""
-        return self._get_sync_runner().run(self.recall(query, limit=limit))
+        return self._get_sync_runner().run(self.recall(query, limit=limit))  # type: ignore[no-any-return]
 
     def consolidate_sync(self, *, depth: str = "full") -> SleepReport:
         """Sync wrapper for consolidate(). Auto-initializes on first call."""
-        return self._get_sync_runner().run(self.consolidate(depth=depth))
+        return self._get_sync_runner().run(self.consolidate(depth=depth))  # type: ignore[no-any-return]
 
     def sleep_sync(self) -> SleepCycleReport:
         """Sync wrapper for sleep(). Auto-initializes on first call."""
-        return self._get_sync_runner().run(self.sleep())
+        return self._get_sync_runner().run(self.sleep())  # type: ignore[no-any-return]
 
     # ── Quickstart ────────────────────────────────────────────────
 
