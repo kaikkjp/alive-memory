@@ -166,7 +166,7 @@ class SQLiteStorage(BaseStorage):
                 "SELECT COUNT(*) FROM day_memory WHERE processed = 1"
             )
             row = await cursor.fetchone()
-            count = row[0]
+            count = int(row[0]) if row is not None else 0
             await conn.execute("DELETE FROM day_memory WHERE processed = 1")
             await conn.commit()
         return count
@@ -180,7 +180,7 @@ class SQLiteStorage(BaseStorage):
                 (cutoff.isoformat(),),
             )
             row = await cursor.fetchone()
-            count = row[0]
+            count = int(row[0]) if row is not None else 0
             await conn.execute(
                 "DELETE FROM day_memory WHERE timestamp < ? AND processed = 0",
                 (cutoff.isoformat(),),
@@ -194,7 +194,7 @@ class SQLiteStorage(BaseStorage):
             "SELECT COUNT(*) FROM day_memory WHERE processed = 0"
         )
         row = await cursor.fetchone()
-        return row[0]
+        return int(row[0]) if row is not None else 0
 
     async def get_lowest_salience_moment(self) -> DayMoment | None:
         conn = await self._get_db()
@@ -286,7 +286,7 @@ class SQLiteStorage(BaseStorage):
         conn = await self._get_db()
         cursor = await conn.execute("SELECT COUNT(*) FROM cold_embeddings")
         row = await cursor.fetchone()
-        return row[0]
+        return int(row[0]) if row is not None else 0
 
     # ── Drive State ──────────────────────────────────────────────
 
@@ -294,6 +294,7 @@ class SQLiteStorage(BaseStorage):
         conn = await self._get_db()
         cursor = await conn.execute("SELECT * FROM drive_state WHERE id = 1")
         row = await cursor.fetchone()
+        assert row is not None, "drive_state row with id=1 must exist"
         return DriveState(
             curiosity=row["curiosity"],
             social=row["social"],
@@ -315,6 +316,7 @@ class SQLiteStorage(BaseStorage):
         conn = await self._get_db()
         cursor = await conn.execute("SELECT * FROM mood_state WHERE id = 1")
         row = await cursor.fetchone()
+        assert row is not None, "mood_state row with id=1 must exist"
         return MoodState(
             valence=row["valence"],
             arousal=row["arousal"],
@@ -335,6 +337,7 @@ class SQLiteStorage(BaseStorage):
         conn = await self._get_db()
         cursor = await conn.execute("SELECT * FROM cognitive_state WHERE id = 1")
         cs_row = await cursor.fetchone()
+        assert cs_row is not None, "cognitive_state row with id=1 must exist"
         mood = await self.get_mood_state()
         drives = await self.get_drive_state()
         return CognitiveState(
@@ -372,8 +375,9 @@ class SQLiteStorage(BaseStorage):
         conn = await self._get_db()
         cursor = await conn.execute("SELECT * FROM self_model WHERE id = 1")
         row = await cursor.fetchone()
+        assert row is not None, "self_model row with id=1 must exist"
         # Handle new columns gracefully (may not exist pre-migration)
-        keys = row.keys() if row else []
+        keys = row.keys()
         return SelfModel(
             traits=json.loads(row["traits"] or "{}"),
             behavioral_summary=row["behavioral_summary"],
@@ -644,7 +648,7 @@ class SQLiteStorage(BaseStorage):
         conn = await self._get_db()
         cursor = await conn.execute("SELECT COUNT(*) FROM cycle_log")
         row = await cursor.fetchone()
-        return row[0]
+        return int(row[0]) if row is not None else 0
 
     # ── Consolidation Log ────────────────────────────────────────
 
@@ -977,4 +981,4 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
     norm_b = sum(x * x for x in b) ** 0.5
     if norm_a == 0 or norm_b == 0:
         return 0.0
-    return dot / (norm_a * norm_b)
+    return float(dot / (norm_a * norm_b))

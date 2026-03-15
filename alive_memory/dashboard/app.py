@@ -14,7 +14,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-import requests
+import requests  # type: ignore[import-untyped]
 import streamlit as st
 
 DEFAULT_API_URL = "http://localhost:8100"
@@ -23,7 +23,7 @@ DEFAULT_API_URL = "http://localhost:8100"
 def get_api_url() -> str:
     """Get the API URL from CLI args or session state."""
     if "api_url" in st.session_state:
-        return st.session_state.api_url
+        return str(st.session_state.api_url)
 
     # Parse from Streamlit's -- args
     parser = argparse.ArgumentParser()
@@ -36,7 +36,7 @@ def get_api_url() -> str:
         args = parser.parse_args([])
 
     st.session_state.api_url = args.api_url
-    return args.api_url
+    return str(args.api_url)
 
 
 def api_get(path: str, api_url: str, api_key: str | None = None) -> dict | list | None:
@@ -47,7 +47,8 @@ def api_get(path: str, api_url: str, api_key: str | None = None) -> dict | list 
     try:
         resp = requests.get(f"{api_url}{path}", headers=headers, timeout=10)
         resp.raise_for_status()
-        return resp.json()
+        result: dict | list = resp.json()
+        return result
     except requests.RequestException as e:
         st.error(f"API error: {e}")
         return None
@@ -63,7 +64,8 @@ def api_post(
     try:
         resp = requests.post(f"{api_url}{path}", json=body, headers=headers, timeout=30)
         resp.raise_for_status()
-        return resp.json()
+        result: dict = resp.json()
+        return result
     except requests.RequestException as e:
         st.error(f"API error: {e}")
         return None
@@ -149,6 +151,7 @@ def main() -> None:
         st.error(f"Cannot connect to {api_url}. Is the server running?")
         st.stop()
 
+    assert isinstance(health, dict)
     st.caption(f"Connected to alive-memory v{health.get('version', '?')}")
 
     # Tabs
@@ -159,6 +162,7 @@ def main() -> None:
     with tab_state:
         state = api_get("/state", api_url, api_key)
         if state:
+            assert isinstance(state, dict)
             render_mood_drives(state)
             col1, col2 = st.columns(2)
             with col1:
@@ -179,6 +183,7 @@ def main() -> None:
     with tab_identity:
         identity = api_get("/identity", api_url, api_key)
         if identity:
+            assert isinstance(identity, dict)
             render_identity(identity)
 
     with tab_intake:
