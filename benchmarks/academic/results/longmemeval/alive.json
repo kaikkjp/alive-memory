@@ -1,0 +1,5997 @@
+{
+  "system_id": "alive",
+  "benchmark_id": "longmemeval",
+  "seed": 42,
+  "aggregate_scores": {
+    "abstention_accuracy": 0.8,
+    "accuracy": 0.068,
+    "exact_match": 0.00425531914893617,
+    "f1": 0.01553408891944633,
+    "substring_hit": 0.02127659574468085
+  },
+  "scores_by_category": {
+    "abstention": {
+      "abstention_accuracy": 0.8,
+      "accuracy": 0.8
+    },
+    "information_extraction": {
+      "accuracy": 0.04,
+      "exact_match": 0.013333333333333334,
+      "f1": 0.033066626650660264,
+      "substring_hit": 0.04
+    },
+    "knowledge_updates": {
+      "accuracy": 0.013888888888888888,
+      "exact_match": 0.0,
+      "f1": 0.008928571428571428,
+      "substring_hit": 0.013888888888888888
+    },
+    "multi_session_reasoning": {
+      "accuracy": 0.008264462809917356,
+      "exact_match": 0.0,
+      "f1": 0.005232504675740866,
+      "substring_hit": 0.008264462809917356
+    },
+    "temporal_reasoning": {
+      "accuracy": 0.015748031496062992,
+      "exact_match": 0.0,
+      "f1": 0.00838612272377124,
+      "substring_hit": 0.015748031496062992
+    }
+  },
+  "system_metrics": {
+    "total_llm_calls": 145092,
+    "total_tokens": 118831148,
+    "storage_bytes": 6471715,
+    "memory_count": 246738,
+    "median_query_latency_ms": 661.3733749836683,
+    "p95_query_latency_ms": 1186.7316670250148,
+    "median_consolidate_latency_ms": 174324.33887501247,
+    "p95_consolidate_latency_ms": 213785.619125003
+  },
+  "config": {
+    "api_key": "REDACTED"
+  },
+  "eval_results": [
+    {
+      "query_id": "e47becba",
+      "category": "information_extraction",
+      "predicted": "You graduated with a degree in Business Administration.",
+      "expected": "Business Administration",
+      "scores": {
+        "f1": 0.4,
+        "exact_match": 0.0,
+        "substring_hit": 1.0,
+        "accuracy": 1.0
+      }
+    },
+    {
+      "query_id": "118b2229",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "45 minutes each way",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "51a45a95",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Target",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "58bf7951",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The Glass Menagerie",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "1e043500",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Summer Vibes",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "c5e8278d",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Johnson",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "6ade9755",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Serenity Yoga",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "6f9b354f",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "a lighter shade of gray",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "58ef2f1c",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "February 14th",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "f8c5f88b",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "the sports store downtown",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "5d3d2817",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Marketing specialist at a small startup",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "7527f7e2",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "$800",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "c960da58",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "20",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "3b6f954b",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "University of Melbourne in Australia",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "726462e0",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "10%",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "94f70d80",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "4 hours",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "66f24dbb",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "a yellow dress",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "ad7109d1",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "500 Mbps",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "af8d2e46",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "7",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "dccbc061",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "A staunch atheist",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "c8c3f81d",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Nike",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "8ebdbe50",
+      "category": "information_extraction",
+      "predicted": "You completed a Data Science certification last month.",
+      "expected": "Data Science",
+      "scores": {
+        "f1": 0.4,
+        "exact_match": 0.0,
+        "substring_hit": 1.0,
+        "accuracy": 1.0
+      }
+    },
+    {
+      "query_id": "6b168ec8",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "three",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "75499fd8",
+      "category": "information_extraction",
+      "predicted": "Your dog is a Golden Retriever.",
+      "expected": "Golden Retriever",
+      "scores": {
+        "f1": 0.5,
+        "exact_match": 0.0,
+        "substring_hit": 1.0,
+        "accuracy": 1.0
+      }
+    },
+    {
+      "query_id": "21436231",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "12",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "95bcc1c8",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "10",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "0862e8bf",
+      "category": "information_extraction",
+      "predicted": "Luna.",
+      "expected": "Luna",
+      "scores": {
+        "f1": 1.0,
+        "exact_match": 1.0,
+        "substring_hit": 1.0,
+        "accuracy": 1.0
+      }
+    },
+    {
+      "query_id": "853b0a1d",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "18",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "a06e4cfe",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "3:1",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "37d43f65",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "16GB",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "b86304ba",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The painting is worth triple what I paid for it.",
+      "scores": {
+        "f1": 0.14285714285714288,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "d52b4f67",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The Grand Ballroom",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "25e5aa4f",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "University of California, Los Angeles (UCLA)",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "caf9ead2",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "5 hours",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "8550ddae",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "lavender gin fizz",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "60d45044",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Japanese short-grain rice",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "3f1e9474",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Sarah",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "86b68151",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "IKEA",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "577d4d32",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "7 pm",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "ec81a493",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "500",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "15745da0",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "three months",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "e01b8e2f",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Hawaii",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "bc8a6e93",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "a lemon blueberry cake",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "ccb36322",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Spotify",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "001be529",
+      "category": "information_extraction",
+      "predicted": "You waited over a year for the decision on your asylum application.",
+      "expected": "over a year",
+      "scores": {
+        "f1": 0.4,
+        "exact_match": 0.0,
+        "substring_hit": 1.0,
+        "accuracy": 1.0
+      }
+    },
+    {
+      "query_id": "b320f3f8",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "a blue Snaggletooth",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "19b5f2b3",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "two weeks",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "4fd1909e",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Xfinity Center",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "545bd2b5",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "2 hours",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "8a137a7f",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Philips LED bulb",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "76d63226",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "55-inch",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "86f00804",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The Seven Husbands of Evelyn Hugo",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "8e9d538c",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "17",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "311778f1",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "10",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "c19f7a0b",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "6:30 pm",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "4100d0a0",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "A mix of Irish and Italian",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "29f2956b",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "30 minutes",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "1faac195",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Denver",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "faba32e5",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "24 hours",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "f4f1d8a4",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "my sister",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "c14c00dd",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Trader Joe's",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "36580ce8",
+      "category": "information_extraction",
+      "predicted": "Bronchitis.",
+      "expected": "bronchitis",
+      "scores": {
+        "f1": 1.0,
+        "exact_match": 1.0,
+        "substring_hit": 1.0,
+        "accuracy": 1.0
+      }
+    },
+    {
+      "query_id": "3d86fd0a",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "a coffee shop in the city",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "a82c026e",
+      "category": "information_extraction",
+      "predicted": "You finally beat Dark Souls 3 last weekend.",
+      "expected": "Dark Souls 3 DLC",
+      "scores": {
+        "f1": 0.5,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "0862e8bf_abs",
+      "category": "abstention",
+      "predicted": "I don't know.",
+      "expected": "You did not mention this information. You mentioned your cat Luna but not your hamster.",
+      "scores": {
+        "abstention_accuracy": 1.0,
+        "accuracy": 1.0
+      }
+    },
+    {
+      "query_id": "15745da0_abs",
+      "category": "abstention",
+      "predicted": "I don't know.",
+      "expected": "You did not mention this information. You mentioned collecting vintage cameras but not vintage films.",
+      "scores": {
+        "abstention_accuracy": 1.0,
+        "accuracy": 1.0
+      }
+    },
+    {
+      "query_id": "bc8a6e93_abs",
+      "category": "abstention",
+      "predicted": "I don't know.",
+      "expected": "You did not mention this information. You mentioned baking for your niece's birthday party but not your uncle's",
+      "scores": {
+        "abstention_accuracy": 1.0,
+        "accuracy": 1.0
+      }
+    },
+    {
+      "query_id": "19b5f2b3_abs",
+      "category": "abstention",
+      "predicted": "I don't know.",
+      "expected": "You did not mention this information. You mentioned staying in Japan, but not in Korea.",
+      "scores": {
+        "abstention_accuracy": 1.0,
+        "accuracy": 1.0
+      }
+    },
+    {
+      "query_id": "29f2956b_abs",
+      "category": "abstention",
+      "predicted": "I don't know.",
+      "expected": "You did not mention this information. You mentioned practing guitar everyday, but not violin.",
+      "scores": {
+        "abstention_accuracy": 1.0,
+        "accuracy": 1.0
+      }
+    },
+    {
+      "query_id": "f4f1d8a4_abs",
+      "category": "abstention",
+      "predicted": "I don't know.",
+      "expected": "You did not mention this information. You mentioned receiving a birthday gift from your sister, but not your dad.",
+      "scores": {
+        "abstention_accuracy": 1.0,
+        "accuracy": 1.0
+      }
+    },
+    {
+      "query_id": "0a995998",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "3",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "6d550036",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "2",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_59c863d7",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "I have worked on or bought five model kits. The scales of the models are: Revell F-15 Eagle (scale not mentioned), Tamiya 1/48 scale Spitfire Mk.V, 1/16 scale German Tiger I tank, 1/72 scale B-29 bomber, and 1/24 scale '69 Camaro.",
+      "scores": {
+        "f1": 0.038461538461538464,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "b5ef892d",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "8 days.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "e831120c",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "3.5 weeks",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "3a704032",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "3",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_d84a3211",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "$185",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "aae3761f",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "15 hours for getting to the three destinations (or 30 hours for the round trip)",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_f2262a51",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "I visited three different doctors: a primary care physician, an ENT specialist, and a dermatologist.",
+      "scores": {
+        "f1": 0.10526315789473685,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "dd2973ad",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "2 AM",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "c4a1ceb8",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "3",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_a56e767c",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "I attended four movie festivals.",
+      "scores": {
+        "f1": 0.22222222222222224,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "6cb6f249",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "17 days",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "46a3abf7",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "3",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "36b9f61e",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "$2,500",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "28dc39ac",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "140 hours",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_2f8be40d",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "I attended three weddings. The couples were Rachel and Mike, Emily and Sarah, and Jen and Tom.",
+      "scores": {
+        "f1": 0.09523809523809523,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "2e6d26dc",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "5",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_15e38248",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "4",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "88432d0a",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "4",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "80ec1f4f",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "2",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "d23cf73b",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "4",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_7fce9456",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "I viewed four properties before making an offer on the townhouse in the Brookside neighborhood. The reasons I didn't make an offer on them were: the kitchen of the bungalow needed serious renovation, the property in Cedar Creek was out of my budget, the noise from the highway was a deal-breaker for the 1-bedroom condo, and my offer on the 2-bedroom condo was rejected due to a higher bid.",
+      "scores": {
+        "f1": 0.051948051948051945,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "d682f1a2",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "3",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "7024f17c",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "0.5 hours",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_5501fe77",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "TikTok",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_2ba83207",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "Thrive Market",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "2318644b",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "$270",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "2ce6a0f2",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "4",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_d12ceb0e",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "59.6",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "00ca467f",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "2",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "b3c15d39",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "5 days. 6 days (including the last day) is also acceptable.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_31ff4165",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "4",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "eeda8a6d",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "17",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "2788b940",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "5",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "60bf93ed",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "5 days. 6 days (including the last day) is also acceptable.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "9d25d4e0",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "3",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "129d1232",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "$5,850",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "60472f9c",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "2",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_194be4b3",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "I currently own 4 musical instruments. I've had the Fender Stratocaster electric guitar for 5 years, the Yamaha FG800 acoustic guitar for 8 years, the 5-piece Pearl Export drum set for an unspecified amount of time, and the Korg B1 piano for 3 years.",
+      "scores": {
+        "f1": 0.04,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "a9f6b44c",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "2",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "d851d5ba",
+      "category": "multi_session_reasoning",
+      "predicted": "You raised $2,000 for charity.",
+      "expected": "$3,750",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "5a7937c8",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "3 days.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_ab202e7f",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "I replaced or fixed five items: the kitchen faucet, the kitchen mat, the toaster, the coffee maker, and the kitchen shelves.",
+      "scores": {
+        "f1": 0.08,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_e05b82a6",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "10 times",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_731e37d7",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "$720",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "edced276",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "15 days",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "10d9b85a",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "3 days",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "e3038f8c",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "99",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "2b8f3739",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "$495",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "1a8a66a6",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "2",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "c2ac3c61",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "5",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "bf659f65",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "3",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_372c3eed",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "10 years",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_2f91af09",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "23",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "81507db6",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "3",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "88432d0a_abs",
+      "category": "abstention",
+      "predicted": "I don't know.",
+      "expected": "The information provided is not enough. You did not mention baking egg tarts.",
+      "scores": {
+        "abstention_accuracy": 1.0,
+        "accuracy": 1.0
+      }
+    },
+    {
+      "query_id": "80ec1f4f_abs",
+      "category": "abstention",
+      "predicted": "I don't know.",
+      "expected": "0. You did not mention visitng any museum in December",
+      "scores": {
+        "abstention_accuracy": 1.0,
+        "accuracy": 1.0
+      }
+    },
+    {
+      "query_id": "eeda8a6d_abs",
+      "category": "abstention",
+      "predicted": "I don't know.",
+      "expected": "The information provided is not enough. You did not mention that you have a 30-gallon tank.",
+      "scores": {
+        "abstention_accuracy": 1.0,
+        "accuracy": 1.0
+      }
+    },
+    {
+      "query_id": "60bf93ed_abs",
+      "category": "abstention",
+      "predicted": "I don't know.",
+      "expected": "The information provided is not enough. You did not mention buying an iPad case.",
+      "scores": {
+        "abstention_accuracy": 1.0,
+        "accuracy": 1.0
+      }
+    },
+    {
+      "query_id": "edced276_abs",
+      "category": "abstention",
+      "predicted": "I don't know.",
+      "expected": "The information provided is not enough. You mentioned traveling for 10 days in Hawaii but did not mention abything about the trip to Seattle.",
+      "scores": {
+        "abstention_accuracy": 1.0,
+        "accuracy": 1.0
+      }
+    },
+    {
+      "query_id": "gpt4_372c3eed_abs",
+      "category": "abstention",
+      "predicted": "I don't know.",
+      "expected": "The information provided is not enough. You mentioned 4 years in high school (2010-2014), 2 years at PCC (2014-2016), and 4 years at UCLA (2016-2020). But you didn't mention the number of years you spend getting the Master's degree",
+      "scores": {
+        "abstention_accuracy": 1.0,
+        "accuracy": 1.0
+      }
+    },
+    {
+      "query_id": "8a2466db",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The user would prefer responses that suggest resources specifically tailored to Adobe Premiere Pro, especially those that delve into its advanced settings. They might not prefer general video editing resources or resources related to other video editing software.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "06878be2",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The user would prefer suggestions of Sony-compatible accessories or high-quality photography gear that can enhance their photography experience. They may not prefer suggestions of other brands' equipment or low-quality gear.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "75832dbd",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The user would prefer suggestions related to recent research papers, articles, or conferences that focus on artificial intelligence in healthcare, particularly those that involve deep learning for medical image analysis. They would not be interested in general AI topics or those unrelated to healthcare.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "0edc2aef",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The user would prefer suggestions of hotels in Miami that offer great views, possibly of the ocean or the city skyline, and have unique features such as a rooftop pool or a hot tub on the balcony. They may not prefer suggestions of basic or budget hotels without these features.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "35a27287",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The user would prefer responses that suggest cultural events where they can practice their language skills, particularly Spanish and French. They would also appreciate if the event has a focus on language learning resources. They would not prefer events that do not provide opportunities for language practice or cultural exchange.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "32260d93",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The user would prefer recommendations for stand-up comedy specials on Netflix, especially those that are known for their storytelling. They may not prefer recommendations for other genres or platforms.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "195a1a1b",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The user would prefer suggestions that involve relaxing activities that can be done in the evening, preferably before 9:30 pm. They would not prefer suggestions that involve using their phone or watching TV, as these activities have been affecting their sleep quality.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "afdc33df",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The user would prefer responses that acknowledge and build upon their existing efforts to organize their kitchen, such as utilizing their new utensil holder to keep countertops clutter-free. They would also appreciate tips that address their concern for maintaining their granite surface, particularly around the sink area. Preferred responses would provide practical and actionable steps to maintain cleanliness, leveraging the user's current tools and setup. They might not prefer generic or vague suggestions that do not take into account their specific kitchen setup or concerns.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "caf03d32",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The user would prefer responses that provide tips and advice specifically tailored to their slow cooker experiences, utilizing their recent success with beef stew and interest in making yogurt in the slow cooker. They might not prefer general slow cooker recipes or advice unrelated to their specific experiences and interests.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "54026fce",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The user would prefer responses that acknowledge their desire for social interaction and collaboration while working remotely, utilizing their previous experiences with company initiatives and team collaborations. They might prefer suggestions of virtual team-building activities, regular check-ins, or joining interest-based groups within the company. The user may not prefer generic suggestions that do not take into account their specific work situation or previous attempts at staying connected with colleagues.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "06f04340",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The user would prefer dinner suggestions that incorporate their homegrown cherry tomatoes and herbs like basil and mint, highlighting recipes that showcase their garden produce. They might not prefer suggestions that do not utilize these specific ingredients or do not emphasize the use of homegrown elements.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "6b7dfb22",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The user would prefer responses that build upon their existing sources of inspiration, such as revisiting Instagram art accounts or exploring new techniques from online tutorials. They might also appreciate suggestions that revisit previous themes they found enjoyable, like painting flowers. The user would not prefer generic or vague suggestions for finding inspiration, and would likely appreciate responses that utilize their recent 30-day painting challenge experience.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "1a1907b4",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Considering their mixology class background, the user would prefer cocktail suggestions that build upon their existing skills and interests, such as creative variations of classic cocktails or innovative twists on familiar flavors. They might appreciate recommendations that incorporate their experience with refreshing summer drinks like Pimm's Cup. The user would not prefer overly simplistic or basic cocktail recipes, and may not be interested in suggestions that don't take into account their mixology class background.",
+      "scores": {
+        "f1": 0.05,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "09d032c9",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The user would prefer responses that build upon their previous mention of purchasing a portable power bank, such as suggestions on how to optimize its use, like ensuring it's fully charged before use. They might also appreciate tips on utilizing battery-saving features on their phone. The user may not prefer responses that suggest alternative solutions or unrelated advice.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "38146c39",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The user would prefer responses that build upon their previous experimentation with turbinado sugar, suggesting ingredients or techniques that complement its richer flavor. They might not prefer generic cookie-making advice or suggestions that don't take into account their existing use of turbinado sugar.",
+      "scores": {
+        "f1": 0.0816326530612245,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "d24813b1",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The user would prefer baking suggestions that take into account their previous success with the lemon poppyseed cake, such as variations of that recipe or other desserts that share similar qualities. They might prefer suggestions that balance impressiveness with manageability, considering their previous experience. The user may not prefer overly complex or unfamiliar recipes, or suggestions that do not build upon their existing baking experience.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "57f827a0",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The user would prefer responses that take into account their existing plans to replace the bedroom dresser and their interest in mid-century modern style, suggesting furniture layouts that accommodate the new dresser and incorporate elements of this design aesthetic. They might not prefer general furniture arrangement tips or suggestions that do not consider their specific design preferences.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "95228167",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The user would prefer responses that highlight the differences between Fender Stratocaster and Gibson Les Paul electric guitars, such as the feel of the neck, weight, and sound profile. They might not prefer general tips on buying an electric guitar or suggestions that do not take into account their current guitar and desired upgrade.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "505af2f5",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The user would prefer responses that suggest variations on their existing almond milk, vanilla extract, and honey creamer recipe or new ideas that align with their goals of reducing sugar intake and saving money. They might not prefer responses that recommend commercial creamer products or recipes that are high in sugar or expensive.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "75f70248",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The user would prefer responses that consider the potential impact of their cat, Luna, and her shedding on their sneezing, as well as the recent deep clean of the living room and its possible effect on stirring up dust. They might not prefer responses that fail to take into account these specific details previously mentioned, such as generic suggestions or unrelated factors.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "d6233ab6",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The user would prefer responses that draw upon their personal experiences and memories, specifically their positive high school experiences such as being part of the debate team and taking advanced placement courses. They would prefer suggestions that highlight the potential benefits of attending the reunion, such as reconnecting with old friends and revisiting favorite subjects like history and economics. The user might not prefer generic or vague responses that do not take into account their individual experiences and interests.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "1da05512",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The user would prefer responses that take into account their current home network storage capacity issues and recent reliance on external hard drives, highlighting the potential benefits of a NAS device in addressing these specific needs. They might not prefer responses that ignore their current storage challenges or fail to consider their recent tech upgrades and priorities. Preferred responses would utilize the user's previous mentions of storage capacity issues and tech investments to inform their decision.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "fca70973",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The user would prefer theme park suggestions that cater to their interest in both thrill rides and special events, utilizing their previous experiences at Disneyland, Knott's Berry Farm, Six Flags Magic Mountain, and Universal Studios Hollywood as a reference point. They would also appreciate recommendations that highlight unique food experiences and nighttime shows. The user might not prefer suggestions that focus solely on one aspect of theme parks, such as only thrill rides or only family-friendly attractions, and may not be interested in parks that lack special events or unique dining options.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "b6025781",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The user would prefer responses that suggest healthy meal prep recipes, especially those that incorporate quinoa and roasted vegetables, and offer variations in protein sources. They might appreciate suggestions that build upon their existing preferences, such as new twists on chicken Caesar salads or turkey and avocado wraps. The user may not prefer responses that suggest unhealthy or high-calorie meal prep options, or those that deviate significantly from their established healthy eating habits.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "a89d7624",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The user would prefer responses that take into account their previous experience in Denver, specifically their interest in live music and memorable encounter with Brandon Flowers. They might appreciate suggestions that revisit or build upon this experience, such as revisiting the same bar or exploring similar music venues in the area. The user may not prefer general tourist recommendations or activities unrelated to their interest in live music.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "b0479f84",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The user would prefer documentary recommendations that are similar in style and theme to 'Our Planet', 'Free Solo', and 'Tiger King', which they have previously enjoyed. They might not prefer recommendations of documentaries that are vastly different in tone or subject matter from these titles. The preferred response utilizes the user's previously mentioned viewing history to suggest documentaries that cater to their tastes.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "1d4e3b97",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The user would prefer responses that reference specific details from their previous interactions, such as the replacement of the bike's chain and cassette, and the use of a new Garmin bike computer. They might prefer explanations that connect these details to the observed improvement in bike performance. The user may not prefer responses that fail to acknowledge these specific details or provide vague, general explanations for the improvement.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "07b6f563",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The user would prefer suggestions of accessories that are compatible with an iPhone 13 Pro, such as high-quality screen protectors, durable cases, portable power banks, or phone wallet cases. They may not prefer suggestions of accessories that are not compatible with Apple products or do not enhance the functionality or protection of their phone.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "1c0ddc50",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The user would prefer suggestions related to listening to new podcasts or audiobooks, especially the genre beyond true crime or self-improvement, such as history. They may not be interested in activities that require visual attention, such as reading or watching videos, as they are commuting. The user would not prefer general podcast topics such as true crime or self-improvement, as the user wants to explore other topics.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "0a34ad58",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The user would prefer responses that utilize their existing resources, such as their Suica card and TripIt app, to provide personalized tips for navigating Tokyo's public transportation. They might not prefer general tips or recommendations that do not take into account their prior preparations.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "d3ab962e",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "8 miles",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "2311e44b",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "190",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "cc06de0d",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "$6",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "a11281a2",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "100",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "4f54b7c9",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "5",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "85fa3a3f",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "$50",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "9aaed6a3",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "$0.75",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "1f2b8d4f",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "$750",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "e6041065",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "40%",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "51c32626",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "February 1st",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "d905b33f",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "20%",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "7405e8b1",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "Yes.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "f35224e0",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "27",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "6456829e",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "8",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "a4996e51",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "50",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "3c1045c8",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "2.5 years",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "60036106",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "12,000",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "681a1674",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "2",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "e25c3b8d",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "$300",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "4adc0475",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "5",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "4bc144e2",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "$65",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "ef66a6e5",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "two",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "5025383b",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "photography and cooking",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "a1cc6108",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "11",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "9ee3ecd6",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "100",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "3fdac837",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "11 days (or 12 days, if April 15th to 22nd is considered as 8 days)",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "91b15a6e",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "$5,150",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "27016adc",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "10%",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "720133ac",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "$75",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "77eafa52",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "$300",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "8979f9ec",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "8 meals",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "0100672e",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "$12",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "a96c20ee",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "Harvard University",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "92a0aa75",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "1 year and 5 months",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "3fe836c9",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "$25,000",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "1c549ce4",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "$140",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "6c49646a",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "3,000 miles",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "1192316e",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "an hour and a half",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "0ea62687",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "2",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "67e0d0f2",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "20",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "bb7c3b45",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "$300",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "ba358f49",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "33",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "61f8c8f8",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "10 minutes",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "60159905",
+      "category": "multi_session_reasoning",
+      "predicted": "I don't know.",
+      "expected": "three",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "ef9cf60a",
+      "category": "multi_session_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "$300",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "73d42213",
+      "category": "multi_session_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "9:00 AM",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "bc149d6b",
+      "category": "multi_session_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "70 pounds",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "099778bb",
+      "category": "multi_session_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "20%",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "09ba9854",
+      "category": "multi_session_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "$50",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "d6062bb9",
+      "category": "multi_session_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "1,998",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "157a136e",
+      "category": "multi_session_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "43",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "c18a7dc8",
+      "category": "multi_session_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "7",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "a3332713",
+      "category": "multi_session_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "$200",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "55241a1f",
+      "category": "multi_session_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "33",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "a08a253f",
+      "category": "multi_session_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "4 days.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "f0e564bc",
+      "category": "multi_session_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "$1,300",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "078150f1",
+      "category": "multi_session_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "$50",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "8cf4d046",
+      "category": "multi_session_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "3.83",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "a346bb18",
+      "category": "multi_session_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "12",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "37f165cf",
+      "category": "multi_session_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "856",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "8e91e7d9",
+      "category": "multi_session_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "4",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 1.0,
+        "accuracy": 1.0
+      }
+    },
+    {
+      "query_id": "87f22b4a",
+      "category": "multi_session_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "$120",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "e56a43b9",
+      "category": "multi_session_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "$5",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "efc3f7c2",
+      "category": "multi_session_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "30 minutes",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "21d02d0d",
+      "category": "multi_session_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "2",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "2311e44b_abs",
+      "category": "abstention",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "The information provided is not enough. You did not mention how many paged do you have left to read in 'Sapiens'.",
+      "scores": {
+        "abstention_accuracy": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "6456829e_abs",
+      "category": "abstention",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "The information provided is not enough. You mentioned planting 5 plants for tomatoes but you did not mention chili peppers.",
+      "scores": {
+        "abstention_accuracy": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "e5ba910e_abs",
+      "category": "abstention",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "The information provided is not enough. You mentioned purchasing a headphone, but you did not mention the iPad.",
+      "scores": {
+        "abstention_accuracy": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "a96c20ee_abs",
+      "category": "abstention",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "The information provided is not enough. You did not mention presenting a poster for your undergrad course research project.",
+      "scores": {
+        "abstention_accuracy": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "ba358f49_abs",
+      "category": "abstention",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "The information provided is not enough. You did not mention how old Rachel is right now, nor when will you get married.",
+      "scores": {
+        "abstention_accuracy": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "09ba9854_abs",
+      "category": "abstention",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "The information provided is not enough. You did not mention how much will the bus take.",
+      "scores": {
+        "abstention_accuracy": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_59149c77",
+      "category": "temporal_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "7 days. 8 days (including the last day) is also acceptable.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_f49edff3",
+      "category": "temporal_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "First, I helped my friend prepare the nursery, then I helped my cousin pick out stuff for her baby shower, and lastly, I ordered a customized phone case for my friend's birthday.",
+      "scores": {
+        "f1": 0.06451612903225808,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "71017276",
+      "category": "temporal_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "4",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 1.0,
+        "accuracy": 1.0
+      }
+    },
+    {
+      "query_id": "b46e15ed",
+      "category": "temporal_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "2",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_fa19884c",
+      "category": "temporal_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "6 days. 7 days (including the last day) is also acceptable.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "0bc8ad92",
+      "category": "temporal_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "5",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "af082822",
+      "category": "temporal_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "2",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_4929293a",
+      "category": "temporal_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "Michael's engagement party",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_b5700ca9",
+      "category": "temporal_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "4 days.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "9a707b81",
+      "category": "temporal_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "21 days. 22 days (including the last day) is also acceptable.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_1d4ab0c9",
+      "category": "temporal_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "24 days. 25 days (including the last day) is also acceptable.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_e072b769",
+      "category": "temporal_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "3 weeks ago",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "0db4c65d",
+      "category": "temporal_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "18 days. 19 days (including the last day) is also acceptable.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_1d80365e",
+      "category": "temporal_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "2 days. 3 days (including the last day) is also acceptable.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_7f6b06db",
+      "category": "temporal_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "I went on a day hike to Muir Woods National Monument with my family, then I went on a road trip with friends to Big Sur and Monterey, and finally I started my solo camping trip to Yosemite National Park.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_6dc9b45b",
+      "category": "temporal_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "4 months ago",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_8279ba02",
+      "category": "temporal_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "10 days ago. 11 days (including the last day) is also acceptable.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_18c2b244",
+      "category": "temporal_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "First, I used a Buy One Get One Free coupon on Luvs diapers at Walmart. Then, I redeemed $12 cashback for a $10 Amazon gift card from Ibotta. Finally, I signed up for the rewards program at ShopRite.",
+      "scores": {
+        "f1": 0.05970149253731343,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_a1b77f9c",
+      "category": "temporal_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "2 weeks for 'The Nightingale', 4 weeks for 'Sapiens: A Brief History of Humankind', and 2 weeks for 'The Power', so a total of 8 weeks.",
+      "scores": {
+        "f1": 0.07272727272727274,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_1916e0ea",
+      "category": "temporal_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "54 days. 55 days (including the last day) is also acceptable.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_7a0daae1",
+      "category": "temporal_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "1 week",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_468eb063",
+      "category": "temporal_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "9 days ago. 10 days (including the last day) is also acceptable.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_7abb270c",
+      "category": "temporal_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "Science Museum, Museum of Contemporary Art, Metropolitan Museum of Art, Museum of History, Modern Art Museum, Natural History Museum",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_1e4a8aeb",
+      "category": "temporal_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "6 days. 7 days (including the last day) is also acceptable.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_4fc4f797",
+      "category": "temporal_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "38 days. 39 days (including the last day) is also acceptable.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "4dfccbf7",
+      "category": "temporal_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "24 days. 25 days (including the last day) is also acceptable.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_61e13b3c",
+      "category": "temporal_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "3 weeks",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_45189cb4",
+      "category": "temporal_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "First, I attended a NBA game at the Staples Center, then I watched the College Football National Championship game, and finally, I watched the NFL playoffs.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "2ebe6c90",
+      "category": "temporal_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "21 days. 22 days (including the last day) is also acceptable.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_e061b84f",
+      "category": "temporal_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "I first completed the Spring Sprint Triathlon, then took part in the Midsummer 5K Run, and finally participated in the company's annual charity soccer tournament.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "370a8ff4",
+      "category": "temporal_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "15",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_d6585ce8",
+      "category": "temporal_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "The order of the concerts I attended is: 1. Billie Eilish concert at the Wells Fargo Center in Philly, 2. Free outdoor concert series in the park, 3. Music festival in Brooklyn, 4. Jazz night at a local bar, 5. Queen + Adam Lambert concert at the Prudential Center in Newark, NJ.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_4ef30696",
+      "category": "temporal_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "1 day. 2 days (including the last day) is also acceptable.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_ec93e27f",
+      "category": "temporal_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "train",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "6e984301",
+      "category": "temporal_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "3",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 1.0,
+        "accuracy": 1.0
+      }
+    },
+    {
+      "query_id": "8077ef71",
+      "category": "temporal_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "26 days. 27 days (including the last day) is also acceptable.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_f420262c",
+      "category": "temporal_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "JetBlue, Delta, United, American Airlines",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_8e165409",
+      "category": "temporal_reasoning",
+      "predicted": "[error: Client error '403 Forbidden' for url 'https://openrouter.ai/api/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403]",
+      "expected": "14 days. 15 days (including the last day) is also acceptable.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_74aed68e",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "29 days. 30 days (including the last day) is also acceptable.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "bcbe585f",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "4",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_21adecb5",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "6 months",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "5e1b23de",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "3",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_98f46fc6",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "I participated in the charity bake sale first.",
+      "scores": {
+        "f1": 0.16666666666666666,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_af6db32f",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "17 days ago. 18 days (including the last day) is also acceptable.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "eac54adc",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "19 days ago. 20 days (including the last day) is also acceptable.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_7ddcf75f",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "3 days ago. 4 days (including the last day) is also acceptable.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_a2d1d1f6",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "3 days ago. 4 days (including the last day) is also acceptable.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_85da3956",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "3 weeks ago",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_b0863698",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "7 days ago. 8 days (including the last day) is also acceptable.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_68e94287",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "You posted a recipe for vegan chili on Instagram using the hashtag #FoodieAdventures first.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_e414231e",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "4 days. 5 days (including the last day) is also acceptable.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_7ca326fa",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "Emma graduated first, followed by Rachel and then Alex.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_7bc6cf22",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "12 days ago. 13 days (including the last day) is also acceptable.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "2ebe6c92",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "'The Nightingale' by Kristin Hannah",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_e061b84g",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "The company's annual charity soccer tournament.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "71017277",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "my aunt",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "b46e15ee",
+      "category": "temporal_reasoning",
+      "predicted": "You participated in a charity gala for the Cancer Research Foundation.",
+      "expected": "the 'Walk for Hunger' charity event",
+      "scores": {
+        "f1": 0.3529411764705882,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_d6585ce9",
+      "category": "temporal_reasoning",
+      "predicted": "You went with your sister to the music event last Saturday.",
+      "expected": "my parents",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_1e4a8aec",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "planting 12 new tomato saplings",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_f420262d",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "American Airlines",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_59149c78",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "The Metropolitan Museum of Art.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_e414231f",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "road bike",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_4929293b",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "my cousin's wedding",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_468eb064",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "Emma",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_fa19884d",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "a bluegrass band that features a banjo player",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "9a707b82",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "a chocolate cake",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "eac54add",
+      "category": "temporal_reasoning",
+      "predicted": "The significant business milestone mentioned four weeks ago was the website launch.",
+      "expected": "I signed a contract with my first client.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "4dfccbf8",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "I started taking ukulele lessons with Rachel.",
+      "scores": {
+        "f1": 0.18181818181818182,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "0bc8ad93",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "No, you did not visit with a friend.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "6e984302",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "I got my own set of sculpting tools.",
+      "scores": {
+        "f1": 0.16666666666666666,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_8279ba03",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "a smoker",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_b5700ca0",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "the Episcopal Church",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_68e94288",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "You participated in a social media challenge called #PlankChallenge.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_2655b836",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "GPS system not functioning correctly",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_2487a7cb",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "'Data Analysis using Python' webinar",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_76048e76",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "bike",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_2312f94c",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "Samsung Galaxy S22",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "0bb5a684",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "7 days. 8 days (including the last day) is also acceptable.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "08f4fc43",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "30 days. 31 days (including the last day) is also acceptable.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "2c63a862",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "14 days. 15 days (including the last day) is also acceptable.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_385a5000",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "Tomatoes",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "2a1811e2",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "21 days. 22 days (including the last day) is also acceptable.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "bbf86515",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "4 days.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_5dcc0aab",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "white Adidas sneakers",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_0b2f1d21",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "The malfunction of the stand mixer",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "f0853d11",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "14 days. 8 days (including the last day) is also acceptable.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_6ed717ea",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "Training pads for Luna",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_70e84552",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "Fixing the fence",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "a3838d2b",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "4",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_93159ced",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "4 years and 9 months",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_2d58bcd6",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "'The Hate U Give'",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_65aabe59",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "Smart thermostat",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "982b5123",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "Five months ago",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "b9cfe692",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "5.5 weeks",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_4edbafa2",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "June 3rd",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "c8090214",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "7 days. 8 days (including the last day) is also acceptable.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_483dd43c",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "'Game of Thrones'",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "e4e14d04",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "Two weeks",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "c9f37c46",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "2 months",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_2c50253f",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "6:45 AM",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "dcfa8644",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "14 days. 15 days (including the last day) is also acceptable.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_b4a80587",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "The arrival of the new prime lens",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_9a159967",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "United Airlines",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "cc6d1ec1",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "Two months",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_8c8961ae",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "The solo trip to Thailand",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_d9af6064",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "new router",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_7de946e7",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "Persistent cough",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "d01c6aa8",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "27",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "993da5e2",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "One week. Answers ranging from 7 days to 10 days are also acceptable.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "a3045048",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "7 days. 8 days (including the last day) is also acceptable.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_d31cdae3",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "The family road trip across the American Southwest",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_cd90e484",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "Two weeks",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_88806d6e",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "Tom",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_4cd9eba1",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "one week",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_93f6379c",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "Page Turners",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "b29f3365",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "Four weeks",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_2f56ae70",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "Disney+",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "6613b389",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "2",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_78cf46a3",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "Receiving the new phone case",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_0a05b494",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "the woman selling jam at the farmer's market",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_1a1dc16d",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "The meeting with Rachel",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_2f584639",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "the photo album for my mom",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_213fd887",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "volleyball league",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_5438fa52",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "Spanish classes",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_c27434e8",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "Japanese Zero fighter plane model",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_fe651585",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "Alex",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "8c18457d",
+      "category": "temporal_reasoning",
+      "predicted": "I don't know.",
+      "expected": "7 days. 8 days (including the last day) is also acceptable.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "gpt4_70e84552_abs",
+      "category": "abstention",
+      "predicted": "I don't know.",
+      "expected": "The information provided is not enough. You mentioned fixing the fence but did not mention purchasing cows from Peter.",
+      "scores": {
+        "abstention_accuracy": 1.0,
+        "accuracy": 1.0
+      }
+    },
+    {
+      "query_id": "gpt4_93159ced_abs",
+      "category": "abstention",
+      "predicted": "I don't know.",
+      "expected": "The information provided is not enough. From the information provided, You haven't started working at Google yet.",
+      "scores": {
+        "abstention_accuracy": 1.0,
+        "accuracy": 1.0
+      }
+    },
+    {
+      "query_id": "982b5123_abs",
+      "category": "abstention",
+      "predicted": "I don't know.",
+      "expected": "The information provided is not enough. You only mentioned booking Airbnb in San Francisco.",
+      "scores": {
+        "abstention_accuracy": 1.0,
+        "accuracy": 1.0
+      }
+    },
+    {
+      "query_id": "c8090214_abs",
+      "category": "abstention",
+      "predicted": "I don't know.",
+      "expected": "The information provided is not enough. You mentioned getting the iPhone 13 Pro and attending the market, but you did not mention buying an iPad.",
+      "scores": {
+        "abstention_accuracy": 1.0,
+        "accuracy": 1.0
+      }
+    },
+    {
+      "query_id": "gpt4_c27434e8_abs",
+      "category": "abstention",
+      "predicted": "I don't know.",
+      "expected": "The information provided is not enough. You did not mention starting the Porsche 991 Turbo S model.",
+      "scores": {
+        "abstention_accuracy": 1.0,
+        "accuracy": 1.0
+      }
+    },
+    {
+      "query_id": "gpt4_fe651585_abs",
+      "category": "abstention",
+      "predicted": "I don't know.",
+      "expected": "The information provided is not enough. You mentioned Alex becoming a parent in January, but you didn't mention anything about Tom.",
+      "scores": {
+        "abstention_accuracy": 1.0,
+        "accuracy": 1.0
+      }
+    },
+    {
+      "query_id": "6a1eabeb",
+      "category": "knowledge_updates",
+      "predicted": "Your personal best time in the charity 5K run was 27:12.",
+      "expected": "25 minutes and 50 seconds (or 25:50)",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "6aeb4375",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "four",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "830ce83f",
+      "category": "knowledge_updates",
+      "predicted": "Rachel moved back to the suburbs.",
+      "expected": "the suburbs",
+      "scores": {
+        "f1": 0.5,
+        "exact_match": 0.0,
+        "substring_hit": 1.0,
+        "accuracy": 1.0
+      }
+    },
+    {
+      "query_id": "852ce960",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "$400,000",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "945e3d21",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "Three times a week.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "d7c942c3",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "Yes.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "71315a70",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "10-12 hours",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "89941a93",
+      "category": "knowledge_updates",
+      "predicted": "You currently own four bikes.",
+      "expected": "4",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "ce6d2d27",
+      "category": "knowledge_updates",
+      "predicted": "Thursday.",
+      "expected": "Friday",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "9ea5eabc",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "Paris",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "07741c44",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "under my bed",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "a1eacc2a",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "seven",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "184da446",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "220",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "031748ae",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "When you just started your new role as Senior Software Engineer, you led 4 engineers. Now, you lead 5 engineers",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "4d6b87c8",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "25",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "0f05491a",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "120",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "08e075c7",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "9 months",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "f9e8c073",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "five",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "41698283",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "a 70-200mm zoom lens",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "2698e78f",
+      "category": "knowledge_updates",
+      "predicted": "You see your therapist, Dr. Smith, weekly.",
+      "expected": "every week",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "b6019101",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "5",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "45dc21b6",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "3",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "5a4f22c0",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "TechCorp",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "6071bd76",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "You switched to less water (5 ounces) per tablespoon of coffee.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "e493bb7c",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "in my bedroom",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "618f13b2",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "six",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "72e3ee87",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "50",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "c4ea545c",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "Yes",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "01493427",
+      "category": "knowledge_updates",
+      "predicted": "You have added 17 new postcards to your collection since you started collecting again.",
+      "expected": "25",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "6a27ffc2",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "30",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "2133c1b5",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "3 months",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "18bc8abd",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "Kansas City Masterpiece",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "db467c8c",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "nine months",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "7a87bd0c",
+      "category": "knowledge_updates",
+      "predicted": "You have been sticking to your daily tidying routine for three weeks.",
+      "expected": "4 weeks",
+      "scores": {
+        "f1": 0.14285714285714285,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "e61a7584",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "9 months",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "1cea1afa",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "600",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "ed4ddc30",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "20",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "8fb83627",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "Five",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "b01defab",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "Yes",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "22d2cb42",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "The music shop on Main St.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "0e4e4c46",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "132 points",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "4b24c848",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "five",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "7e974930",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "$420",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "603deb26",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "10",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "59524333",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "6:00 pm",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "5831f84d",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "15",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "eace081b",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "Oahu",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "affe2881",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "32",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "50635ada",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "Premier Silver",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "e66b632c",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "27 minutes and 45 seconds",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "0ddfec37",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "15",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "f685340e",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "Previously, you play tennis with your friends at the local park every week (on Sunday). Currently, you play tennis every other week (on Sunday).",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "cc5ded98",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "about two hours",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "dfde3500",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "Wednesday",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "69fee5aa",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "38",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "7401057b",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "Two",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "cf22b7bf",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "10 pounds",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "a2f3aa27",
+      "category": "knowledge_updates",
+      "predicted": "You have 1250 followers on Instagram now.",
+      "expected": "1300",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "c7dc5443",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "5-2",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "06db6396",
+      "category": "knowledge_updates",
+      "predicted": "You have completed four projects since starting painting classes.",
+      "expected": "5",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "3ba21379",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "Ford F-150 pickup truck",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "9bbe84a2",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "level 100",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "10e09553",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "7",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "dad224aa",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "7:30 am",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "ba61f0b9",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "6",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "42ec0761",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "Yes",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "5c40ec5b",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "We've met up twice.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "c6853660",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "You increased the limit (from one cup to two cups)",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "26bdc477",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "five",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "0977f2af",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "Instant Pot",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "6aeb4375_abs",
+      "category": "abstention",
+      "predicted": "I don't know.",
+      "expected": "The information provided is not enough. You mentioned trying Korean restaurants but not Italian restaurants.",
+      "scores": {
+        "abstention_accuracy": 1.0,
+        "accuracy": 1.0
+      }
+    },
+    {
+      "query_id": "031748ae_abs",
+      "category": "abstention",
+      "predicted": "I don't know.",
+      "expected": "The information provided is not enough. You mentioned starting the role as Senior Software Engineer but not Software Engineer Manager.",
+      "scores": {
+        "abstention_accuracy": 1.0,
+        "accuracy": 1.0
+      }
+    },
+    {
+      "query_id": "2698e78f_abs",
+      "category": "abstention",
+      "predicted": "I don't know.",
+      "expected": "The information provided is not enough. You mentioned seeing Dr. Smith but not Dr. Johnson.",
+      "scores": {
+        "abstention_accuracy": 1.0,
+        "accuracy": 1.0
+      }
+    },
+    {
+      "query_id": "2133c1b5_abs",
+      "category": "abstention",
+      "predicted": "I don't know.",
+      "expected": "The information provided is not enough. You mentioned living in Harajuku but not Shinjuku.",
+      "scores": {
+        "abstention_accuracy": 1.0,
+        "accuracy": 1.0
+      }
+    },
+    {
+      "query_id": "0ddfec37_abs",
+      "category": "abstention",
+      "predicted": "I don't know.",
+      "expected": "The information provided is not enough. You mentioned collecting autographed baseball but not football.",
+      "scores": {
+        "abstention_accuracy": 1.0,
+        "accuracy": 1.0
+      }
+    },
+    {
+      "query_id": "f685340e_abs",
+      "category": "abstention",
+      "predicted": "I don't know.",
+      "expected": "The information provided is not enough. You mentioned playing tennis but not table tennis.",
+      "scores": {
+        "abstention_accuracy": 1.0,
+        "accuracy": 1.0
+      }
+    },
+    {
+      "query_id": "89941a94",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "Yes. (You have a road bike too.)",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "07741c45",
+      "category": "knowledge_updates",
+      "predicted": "I don't know.",
+      "expected": "in a shoe rack in my closet",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "7161e7e2",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Admon was assigned to the 8 am - 4 pm (Day Shift) on Sundays.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "c4f10528",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Miss Bee Providore",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "89527b6b",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The Plesiosaur had a blue scaly body.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "e9327a54",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The Sugar Factory at Icon Park.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "4c36ccef",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Roscioli",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "6ae235be",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Atmospheric distillation, fluid catalytic cracking (FCC), alkylation, and hydrotreating.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "7e00a6cb",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "International Budget Hostel",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "1903aded",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Transcriptionist.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "ceb54acb",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "I suggested 'sexual fixations', 'problematic sexual behaviors', 'sexual impulsivity', and 'compulsive sexuality'.",
+      "scores": {
+        "f1": 0.125,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "f523d9fe",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Doc Martin",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "0e5e2d1a",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "38 subjects",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "fea54f57",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Evolution",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "cc539528",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "I recommended learning Ruby, Python, or PHP as a back-end programming language.",
+      "scores": {
+        "f1": 0.11764705882352941,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "dc439ea3",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Hoop Dance",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "18dcd5a5",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "4",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "488d3006",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The GR-90 trail.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "58470ed2",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "According to Borges, 'The Library is a sphere whose exact center is any one of its hexagons and whose circumference is inaccessible.'",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "8cf51dda",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The three objectives were: 1) to identify molecular subtypes of endometrial cancer, 2) to investigate their clinical and biological significance, and 3) to develop biomarkers for early detection and prognosis.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "1d4da289",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "I mentioned biometric authentication or one-time passwords (OTP) as examples of two-factor authentication methods.",
+      "scores": {
+        "f1": 0.1,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "8464fc84",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Roscioli",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "8aef76bc",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Mod Podge or another sealant",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "71a3fd6b",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "+49 (0) 62 32 / 14 23 - 0",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "2bf43736",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Chapter 4 of Book 1, titled 'Vocal Prayer and Meditation'.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "70b3e69b",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Manolo Garc\u00eda",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "8752c811",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The 27th parameter was 'Sound effects (e.g., ambient, diegetic, non-diegetic, etc.)'.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "3249768e",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Absinthe",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "1b9b7252",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Mindful.org.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "1568498a",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "28. Kg3",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "6222b6eb",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The 6S algorithm is implemented in the SIAC_GEE tool.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "e8a79c70",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "2-3 eggs",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "d596882b",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "By Chloe",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "e3fc4d6e",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Dr. Arati Prabhakar",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "51b23612",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Nu, pogodi!",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "3e321797",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "10 minutes",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "e982271f",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Revolution Hall",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "352ab8bd",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The average improvement in framerate was approximately 20% when using the Hardware-Aware Modular Training (HAMT) agent.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "fca762bc",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Memrise",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "7a8d0b71",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "$2,000",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "a40e080f",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Patagonia and Southwest Airlines.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "8b9d4367",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Jaipur Rugs",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "5809eb10",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "2014.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "41275add",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The video is 'How to Sit Properly at a Desk to Avoid Back Pain' and the link is https://www.youtube.com/watch?v=UfOvNlX9Hh0.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "4388e9dd",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Andy was wearing an untidy, stained white shirt.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "4baee567",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The Chiefs played the Jaguars 12 times at Arrowhead Stadium.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "561fabcd",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Fissionator.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "b759caee",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "@jessica_poole_jewellery",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "ac031881",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The designation on your jumpsuit was 'LIV'.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "28bcfaac",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "MusicTheory.net",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "16c90bf4",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "I recommended using a Pilsner or Lager for the recipe.",
+      "scores": {
+        "f1": 0.14285714285714288,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "c8f1aeed",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Pennsylvania",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "eaca4986",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "C D E F G A B A G F E D C",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "c7cf7dfd",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Nostalgia",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "e48988bc",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Patagonia",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "1de5cff2",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Veja",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "65240037",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "The recommended ratio is 1:10, meaning one part tea tree oil to ten parts carrier oil.",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    },
+    {
+      "query_id": "778164c6",
+      "category": "information_extraction",
+      "predicted": "I don't know.",
+      "expected": "Grilled Snapper with Mango Salsa",
+      "scores": {
+        "f1": 0.0,
+        "exact_match": 0.0,
+        "substring_hit": 0.0,
+        "accuracy": 0.0
+      }
+    }
+  ]
+}
