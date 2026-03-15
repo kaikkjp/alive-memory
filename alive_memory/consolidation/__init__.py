@@ -18,19 +18,20 @@ import logging
 import time
 
 from alive_memory.config import AliveConfig
-
-logger = logging.getLogger(__name__)
 from alive_memory.consolidation.cold_search import find_cold_echoes
 from alive_memory.consolidation.dreaming import dream
 from alive_memory.consolidation.fact_extraction import TraitCache, write_extracted_facts
 from alive_memory.consolidation.memory_updates import apply_reflection_to_hot_memory
 from alive_memory.consolidation.reflection import reflect_daily_summary, reflect_on_moment
+from alive_memory.consolidation.wake import WakeConfig, WakeHooks
 from alive_memory.embeddings.base import EmbeddingProvider
 from alive_memory.hot.reader import MemoryReader
 from alive_memory.hot.writer import MemoryWriter
 from alive_memory.llm.provider import LLMProvider
 from alive_memory.storage.base import BaseStorage
 from alive_memory.types import SleepReport
+
+logger = logging.getLogger(__name__)
 
 
 async def consolidate(
@@ -43,8 +44,8 @@ async def consolidate(
     config: AliveConfig | None = None,
     whispers: list[dict] | None = None,
     depth: str = "full",
-    wake_hooks: "WakeHooks | None" = None,
-    wake_config: "WakeConfig | None" = None,
+    wake_hooks: WakeHooks | None = None,
+    wake_config: WakeConfig | None = None,
 ) -> SleepReport:
     """Run the consolidation (sleep) pipeline.
 
@@ -215,7 +216,7 @@ async def consolidate(
 
     # Wake phase (full only, if hooks provided)
     if not is_nap and wake_hooks is not None:
-        from alive_memory.consolidation.wake import run_wake_transition, WakeConfig
+        from alive_memory.consolidation.wake import WakeConfig, run_wake_transition
         wake_cfg = wake_config if wake_config is not None else WakeConfig()
         wake_report = await run_wake_transition(
             storage,

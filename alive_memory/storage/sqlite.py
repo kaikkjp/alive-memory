@@ -8,14 +8,15 @@ Tier 3 — cold_embeddings: vector archive (sleep-only)
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import contextvars
 import json
 import pathlib
 import re
 import struct
 import uuid
-from datetime import datetime, timedelta, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import aiosqlite
 
@@ -50,7 +51,7 @@ def _deserialize_embedding(blob: bytes | None) -> list[float] | None:
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _row_to_moment(row: aiosqlite.Row) -> DayMoment:
@@ -80,7 +81,7 @@ class SQLiteStorage(BaseStorage):
 
     def __init__(self, db_path: str = "memory.db"):
         self._db_path = db_path
-        self._db: Optional[aiosqlite.Connection] = None
+        self._db: aiosqlite.Connection | None = None
         self._write_lock = asyncio.Lock()
         self._tx_depth: contextvars.ContextVar[int] = contextvars.ContextVar(
             "_tx_depth", default=0
@@ -171,7 +172,7 @@ class SQLiteStorage(BaseStorage):
         return count
 
     async def flush_stale_moments(self, stale_hours: int = 72) -> int:
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=stale_hours)
+        cutoff = datetime.now(UTC) - timedelta(hours=stale_hours)
         conn = await self._get_db()
         async with self._write_lock:
             cursor = await conn.execute(
@@ -195,7 +196,7 @@ class SQLiteStorage(BaseStorage):
         row = await cursor.fetchone()
         return row[0]
 
-    async def get_lowest_salience_moment(self) -> Optional[DayMoment]:
+    async def get_lowest_salience_moment(self) -> DayMoment | None:
         conn = await self._get_db()
         cursor = await conn.execute(
             "SELECT * FROM day_memory WHERE processed = 0 ORDER BY salience ASC LIMIT 1"
@@ -236,7 +237,7 @@ class SQLiteStorage(BaseStorage):
         content: str,
         embedding: list[float],
         source_moment_id: str,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> str:
         embed_id = str(uuid.uuid4())
         await self._exec_write(
@@ -902,10 +903,8 @@ class SQLiteStorage(BaseStorage):
             "ALTER TABLE self_model ADD COLUMN narrative_version INTEGER NOT NULL DEFAULT 0",
         ]
         for sql in alters:
-            try:
+            with contextlib.suppress(Exception):
                 await conn.execute(sql)
-            except Exception:
-                pass  # Column already exists
         await conn.commit()
 
     async def initialize(self) -> None:
@@ -973,7 +972,7 @@ def _row_to_visitor(row: aiosqlite.Row) -> Visitor:
 def _cosine_similarity(a: list[float], b: list[float]) -> float:
     if len(a) != len(b):
         return 0.0
-    dot = sum(x * y for x, y in zip(a, b))
+    dot = sum(x * y for x, y in zip(a, b, strict=False))
     norm_a = sum(x * x for x in a) ** 0.5
     norm_b = sum(x * x for x in b) ** 0.5
     if norm_a == 0 or norm_b == 0:

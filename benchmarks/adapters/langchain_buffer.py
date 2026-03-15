@@ -5,7 +5,6 @@ catastrophic cliff when buffer is full. Zero LLM cost.
 """
 
 import sys
-from typing import Optional
 
 from benchmarks.adapters.base import (
     BenchEvent,
@@ -16,7 +15,7 @@ from benchmarks.adapters.base import (
 
 try:
     from langchain.memory import ConversationBufferWindowMemory
-    from langchain_core.messages import HumanMessage, AIMessage
+    from langchain_core.messages import AIMessage, HumanMessage
 except ImportError:
     ConversationBufferWindowMemory = None  # type: ignore[assignment, misc]
 

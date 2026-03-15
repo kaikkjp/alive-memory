@@ -7,7 +7,6 @@ providing a timeline of identity development.
 from __future__ import annotations
 
 from alive_memory.storage.base import BaseStorage
-from alive_memory.types import SelfModel
 
 
 async def get_history(

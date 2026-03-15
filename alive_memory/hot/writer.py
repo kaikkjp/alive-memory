@@ -12,9 +12,8 @@ memory. Dates and times are preserved.
 from __future__ import annotations
 
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional
 
 from alive_memory.hot.translator import scrub_numbers
 
@@ -53,15 +52,15 @@ class MemoryWriter:
         self,
         content: str,
         *,
-        date: Optional[datetime] = None,
-        moment_id: Optional[str] = None,
+        date: datetime | None = None,
+        moment_id: str | None = None,
     ) -> Path:
         """Append a journal entry for the given date.
 
         Each day gets its own file: journal/YYYY-MM-DD.md
         Entries are appended with timestamps.
         """
-        ts = date or datetime.now(timezone.utc)
+        ts = date or datetime.now(UTC)
         date_str = ts.strftime("%Y-%m-%d")
         filepath = self._root / "journal" / f"{date_str}.md"
 
@@ -87,7 +86,7 @@ class MemoryWriter:
         visitor_name: str,
         content: str,
         *,
-        timestamp: Optional[datetime] = None,
+        timestamp: datetime | None = None,
     ) -> Path:
         """Append a note about a visitor/person.
 
@@ -95,7 +94,7 @@ class MemoryWriter:
         """
         safe_name = _safe_filename(visitor_name)
         filepath = self._root / "visitors" / f"{safe_name}.md"
-        ts = timestamp or datetime.now(timezone.utc)
+        ts = timestamp or datetime.now(UTC)
         time_str = ts.strftime("%Y-%m-%d %H:%M")
 
         with open(filepath, "a", encoding="utf-8") as f:
@@ -113,21 +112,21 @@ class MemoryWriter:
         self,
         content: str,
         *,
-        date: Optional[datetime] = None,
+        date: datetime | None = None,
         label: str = "",
     ) -> Path:
         """Append a reflection from consolidation.
 
         One file per day: reflections/YYYY-MM-DD.md
         """
-        ts = date or datetime.now(timezone.utc)
+        ts = date or datetime.now(UTC)
         date_str = ts.strftime("%Y-%m-%d")
         filepath = self._root / "reflections" / f"{date_str}.md"
 
         with open(filepath, "a", encoding="utf-8") as f:
             if not filepath.exists() or os.path.getsize(filepath) == 0:
                 f.write(f"# Reflections — {date_str}\n")
-            header = f"\n---\n"
+            header = "\n---\n"
             if label:
                 header += f"**{label}**\n\n"
             f.write(header)
@@ -143,7 +142,7 @@ class MemoryWriter:
         thread_id: str,
         content: str,
         *,
-        timestamp: Optional[datetime] = None,
+        timestamp: datetime | None = None,
     ) -> Path:
         """Append context to a conversation thread.
 
@@ -151,7 +150,7 @@ class MemoryWriter:
         """
         safe_id = _safe_filename(thread_id)
         filepath = self._root / "threads" / f"{safe_id}.md"
-        ts = timestamp or datetime.now(timezone.utc)
+        ts = timestamp or datetime.now(UTC)
         time_str = ts.strftime("%Y-%m-%d %H:%M")
 
         with open(filepath, "a", encoding="utf-8") as f:

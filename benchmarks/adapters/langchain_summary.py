@@ -6,7 +6,6 @@ Constant storage, but loses detail progressively. High LLM cost.
 
 import os
 import sys
-from typing import Optional
 
 from benchmarks.adapters.base import (
     BenchEvent,

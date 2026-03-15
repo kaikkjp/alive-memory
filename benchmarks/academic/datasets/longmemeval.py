@@ -127,7 +127,7 @@ class LongMemEvalDataset(DatasetAdapter):
 
             question_sessions: list[list[ConversationTurn]] = []
             for idx, (sess_id, session_turns) in enumerate(
-                zip(haystack_ids, haystack_sessions)
+                zip(haystack_ids, haystack_sessions, strict=False)
             ):
                 date = haystack_dates[idx] if idx < len(haystack_dates) else ""
                 turns = self._parse_session(sess_id, session_turns, date)

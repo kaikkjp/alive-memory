@@ -11,8 +11,6 @@ import pytest
 from benchmarks.academic.harness.base import (
     BenchmarkRunResult,
     ConversationTurn,
-    EvalResult,
-    GroundTruth,
     MemoryQuery,
     SystemMetrics,
 )
@@ -26,7 +24,6 @@ from benchmarks.academic.harness.scoring import (
     substring_match,
     token_f1,
 )
-
 
 # --- Scoring tests ---
 
@@ -251,7 +248,7 @@ class TestConsolidateMetrics:
 
 class TestMemoryAgentBenchCategories:
     def test_categories(self):
-        from benchmarks.academic.datasets.memoryagentbench import CATEGORIES, _CATEGORY_ALIASES
+        from benchmarks.academic.datasets.memoryagentbench import _CATEGORY_ALIASES, CATEGORIES
 
         assert "accurate_retrieval" in CATEGORIES
         assert "conflict_resolution" in CATEGORIES

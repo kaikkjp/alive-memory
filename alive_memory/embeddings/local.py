@@ -40,7 +40,7 @@ def _hash_embed(text: str, dims: int) -> list[float]:
 
     # Hash individual words and their bigrams for overlap sensitivity
     words = text.lower().split()
-    tokens = words + [f"{a} {b}" for a, b in zip(words, words[1:])]
+    tokens = words + [f"{a} {b}" for a, b in zip(words, words[1:], strict=False)]
 
     for token in tokens:
         h = hashlib.sha256(token.encode()).digest()

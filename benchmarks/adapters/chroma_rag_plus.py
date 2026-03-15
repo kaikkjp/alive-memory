@@ -8,9 +8,9 @@ Maintenance includes: deduplication, summarization of similar entries,
 metadata enrichment.
 """
 
+import contextlib
 import hashlib
 import os
-from typing import Optional
 
 from benchmarks.adapters.base import (
     BenchEvent,
@@ -47,7 +47,7 @@ class ChromaRagPlusAdapter(MemoryAdapter):
     """RAG + periodic LLM maintenance (dedup, summarize, enrich)."""
 
     def __init__(self) -> None:
-        self._client: Optional["chromadb.ClientAPI"] = None
+        self._client: chromadb.ClientAPI | None = None
         self._collection = None
         self._embed_model = None
         self._count = 0
@@ -140,7 +140,7 @@ class ChromaRagPlusAdapter(MemoryAdapter):
         dists = results.get("distances", [[]])[0]
         metas = results.get("metadatas", [[]])[0]
 
-        for doc, dist, meta in zip(docs, dists, metas):
+        for doc, dist, meta in zip(docs, dists, metas, strict=False):
             recalls.append(RecallResult(
                 content=doc,
                 score=max(0.0, 1.0 - dist),
@@ -242,7 +242,7 @@ class ChromaRagPlusAdapter(MemoryAdapter):
 
         return clusters
 
-    async def _summarize_cluster(self, docs: list[str]) -> Optional[str]:
+    async def _summarize_cluster(self, docs: list[str]) -> str | None:
         """Use LLM to summarize a cluster of similar memories."""
         if not self._llm_client:
             return None
@@ -286,9 +286,7 @@ class ChromaRagPlusAdapter(MemoryAdapter):
 
     async def teardown(self) -> None:
         if self._client:
-            try:
+            with contextlib.suppress(Exception):
                 self._client.delete_collection("bench_rag_plus")
-            except Exception:
-                pass
         self._client = None
         self._collection = None

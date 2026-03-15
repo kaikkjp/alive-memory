@@ -27,7 +27,6 @@ from benchmarks.academic.harness.base import (
 )
 from benchmarks.academic.harness.scoring import exact_match, substring_match, token_f1
 
-
 TASK_FAMILIES = [
     "web_navigation",
     "preference_planning",

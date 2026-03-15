@@ -10,10 +10,10 @@ import logging
 import random
 
 from alive_memory.config import AliveConfig
-
-logger = logging.getLogger(__name__)
 from alive_memory.llm.provider import LLMProvider
 from alive_memory.types import DayMoment
+
+logger = logging.getLogger(__name__)
 
 
 async def dream(

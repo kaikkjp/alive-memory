@@ -18,7 +18,8 @@ Usage:
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 from langchain_core.chat_history import BaseChatMessageHistory
 from langchain_core.documents import Document
@@ -32,7 +33,7 @@ from alive_memory import AliveMemory
 def _run_async(coro):
     """Run an async coroutine from sync context."""
     try:
-        loop = asyncio.get_running_loop()
+        asyncio.get_running_loop()
     except RuntimeError:
         return asyncio.run(coro)
     else:

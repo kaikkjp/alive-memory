@@ -16,13 +16,11 @@ from __future__ import annotations
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Protocol
 
 from alive_memory.identity.drift import DriftReport, DriftResult
 from alive_memory.storage.base import BaseStorage
-
 
 # ── Types ─────────────────────────────────────────────────────────
 

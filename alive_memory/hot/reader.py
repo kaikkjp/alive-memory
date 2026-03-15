@@ -6,11 +6,8 @@ Searches markdown files using simple keyword matching (no vector search).
 
 from __future__ import annotations
 
-import os
 import re
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 
 class MemoryReader:
@@ -33,7 +30,7 @@ class MemoryReader:
         self,
         query: str,
         *,
-        subdirs: Optional[list[str]] = None,
+        subdirs: list[str] | None = None,
         limit: int = 20,
         context_lines: int = 3,
     ) -> list[dict[str, str]]:
@@ -93,7 +90,7 @@ class MemoryReader:
 
     # ── Visitor Notes ────────────────────────────────────────────
 
-    def read_visitor(self, visitor_name: str) -> Optional[str]:
+    def read_visitor(self, visitor_name: str) -> str | None:
         """Read all notes about a specific visitor.
 
         Returns the full content of the visitor's file, or None if not found.
@@ -151,7 +148,7 @@ class MemoryReader:
 
     # ── Self-Knowledge ───────────────────────────────────────────
 
-    def read_self_knowledge(self, filename: str = "identity") -> Optional[str]:
+    def read_self_knowledge(self, filename: str = "identity") -> str | None:
         """Read a self-knowledge file.
 
         Args:
@@ -204,7 +201,7 @@ class MemoryReader:
 
     # ── Threads ──────────────────────────────────────────────────
 
-    def read_thread(self, thread_id: str) -> Optional[str]:
+    def read_thread(self, thread_id: str) -> str | None:
         """Read a conversation thread."""
         safe_id = _safe_filename(thread_id)
         filepath = self._root / "threads" / f"{safe_id}.md"

@@ -13,12 +13,12 @@ import logging
 from dataclasses import dataclass, field
 
 from alive_memory.config import AliveConfig
-
-logger = logging.getLogger(__name__)
 from alive_memory.hot.reader import MemoryReader
 from alive_memory.llm.provider import LLMProvider
 from alive_memory.storage.base import BaseStorage
 from alive_memory.types import DayMoment
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass

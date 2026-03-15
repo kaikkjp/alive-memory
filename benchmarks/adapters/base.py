@@ -6,7 +6,6 @@ minimal — 4 required methods, 3 optional — so adding a new system is easy.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 @dataclass
@@ -41,7 +40,7 @@ class RecallResult:
     content: str
     score: float  # system's own relevance score (normalized 0-1)
     metadata: dict = field(default_factory=dict)
-    formed_at: Optional[str] = None  # when this memory was formed
+    formed_at: str | None = None  # when this memory was formed
 
 
 @dataclass
@@ -81,14 +80,14 @@ class MemoryAdapter(ABC):
         """Return current resource usage."""
         ...
 
-    async def consolidate(self) -> None:
+    async def consolidate(self) -> None:  # noqa: B027
         """Run any maintenance/consolidation the system supports.
 
         Called periodically (configurable). No-op by default.
         """
         pass
 
-    async def get_state(self) -> Optional[dict]:
+    async def get_state(self) -> dict | None:
         """Return internal cognitive state if tracked.
 
         Drives, mood, energy, etc. None if not supported.
@@ -110,6 +109,6 @@ class MemoryAdapter(ABC):
         """
         return False
 
-    async def teardown(self) -> None:
+    async def teardown(self) -> None:  # noqa: B027
         """Cleanup. Called once after benchmark completes."""
         pass

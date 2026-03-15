@@ -8,10 +8,8 @@ from __future__ import annotations
 
 import os
 import tempfile
-from typing import Optional
 
 from alive_memory import AliveMemory, EventType
-
 from benchmarks.academic.harness.base import (
     ConversationTurn,
     MemoryQuery,
@@ -35,9 +33,9 @@ class AliveMemorySystem(MemorySystemAdapter):
     """alive-memory three-tier cognitive memory system."""
 
     def __init__(self) -> None:
-        self._memory: Optional[AliveMemory] = None
-        self._tmp_dir: Optional[str] = None
-        self._db_path: Optional[str] = None
+        self._memory: AliveMemory | None = None
+        self._tmp_dir: str | None = None
+        self._db_path: str | None = None
         self._tracker = LLMTracker()
         self._llm_calls = 0
         self._llm_tokens = 0

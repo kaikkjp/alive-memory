@@ -1,40 +1,40 @@
 """Identity: persistent self-model, drift detection, evolution."""
 
-from alive_memory.identity.self_model import (
-    TraitConfig,
-    SelfModelManager,
-    get_self_model,
-    update_traits,
-    update_behavioral_summary,
-    snapshot,
-)
 from alive_memory.identity.drift import (
-    DriftConfig,
-    DriftMetric,
-    DriftDetector,
-    DriftResult,
-    DriftReport,
     BehavioralBaseline,
+    DriftConfig,
+    DriftDetector,
+    DriftMetric,
+    DriftReport,
+    DriftResult,
     MetricResult,
-    TVDMetric,
     ScalarDriftMetric,
-    tvd,
-    scalar_drift,
+    TVDMetric,
     detect_drift,
+    scalar_drift,
+    tvd,
 )
 from alive_memory.identity.evolution import (
+    CorrectionProvider,
     EvolutionAction,
     EvolutionDecision,
     GuardRailConfig,
-    CorrectionProvider,
     IdentityEvolution,
-    evaluate_drift,
     apply_decision,
+    evaluate_drift,
 )
 from alive_memory.identity.history import (
     get_history,
     get_trait_timeline,
     summarize_development,
+)
+from alive_memory.identity.self_model import (
+    SelfModelManager,
+    TraitConfig,
+    get_self_model,
+    snapshot,
+    update_behavioral_summary,
+    update_traits,
 )
 
 __all__ = [

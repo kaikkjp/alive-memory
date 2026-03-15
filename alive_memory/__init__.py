@@ -672,10 +672,7 @@ class AliveMemory:
                 await memory.intake(event_type="conversation", content="Hello!")
                 context = await memory.recall("hello")
         """
-        if data_dir is None:
-            root = Path.home() / ".alive" / name
-        else:
-            root = Path(data_dir)
+        root = Path.home() / ".alive" / name if data_dir is None else Path(data_dir)
 
         root.mkdir(parents=True, exist_ok=True)
 

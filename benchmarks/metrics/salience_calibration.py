@@ -27,7 +27,7 @@ def _pearson(x: list[float], y: list[float]) -> float:
     mean_x = sum(x) / n
     mean_y = sum(y) / n
 
-    cov = sum((xi - mean_x) * (yi - mean_y) for xi, yi in zip(x, y))
+    cov = sum((xi - mean_x) * (yi - mean_y) for xi, yi in zip(x, y, strict=False))
     var_x = sum((xi - mean_x) ** 2 for xi in x)
     var_y = sum((yi - mean_y) ** 2 for yi in y)
 
@@ -60,7 +60,7 @@ def compute_salience_calibration(result: BenchmarkResult) -> SalienceCalibration
     if result.final_metrics.recall_scores:
         for scored in result.final_metrics.recall_scores:
             # Events that contributed to relevant results are "retrieved"
-            for i, is_rel in enumerate(scored.relevance_vector):
+            for _i, is_rel in enumerate(scored.relevance_vector):
                 if is_rel:
                     retrieved_content.add(scored.query_id)
 
@@ -80,14 +80,11 @@ def compute_salience_calibration(result: BenchmarkResult) -> SalienceCalibration
 
     # Better approach: cross-reference with recall results
     # For each cycle with salience, check if its content appeared in recall results
-    if saliences and retrieved_flags:
-        correlation = _pearson(saliences, retrieved_flags)
-    else:
-        correlation = 0.0
+    correlation = _pearson(saliences, retrieved_flags) if saliences and retrieved_flags else 0.0
 
     # Separate means
-    sal_retrieved = [s for s, r in zip(saliences, retrieved_flags) if r > 0.5]
-    sal_missed = [s for s, r in zip(saliences, retrieved_flags) if r <= 0.5]
+    sal_retrieved = [s for s, r in zip(saliences, retrieved_flags, strict=False) if r > 0.5]
+    sal_missed = [s for s, r in zip(saliences, retrieved_flags, strict=False) if r <= 0.5]
 
     mean_ret = sum(sal_retrieved) / len(sal_retrieved) if sal_retrieved else 0.0
     mean_miss = sum(sal_missed) / len(sal_missed) if sal_missed else 0.0

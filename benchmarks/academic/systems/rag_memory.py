@@ -6,8 +6,8 @@ No LLM calls for memory management — only for answer generation.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
-from typing import Optional
 
 from benchmarks.academic.harness.base import (
     ConversationTurn,
@@ -29,7 +29,7 @@ class RAGMemorySystem(MemorySystemAdapter):
     """Baseline: vector retrieval over conversation chunks."""
 
     def __init__(self, chunk_size: int = 3, retrieval_k: int = 5) -> None:
-        self._client: Optional["chromadb.ClientAPI"] = None
+        self._client: chromadb.ClientAPI | None = None
         self._collection = None
         self._embed_model = None
         self._count = 0
@@ -143,9 +143,7 @@ class RAGMemorySystem(MemorySystemAdapter):
 
     async def teardown(self) -> None:
         if self._client:
-            try:
+            with contextlib.suppress(Exception):
                 self._client.delete_collection("academic_bench_rag")
-            except Exception:
-                pass
         self._client = None
         self._collection = None

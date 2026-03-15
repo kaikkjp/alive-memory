@@ -23,10 +23,10 @@ class AnthropicProvider:
     ):
         try:
             import anthropic
-        except ImportError:
+        except ImportError as e:
             raise ImportError(
                 "anthropic package required: pip install anthropic"
-            )
+            ) from e
         self._client = anthropic.AsyncAnthropic(api_key=api_key)
         self._model = model
 

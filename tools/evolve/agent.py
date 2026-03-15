@@ -283,9 +283,8 @@ def validate_changes(
                 for alias in node.names:
                     if any(alias.name.startswith(f) for f in FORBIDDEN_IMPORTS):
                         errors.append(f"forbidden import in {filepath}: {alias.name}")
-            elif isinstance(node, ast.ImportFrom) and node.module:
-                if any(node.module.startswith(f) for f in FORBIDDEN_IMPORTS):
-                    errors.append(f"forbidden import in {filepath}: {node.module}")
+            elif isinstance(node, ast.ImportFrom) and node.module and any(node.module.startswith(f) for f in FORBIDDEN_IMPORTS):
+                errors.append(f"forbidden import in {filepath}: {node.module}")
     return errors
 
 

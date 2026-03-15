@@ -4,9 +4,8 @@ Vector store + cosine similarity + top-k retrieval. No LLM calls,
 no consolidation, no maintenance. The simplest possible memory system.
 """
 
-import os
-import sys
-from typing import Optional
+
+import contextlib
 
 from benchmarks.adapters.base import (
     BenchEvent,
@@ -27,7 +26,7 @@ class ChromaRagAdapter(MemoryAdapter):
     """Baseline RAG: embed everything, retrieve by cosine similarity."""
 
     def __init__(self) -> None:
-        self._client: Optional["chromadb.ClientAPI"] = None
+        self._client: chromadb.ClientAPI | None = None
         self._collection = None
         self._embed_model = None
         self._count = 0
@@ -98,7 +97,7 @@ class ChromaRagAdapter(MemoryAdapter):
         dists = results.get("distances", [[]])[0]
         metas = results.get("metadatas", [[]])[0]
 
-        for doc, dist, meta in zip(docs, dists, metas):
+        for doc, dist, meta in zip(docs, dists, metas, strict=False):
             recalls.append(
                 RecallResult(
                     content=doc,
@@ -120,9 +119,7 @@ class ChromaRagAdapter(MemoryAdapter):
 
     async def teardown(self) -> None:
         if self._client:
-            try:
+            with contextlib.suppress(Exception):
                 self._client.delete_collection("bench_rag")
-            except Exception:
-                pass
         self._client = None
         self._collection = None

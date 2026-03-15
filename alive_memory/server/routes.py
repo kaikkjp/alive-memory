@@ -7,8 +7,8 @@ from fastapi import APIRouter, Request
 from alive_memory import AliveMemory, __version__
 from alive_memory.server.models import (
     BackstoryRequest,
-    ConsolidateRequest,
     CognitiveStateResponse,
+    ConsolidateRequest,
     DayMomentResponse,
     DriveStateResponse,
     DriveUpdateRequest,

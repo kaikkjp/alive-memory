@@ -37,7 +37,7 @@ def compute_selective_forgetting(result: BenchmarkResult) -> SelectiveForgetting
 
     # For forget verification, low recall = good (content was forgotten)
     # precision measures how clean results are after forgetting
-    precision = forget_data.get("precision", 0.0)
+    _precision = forget_data.get("precision", 0.0)
     recall = forget_data.get("recall", 0.0)
 
     # Success = content NOT recalled (1 - recall of forgotten content)

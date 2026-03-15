@@ -11,7 +11,7 @@ Every method that touches the database is async.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Any
 
 from alive_memory.types import (
     CognitiveState,
@@ -73,7 +73,7 @@ class BaseStorage(ABC):
         ...
 
     @abstractmethod
-    async def get_lowest_salience_moment(self) -> Optional[DayMoment]:
+    async def get_lowest_salience_moment(self) -> DayMoment | None:
         """Get the moment with the lowest salience (for eviction)."""
         ...
 
@@ -102,7 +102,7 @@ class BaseStorage(ABC):
         content: str,
         embedding: list[float],
         source_moment_id: str,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> str:
         """Store an embedding in the cold archive. Returns embedding ID."""
         ...
@@ -251,11 +251,11 @@ class BaseStorage(ABC):
         self,
         entity: str,
         *,
-        visitor_id: Optional[str] = None,
+        visitor_id: str | None = None,
         weight: float = 0.5,
         context: str = "",
         category: str = "general",
-        source_moment_id: Optional[str] = None,
+        source_moment_id: str | None = None,
     ) -> str:
         """Insert a totem (semantic fact). Returns totem ID."""
         ...
@@ -264,7 +264,7 @@ class BaseStorage(ABC):
     async def get_totems(
         self,
         *,
-        visitor_id: Optional[str] = None,
+        visitor_id: str | None = None,
         min_weight: float = 0.0,
         limit: int = 10,
     ) -> list[Totem]:
@@ -278,7 +278,7 @@ class BaseStorage(ABC):
 
     @abstractmethod
     async def update_totem_weight(
-        self, entity: str, *, visitor_id: Optional[str] = None, weight: float
+        self, entity: str, *, visitor_id: str | None = None, weight: float
     ) -> None:
         """Update a totem's weight and last_referenced timestamp."""
         ...
@@ -294,14 +294,14 @@ class BaseStorage(ABC):
         trait_value: str,
         *,
         confidence: float = 0.5,
-        source_moment_id: Optional[str] = None,
+        source_moment_id: str | None = None,
     ) -> str:
         """Insert a trait observation. Returns trait ID."""
         ...
 
     @abstractmethod
     async def get_traits(
-        self, visitor_id: str, *, category: Optional[str] = None, limit: int = 20
+        self, visitor_id: str, *, category: str | None = None, limit: int = 20
     ) -> list[VisitorTrait]:
         """Get traits for a visitor, optionally filtered by category."""
         ...
@@ -314,7 +314,7 @@ class BaseStorage(ABC):
     @abstractmethod
     async def get_latest_trait(
         self, visitor_id: str, category: str, key: str
-    ) -> Optional[VisitorTrait]:
+    ) -> VisitorTrait | None:
         """Get the most recent trait observation for a specific key."""
         ...
 
@@ -326,14 +326,14 @@ class BaseStorage(ABC):
         visitor_id: str,
         name: str,
         *,
-        emotional_imprint: Optional[str] = None,
-        summary: Optional[str] = None,
+        emotional_imprint: str | None = None,
+        summary: str | None = None,
     ) -> None:
         """Create or update a visitor record. Increments visit_count on update."""
         ...
 
     @abstractmethod
-    async def get_visitor(self, visitor_id: str) -> Optional[Visitor]:
+    async def get_visitor(self, visitor_id: str) -> Visitor | None:
         """Get a visitor by ID."""
         ...
 

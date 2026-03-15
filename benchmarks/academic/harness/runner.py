@@ -9,14 +9,13 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
-from typing import Optional
 
 from benchmarks.academic.harness.base import (
     BenchmarkRunResult,
     DatasetAdapter,
     EvalResult,
+    GroundTruth,
     MemorySystemAdapter,
-    SystemMetrics,
 )
 
 
@@ -27,10 +26,10 @@ class AcademicBenchmarkRunner:
         self,
         dataset: DatasetAdapter,
         system: MemorySystemAdapter,
-        llm_config: Optional[dict] = None,
+        llm_config: dict | None = None,
         consolidation_interval: int = 500,
         reset_between_sessions: bool = False,
-        judge_config: Optional[dict] = None,
+        judge_config: dict | None = None,
     ):
         self.dataset = dataset
         self.system = system
@@ -57,7 +56,7 @@ class AcademicBenchmarkRunner:
         consolidate_latencies: list[float] = []
         predictions: dict[str, str] = {}
         query_latencies: list[float] = []
-        all_ground_truth: dict[str, "GroundTruth"] = {}
+        all_ground_truth: dict[str, GroundTruth] = {}
 
         # Track cumulative system metrics across instances
         cumulative_llm_calls = 0

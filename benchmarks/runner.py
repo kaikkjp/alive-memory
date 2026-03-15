@@ -6,20 +6,19 @@ points to evaluate recall quality, and collecting latency/resource data.
 
 import json
 import time
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Optional
 
 from benchmarks.adapters.base import BenchEvent, MemoryAdapter, SystemStats
 from benchmarks.scoring.hard_truth import (
     ScoredRecall,
     aggregate_by_category,
     aggregate_scores,
+    check_traceability,
     score_contradiction,
     score_entity_confusion,
     score_negative_recall,
     score_recall,
-    check_traceability,
 )
 
 
@@ -32,8 +31,8 @@ class CycleMetrics:
     recall_summary: dict = field(default_factory=dict)
     recall_by_category: dict = field(default_factory=dict)
     contradiction_results: list[dict] = field(default_factory=list)
-    stats: Optional[SystemStats] = None
-    identity_state: Optional[dict] = None
+    stats: SystemStats | None = None
+    identity_state: dict | None = None
     adapter_data: dict = field(default_factory=dict)
     traceability_results: list[dict] = field(default_factory=list)
     entity_confusion_results: list[dict] = field(default_factory=list)
@@ -47,9 +46,9 @@ class BenchmarkResult:
     system_id: str
     stream_name: str
     seed: int
-    final_metrics: Optional[CycleMetrics] = None
+    final_metrics: CycleMetrics | None = None
     metrics_over_time: list[tuple[int, CycleMetrics]] = field(default_factory=list)
-    final_stats: Optional[SystemStats] = None
+    final_stats: SystemStats | None = None
     latencies: dict = field(default_factory=lambda: {
         "ingest": [], "recall": [], "consolidate": [],
     })
@@ -128,7 +127,7 @@ class BenchmarkResult:
 def load_jsonl(path: str) -> list[dict]:
     """Load a JSONL file into a list of dicts."""
     items = []
-    with open(path, "r") as f:
+    with open(path) as f:
         for line in f:
             line = line.strip()
             if line:
@@ -151,9 +150,9 @@ class BenchmarkRunner:
         query_path: str,
         ground_truth_path: str,
         consolidation_interval: int = 500,
-        measurement_points: Optional[list[int]] = None,
-        max_cycles: Optional[int] = None,
-        primary_users: Optional[list[str]] = None,
+        measurement_points: list[int] | None = None,
+        max_cycles: int | None = None,
+        primary_users: list[str] | None = None,
     ):
         self.events = load_jsonl(stream_path)
         self.queries = load_jsonl(query_path)
@@ -164,7 +163,7 @@ class BenchmarkRunner:
         )
         self.max_cycles = max_cycles
         self.primary_users = primary_users or []
-        self._content_index: Optional[set[str]] = None
+        self._content_index: set[str] | None = None
 
         if self.max_cycles:
             self.events = [e for e in self.events if e["cycle"] <= self.max_cycles]

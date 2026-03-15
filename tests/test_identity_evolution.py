@@ -7,9 +7,8 @@ import tempfile
 
 import pytest
 
-from alive_memory.identity.drift import DriftReport, DriftResult, MetricResult
+from alive_memory.identity.drift import DriftReport
 from alive_memory.identity.evolution import (
-    CorrectionProvider,
     EvolutionAction,
     EvolutionDecision,
     GuardRailConfig,

@@ -12,10 +12,10 @@ from __future__ import annotations
 import logging
 
 from alive_memory.embeddings.base import EmbeddingProvider
-
-logger = logging.getLogger(__name__)
 from alive_memory.storage.base import BaseStorage
 from alive_memory.types import DayMoment
+
+logger = logging.getLogger(__name__)
 
 
 async def find_cold_echoes(

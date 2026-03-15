@@ -6,11 +6,8 @@ ranking grep results by cognitive state relevance.
 
 from __future__ import annotations
 
-import math
-from datetime import datetime, timezone
-
 from alive_memory.config import AliveConfig
-from alive_memory.types import CognitiveState, MoodState
+from alive_memory.types import CognitiveState
 
 
 def score_grep_result(

@@ -68,7 +68,7 @@ def _compute_degradation_rate(points: list[tuple[int, float]]) -> float:
     mean_x = sum(xs) / n
     mean_y = sum(ys) / n
 
-    num = sum((x - mean_x) * (y - mean_y) for x, y in zip(xs, ys))
+    num = sum((x - mean_x) * (y - mean_y) for x, y in zip(xs, ys, strict=False))
     den = sum((x - mean_x) ** 2 for x in xs)
 
     if abs(den) < 1e-10:

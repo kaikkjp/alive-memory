@@ -11,13 +11,11 @@ DriftDetector class: instantiate with config, call detect().
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Protocol
 
 from alive_memory.config import AliveConfig
 from alive_memory.storage.base import BaseStorage
-from alive_memory.types import SelfModel
-
 
 # ── Data types ────────────────────────────────────────────────────
 
@@ -34,7 +32,7 @@ class DriftReport:
     confidence: float  # 0-1, how confident the drift is real
     window_cycles: int  # how many cycles the window covers
     detected_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
+        default_factory=lambda: datetime.now(UTC)
     )
 
 
@@ -78,7 +76,7 @@ class DriftResult:
     summary: str = ""
     cycle: int = 0
     detected_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
+        default_factory=lambda: datetime.now(UTC)
     )
 
 

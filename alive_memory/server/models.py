@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -11,12 +11,10 @@ from alive_memory.types import (
     CognitiveState,
     DayMoment,
     DriveState,
-    MoodState,
     RecallContext,
     SelfModel,
     SleepReport,
 )
-
 
 # ── Request Models ────────────────────────────────────────────────
 
@@ -26,8 +24,8 @@ class IntakeRequest(BaseModel):
 
     event_type: str = Field(description="Event type: conversation, action, observation, system")
     content: str = Field(description="Event content text")
-    metadata: Optional[dict[str, Any]] = None
-    timestamp: Optional[datetime] = None
+    metadata: dict[str, Any] | None = None
+    timestamp: datetime | None = None
 
 
 class RecallRequest(BaseModel):
@@ -40,7 +38,7 @@ class RecallRequest(BaseModel):
 class ConsolidateRequest(BaseModel):
     """POST /consolidate"""
 
-    whispers: Optional[list[dict[str, Any]]] = None
+    whispers: list[dict[str, Any]] | None = None
     depth: str = Field(default="full", pattern="^(full|nap)$")
 
 
@@ -54,7 +52,7 @@ class BackstoryRequest(BaseModel):
     """POST /backstory"""
 
     content: str = Field(description="Backstory content text")
-    title: Optional[str] = None
+    title: str | None = None
 
 
 # ── Response Models ───────────────────────────────────────────────
@@ -105,7 +103,7 @@ class CognitiveStateResponse(BaseModel):
     energy: float
     drives: DriveStateResponse
     cycle_count: int
-    last_sleep: Optional[datetime] = None
+    last_sleep: datetime | None = None
     memories_total: int = 0
 
 
@@ -114,7 +112,7 @@ class SelfModelResponse(BaseModel):
     behavioral_summary: str = ""
     drift_history: list[dict[str, Any]] = Field(default_factory=list)
     version: int = 0
-    snapshot_at: Optional[datetime] = None
+    snapshot_at: datetime | None = None
 
 
 class SleepReportResponse(BaseModel):
@@ -125,7 +123,7 @@ class SleepReportResponse(BaseModel):
     cold_echoes_found: int = 0
     dreams: list[str] = Field(default_factory=list)
     reflections: list[str] = Field(default_factory=list)
-    identity_drift: Optional[dict[str, Any]] = None
+    identity_drift: dict[str, Any] | None = None
     duration_ms: int = 0
     depth: str = "full"
 

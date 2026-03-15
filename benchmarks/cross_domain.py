@@ -11,15 +11,14 @@ import json
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 from benchmarks.adapters.base import BenchEvent, MemoryAdapter
-from benchmarks.runner import load_jsonl, load_ground_truth
+from benchmarks.runner import load_ground_truth, load_jsonl
 from benchmarks.scoring.hard_truth import (
-    aggregate_scores,
     aggregate_by_category,
-    score_recall,
+    aggregate_scores,
     score_negative_recall,
+    score_recall,
 )
 
 
@@ -68,7 +67,7 @@ class CrossDomainRunner:
         train_stream_path: str,
         test_query_path: str,
         test_gt_path: str,
-        max_cycles: Optional[int] = None,
+        max_cycles: int | None = None,
         consolidation_interval: int = 500,
     ):
         self.train_events = load_jsonl(train_stream_path)

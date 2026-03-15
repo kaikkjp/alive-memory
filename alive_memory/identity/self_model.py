@@ -10,7 +10,7 @@ Persistence via BaseStorage (no direct file I/O).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from alive_memory.config import AliveConfig
@@ -102,13 +102,13 @@ class SelfModelManager:
                     "old": old,
                     "new": new,
                     "delta": new - old,
-                    "at": datetime.now(timezone.utc).isoformat(),
+                    "at": datetime.now(UTC).isoformat(),
                 })
 
             model.traits[trait] = new
 
         model.version += 1
-        model.snapshot_at = datetime.now(timezone.utc)
+        model.snapshot_at = datetime.now(UTC)
         await self._storage.save_self_model(model)
         return model
 
@@ -132,11 +132,11 @@ class SelfModelManager:
                     "old": old,
                     "new": clamped,
                     "delta": clamped - old,
-                    "at": datetime.now(timezone.utc).isoformat(),
+                    "at": datetime.now(UTC).isoformat(),
                 })
 
         model.version += 1
-        model.snapshot_at = datetime.now(timezone.utc)
+        model.snapshot_at = datetime.now(UTC)
         await self._storage.save_self_model(model)
         return model
 
@@ -147,7 +147,7 @@ class SelfModelManager:
         model = await self._storage.get_self_model()
         model.behavioral_signature.update(metrics)
         model.version += 1
-        model.snapshot_at = datetime.now(timezone.utc)
+        model.snapshot_at = datetime.now(UTC)
         await self._storage.save_self_model(model)
         return model
 
@@ -158,7 +158,7 @@ class SelfModelManager:
         model = await self._storage.get_self_model()
         model.relational_stance.update(stance)
         model.version += 1
-        model.snapshot_at = datetime.now(timezone.utc)
+        model.snapshot_at = datetime.now(UTC)
         await self._storage.save_self_model(model)
         return model
 
@@ -170,7 +170,7 @@ class SelfModelManager:
         # Store current trait values as snapshot for future regen check
         model.behavioral_signature["narrative_trait_snapshot"] = dict(model.traits)
         model.version += 1
-        model.snapshot_at = datetime.now(timezone.utc)
+        model.snapshot_at = datetime.now(UTC)
         await self._storage.save_self_model(model)
         return model
 
@@ -199,7 +199,7 @@ class SelfModelManager:
     async def snapshot(self) -> SelfModel:
         """Take a snapshot of the current self-model."""
         model = await self._storage.get_self_model()
-        model.snapshot_at = datetime.now(timezone.utc)
+        model.snapshot_at = datetime.now(UTC)
         await self._storage.save_self_model(model)
         return model
 
@@ -236,11 +236,11 @@ async def update_traits(
                 "old": old,
                 "new": clamped,
                 "delta": clamped - old,
-                "at": datetime.now(timezone.utc).isoformat(),
+                "at": datetime.now(UTC).isoformat(),
             })
 
     model.version += 1
-    model.snapshot_at = datetime.now(timezone.utc)
+    model.snapshot_at = datetime.now(UTC)
 
     await storage.save_self_model(model)
     return model
@@ -254,7 +254,7 @@ async def update_behavioral_summary(
     model = await storage.get_self_model()
     model.behavioral_summary = summary
     model.version += 1
-    model.snapshot_at = datetime.now(timezone.utc)
+    model.snapshot_at = datetime.now(UTC)
     await storage.save_self_model(model)
     return model
 

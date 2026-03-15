@@ -118,14 +118,14 @@ class LoCoMoDataset(DatasetAdapter):
 
         # Find all session keys (session_1, session_2, ...)
         session_keys = sorted(
-            [k for k in conv.keys()
+            [k for k in conv
              if re.match(r"session_\d+$", k)],
             key=lambda k: int(k.split("_")[1]),
         )
 
         sessions: list[list[ConversationTurn]] = []
         for sess_key in session_keys:
-            session_num = sess_key.split("_")[1]
+            _session_num = sess_key.split("_")[1]
             session_id = f"{sample_id}_{sess_key}"
             date_key = f"{sess_key}_date_time"
             session_date = conv.get(date_key, "")

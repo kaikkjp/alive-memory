@@ -24,10 +24,9 @@ def apply_affect(
     """
     if mood.valence < -0.3:
         perception.salience = min(1.0, perception.salience + 0.1)
-    elif mood.valence > 0.3:
+    elif mood.valence > 0.3 and perception.metadata.get("valence", 0) < 0:
         # Positive mood: slightly dampens negative events
-        if perception.metadata.get("valence", 0) < 0:
-            perception.salience = max(0.0, perception.salience - 0.05)
+        perception.salience = max(0.0, perception.salience - 0.05)
 
     return perception
 
@@ -50,10 +49,7 @@ def compute_valence(content: str, mood: MoodState) -> float:
     neg_count = len(words & negative)
     total = pos_count + neg_count
 
-    if total == 0:
-        base_valence = 0.0
-    else:
-        base_valence = (pos_count - neg_count) / total
+    base_valence = 0.0 if total == 0 else (pos_count - neg_count) / total
 
     # Mood-congruent bias: current mood shifts perception
     mood_bias = mood.valence * 0.2

@@ -12,10 +12,8 @@ from __future__ import annotations
 import os
 import tempfile
 from dataclasses import asdict
-from typing import Optional
 
 from alive_memory import AliveMemory, EventType
-
 from benchmarks.adapters.base import (
     BenchEvent,
     MemoryAdapter,
@@ -36,9 +34,9 @@ class AliveMemoryAdapter(MemoryAdapter):
     """Wraps the alive-memory SDK for benchmarking."""
 
     def __init__(self) -> None:
-        self._memory: Optional[AliveMemory] = None
-        self._db_path: Optional[str] = None
-        self._tmp_dir: Optional[str] = None
+        self._memory: AliveMemory | None = None
+        self._db_path: str | None = None
+        self._tmp_dir: str | None = None
         self._count = 0
         self._salience_map: dict[int, float] = {}  # cycle -> salience
         self._consolidation_reports: list[dict] = []
@@ -198,7 +196,7 @@ class AliveMemoryAdapter(MemoryAdapter):
             if report_data:
                 self._consolidation_reports.append(report_data)
 
-    async def get_state(self) -> Optional[dict]:
+    async def get_state(self) -> dict | None:
         if not self._memory:
             return None
 

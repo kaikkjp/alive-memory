@@ -6,9 +6,6 @@ this module writes the reflection outputs to the appropriate hot memory files.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Optional
-
 from alive_memory.hot.writer import MemoryWriter
 from alive_memory.types import DayMoment
 
@@ -18,9 +15,9 @@ def apply_reflection_to_hot_memory(
     reflection_text: str,
     writer: MemoryWriter,
     *,
-    visitor_name: Optional[str] = None,
-    thread_id: Optional[str] = None,
-    self_updates: Optional[dict[str, str]] = None,
+    visitor_name: str | None = None,
+    thread_id: str | None = None,
+    self_updates: dict[str, str] | None = None,
 ) -> dict[str, int]:
     """Apply a reflection's outputs to hot memory files.
 

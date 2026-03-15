@@ -23,7 +23,6 @@ from benchmarks.academic.harness.base import (
 )
 from benchmarks.academic.harness.scoring import exact_match, substring_match, token_f1
 
-
 CATEGORIES = [
     "accurate_retrieval",
     "test_time_learning",

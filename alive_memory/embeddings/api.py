@@ -20,10 +20,10 @@ class OpenAIEmbeddingProvider:
     ):
         try:
             import openai
-        except ImportError:
+        except ImportError as e:
             raise ImportError(
                 "openai package required: pip install openai"
-            )
+            ) from e
         self._client = openai.AsyncOpenAI(
             api_key=api_key or os.environ.get("OPENAI_API_KEY")
         )

@@ -75,11 +75,7 @@ async def evolve(
     )
 
     # ── Load eval suite ──────────────────────────────────────────
-    suite: EvalSuite
-    if cfg.eval_suite_path:
-        suite = load_suite(cfg.eval_suite_path)
-    else:
-        suite = load_seed_suite()
+    suite: EvalSuite = load_suite(cfg.eval_suite_path) if cfg.eval_suite_path else load_seed_suite()
 
     if cfg.verbose:
         logger.info(
@@ -325,10 +321,7 @@ def should_promote(candidate: EvolveScore, incumbent: EvolveScore) -> bool:
         return False
 
     # 4. Overfitting guard
-    if candidate.overfitting_signal > 0.15:
-        return False
-
-    return True
+    return candidate.overfitting_signal <= 0.15
 
 
 def _rejection_reason(candidate: EvolveScore, incumbent: EvolveScore) -> str:

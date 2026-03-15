@@ -56,9 +56,9 @@ async def main():
             print("  (no matches — try broader keywords)")
 
         # Use as chat message history
-        from alive_memory.adapters.langchain import AliveMessageHistory
-
         from langchain_core.messages import AIMessage, HumanMessage
+
+        from alive_memory.adapters.langchain import AliveMessageHistory
 
         history = AliveMessageHistory(memory=memory)
         await history.aadd_messages([

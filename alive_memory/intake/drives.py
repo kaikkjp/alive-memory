@@ -39,7 +39,7 @@ def update_drives(
     cfg = config or AliveConfig()
 
     eq_pull = cfg.get("drives.equilibrium_pull", 0.02)
-    dim_returns = cfg.get("drives.diminishing_returns", 0.8)
+    _dim_returns = cfg.get("drives.diminishing_returns", 0.8)
     ss = social_sensitivity
 
     new = DriveState(

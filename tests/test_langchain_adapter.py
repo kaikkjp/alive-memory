@@ -12,8 +12,9 @@ from alive_memory import AliveMemory
 # Import conditionally so tests are skipped if langchain not installed
 langchain_core = pytest.importorskip("langchain_core")
 
-from alive_memory.adapters.langchain import AliveMessageHistory, AliveRetriever
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage  # noqa: E402
+
+from alive_memory.adapters.langchain import AliveMessageHistory, AliveRetriever  # noqa: E402
 
 
 @pytest.fixture

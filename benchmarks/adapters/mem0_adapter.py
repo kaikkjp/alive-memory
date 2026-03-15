@@ -4,10 +4,10 @@ Uses Mem0's recommended configuration. Expected to excel at entity_tracking
 and multi_hop queries due to its graph-based architecture.
 """
 
+import contextlib
 import os
 import sys
 import tempfile
-from typing import Optional
 
 from benchmarks.adapters.base import (
     BenchEvent,
@@ -31,7 +31,7 @@ class Mem0Adapter(MemoryAdapter):
         self._count = 0
         self._llm_calls = 0
         self._llm_tokens = 0
-        self._tmp_dir: Optional[str] = None
+        self._tmp_dir: str | None = None
 
     async def setup(self, config: dict) -> None:
         if Memory is None:
@@ -173,10 +173,8 @@ class Mem0Adapter(MemoryAdapter):
 
     async def teardown(self) -> None:
         if self._memory:
-            try:
+            with contextlib.suppress(Exception):
                 self._memory.delete_all(user_id=self._user_id)
-            except Exception:
-                pass
         self._memory = None
 
         if self._tmp_dir and os.path.isdir(self._tmp_dir):

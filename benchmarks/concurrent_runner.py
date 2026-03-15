@@ -9,9 +9,8 @@ from __future__ import annotations
 import asyncio
 import json
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 from benchmarks.adapters.base import BenchEvent, MemoryAdapter
 from benchmarks.runner import load_jsonl
@@ -61,7 +60,7 @@ class ConcurrentRunner:
         self,
         stream_path: str,
         concurrency: int = 10,
-        max_cycles: Optional[int] = None,
+        max_cycles: int | None = None,
     ):
         self.events = load_jsonl(stream_path)
         self.concurrency = concurrency
@@ -74,7 +73,7 @@ class ConcurrentRunner:
         adapter: MemoryAdapter,
         event: BenchEvent,
         query: str,
-    ) -> tuple[float, float, Optional[str]]:
+    ) -> tuple[float, float, str | None]:
         """Run a single ingest + recall pair. Returns (ingest_time, recall_time, error)."""
         error = None
         try:

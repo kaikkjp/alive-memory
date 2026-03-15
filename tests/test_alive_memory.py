@@ -1,29 +1,31 @@
 """Integration tests for the alive-memory SDK (three-tier architecture)."""
 
-import asyncio
 import os
 import tempfile
+from datetime import UTC, datetime
 
 import pytest
 
 from alive_memory import AliveMemory
 from alive_memory.config import AliveConfig
+from alive_memory.consolidation.whisper import translate_whisper
 from alive_memory.hot.reader import MemoryReader
 from alive_memory.hot.writer import MemoryWriter
+from alive_memory.intake.affect import apply_affect, compute_valence
+from alive_memory.intake.drives import clamp, update_drives, update_mood
+from alive_memory.intake.formation import _compute_salience, _content_richness, _is_duplicate
 from alive_memory.intake.thalamus import perceive
-from alive_memory.intake.affect import compute_valence, apply_affect
-from alive_memory.intake.drives import update_drives, update_mood, clamp
-from alive_memory.intake.formation import form_moment, _compute_salience, _content_richness, _is_duplicate
-from alive_memory.consolidation.whisper import translate_whisper
-from alive_memory.recall.weighting import decay_strength
-from alive_memory.identity.drift import DriftReport
 from alive_memory.meta.controller import classify_outcome, compute_adaptive_cooldown
+from alive_memory.recall.weighting import decay_strength
 from alive_memory.storage.sqlite import SQLiteStorage
 from alive_memory.types import (
-    CognitiveState, DayMoment, DriveState, EventType, RecallContext,
-    MoodState, Perception, SelfModel, SleepReport,
+    DayMoment,
+    DriveState,
+    EventType,
+    MoodState,
+    Perception,
+    RecallContext,
 )
-from datetime import datetime, timezone
 
 
 @pytest.fixture
@@ -104,7 +106,7 @@ def test_mood_congruent_bias():
 
 
 def test_apply_affect_negative_mood():
-    p = Perception(EventType.CONVERSATION, "test", 0.5, datetime.now(timezone.utc))
+    p = Perception(EventType.CONVERSATION, "test", 0.5, datetime.now(UTC))
     mood = MoodState(valence=-0.5)
     drives = DriveState()
     result = apply_affect(p, mood, drives)
@@ -121,7 +123,7 @@ def test_clamp():
 
 def test_update_drives_conversation_relief():
     drives = DriveState(social=0.8)
-    p = Perception(EventType.CONVERSATION, "hello", 0.5, datetime.now(timezone.utc))
+    p = Perception(EventType.CONVERSATION, "hello", 0.5, datetime.now(UTC))
     new = update_drives(drives, [p], elapsed_hours=0.0)
     assert new.social < drives.social  # social relief from conversation
 
@@ -149,7 +151,7 @@ def test_is_duplicate():
 
 
 def test_compute_salience_conversation():
-    p = Perception(EventType.CONVERSATION, "Hello friend how are you?", 0.5, datetime.now(timezone.utc))
+    p = Perception(EventType.CONVERSATION, "Hello friend how are you?", 0.5, datetime.now(UTC))
     mood = MoodState()
     drives = DriveState()
     s = _compute_salience(p, mood, drives, None)
@@ -157,7 +159,7 @@ def test_compute_salience_conversation():
 
 
 def test_compute_salience_metadata_override():
-    p = Perception(EventType.CONVERSATION, "test", 0.5, datetime.now(timezone.utc), metadata={"salience": 0.99})
+    p = Perception(EventType.CONVERSATION, "test", 0.5, datetime.now(UTC), metadata={"salience": 0.99})
     s = _compute_salience(p, MoodState(), DriveState(), None)
     assert s == 0.99
 
@@ -311,7 +313,7 @@ async def test_sqlite_day_memory(tmp_db):
         salience=0.7,
         valence=0.2,
         drive_snapshot={"curiosity": 0.5},
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
     )
     mid = await storage.record_moment(moment)
     assert mid == "m-1"
@@ -378,12 +380,12 @@ async def test_sqlite_eviction(tmp_db):
     m1 = DayMoment(
         id="m-low", content="Low salience", event_type=EventType.SYSTEM,
         salience=0.2, valence=0.0, drive_snapshot={},
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
     )
     m2 = DayMoment(
         id="m-high", content="High salience", event_type=EventType.CONVERSATION,
         salience=0.9, valence=0.0, drive_snapshot={},
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
     )
     await storage.record_moment(m1)
     await storage.record_moment(m2)

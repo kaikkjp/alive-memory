@@ -7,13 +7,11 @@ Streams include planted contradictions, needles, temporal clusters,
 and controlled noise ratios — all deterministic from the seed.
 """
 
-import hashlib
 import json
 import random
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional
 
 try:
     import anthropic
@@ -213,7 +211,7 @@ class StreamGenerator:
     def __init__(
         self,
         scenario: str = "research_assistant",
-        total_events: Optional[int] = None,
+        total_events: int | None = None,
         seed: int = 42,
         noise_ratio: float = 0.0,
         use_llm: bool = False,
@@ -485,7 +483,7 @@ class StreamGenerator:
                 "truth_tier": "hard",
             })
             # Find events matching this topic
-            matching = [
+            _matching = [
                 e for e in events
                 if e.cycle <= mp and e.metadata.get("topic") == topic
             ]

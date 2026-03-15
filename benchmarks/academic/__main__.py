@@ -214,7 +214,7 @@ async def cmd_report(args):
             print(line)
 
         # Per-category breakdown
-        print(f"\nPer-category breakdown:")
+        print("\nPer-category breakdown:")
         for r in sorted(results, key=lambda x: x.get("system_id", "")):
             sid = r.get("system_id", "?")
             by_cat = r.get("scores_by_category", {})

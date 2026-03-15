@@ -9,7 +9,6 @@ import math
 import statistics
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 
 @dataclass
@@ -543,7 +542,7 @@ class ReportGenerator:
         """Generate alive-memory specific section (only if data present)."""
         # Check if any system has adapter_data
         has_alive_data = False
-        for sys_id, runs in systems.items():
+        for _sys_id, runs in systems.items():
             for run in runs:
                 adapter_data = run.get("final_metrics", {}).get("adapter_data", {})
                 if adapter_data.get("salience_map") or adapter_data.get("consolidation_reports"):
@@ -606,7 +605,6 @@ class ReportGenerator:
 
             matplotlib.use("Agg")
             import matplotlib.pyplot as plt
-            import matplotlib.ticker as ticker
         except ImportError:
             print("matplotlib required for charts: pip install matplotlib")
             return
@@ -768,7 +766,7 @@ class ReportGenerator:
         bars = ax.bar(sys_ids, fab_rates, color="#e74c3c", alpha=0.8)
 
         # Add value labels on bars
-        for bar, rate in zip(bars, fab_rates):
+        for bar, rate in zip(bars, fab_rates, strict=False):
             ax.text(
                 bar.get_x() + bar.get_width() / 2,
                 bar.get_height() + 0.01,

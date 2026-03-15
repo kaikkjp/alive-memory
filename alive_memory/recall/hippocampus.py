@@ -83,9 +83,8 @@ async def recall(
         elif subdir == "reflections":
             if len(ctx.reflections) < limit:
                 ctx.reflections.append(context)
-        elif subdir == "threads":
-            if len(ctx.thread_context) < limit:
-                ctx.thread_context.append(context)
+        elif subdir == "threads" and len(ctx.thread_context) < limit:
+            ctx.thread_context.append(context)
 
     # Step 4: Keyword search on structured facts (catches things not tied to a visitor)
     if storage is not None:

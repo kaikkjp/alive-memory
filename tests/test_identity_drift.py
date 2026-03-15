@@ -8,11 +8,8 @@ import tempfile
 import pytest
 
 from alive_memory.identity.drift import (
-    BehavioralBaseline,
     DriftConfig,
     DriftDetector,
-    DriftResult,
-    MetricResult,
     ScalarDriftMetric,
     TVDMetric,
     detect_drift,

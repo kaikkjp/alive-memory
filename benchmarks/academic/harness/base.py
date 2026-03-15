@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Optional
 
 
 @dataclass
@@ -156,7 +155,7 @@ class DatasetAdapter(ABC):
         self,
         predictions: dict[str, str],
         ground_truth: dict[str, GroundTruth],
-        judge_config: Optional[dict] = None,
+        judge_config: dict | None = None,
     ) -> list[EvalResult]:
         """Score predictions against ground truth using benchmark-native metrics.
 
@@ -172,7 +171,7 @@ class DatasetAdapter(ABC):
 
     def get_instances(
         self,
-    ) -> list[tuple[list[list["ConversationTurn"]], list["MemoryQuery"], dict[str, "GroundTruth"]]]:
+    ) -> list[tuple[list[list[ConversationTurn]], list[MemoryQuery], dict[str, GroundTruth]]]:
         """Return independent evaluation instances.
 
         Each instance is (sessions, queries, ground_truth) that should be
@@ -227,14 +226,14 @@ class MemorySystemAdapter(ABC):
         """Return current resource usage metrics."""
         ...
 
-    async def consolidate(self) -> None:
+    async def consolidate(self) -> None:  # noqa: B027
         """Run any maintenance/consolidation. No-op by default."""
         pass
 
-    async def reset(self) -> None:
+    async def reset(self) -> None:  # noqa: B027
         """Clear all stored memory. Called between benchmark instances."""
         pass
 
-    async def teardown(self) -> None:
+    async def teardown(self) -> None:  # noqa: B027
         """Cleanup resources."""
         pass

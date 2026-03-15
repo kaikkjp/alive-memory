@@ -9,7 +9,6 @@ inter-rater agreement via Fleiss' kappa.
 
 import asyncio
 from dataclasses import dataclass
-from typing import Optional
 
 try:
     import anthropic
@@ -145,7 +144,7 @@ async def score_soft_recall(
     expected_description: str,
     results: list,
     expected_count: int,
-    api_key: Optional[str] = None,
+    api_key: str | None = None,
 ) -> SoftScoredRecall:
     """Score a recall query using LLM-as-judge.
 

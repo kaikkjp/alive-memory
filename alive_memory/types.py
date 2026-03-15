@@ -9,7 +9,7 @@ Three-tier architecture:
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 
 class EventType(Enum):
@@ -64,12 +64,12 @@ class Totem:
     id: str
     entity: str
     weight: float  # 0-1, importance
-    visitor_id: Optional[str] = None
+    visitor_id: str | None = None
     context: str = ""
     category: str = "general"
-    first_seen: Optional[datetime] = None
-    last_referenced: Optional[datetime] = None
-    source_moment_id: Optional[str] = None
+    first_seen: datetime | None = None
+    last_referenced: datetime | None = None
+    source_moment_id: str | None = None
 
 
 @dataclass
@@ -85,8 +85,8 @@ class VisitorTrait:
     trait_key: str  # e.g. "gender_identity", "favorite_food"
     trait_value: str  # e.g. "transgender woman", "sushi"
     confidence: float = 0.5  # 0-1
-    source_moment_id: Optional[str] = None
-    created_at: Optional[datetime] = None
+    source_moment_id: str | None = None
+    created_at: datetime | None = None
 
 
 @dataclass
@@ -96,8 +96,8 @@ class Visitor:
     name: str
     trust_level: str = "stranger"  # stranger → returner → regular → familiar
     visit_count: int = 1
-    first_visit: Optional[datetime] = None
-    last_visit: Optional[datetime] = None
+    first_visit: datetime | None = None
+    last_visit: datetime | None = None
     emotional_imprint: str = ""
     summary: str = ""
 
@@ -213,10 +213,10 @@ class SleepReport:
     cold_echoes_found: int = 0
     dreams: list[str] = field(default_factory=list)
     reflections: list[str] = field(default_factory=list)
-    identity_drift: Optional[dict] = None
+    identity_drift: dict | None = None
     duration_ms: int = 0
     depth: str = "full"
-    wake_report: Optional[WakeReport] = None
+    wake_report: WakeReport | None = None
 
 
 # Keep ConsolidationReport as alias for backward compat in logs
@@ -235,11 +235,11 @@ class Memory:
     strength: float  # 0-1, consolidation strength
     valence: float  # -1 to 1, emotional valence
     formed_at: datetime
-    last_recalled: Optional[datetime] = None
+    last_recalled: datetime | None = None
     recall_count: int = 0
-    source_event: Optional[EventType] = None
+    source_event: EventType | None = None
     drive_coupling: dict[str, float] = field(default_factory=dict)
-    embedding: Optional[list[float]] = None
+    embedding: list[float] | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -267,7 +267,7 @@ class CognitiveState:
     energy: float
     drives: DriveState
     cycle_count: int
-    last_sleep: Optional[datetime] = None
+    last_sleep: datetime | None = None
     memories_total: int = 0
 
 
@@ -281,7 +281,7 @@ class SelfModel:
     relational_stance: dict[str, float] = field(default_factory=dict)
     drift_history: list[dict] = field(default_factory=list)
     version: int = 0
-    snapshot_at: Optional[datetime] = None
+    snapshot_at: datetime | None = None
     narrative_version: int = 0
 
 

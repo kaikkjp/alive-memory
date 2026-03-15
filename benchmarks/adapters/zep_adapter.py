@@ -3,9 +3,9 @@
 Uses Zep's recommended configuration with the cloud or local server.
 """
 
+import contextlib
 import sys
 import uuid
-from typing import Optional
 
 from benchmarks.adapters.base import (
     BenchEvent,
@@ -63,10 +63,8 @@ class ZepAdapter(MemoryAdapter):
         self._llm_tokens = 0
 
         # Create session
-        try:
+        with contextlib.suppress(Exception):
             self._client.memory.add_session(session_id=self._session_id)
-        except Exception:
-            pass  # session may already exist
 
     async def ingest(self, event: BenchEvent) -> None:
         role = "human" if event.event_type == "conversation" else "ai"
@@ -82,12 +80,10 @@ class ZepAdapter(MemoryAdapter):
             },
         )
 
-        try:
+        with contextlib.suppress(Exception):
             self._client.memory.add(
                 session_id=self._session_id, messages=[msg]
             )
-        except Exception:
-            pass
 
         self._count += 1
         # Zep does background processing (summarization, entity extraction)
@@ -152,8 +148,6 @@ class ZepAdapter(MemoryAdapter):
 
     async def teardown(self) -> None:
         if self._client and self._session_id:
-            try:
+            with contextlib.suppress(Exception):
                 self._client.memory.delete(session_id=self._session_id)
-            except Exception:
-                pass
         self._client = None

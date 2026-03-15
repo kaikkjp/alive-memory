@@ -10,7 +10,6 @@ Usage:
 
 import argparse
 import asyncio
-import json
 import sys
 from pathlib import Path
 
@@ -64,14 +63,14 @@ def _resolve_stream_paths(stream_name: str, data_dir: str) -> dict[str, str]:
 
     if not stream_file.exists():
         print(f"Stream not found: {stream_file}")
-        print(f"Available streams:")
+        print("Available streams:")
         streams_dir = base / "streams"
         if streams_dir.exists():
             for f in sorted(streams_dir.glob("*.jsonl")):
                 print(f"  {f.stem}")
         else:
             print(f"  (no streams directory at {streams_dir})")
-            print(f"  Run: python -m benchmarks.generate --scenario research_assistant")
+            print("  Run: python -m benchmarks.generate --scenario research_assistant")
         sys.exit(1)
 
     # Derive query and ground truth paths from stream name
@@ -191,7 +190,7 @@ async def cmd_generate(args):
     from benchmarks.generate_streams import StreamGenerator, generate_stress_test
 
     if args.scenario == "stress_test":
-        paths = generate_stress_test(
+        _paths = generate_stress_test(
             args.output_dir,
             seed=args.seed,
             total_events=args.events or 50_000,
@@ -203,7 +202,7 @@ async def cmd_generate(args):
             seed=args.seed,
             noise_ratio=args.noise_ratio,
         )
-        paths = gen.generate(args.output_dir)
+        _paths = gen.generate(args.output_dir)
 
 
 async def cmd_cross_domain(args):

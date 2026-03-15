@@ -28,10 +28,7 @@ def compute_temporal_coherence(result: BenchmarkResult) -> TemporalCoherenceResu
     # Recency bias: compare temporal_distance score to basic_recall.
     # If temporal_distance is much lower, system has recency bias.
     basic = by_cat.get("basic_recall", {}).get("f1", 0.0)
-    if basic > 0:
-        recency_bias = 1.0 - max(0, basic - temporal_distance)
-    else:
-        recency_bias = 0.5  # can't tell
+    recency_bias = 1.0 - max(0, basic - temporal_distance) if basic > 0 else 0.5  # can't tell
 
     return TemporalCoherenceResult(
         ordering_accuracy=ordering,
