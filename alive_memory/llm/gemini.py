@@ -97,8 +97,8 @@ class GeminiProvider:
 
         text = response.text or ""
         usage = response.usage_metadata
-        input_tokens = usage.prompt_token_count if usage else 0
-        output_tokens = usage.candidates_token_count if usage else 0
+        input_tokens = (usage.prompt_token_count or 0) if usage else 0
+        output_tokens = (usage.candidates_token_count or 0) if usage else 0
 
         return LLMResponse(
             text=text,
@@ -167,14 +167,14 @@ class GeminiProvider:
 
         response = await self._client.aio.models.generate_content(
             model=self._model,
-            contents=contents,
+            contents=contents,  # type: ignore[arg-type]
             config=config,
         )
 
         text = response.text or ""
         usage = response.usage_metadata
-        input_tokens = usage.prompt_token_count if usage else 0
-        output_tokens = usage.candidates_token_count if usage else 0
+        input_tokens = (usage.prompt_token_count or 0) if usage else 0
+        output_tokens = (usage.candidates_token_count or 0) if usage else 0
 
         return LLMResponse(
             text=text,

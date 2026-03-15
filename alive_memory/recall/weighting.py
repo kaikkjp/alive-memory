@@ -60,4 +60,4 @@ def decay_strength(
     decay_rate = cfg.get("consolidation.decay_rate", 0.01)
     floor = cfg.get("consolidation.decay_floor", 0.05)
     new_strength = strength - decay_rate * age_hours
-    return max(floor, new_strength)
+    return float(max(floor, new_strength))

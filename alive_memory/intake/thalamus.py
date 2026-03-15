@@ -91,7 +91,7 @@ def _compute_salience(
     if "salience" in metadata:
         base = float(metadata["salience"])
 
-    return max(0.0, min(1.0, base))
+    return float(max(0.0, min(1.0, base)))
 
 
 def _estimate_novelty(content: str) -> float:

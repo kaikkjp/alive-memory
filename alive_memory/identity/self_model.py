@@ -194,7 +194,7 @@ class SelfModelManager:
             abs(model.traits.get(t, 0.0) - snap.get(t, 0.0))
             for t in set(model.traits) | set(snap)
         )
-        return max_delta > threshold
+        return bool(max_delta > threshold)
 
     async def snapshot(self) -> SelfModel:
         """Take a snapshot of the current self-model."""
