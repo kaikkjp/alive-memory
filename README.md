@@ -137,8 +137,8 @@ Events pass through a perception pipeline with salience gating — not everythin
 ## Development
 
 ```bash
-git clone https://github.com/TriMinhPham/Alive-sdk.git
-cd Alive-sdk
+git clone https://github.com/TriMinhPham/alive-memory.git
+cd alive-memory
 pip install -e ".[dev]"
 pytest
 ```

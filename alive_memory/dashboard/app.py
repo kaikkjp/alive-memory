@@ -4,7 +4,7 @@ Connects to the alive-memory REST API server to visualize cognitive state,
 memories, identity, and drives in real time.
 
 Usage:
-    streamlit run alive_memory/dashboard/app.py -- --api-url http://localhost:8741
+    streamlit run alive_memory/dashboard/app.py -- --api-url http://localhost:8100
 
 Requires: pip install alive-memory[dashboard]
 """
@@ -17,7 +17,7 @@ import sys
 import requests
 import streamlit as st
 
-DEFAULT_API_URL = "http://localhost:8741"
+DEFAULT_API_URL = "http://localhost:8100"
 
 
 def get_api_url() -> str:

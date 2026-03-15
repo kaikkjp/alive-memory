@@ -19,7 +19,7 @@ OPENROUTER_BASE = "https://openrouter.ai/api/v1/chat/completions"
 
 _HEADERS_STATIC = {
     "Content-Type": "application/json",
-    "HTTP-Referer": "https://github.com/alive-sdk/alive-memory",
+    "HTTP-Referer": "https://github.com/TriMinhPham/alive-memory",
     "X-Title": "alive-memory SDK",
 }
 
