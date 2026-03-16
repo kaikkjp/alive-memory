@@ -675,6 +675,87 @@ class SQLiteStorage(BaseStorage):
             ),
         )
 
+    # ── Unified Cold Memory ─────────────────────────────────────────
+
+    async def store_cold_memory(
+        self,
+        content: str,
+        embedding: list[float] | None,
+        entry_type: str,
+        *,
+        raw_content: str | None = None,
+        visitor_id: str | None = None,
+        weight: float = 1.0,
+        category: str = "",
+        metadata: dict[str, Any] | None = None,
+        source_moment_id: str | None = None,
+    ) -> str:
+        entry_id = str(uuid.uuid4())
+        await self._exec_write(
+            """INSERT INTO cold_memory
+               (id, content, raw_content, embedding, entry_type, visitor_id,
+                weight, category, metadata, source_moment_id, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                entry_id,
+                content,
+                raw_content,
+                _serialize_embedding(embedding),
+                entry_type,
+                visitor_id,
+                weight,
+                category,
+                json.dumps(metadata or {}),
+                source_moment_id,
+                _now_iso(),
+            ),
+        )
+        return entry_id
+
+    async def search_cold_memory(
+        self,
+        embedding: list[float],
+        *,
+        limit: int = 10,
+        entry_type: str | None = None,
+    ) -> list[dict[str, Any]]:
+        conn = await self._get_db()
+        if entry_type:
+            cursor = await conn.execute(
+                "SELECT * FROM cold_memory WHERE entry_type = ? AND embedding IS NOT NULL",
+                (entry_type,),
+            )
+        else:
+            cursor = await conn.execute(
+                "SELECT * FROM cold_memory WHERE embedding IS NOT NULL"
+            )
+        rows = await cursor.fetchall()
+
+        scored: list[tuple[float, dict[str, Any]]] = []
+        for row in rows:
+            stored_emb = _deserialize_embedding(row["embedding"])
+            if stored_emb is None:
+                continue
+            cosine = _cosine_similarity(embedding, stored_emb)
+            w = row["weight"] if row["weight"] is not None else 1.0
+            # Blend cosine similarity with weight for ranking
+            score = cosine * 0.7 + w * 0.3
+            scored.append((score, {
+                "id": row["id"],
+                "content": row["content"],
+                "raw_content": row["raw_content"],
+                "entry_type": row["entry_type"],
+                "visitor_id": row["visitor_id"],
+                "weight": w,
+                "category": row["category"],
+                "metadata": json.loads(row["metadata"] or "{}"),
+                "score": score,
+                "cosine_score": cosine,
+            }))
+
+        scored.sort(key=lambda x: x[0], reverse=True)
+        return [item for _, item in scored[:limit]]
+
     # ── Totems (Semantic Facts) ────────────────────────────────────
 
     async def insert_totem(

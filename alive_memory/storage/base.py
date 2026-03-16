@@ -318,6 +318,40 @@ class BaseStorage(ABC):
         """Get the most recent trait observation for a specific key."""
         ...
 
+    # ── Unified Cold Memory ─────────────────────────────────────────
+
+    @abstractmethod
+    async def store_cold_memory(
+        self,
+        content: str,
+        embedding: list[float] | None,
+        entry_type: str,
+        *,
+        raw_content: str | None = None,
+        visitor_id: str | None = None,
+        weight: float = 1.0,
+        category: str = "",
+        metadata: dict[str, Any] | None = None,
+        source_moment_id: str | None = None,
+    ) -> str:
+        """Store an entry in the unified cold memory archive. Returns entry ID."""
+        ...
+
+    @abstractmethod
+    async def search_cold_memory(
+        self,
+        embedding: list[float],
+        *,
+        limit: int = 10,
+        entry_type: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Semantic search over unified cold memory.
+
+        Returns list of dicts with keys: id, content, raw_content, entry_type,
+        visitor_id, weight, category, metadata, score.
+        """
+        ...
+
     # ── Visitors ────────────────────────────────────────────────────
 
     @abstractmethod

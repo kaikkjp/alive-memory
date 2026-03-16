@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 import time
 
+from alive_memory.embeddings.base import EmbeddingProvider
 from alive_memory.storage.base import BaseStorage
 from alive_memory.types import DayMoment
 
@@ -58,6 +59,7 @@ async def write_extracted_facts(
     traits: list[dict],
     storage: BaseStorage,
     trait_cache: TraitCache | None = None,
+    embedder: EmbeddingProvider | None = None,
 ) -> dict[str, int]:
     """Write pre-extracted totems and traits to storage.
 
@@ -83,14 +85,33 @@ async def write_extracted_facts(
         if not entity:
             continue
         try:
+            totem_weight = float(totem.get("weight", 0.5))
+            totem_context = totem.get("context", "")
+            totem_category = totem.get("category", "general")
             await storage.insert_totem(
                 entity=entity,
                 visitor_id=visitor_id,
-                weight=float(totem.get("weight", 0.5)),
-                context=totem.get("context", ""),
-                category=totem.get("category", "general"),
+                weight=totem_weight,
+                context=totem_context,
+                category=totem_category,
                 source_moment_id=moment.id,
             )
+            # Embed totem into unified cold_memory
+            if embedder is not None:
+                try:
+                    embed_text = f"{entity}: {totem_context}" if totem_context else entity
+                    embedding = await embedder.embed(embed_text)
+                    await storage.store_cold_memory(
+                        content=f"{entity} — {totem_context}" if totem_context else entity,
+                        embedding=embedding,
+                        entry_type="totem",
+                        visitor_id=visitor_id,
+                        weight=totem_weight,
+                        category=totem_category,
+                        source_moment_id=moment.id,
+                    )
+                except Exception:
+                    logger.debug("Failed to embed totem %r to cold_memory", entity, exc_info=True)
             counts["totems"] += 1
         except Exception:
             logger.debug("Failed to insert totem %r", entity, exc_info=True)
@@ -117,14 +138,31 @@ async def write_extracted_facts(
                     cat, key, existing.trait_value, val,
                 )
 
+            trait_confidence = float(trait.get("confidence", 0.5))
             await storage.insert_trait(
                 visitor_id=visitor_id,
                 trait_category=cat,
                 trait_key=key,
                 trait_value=val,
-                confidence=float(trait.get("confidence", 0.5)),
+                confidence=trait_confidence,
                 source_moment_id=moment.id,
             )
+            # Embed trait into unified cold_memory
+            if embedder is not None:
+                try:
+                    embed_text = f"{cat}/{key}: {val}"
+                    embedding = await embedder.embed(embed_text)
+                    await storage.store_cold_memory(
+                        content=f"{key}: {val}",
+                        embedding=embedding,
+                        entry_type="trait",
+                        visitor_id=visitor_id,
+                        weight=trait_confidence,
+                        category=cat,
+                        source_moment_id=moment.id,
+                    )
+                except Exception:
+                    logger.debug("Failed to embed trait %s=%s to cold_memory", key, val, exc_info=True)
             counts["traits"] += 1
         except Exception:
             logger.debug("Failed to insert trait %s=%s", key, val, exc_info=True)

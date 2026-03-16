@@ -129,6 +129,7 @@ async def consolidate(
                     await write_extracted_facts(
                         moment, totems=result.totems, traits=result.traits,
                         storage=storage, trait_cache=trait_cache,
+                        embedder=embedder,
                     )
                 except Exception:
                     logger.debug("Fact writing failed for moment %s", moment.id, exc_info=True)
@@ -183,13 +184,26 @@ async def consolidate(
             )
             report.dreams = dreams
 
-        # Batch embed to cold archive (max 50 per cycle)
+        # Batch embed to cold archive — all moments (no cap)
         if embedder:
-            embed_limit = int(cfg.get("consolidation.cold_embed_limit", 50))
             embedded = 0
-            for moment in moments[:embed_limit]:
+            for moment in moments:
                 try:
                     embedding = await embedder.embed(moment.content)
+                    # Write to unified cold_memory table
+                    await storage.store_cold_memory(
+                        content=moment.content,
+                        embedding=embedding,
+                        entry_type="event",
+                        raw_content=moment.content,
+                        metadata={
+                            "event_type": moment.event_type.value,
+                            "valence": moment.valence,
+                            "salience": moment.salience,
+                        },
+                        source_moment_id=moment.id,
+                    )
+                    # Also write to legacy cold_embeddings for backward compat
                     await storage.store_cold_embedding(
                         content=moment.content,
                         embedding=embedding,

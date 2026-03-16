@@ -129,6 +129,7 @@ class RecallContext:
     cold_echoes: list[str] = field(default_factory=list)
     totem_facts: list[str] = field(default_factory=list)
     trait_facts: list[str] = field(default_factory=list)
+    extra_context: list[str] = field(default_factory=list)
     query: str = ""
     total_hits: int = 0
 
@@ -179,6 +180,7 @@ class RecallContext:
             ("Conversation", self.thread_context),
             ("Entities", self.totem_facts),
             ("Traits", self.trait_facts),
+            ("Additional Context", self.extra_context),
         ]
         for title, items in _sections:
             if items:

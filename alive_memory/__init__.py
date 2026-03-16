@@ -438,6 +438,7 @@ class AliveMemory:
             config=self._config,
             storage=self._storage,
             visitor_id=visitor_id,
+            embedder=self._embedder,
         )
 
     # ── Consolidation ────────────────────────────────────────────

@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 
 from alive_memory.config import AliveConfig
+from alive_memory.embeddings.base import EmbeddingProvider
 from alive_memory.hot.reader import MemoryReader
 from alive_memory.storage.base import BaseStorage
 from alive_memory.types import CognitiveState, RecallContext
@@ -29,6 +30,7 @@ async def recall(
     config: AliveConfig | None = None,
     storage: BaseStorage | None = None,
     visitor_id: str | None = None,
+    embedder: EmbeddingProvider | None = None,
 ) -> RecallContext:
     """Retrieve context relevant to a query.
 
@@ -108,7 +110,28 @@ async def recall(
         except Exception:
             logger.debug("Trait search failed", exc_info=True)
 
-    # Step 5: Fill gaps with recent context
+    # Step 5: Semantic cold search (catches what keyword grep misses)
+    if embedder is not None and storage is not None:
+        try:
+            query_vec = await embedder.embed(query)
+            cold_hits = await storage.search_cold_memory(
+                query_vec, limit=limit,
+            )
+            _seen = {e for e in ctx.journal_entries}
+            _seen.update(ctx.visitor_notes)
+            _seen.update(ctx.totem_facts)
+            _seen.update(ctx.trait_facts)
+            for hit in cold_hits:
+                content = hit["content"]
+                if content in _seen:
+                    continue
+                _seen.add(content)
+                _merge_cold_hit(hit, ctx)
+                ctx.total_hits += 1
+        except Exception:
+            logger.debug("Semantic cold search failed", exc_info=True)
+
+    # Step 6: Fill gaps with recent context
     if len(ctx.journal_entries) < 3:
         recent = reader.read_recent_journal(days=2, max_entries=3)
         for entry in recent:
@@ -185,6 +208,20 @@ async def _fetch_visitor_context(
             ctx.total_hits += 1
     except Exception:
         logger.debug("Trait lookup failed for %s", visitor_id, exc_info=True)
+
+
+def _merge_cold_hit(hit: dict, ctx: RecallContext) -> None:
+    """Route a cold memory hit into the appropriate RecallContext bucket."""
+    content = hit["content"]
+    entry_type = hit.get("entry_type", "event")
+    if entry_type == "totem":
+        ctx.totem_facts.append(content)
+    elif entry_type == "trait":
+        ctx.trait_facts.append(content)
+    elif entry_type == "event":
+        ctx.cold_echoes.append(content)
+    else:
+        ctx.extra_context.append(content)
 
 
 def _format_totem(totem) -> str:
