@@ -96,11 +96,16 @@ class AliveMemorySystem(MemorySystemAdapter):
         except ImportError:
             pass
 
+        # Use OpenAI embeddings if key available, otherwise local (hash-based)
+        openai_key = os.environ.get("OPENAI_API_KEY", "")
+        embedder = "openai" if openai_key else "local"
+
         self._memory = AliveMemory(
             storage=self._db_path,
             memory_dir=memory_dir,
             config=sdk_config or None,
             llm=llm,
+            embedder=embedder,
         )
         await self._memory.initialize()
         self._turn_count = 0
