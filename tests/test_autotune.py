@@ -68,7 +68,7 @@ class TestClock:
 class TestConfigPromotion:
     def test_new_intake_keys_have_defaults(self):
         cfg = AliveConfig()
-        assert cfg.get("intake.max_day_moments") == 30
+        assert cfg.get("intake.max_day_moments") == 500
         assert cfg.get("intake.salience_threshold") == 0.35
         assert cfg.get("intake.max_salience_threshold") == 0.55
         assert cfg.get("intake.dedup_window_minutes") == 30

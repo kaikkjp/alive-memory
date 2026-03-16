@@ -118,7 +118,10 @@ async def recall(
             _seen.update(ctx.visitor_notes)
             _seen.update(ctx.totem_facts)
             _seen.update(ctx.trait_facts)
+            min_score = 0.3  # filter out unrelated hits
             for hit in cold_hits:
+                if hit.get("cosine_score", 0) < min_score:
+                    continue
                 content = hit["content"]
                 if content in _seen:
                     continue
@@ -216,6 +219,9 @@ def _merge_cold_hit(hit: dict, ctx: RecallContext) -> None:
     elif entry_type == "trait":
         ctx.trait_facts.append(content)
     elif entry_type == "event":
+        # Route to journal_entries so events appear in to_prompt() output
+        ctx.journal_entries.append(content)
+        # Also keep in cold_echoes for internal tracking
         ctx.cold_echoes.append(content)
     else:
         ctx.extra_context.append(content)

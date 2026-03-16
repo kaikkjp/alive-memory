@@ -196,8 +196,8 @@ async def consolidate(
             report.dreams = dreams
 
         # Batch embed to cold archive — all moments (no cap)
+        embedded = 0
         if embedder:
-            embedded = 0
             for moment in moments:
                 try:
                     embedding = await embedder.embed(moment.content)
@@ -230,8 +230,11 @@ async def consolidate(
                     logger.warning("Failed to embed moment %s to cold archive", moment.id, exc_info=True)
             report.cold_embeddings_added = embedded
 
-        # Prune old hot files (safe because raw events are now in cold)
-        if writer:
+        # Prune old hot files (safe because raw events are now in cold).
+        # Only prune if cold_memory has been populated (this consolidation
+        # cycle wrote to it), otherwise we'd lose pre-upgrade hot files
+        # that haven't been backfilled yet.
+        if writer and embedded > 0:
             hot_max_days = int(cfg.get("consolidation.hot_max_days", 7))
             for subdir in (reader.list_subdirs() if reader else []):
                 if subdir == "self":
