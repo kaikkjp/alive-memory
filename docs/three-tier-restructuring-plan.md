@@ -4,6 +4,20 @@
 
 The alive-memory SDK was extracted from the shopkeeper engine but the extraction flattened the original three-tier memory architecture (day/hot/cold) into a single `memories` table with a strength float. This loses the structural separation that defines the shopkeeper's cognitive design. We need to rebuild the SDK to match the real architecture.
 
+## Status: Tiers Exist But Roles Are Wrong (2026-03-15)
+
+The three-tier structure has been implemented but behavior diverges from the
+intended design. See `docs/architecture.md § Design Gaps` for the full
+analysis with production data. Key issues:
+1. Hot memory grows unbounded (should be bounded + rewritten each sleep)
+2. Cold memory is embeddings-only (should be the raw event archive)
+3. Salience gating is identity-blind (should score against agent identity)
+4. Recall keyword grep gets 6.8% accuracy on longmemeval (83% "I don't know")
+5. Totems exist but use keyword search (should embed for semantic retrieval)
+
+The next iteration should fix the **roles** of each tier, not the tier
+boundaries.
+
 ## The Three Tiers
 
 **Tier 1 — Day Memory (ephemeral SQLite)**
