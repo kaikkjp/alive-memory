@@ -200,7 +200,9 @@ async def consolidate(
         if embedder:
             for moment in moments:
                 try:
-                    embedding = await embedder.embed(moment.content)
+                    # Truncate to ~7000 chars to stay within embedding model token limits
+                    embed_text = moment.content[:7000] if len(moment.content) > 7000 else moment.content
+                    embedding = await embedder.embed(embed_text)
                     # Write to unified cold_memory table
                     await storage.store_cold_memory(
                         content=moment.content,

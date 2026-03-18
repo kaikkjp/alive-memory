@@ -39,7 +39,8 @@ async def find_cold_echoes(
         List of cold echo dicts with keys: id, content, score, metadata.
     """
     try:
-        embedding = await embedder.embed(moment.content)
+        embed_text = moment.content[:7000] if len(moment.content) > 7000 else moment.content
+        embedding = await embedder.embed(embed_text)
     except Exception:
         logger.warning("Failed to embed moment for cold search: %s", moment.id, exc_info=True)
         return []

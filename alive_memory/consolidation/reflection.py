@@ -114,7 +114,7 @@ async def reflect_on_moment(
         f"{categories_text}"
         "Only extract facts clearly stated in the text. Do not infer.\n"
         "If no facts are found, use empty arrays.\n\n"
-        f"The moment: {moment.content[:800]}\n"
+        f"The moment: {moment.content}\n"
         f"Event type: {moment.event_type.value}\n"
         f"Emotional valence: {moment.valence:.2f}\n"
         f"Current mood: {state.mood.word} (valence: {state.mood.valence:.1f})\n"
