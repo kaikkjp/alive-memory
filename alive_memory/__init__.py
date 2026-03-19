@@ -35,6 +35,7 @@ from alive_memory.types import (
     DayMoment,
     DriveState,
     EventType,
+    EvidenceBlock,
     MoodState,
     RecallContext,
     SelfModel,
@@ -49,6 +50,7 @@ __all__ = [
     "CognitiveState",
     "DayMoment",
     "DriveState",
+    "EvidenceBlock",
     "EventType",
     "MoodState",
     "SelfModel",
@@ -354,6 +356,51 @@ class AliveMemory:
             config=self._config,
         )
         await self._storage.set_mood_state(new_mood)
+
+        # Step 4.5: Store raw turn to cold_memory (bypasses salience gating)
+        if perception.event_type in (EventType.CONVERSATION, EventType.OBSERVATION):
+            try:
+                meta = metadata or {}
+                import contextlib
+
+                raw_embedding = None
+                if self._embedder is not None:
+                    with contextlib.suppress(Exception):
+                        raw_embedding = await self._embedder.embed(content[:7000])
+                # Resolve turn_index: prefer turn_index, fall back to turn_id
+                # Use 'is not None' to preserve 0 as a valid index
+                tidx = meta.get("turn_index")
+                if tidx is None:
+                    tidx = meta.get("turn_id")
+
+                # Build metadata dict, preserve source timestamp if provided
+                cold_meta: dict = {
+                    "event_type": perception.event_type.value,
+                    "salience": perception.salience,
+                }
+                if meta.get("timestamp"):
+                    cold_meta["source_timestamp"] = meta["timestamp"]
+
+                # Use source timestamp for correct chronology:
+                # prefer metadata["timestamp"], fall back to intake timestamp= arg
+                source_ts = meta.get("timestamp") or timestamp
+                if isinstance(source_ts, datetime):
+                    source_ts = source_ts.isoformat()
+
+                await self._storage.store_cold_memory(
+                    content=content,
+                    embedding=raw_embedding,
+                    entry_type=ColdEntryType.RAW_TURN,
+                    raw_content=content,
+                    visitor_id=meta.get("visitor_name") or meta.get("visitor_id"),
+                    metadata=cold_meta,
+                    session_id=meta.get("session_id"),
+                    turn_index=tidx,
+                    role=meta.get("role") or perception.event_type.value,
+                    created_at=source_ts if isinstance(source_ts, str) else None,
+                )
+            except Exception:
+                pass  # non-fatal: raw turn storage is best-effort
 
         # Step 5: Form moment (salience gating)
         moment = await form_moment(

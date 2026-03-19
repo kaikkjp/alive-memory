@@ -309,6 +309,7 @@ class BaseStorage(ABC):
         session_id: str | None = None,
         turn_index: int | None = None,
         role: str | None = None,
+        created_at: str | None = None,
     ) -> str:
         """Store an entry in the unified cold memory archive. Returns entry ID."""
         ...
@@ -325,6 +326,39 @@ class BaseStorage(ABC):
 
         Returns list of dicts with keys: id, content, raw_content, entry_type,
         visitor_id, weight, category, metadata, score.
+        """
+        ...
+
+    # ── Raw Turn Retrieval ────────────────────────────────────────────
+
+    @abstractmethod
+    async def get_turns_by_session(
+        self,
+        session_id: str,
+        *,
+        start_turn: int | None = None,
+        end_turn: int | None = None,
+    ) -> list[dict[str, Any]]:
+        """Fetch raw turns from a session, optionally within a turn range.
+
+        Returns list of dicts with keys: id, content, raw_content, entry_type,
+        session_id, turn_index, role, created_at.
+        Ordered by turn_index ASC.
+        """
+        ...
+
+    @abstractmethod
+    async def get_neighboring_turns(
+        self,
+        session_id: str,
+        turn_index: int,
+        *,
+        window: int = 3,
+    ) -> list[dict[str, Any]]:
+        """Fetch turns around a specific turn_index in a session.
+
+        Returns up to 2*window+1 turns centered on turn_index.
+        Ordered by turn_index ASC.
         """
         ...
 

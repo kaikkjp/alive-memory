@@ -12,13 +12,11 @@ from __future__ import annotations
 
 import os
 import tempfile
-from datetime import UTC, datetime
 
 import pytest
 
-from alive_memory import AliveMemory, EventType
+from alive_memory import AliveMemory
 from alive_memory.storage.sqlite import SQLiteStorage
-
 
 # ── Helpers ──────────────────────────────────────────────────────────
 
@@ -205,14 +203,13 @@ async def test_dual_path_recall() -> None:
     writer = memory._writer
     writer.append_journal("Alice mentioned she loves shopping")
 
-    # Put something in cold_memory (only found by semantic search)
+    # Put something in cold_memory as an event (found by semantic search)
     await memory._storage.store_cold_memory(
         content="Target — Store where Alice shops",
         embedding=target_vec,
-        entry_type="totem",
-        visitor_id="alice",
-        weight=0.7,
-        category="location",
+        entry_type="event",
+        raw_content="Target — Store where Alice shops",
+        metadata={"event_type": "conversation", "salience": 0.8},
     )
 
     # Recall should find both
@@ -220,12 +217,12 @@ async def test_dual_path_recall() -> None:
 
     # Hot grep should find "shopping" keyword match
     has_hot_hit = len(ctx.journal_entries) > 0
-    # Cold semantic should find "Target" totem
-    has_cold_hit = any("Target" in f for f in ctx.totem_facts)
+    # Cold semantic should find "Target" event
+    has_cold_hit = any("Target" in e for e in ctx.journal_entries + ctx.cold_echoes)
 
     assert has_hot_hit or has_cold_hit, "At least one path should find something"
     # The cold path specifically should find Target
-    assert has_cold_hit, f"Cold semantic search should find Target totem. Got: {ctx.totem_facts}"
+    assert has_cold_hit, f"Cold semantic search should find Target. Got journal: {ctx.journal_entries}, cold_echoes: {ctx.cold_echoes}"
 
     await memory.close()
 
@@ -259,3 +256,64 @@ async def test_entries_without_embedding_skipped(storage: SQLiteStorage) -> None
     vec = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
     results = await storage.search_cold_memory(vec, limit=5)
     assert len(results) == 0
+
+
+# ── RAW_TURN storage and retrieval ──────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_store_raw_turn(storage: SQLiteStorage) -> None:
+    """Store a raw_turn entry and retrieve by session."""
+    vec = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    await storage.store_cold_memory(
+        content="[user]: I live in Osaka",
+        embedding=vec,
+        entry_type="raw_turn",
+        raw_content="[user]: I live in Osaka",
+        session_id="sess-1",
+        turn_index=0,
+        role="user",
+    )
+    turns = await storage.get_turns_by_session("sess-1")
+    assert len(turns) == 1
+    assert turns[0]["content"] == "[user]: I live in Osaka"
+    assert turns[0]["turn_index"] == 0
+
+
+@pytest.mark.asyncio
+async def test_get_turns_by_session_range(storage: SQLiteStorage) -> None:
+    """Get turns within a specific turn index range."""
+    vec = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    for i in range(5):
+        await storage.store_cold_memory(
+            content=f"turn {i}",
+            embedding=vec,
+            entry_type="raw_turn",
+            session_id="sess-range",
+            turn_index=i,
+            role="user",
+        )
+    turns = await storage.get_turns_by_session("sess-range", start_turn=1, end_turn=3)
+    assert len(turns) == 3
+    assert turns[0]["turn_index"] == 1
+    assert turns[-1]["turn_index"] == 3
+
+
+@pytest.mark.asyncio
+async def test_search_cold_memory_returns_session_fields(storage: SQLiteStorage) -> None:
+    """search_cold_memory results include session_id, turn_index, role, created_at."""
+    vec = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    await storage.store_cold_memory(
+        content="test turn",
+        embedding=vec,
+        entry_type="raw_turn",
+        session_id="s-fields",
+        turn_index=42,
+        role="user",
+    )
+    results = await storage.search_cold_memory(vec, entry_type="raw_turn")
+    assert len(results) == 1
+    assert results[0]["session_id"] == "s-fields"
+    assert results[0]["turn_index"] == 42
+    assert results[0]["role"] == "user"
+    assert results[0]["created_at"] is not None

@@ -30,6 +30,7 @@ class ColdEntryType:
     EVENT = "event"
     TOTEM = "totem"
     TRAIT = "trait"
+    RAW_TURN = "raw_turn"
 
 
 @dataclass
@@ -110,6 +111,17 @@ class Visitor:
 
 
 @dataclass
+class EvidenceBlock:
+    """A single piece of evidence with trust metadata for recall assembly."""
+    text: str
+    source_type: str  # "raw_turn", "totem", "trait", "journal", "reflection", etc.
+    trust_rank: int   # 1=highest (raw turn), 5=lowest (extra context)
+    timestamp: str = ""
+    session_id: str = ""
+    score: float = 0.0
+
+
+@dataclass
 class RecallContext:
     """Result of a recall operation — aggregated memory context.
 
@@ -137,8 +149,13 @@ class RecallContext:
     totem_facts: list[str] = field(default_factory=list)
     trait_facts: list[str] = field(default_factory=list)
     extra_context: list[str] = field(default_factory=list)
+    raw_turns: list[str] = field(default_factory=list)
     query: str = ""
     total_hits: int = 0
+    # Trust-ordered evidence and confidence
+    evidence_blocks: list[EvidenceBlock] = field(default_factory=list)
+    confidence: float = 1.0
+    abstain_recommended: bool = False
 
     # ── Public API aliases ────────────────────────────────────────
 
@@ -176,10 +193,11 @@ class RecallContext:
         """Format recall results as clean text for LLM prompt injection.
 
         Produces readable text with section headers.
-        Empty sections are omitted.
+        Empty sections are omitted. Raw turns appear first (highest trust).
         """
         sections: list[str] = []
         _sections = [
+            ("Verbatim Evidence", self.raw_turns),
             ("Recent Events", self.journal_entries),
             ("User Info", self.visitor_notes),
             ("Knowledge", self.self_knowledge),

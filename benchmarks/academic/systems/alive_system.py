@@ -121,14 +121,13 @@ class AliveMemorySystem(MemorySystemAdapter):
 
         for turn in turns:
             event_type = _ROLE_TO_EVENT.get(turn.role, EventType.CONVERSATION)
-            # Pass the speaker so consolidation can attribute facts correctly.
-            # The content already includes "Speaker: text" so the LLM can
-            # distinguish who said what — visitor_name just sets the default.
             speaker = (turn.metadata or {}).get("speaker", "")
             metadata = {
                 "session_id": turn.session_id,
                 "turn_id": turn.turn_id,
+                "turn_index": turn.turn_id,  # alias for cold_memory column
                 "visitor_name": speaker,
+                "role": turn.role,
             }
             if turn.timestamp:
                 metadata["timestamp"] = turn.timestamp
@@ -148,28 +147,19 @@ class AliveMemorySystem(MemorySystemAdapter):
         if not self._memory:
             return "[error: memory not initialized]"
 
-        # Recall from alive's three-tier memory
-        ctx = await self._memory.recall(query=query.question, limit=10)
+        # Recall from alive's three-tier memory (trust-ordered)
+        ctx = await self._memory.recall(query=query.question, limit=20)
 
-        # Build context from all tiers
-        context_parts: list[str] = []
+        # Build context using token-budget packing instead of fixed caps
+        context = self._pack_context(ctx, token_budget=12000)
 
-        if ctx.journal_entries:
-            context_parts.append("Journal entries:\n" + "\n".join(ctx.journal_entries[:5]))
-        if ctx.visitor_notes:
-            context_parts.append("Visitor notes:\n" + "\n".join(ctx.visitor_notes[:3]))
-        if ctx.self_knowledge:
-            context_parts.append("Self-knowledge:\n" + "\n".join(ctx.self_knowledge[:3]))
-        if hasattr(ctx, "reflections") and ctx.reflections:
-            context_parts.append("Reflections:\n" + "\n".join(ctx.reflections[:3]))
-        if ctx.totem_facts:
-            context_parts.append("Known facts:\n" + "\n".join(ctx.totem_facts[:10]))
-        if ctx.trait_facts:
-            context_parts.append("Traits:\n" + "\n".join(ctx.trait_facts[:10]))
-        if hasattr(ctx, "cold_echoes") and ctx.cold_echoes:
-            context_parts.append("Historical echoes:\n" + "\n".join(ctx.cold_echoes[:3]))
-
-        context = "\n\n".join(context_parts)
+        # If recall recommends abstention, prepend instruction
+        if ctx.abstain_recommended:
+            context = (
+                "NOTE: The memory system has low confidence in the available "
+                "evidence. If the conversation history does not contain the "
+                "answer, say 'I don't know.'\n\n" + context
+            )
 
         return await llm_answer(
             question=query.question,
@@ -177,6 +167,72 @@ class AliveMemorySystem(MemorySystemAdapter):
             llm_config=llm_config,
             tracker=self._tracker,
         )
+
+    _TRUST_LABEL = {
+        "raw_turn": "Verbatim Evidence",
+        "totem": "Known Facts",
+        "trait": "Traits",
+        "visitor": "Visitor Notes",
+        "journal": "Journal Entries",
+        "reflection": "Reflections",
+        "thread": "Conversation",
+    }
+
+    def _pack_context(self, ctx, token_budget: int = 12000) -> str:
+        """Pack evidence into a budget using ranked evidence_blocks.
+
+        Uses the recency-aware ranked evidence produced by recall(),
+        then fills remaining budget from bucket lists as fallback.
+        Deduplicates across all sources.
+        """
+        sections: dict[str, list[str]] = {}
+        section_order: list[str] = []
+        used_tokens = 0
+        seen: set[str] = set()
+
+        def _add(text: str, section: str) -> None:
+            nonlocal used_tokens
+            if text in seen:
+                return
+            est_tokens = len(text) // 4
+            if used_tokens + est_tokens > token_budget:
+                return
+            seen.add(text)
+            if section not in sections:
+                sections[section] = []
+                section_order.append(section)
+            sections[section].append(text)
+            used_tokens += est_tokens
+
+        # Primary: use ranked evidence_blocks (preserves recency ordering)
+        for eb in getattr(ctx, "evidence_blocks", []):
+            label = self._TRUST_LABEL.get(eb.source_type, "Additional Context")
+            _add(eb.text, label)
+
+        # Fallback: fill from bucket lists for items not in evidence_blocks
+        _FALLBACK = [
+            (getattr(ctx, "raw_turns", []), "Verbatim Evidence"),
+            (ctx.totem_facts, "Known Facts"),
+            (ctx.trait_facts, "Traits"),
+            (ctx.visitor_notes, "Visitor Notes"),
+            (getattr(ctx, "thread_context", []), "Conversation"),
+            (ctx.journal_entries, "Journal Entries"),
+            (ctx.reflections, "Reflections"),
+            (ctx.self_knowledge, "Knowledge"),
+            (getattr(ctx, "cold_echoes", []), "Historical Echoes"),
+            (getattr(ctx, "extra_context", []), "Additional Context"),
+        ]
+        for items, label in _FALLBACK:
+            for text in items:
+                _add(text, label)
+
+        # Render sections in order of first appearance
+        parts: list[str] = []
+        for section in section_order:
+            items = sections[section]
+            parts.append(f"{section}:\n" + "\n".join(items))
+
+        return "\n\n".join(parts)
 
     async def get_metrics(self) -> SystemMetrics:
         storage = 0
