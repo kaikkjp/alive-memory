@@ -16,7 +16,7 @@ from alive_memory.config import AliveConfig
 from alive_memory.embeddings.base import EmbeddingProvider
 from alive_memory.hot.reader import MemoryReader
 from alive_memory.storage.base import BaseStorage
-from alive_memory.types import CognitiveState, RecallContext
+from alive_memory.types import CognitiveState, ColdEntryType, RecallContext
 
 logger = logging.getLogger(__name__)
 
@@ -213,12 +213,12 @@ async def _fetch_visitor_context(
 def _merge_cold_hit(hit: dict, ctx: RecallContext) -> None:
     """Route a cold memory hit into the appropriate RecallContext bucket."""
     content = hit["content"]
-    entry_type = hit.get("entry_type", "event")
-    if entry_type == "totem":
+    entry_type = hit.get("entry_type", ColdEntryType.EVENT)
+    if entry_type == ColdEntryType.TOTEM:
         ctx.totem_facts.append(content)
-    elif entry_type == "trait":
+    elif entry_type == ColdEntryType.TRAIT:
         ctx.trait_facts.append(content)
-    elif entry_type == "event":
+    elif entry_type == ColdEntryType.EVENT:
         # Route to journal_entries so events appear in to_prompt() output
         ctx.journal_entries.append(content)
         # Also keep in cold_echoes for internal tracking

@@ -4,8 +4,10 @@ Processes the structured output from reflect_on_moment() and writes
 totems and traits to the storage backend. No LLM calls — the LLM
 produces facts as part of the reflection prompt (single call).
 
-This mirrors Shopkeeper's hippocampus_write pattern where the cortex
-outputs memory_updates and hippocampus_write processes them into DB writes.
+Totems and traits are derived secondary memory written to relational
+tables only. They are NOT embedded into cold_memory — the raw event
+embedding already captures this information, and the relational tables
+serve structured keyword lookup.
 """
 
 from __future__ import annotations
@@ -13,7 +15,6 @@ from __future__ import annotations
 import logging
 import time
 
-from alive_memory.embeddings.base import EmbeddingProvider
 from alive_memory.storage.base import BaseStorage
 from alive_memory.types import DayMoment
 
@@ -59,18 +60,21 @@ async def write_extracted_facts(
     traits: list[dict],
     storage: BaseStorage,
     trait_cache: TraitCache | None = None,
-    embedder: EmbeddingProvider | None = None,
+    source_session_id: str | None = None,
 ) -> dict[str, int]:
     """Write pre-extracted totems and traits to storage.
 
     Called after reflect_on_moment() which produces facts as part of
-    its single LLM call. This function only does DB writes.
+    its single LLM call. This function only does DB writes to the
+    relational tables (totems, visitor_traits). No embedding calls.
 
     Args:
         moment: The source day moment.
         totems: Totem dicts from ReflectionResult.
         traits: Trait dicts from ReflectionResult.
         storage: Storage backend.
+        trait_cache: Optional dedup cache for traits.
+        source_session_id: Session ID for provenance tracking.
 
     Returns:
         Dict with counts: {totems: N, traits: N}
@@ -95,23 +99,8 @@ async def write_extracted_facts(
                 context=totem_context,
                 category=totem_category,
                 source_moment_id=moment.id,
+                source_session_id=source_session_id,
             )
-            # Embed totem into unified cold_memory
-            if embedder is not None:
-                try:
-                    embed_text = f"{entity}: {totem_context}" if totem_context else entity
-                    embedding = await embedder.embed(embed_text)
-                    await storage.store_cold_memory(
-                        content=f"{entity} — {totem_context}" if totem_context else entity,
-                        embedding=embedding,
-                        entry_type="totem",
-                        visitor_id=visitor_id,
-                        weight=totem_weight,
-                        category=totem_category,
-                        source_moment_id=moment.id,
-                    )
-                except Exception:
-                    logger.debug("Failed to embed totem %r to cold_memory", entity, exc_info=True)
             counts["totems"] += 1
         except Exception:
             logger.debug("Failed to insert totem %r", entity, exc_info=True)
@@ -146,23 +135,8 @@ async def write_extracted_facts(
                 trait_value=val,
                 confidence=trait_confidence,
                 source_moment_id=moment.id,
+                source_session_id=source_session_id,
             )
-            # Embed trait into unified cold_memory
-            if embedder is not None:
-                try:
-                    embed_text = f"{cat}/{key}: {val}"
-                    embedding = await embedder.embed(embed_text)
-                    await storage.store_cold_memory(
-                        content=f"{key}: {val}",
-                        embedding=embedding,
-                        entry_type="trait",
-                        visitor_id=visitor_id,
-                        weight=trait_confidence,
-                        category=cat,
-                        source_moment_id=moment.id,
-                    )
-                except Exception:
-                    logger.debug("Failed to embed trait %s=%s to cold_memory", key, val, exc_info=True)
             counts["traits"] += 1
         except Exception:
             logger.debug("Failed to insert trait %s=%s", key, val, exc_info=True)

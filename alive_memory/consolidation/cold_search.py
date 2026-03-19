@@ -13,7 +13,7 @@ import logging
 
 from alive_memory.embeddings.base import EmbeddingProvider
 from alive_memory.storage.base import BaseStorage
-from alive_memory.types import DayMoment
+from alive_memory.types import ColdEntryType, DayMoment
 
 logger = logging.getLogger(__name__)
 
@@ -45,8 +45,10 @@ async def find_cold_echoes(
         logger.warning("Failed to embed moment for cold search: %s", moment.id, exc_info=True)
         return []
 
-    results = await storage.search_cold(embedding=embedding, limit=limit)
+    results = await storage.search_cold_memory(
+        embedding=embedding, limit=limit, entry_type=ColdEntryType.EVENT,
+    )
 
-    # Filter by minimum score
-    echoes = [r for r in results if r.get("score", 0) >= min_score]
+    # Filter by minimum score (search_cold_memory uses blended score)
+    echoes = [r for r in results if r.get("cosine_score", r.get("score", 0)) >= min_score]
     return echoes

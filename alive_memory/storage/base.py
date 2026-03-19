@@ -94,37 +94,6 @@ class BaseStorage(ABC):
         """
         ...
 
-    # ── Cold Embeddings (Tier 3) ──────────────────────────────────
-
-    @abstractmethod
-    async def store_cold_embedding(
-        self,
-        content: str,
-        embedding: list[float],
-        source_moment_id: str,
-        metadata: dict[str, Any] | None = None,
-    ) -> str:
-        """Store an embedding in the cold archive. Returns embedding ID."""
-        ...
-
-    @abstractmethod
-    async def search_cold(
-        self,
-        embedding: list[float],
-        limit: int = 5,
-    ) -> list[dict[str, Any]]:
-        """Search cold embeddings by cosine similarity.
-
-        Returns list of dicts with keys: id, content, score, metadata.
-        Used during sleep only for finding "cold echoes".
-        """
-        ...
-
-    @abstractmethod
-    async def count_cold_embeddings(self) -> int:
-        """Return total number of cold embeddings."""
-        ...
-
     # ── Drive State ──────────────────────────────────────────────
 
     @abstractmethod
@@ -256,6 +225,8 @@ class BaseStorage(ABC):
         context: str = "",
         category: str = "general",
         source_moment_id: str | None = None,
+        source_session_id: str | None = None,
+        source_turn_id: str | None = None,
     ) -> str:
         """Insert a totem (semantic fact). Returns totem ID."""
         ...
@@ -295,6 +266,8 @@ class BaseStorage(ABC):
         *,
         confidence: float = 0.5,
         source_moment_id: str | None = None,
+        source_session_id: str | None = None,
+        source_turn_id: str | None = None,
     ) -> str:
         """Insert a trait observation. Returns trait ID."""
         ...
@@ -333,6 +306,9 @@ class BaseStorage(ABC):
         category: str = "",
         metadata: dict[str, Any] | None = None,
         source_moment_id: str | None = None,
+        session_id: str | None = None,
+        turn_index: int | None = None,
+        role: str | None = None,
     ) -> str:
         """Store an entry in the unified cold memory archive. Returns entry ID."""
         ...
