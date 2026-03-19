@@ -190,6 +190,29 @@ class MemorySystem:
 
 ## 8. Execution Plan
 
+### Two-Phase Runner
+
+The benchmark harness supports a **prepare/bench** split to avoid
+re-running expensive consolidation when iterating on recall strategies.
+
+```bash
+# Prepare: ingest + consolidate + save state per instance (expensive, once)
+python -m benchmarks.academic prepare \
+    --benchmark longmemeval --system alive --workers 16
+
+# Bench: load saved state + query only (cheap, iterate freely)
+python -m benchmarks.academic bench \
+    --benchmark longmemeval \
+    --prepared-dir benchmarks/academic/prepared/longmemeval/alive \
+    --workers 16
+```
+
+Both phases use ProcessPoolExecutor for true CPU parallelism and support
+`--resume` for crash recovery. State is saved per instance as SQLite DB +
+hot memory markdown + meta.json with queries/ground_truth.
+
+See `benchmarks/README.md` for full usage details.
+
 ### Phase 1 — Core runs
 
 **Systems**: No external memory, Full-context, Summary-memory, Vanilla RAG,

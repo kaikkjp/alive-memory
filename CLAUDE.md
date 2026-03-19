@@ -26,6 +26,10 @@ tools/              # Developer tools (not shipped in wheel)
   evolve/           # Algorithm optimizer (LLM coding agent + eval suite)
 tests/              # Integration tests
 benchmarks/         # Comparative benchmark framework (7 systems)
+  academic/         # Academic benchmarks (LongMemEval, LoCoMo, etc.)
+    prepare.py      # Phase 1: ingest + consolidate + save state
+    bench.py        # Phase 2: load state + query (iterate recall for free)
+    parallel_run.py # Legacy one-shot runner
 docs/               # Integration guide, architecture plans
 pyproject.toml      # Package config (hatchling)
 ```

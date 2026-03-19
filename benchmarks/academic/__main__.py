@@ -6,6 +6,10 @@ Usage:
     python -m benchmarks.academic run --benchmark locomo --all --judge-model anthropic/claude-haiku-4-5
     python -m benchmarks.academic list
     python -m benchmarks.academic report --results-dir benchmarks/academic/results/
+
+    # Two-phase workflow: prepare once, bench many times
+    python -m benchmarks.academic prepare --benchmark longmemeval --system alive --workers 16
+    python -m benchmarks.academic bench --benchmark longmemeval --prepared-dir prepared/longmemeval/alive --workers 16
 """
 
 from __future__ import annotations
@@ -267,6 +271,36 @@ def main():
     rep_p = sub.add_parser("report", help="Generate report from results")
     rep_p.add_argument("--results-dir", default="benchmarks/academic/results")
 
+    # --- prepare ---
+    prep_p = sub.add_parser("prepare", help="Prepare: ingest + consolidate + save state")
+    prep_p.add_argument("--benchmark", required=True,
+                        choices=list(DATASET_REGISTRY.keys()))
+    prep_p.add_argument("--system", default="alive")
+    prep_p.add_argument("--workers", type=int, default=16)
+    prep_p.add_argument("--data-dir", default="benchmarks/academic/data")
+    prep_p.add_argument("--output-dir", default="benchmarks/academic/prepared")
+    prep_p.add_argument("--llm-model", default=None)
+    prep_p.add_argument("--api-key", default=None)
+    prep_p.add_argument("--resume", action="store_true",
+                        help="Skip already-prepared instances")
+
+    # --- bench ---
+    bench_p = sub.add_parser("bench", help="Bench: load prepared state + run queries")
+    bench_p.add_argument("--benchmark", required=True,
+                         choices=list(DATASET_REGISTRY.keys()))
+    bench_p.add_argument("--prepared-dir", required=True,
+                         help="Directory with prepared instances")
+    bench_p.add_argument("--workers", type=int, default=16)
+    bench_p.add_argument("--data-dir", default="benchmarks/academic/data")
+    bench_p.add_argument("--results-dir", default="benchmarks/academic/results")
+    bench_p.add_argument("--llm-model", default=None)
+    bench_p.add_argument("--api-key", default=None)
+    bench_p.add_argument("--resume", action="store_true",
+                         help="Skip already-answered instances")
+    bench_p.add_argument("--judge-model", default=None)
+    bench_p.add_argument("--judge-api-key", default=None)
+    bench_p.add_argument("--judge-base-url", default=None)
+
     args = parser.parse_args()
 
     if not args.command:
@@ -279,6 +313,12 @@ def main():
         asyncio.run(cmd_list(args))
     elif args.command == "report":
         asyncio.run(cmd_report(args))
+    elif args.command == "prepare":
+        from benchmarks.academic.prepare import main_prepare
+        asyncio.run(main_prepare(args))
+    elif args.command == "bench":
+        from benchmarks.academic.bench import main_bench
+        asyncio.run(main_bench(args))
 
 
 if __name__ == "__main__":

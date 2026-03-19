@@ -31,6 +31,7 @@ from alive_memory.storage.base import BaseStorage
 from alive_memory.storage.sqlite import SQLiteStorage
 from alive_memory.types import (
     CognitiveState,
+    ColdEntryType,
     DayMoment,
     DriveState,
     EventType,

@@ -25,6 +25,13 @@ class MemoryType(Enum):
     PROCEDURAL = "procedural"
 
 
+class ColdEntryType:
+    """Entry type discriminator for the cold_memory table."""
+    EVENT = "event"
+    TOTEM = "totem"
+    TRAIT = "trait"
+
+
 @dataclass
 class Perception:
     """Structured perception from raw event (thalamus output)."""
