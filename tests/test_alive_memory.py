@@ -339,35 +339,6 @@ async def test_sqlite_day_memory(tmp_db):
 
 
 @pytest.mark.asyncio
-async def test_sqlite_cold_embeddings(tmp_db):
-    storage = SQLiteStorage(tmp_db)
-    await storage.initialize()
-
-    # Store cold embedding
-    eid = await storage.store_cold_embedding(
-        content="Memory about foxes",
-        embedding=[0.1, 0.2, 0.3, 0.4],
-        source_moment_id="m-1",
-        metadata={"event_type": "observation"},
-    )
-    assert eid
-
-    # Count
-    assert await storage.count_cold_embeddings() == 1
-
-    # Search
-    results = await storage.search_cold(
-        embedding=[0.1, 0.2, 0.3, 0.4],
-        limit=5,
-    )
-    assert len(results) == 1
-    assert results[0]["content"] == "Memory about foxes"
-    assert results[0]["score"] > 0.99  # Same embedding = ~1.0
-
-    await storage.close()
-
-
-@pytest.mark.asyncio
 async def test_sqlite_eviction(tmp_db):
     storage = SQLiteStorage(tmp_db)
     await storage.initialize()

@@ -15,7 +15,7 @@ from typing import Protocol, runtime_checkable
 
 from alive_memory.embeddings.base import EmbeddingProvider
 from alive_memory.storage.base import BaseStorage
-from alive_memory.types import WakeReport
+from alive_memory.types import ColdEntryType, WakeReport
 
 logger = logging.getLogger(__name__)
 
@@ -123,15 +123,18 @@ async def run_wake_transition(
             for moment in unprocessed:
                 try:
                     embedding = await embedder.embed(moment.content)
-                    await storage.store_cold_embedding(
+                    await storage.store_cold_memory(
                         content=moment.content,
                         embedding=embedding,
+                        entry_type=ColdEntryType.EVENT,
+                        raw_content=moment.content,
                         source_moment_id=moment.id,
                         metadata={
                             "event_type": moment.event_type.value,
                             "valence": moment.valence,
                             "salience": moment.salience,
                         },
+                        session_id=moment.metadata.get("session_id"),
                     )
                     # Prevent duplicate wake embeddings on subsequent runs.
                     await storage.mark_moment_processed(moment.id)

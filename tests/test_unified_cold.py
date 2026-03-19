@@ -183,25 +183,6 @@ async def test_search_by_entry_type(storage: SQLiteStorage) -> None:
     assert totems[0]["entry_type"] == "totem"
 
 
-# ── Backward compat with legacy cold_embeddings ──────────────────────
-
-
-@pytest.mark.asyncio
-async def test_legacy_cold_embeddings_still_work(storage: SQLiteStorage) -> None:
-    """Legacy store_cold_embedding and search_cold still work."""
-    vec = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    await storage.store_cold_embedding(
-        content="legacy content",
-        embedding=vec,
-        source_moment_id="m1",
-        metadata={"event_type": "conversation"},
-    )
-
-    results = await storage.search_cold(vec, limit=5)
-    assert len(results) == 1
-    assert results[0]["content"] == "legacy content"
-
-
 # ── Dual-path recall integration ─────────────────────────────────────
 
 

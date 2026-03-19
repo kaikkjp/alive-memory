@@ -29,7 +29,7 @@ from alive_memory.hot.reader import MemoryReader
 from alive_memory.hot.writer import MemoryWriter
 from alive_memory.llm.provider import LLMProvider
 from alive_memory.storage.base import BaseStorage
-from alive_memory.types import SleepReport
+from alive_memory.types import ColdEntryType, SleepReport
 
 logger = logging.getLogger(__name__)
 
@@ -137,10 +137,11 @@ async def consolidate(
             # Write extracted facts (totems + traits) to storage
             if result.totems or result.traits:
                 try:
+                    session_id = moment.metadata.get("session_id")
                     await write_extracted_facts(
                         moment, totems=result.totems, traits=result.traits,
                         storage=storage, trait_cache=trait_cache,
-                        embedder=embedder,
+                        source_session_id=session_id,
                     )
                 except Exception:
                     logger.debug("Fact writing failed for moment %s", moment.id, exc_info=True)
@@ -183,7 +184,7 @@ async def consolidate(
                 writer.append_reflection(summary, label="Daily Summary")
                 report.reflections_written += 1
 
-        # Dreaming
+        # Dreaming — cross-temporal synthesis
         if llm:
             dream_count = int(cfg.get("consolidation.dream_count", 3))
             dreams = await dream(
@@ -194,6 +195,10 @@ async def consolidate(
                 config=cfg,
             )
             report.dreams = dreams
+            # Persist dream insights to reflections
+            if dreams and writer:
+                for insight in dreams:
+                    writer.append_reflection(insight, label="Dream Insight")
 
         # Batch embed to cold archive — all moments (no cap)
         embedded = 0
@@ -204,10 +209,13 @@ async def consolidate(
                     embed_text = moment.content[:7000] if len(moment.content) > 7000 else moment.content
                     embedding = await embedder.embed(embed_text)
                     # Write to unified cold_memory table
+                    session_id = moment.metadata.get("session_id")
+                    turn_index = moment.metadata.get("turn_index")
+                    role = moment.metadata.get("role")
                     await storage.store_cold_memory(
                         content=moment.content,
                         embedding=embedding,
-                        entry_type="event",
+                        entry_type=ColdEntryType.EVENT,
                         raw_content=moment.content,
                         metadata={
                             "event_type": moment.event_type.value,
@@ -215,17 +223,9 @@ async def consolidate(
                             "salience": moment.salience,
                         },
                         source_moment_id=moment.id,
-                    )
-                    # Also write to legacy cold_embeddings for backward compat
-                    await storage.store_cold_embedding(
-                        content=moment.content,
-                        embedding=embedding,
-                        source_moment_id=moment.id,
-                        metadata={
-                            "event_type": moment.event_type.value,
-                            "valence": moment.valence,
-                            "salience": moment.salience,
-                        },
+                        session_id=session_id,
+                        turn_index=turn_index,
+                        role=role,
                     )
                     embedded += 1
                 except Exception:

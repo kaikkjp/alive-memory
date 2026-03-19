@@ -23,6 +23,7 @@ import aiosqlite
 from alive_memory.storage.base import BaseStorage
 from alive_memory.types import (
     CognitiveState,
+    ColdEntryType,
     DayMoment,
     DriveState,
     EventType,
@@ -239,52 +240,41 @@ class SQLiteStorage(BaseStorage):
         source_moment_id: str,
         metadata: dict[str, Any] | None = None,
     ) -> str:
-        embed_id = str(uuid.uuid4())
-        await self._exec_write(
-            """INSERT INTO cold_embeddings
-               (id, content, embedding, source_moment_id, metadata, created_at)
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            (
-                embed_id,
-                content,
-                _serialize_embedding(embedding),
-                source_moment_id,
-                json.dumps(metadata or {}),
-                _now_iso(),
-            ),
+        """Deprecated: redirects to store_cold_memory for backward compat."""
+        return await self.store_cold_memory(
+            content=content,
+            embedding=embedding,
+            entry_type=ColdEntryType.EVENT,
+            raw_content=content,
+            metadata=metadata,
+            source_moment_id=source_moment_id,
         )
-        return embed_id
 
     async def search_cold(
         self,
         embedding: list[float],
         limit: int = 5,
     ) -> list[dict[str, Any]]:
-        conn = await self._get_db()
-        cursor = await conn.execute(
-            "SELECT * FROM cold_embeddings"
+        """Deprecated: redirects to search_cold_memory for backward compat."""
+        results = await self.search_cold_memory(
+            embedding=embedding, limit=limit, entry_type=ColdEntryType.EVENT,
         )
-        rows = await cursor.fetchall()
-
-        scored: list[tuple[float, dict[str, Any]]] = []
-        for row in rows:
-            stored_emb = _deserialize_embedding(row["embedding"])
-            if stored_emb is None:
-                continue
-            score = _cosine_similarity(embedding, stored_emb)
-            scored.append((score, {
-                "id": row["id"],
-                "content": row["content"],
-                "score": score,
-                "metadata": json.loads(row["metadata"] or "{}"),
-            }))
-
-        scored.sort(key=lambda x: x[0], reverse=True)
-        return [item for _, item in scored[:limit]]
+        # Adapt to legacy return format
+        return [
+            {
+                "id": r["id"],
+                "content": r["content"],
+                "score": r.get("cosine_score", r.get("score", 0)),
+                "metadata": r.get("metadata", {}),
+            }
+            for r in results
+        ]
 
     async def count_cold_embeddings(self) -> int:
         conn = await self._get_db()
-        cursor = await conn.execute("SELECT COUNT(*) FROM cold_embeddings")
+        cursor = await conn.execute(
+            "SELECT COUNT(*) FROM cold_memory WHERE entry_type = 'event'"
+        )
         row = await cursor.fetchone()
         return int(row[0]) if row is not None else 0
 
@@ -689,13 +679,17 @@ class SQLiteStorage(BaseStorage):
         category: str = "",
         metadata: dict[str, Any] | None = None,
         source_moment_id: str | None = None,
+        session_id: str | None = None,
+        turn_index: int | None = None,
+        role: str | None = None,
     ) -> str:
         entry_id = str(uuid.uuid4())
         await self._exec_write(
             """INSERT INTO cold_memory
                (id, content, raw_content, embedding, entry_type, visitor_id,
-                weight, category, metadata, source_moment_id, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                weight, category, metadata, source_moment_id, created_at,
+                session_id, turn_index, role)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 entry_id,
                 content,
@@ -708,6 +702,9 @@ class SQLiteStorage(BaseStorage):
                 json.dumps(metadata or {}),
                 source_moment_id,
                 _now_iso(),
+                session_id,
+                turn_index,
+                role,
             ),
         )
         return entry_id
@@ -767,16 +764,20 @@ class SQLiteStorage(BaseStorage):
         context: str = "",
         category: str = "general",
         source_moment_id: str | None = None,
+        source_session_id: str | None = None,
+        source_turn_id: str | None = None,
     ) -> str:
         totem_id = str(uuid.uuid4())
         now = _now_iso()
         await self._exec_write(
             """INSERT INTO totems
                (id, visitor_id, entity, weight, context, category,
-                first_seen, last_referenced, source_moment_id)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                first_seen, last_referenced, source_moment_id,
+                source_session_id, source_turn_id, first_seen_at, last_seen_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (totem_id, visitor_id, entity, weight, context, category,
-             now, now, source_moment_id),
+             now, now, source_moment_id,
+             source_session_id, source_turn_id, now, now),
         )
         return totem_id
 
@@ -850,16 +851,20 @@ class SQLiteStorage(BaseStorage):
         *,
         confidence: float = 0.5,
         source_moment_id: str | None = None,
+        source_session_id: str | None = None,
+        source_turn_id: str | None = None,
     ) -> str:
         trait_id = str(uuid.uuid4())
         now = _now_iso()
         await self._exec_write(
             """INSERT INTO visitor_traits
                (id, visitor_id, trait_category, trait_key, trait_value,
-                confidence, source_moment_id, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                confidence, source_moment_id, created_at,
+                source_session_id, source_turn_id, first_seen_at, last_seen_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (trait_id, visitor_id, trait_category, trait_key, trait_value,
-             confidence, source_moment_id, now),
+             confidence, source_moment_id, now,
+             source_session_id, source_turn_id, now, now),
         )
         return trait_id
 
@@ -979,15 +984,42 @@ class SQLiteStorage(BaseStorage):
     # ── Lifecycle ────────────────────────────────────────────────
 
     async def _run_alter_columns(self) -> None:
-        """Add new columns to self_model table. Idempotent (catches duplicate column errors)."""
+        """Add new columns to tables. Idempotent (catches duplicate column errors)."""
         conn = await self._get_db()
         alters = [
+            # Self-model columns
             "ALTER TABLE self_model ADD COLUMN self_narrative TEXT NOT NULL DEFAULT ''",
             "ALTER TABLE self_model ADD COLUMN behavioral_signature TEXT NOT NULL DEFAULT '{}'",
             "ALTER TABLE self_model ADD COLUMN relational_stance TEXT NOT NULL DEFAULT '{}'",
             "ALTER TABLE self_model ADD COLUMN narrative_version INTEGER NOT NULL DEFAULT 0",
+            # S1: Deprecate cold_embeddings (rename to prevent accidental use)
+            "ALTER TABLE cold_embeddings RENAME TO cold_embeddings_deprecated",
+            # S5: Promote session_id to cold_memory column
+            "ALTER TABLE cold_memory ADD COLUMN session_id TEXT",
+            "ALTER TABLE cold_memory ADD COLUMN turn_index INTEGER",
+            "ALTER TABLE cold_memory ADD COLUMN role TEXT",
+            # S6: Strengthen totem provenance
+            "ALTER TABLE totems ADD COLUMN source_session_id TEXT",
+            "ALTER TABLE totems ADD COLUMN source_turn_id TEXT",
+            "ALTER TABLE totems ADD COLUMN first_seen_at TEXT",
+            "ALTER TABLE totems ADD COLUMN last_seen_at TEXT",
+            # S6: Strengthen trait provenance
+            "ALTER TABLE visitor_traits ADD COLUMN source_session_id TEXT",
+            "ALTER TABLE visitor_traits ADD COLUMN source_turn_id TEXT",
+            "ALTER TABLE visitor_traits ADD COLUMN first_seen_at TEXT",
+            "ALTER TABLE visitor_traits ADD COLUMN last_seen_at TEXT",
         ]
         for sql in alters:
+            with contextlib.suppress(Exception):
+                await conn.execute(sql)
+        await conn.commit()
+        # Create indexes on new columns (must run after ALTERs)
+        indexes = [
+            "CREATE INDEX IF NOT EXISTS idx_cold_memory_session ON cold_memory(session_id)",
+            "CREATE INDEX IF NOT EXISTS idx_cold_memory_session_time ON cold_memory(session_id, created_at)",
+            "CREATE INDEX IF NOT EXISTS idx_cold_memory_session_type ON cold_memory(session_id, entry_type, created_at)",
+        ]
+        for sql in indexes:
             with contextlib.suppress(Exception):
                 await conn.execute(sql)
         await conn.commit()

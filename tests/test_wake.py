@@ -174,10 +174,11 @@ async def test_wake_transition_with_embedder():
     moment.valence = 0.5
     moment.salience = 0.8
 
+    moment.metadata = {}
     storage.get_unprocessed_moments = AsyncMock(return_value=[moment])
     storage.flush_stale_moments = AsyncMock(return_value=0)
     storage.flush_day_memory = AsyncMock(return_value=0)
-    storage.store_cold_embedding = AsyncMock(return_value="e-1")
+    storage.store_cold_memory = AsyncMock(return_value="e-1")
 
     embedder = AsyncMock()
     embedder.embed = AsyncMock(return_value=[0.1, 0.2, 0.3])
@@ -186,7 +187,7 @@ async def test_wake_transition_with_embedder():
 
     assert report.cold_embeddings_added == 1
     embedder.embed.assert_awaited_once_with("test content")
-    storage.store_cold_embedding.assert_awaited_once()
+    storage.store_cold_memory.assert_awaited_once()
 
 
 # ---------------------------------------------------------------------------
