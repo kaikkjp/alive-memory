@@ -105,7 +105,7 @@ def _compute_salience(
     if "salience" in metadata:
         return float(max(0.0, min(1.0, float(metadata["salience"]))))
 
-    # Event type base: conversations start higher, system events start low
+    # Event type base: conversations start higher, system events start low.
     _event_base: dict[EventType, float] = {
         EventType.CONVERSATION: 0.25,
         EventType.ACTION: 0.20,
@@ -113,6 +113,13 @@ def _compute_salience(
         EventType.SYSTEM: 0.05,
     }
     base = _event_base.get(event_type, 0.10)
+
+    # Config adjustment: base_salience shifts all events, conversation_boost
+    # adds on top for conversations. Defaults are 0 so they're no-ops unless
+    # explicitly set by autotune or user config.
+    base += float(config.get("intake.base_salience", 0.0))
+    if event_type == EventType.CONVERSATION:
+        base += float(config.get("intake.conversation_boost", 0.0))
 
     # Content-based novelty
     novelty_weight = config.get("intake.novelty_weight", 0.3)

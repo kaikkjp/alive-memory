@@ -43,7 +43,7 @@ async def _apply_reflection(
     existing_categories: list[str],
     report: SleepReport,
 ) -> None:
-    """Write a reflection result to hot memory and storage."""
+    """Write a single-moment reflection result to hot memory and storage."""
     if result.text:
         visitor_name = moment.metadata.get("visitor_name")
         thread_id = moment.metadata.get("thread_id")
@@ -73,6 +73,81 @@ async def _apply_reflection(
             )
         except Exception:
             logger.debug("Fact writing failed for moment %s", moment.id, exc_info=True)
+
+
+async def _apply_batch_reflection(
+    batch: list[DayMoment],
+    result,
+    writer: MemoryWriter,
+    storage: BaseStorage,
+    trait_cache: TraitCache,
+    existing_categories: list[str],
+    report: SleepReport,
+) -> None:
+    """Write a batch reflection without corrupting per-moment provenance.
+
+    Reflection text is written as a general reflection (no visitor/thread).
+    Facts are written per-moment by matching visitor names from the batch.
+    """
+    if result.text:
+        # Write batch reflection as general entry — no visitor/thread attribution
+        writer.append_reflection(result.text, label="Batch Summary")
+        report.reflections.append(result.text)
+
+        if result.categories:
+            for cat in result.categories:
+                if cat and cat not in existing_categories:
+                    existing_categories.append(cat)
+
+    # Build visitor→moment lookup for fact routing
+    visitor_moments: dict[str, DayMoment] = {}
+    for moment in batch:
+        vname = moment.metadata.get("visitor_name") or moment.metadata.get("visitor_id")
+        if vname:
+            visitor_moments[vname.lower()] = moment
+
+    # Route extracted facts to the correct moment by matching visitor names
+    if result.totems or result.traits:
+        # Default moment for unmatched facts: use the batch's most salient moment
+        default_moment = max(batch, key=lambda m: m.salience)
+
+        for totem in (result.totems or []):
+            # Try to match totem to a specific moment via context/entity
+            matched = _match_fact_to_moment(totem, visitor_moments, default_moment)
+            try:
+                await write_extracted_facts(
+                    matched, totems=[totem], traits=[],
+                    storage=storage, trait_cache=trait_cache,
+                    source_session_id=matched.metadata.get("session_id"),
+                )
+            except Exception:
+                logger.debug("Batch totem write failed", exc_info=True)
+
+        for trait in (result.traits or []):
+            matched = _match_fact_to_moment(trait, visitor_moments, default_moment)
+            try:
+                await write_extracted_facts(
+                    matched, totems=[], traits=[trait],
+                    storage=storage, trait_cache=trait_cache,
+                    source_session_id=matched.metadata.get("session_id"),
+                )
+            except Exception:
+                logger.debug("Batch trait write failed", exc_info=True)
+
+
+def _match_fact_to_moment(
+    fact: dict,
+    visitor_moments: dict[str, DayMoment],
+    default: DayMoment,
+) -> DayMoment:
+    """Best-effort match a fact dict to the moment it came from."""
+    # Check common fields for visitor name references
+    for field in ("entity", "context", "trait_value", "trait_key"):
+        val = str(fact.get(field, "")).lower()
+        for vname, moment in visitor_moments.items():
+            if vname in val:
+                return moment
+    return default
 
 
 async def consolidate(
@@ -154,6 +229,8 @@ async def consolidate(
     )
 
     # Step 2a: Cold search for ALL moments (needed for cold archive embedding)
+    # Cache echoes per-moment so high-tier reflection can use them.
+    moment_cold_echoes: dict[str, list[dict]] = {}
     for moment in moments:
         if not is_nap and embedder:
             cold_echoes, embedding = await find_cold_echoes(
@@ -161,6 +238,8 @@ async def consolidate(
             )
             if embedding is not None:
                 moment_embeddings[moment.id] = embedding
+            if cold_echoes:
+                moment_cold_echoes[moment.id] = cold_echoes
             all_cold_echoes.extend(cold_echoes)
             report.cold_echoes_found += len(cold_echoes)
 
@@ -172,6 +251,7 @@ async def consolidate(
                 reader=reader,
                 storage=storage,
                 llm=llm,
+                cold_echoes=moment_cold_echoes.get(moment.id),
                 config=cfg,
                 existing_categories=existing_categories,
             )
@@ -203,8 +283,8 @@ async def consolidate(
                 config=cfg,
                 existing_categories=existing_categories,
             )
-            await _apply_reflection(
-                batch[0], result, writer, storage, trait_cache,
+            await _apply_batch_reflection(
+                batch, result, writer, storage, trait_cache,
                 existing_categories, report,
             )
 
@@ -228,8 +308,8 @@ async def consolidate(
                 config=cfg,
                 existing_categories=existing_categories,
             )
-            await _apply_reflection(
-                low_moments[0], result, writer, storage, trait_cache,
+            await _apply_batch_reflection(
+                low_moments, result, writer, storage, trait_cache,
                 existing_categories, report,
             )
 

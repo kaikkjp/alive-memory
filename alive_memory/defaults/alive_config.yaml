@@ -5,8 +5,8 @@ memory:
   embedding_dimensions: 384
 
 intake:
-  base_salience: 0.5
-  conversation_boost: 0.2     # Conversations get salience bump
+  base_salience: 0.0           # Additive shift on event-type bases (0 = use defaults)
+  conversation_boost: 0.0     # Additional boost for conversations (0 = use defaults)
   novelty_weight: 0.3
   max_day_moments: 500        # Capacity before eviction kicks in
   salience_threshold: 0.35    # Min salience to record a moment
