@@ -302,9 +302,17 @@ async def main_bench(args) -> None:
     results_dir = Path(args.results_dir) / args.benchmark
     results_dir.mkdir(parents=True, exist_ok=True)
 
-    # Per-run results in a subdirectory
-    run_id = f"run_{int(time.time())}"
-    run_dir = results_dir / run_id
+    # Per-run results in a subdirectory.
+    # When resuming, reuse the latest existing run directory so we can
+    # find previously completed instances.
+    run_dir: Path | None = None
+    if args.resume:
+        existing_runs = sorted(results_dir.glob("run_*"), reverse=True)
+        if existing_runs:
+            run_dir = existing_runs[0]
+    if run_dir is None:
+        run_id = f"run_{int(time.time())}"
+        run_dir = results_dir / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
 
     # Resume: skip completed instances
@@ -330,6 +338,8 @@ async def main_bench(args) -> None:
         if args.api_key:
             config["api_key"] = args.api_key
             llm_config["api_key"] = args.api_key
+        if getattr(args, "base_url", None):
+            llm_config["base_url"] = args.base_url
 
         print(f"Benchmark: {args.benchmark}, Instances: {n}, Workers: {w}")
         print(f"Results dir: {run_dir}\n")

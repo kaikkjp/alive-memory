@@ -82,6 +82,8 @@ async def cmd_run(args):
         llm_config["model"] = args.llm_model
     if args.api_key:
         llm_config["api_key"] = args.api_key
+    if args.base_url:
+        llm_config["base_url"] = args.base_url
 
     results_dir = Path(args.results_dir) / args.benchmark
     results_dir.mkdir(parents=True, exist_ok=True)
@@ -251,6 +253,8 @@ def main():
                        help="LLM model for answer generation")
     run_p.add_argument("--api-key", default=None,
                        help="API key for LLM provider")
+    run_p.add_argument("--base-url", default=None,
+                       help="Base URL for LLM API (e.g. https://openrouter.ai/api/v1)")
     run_p.add_argument("--data-dir", default="benchmarks/academic/data",
                        help="Directory containing benchmark datasets")
     run_p.add_argument("--results-dir", default="benchmarks/academic/results",
@@ -281,6 +285,7 @@ def main():
     prep_p.add_argument("--output-dir", default="benchmarks/academic/prepared")
     prep_p.add_argument("--llm-model", default=None)
     prep_p.add_argument("--api-key", default=None)
+    prep_p.add_argument("--base-url", default=None)
     prep_p.add_argument("--resume", action="store_true",
                         help="Skip already-prepared instances")
 
@@ -295,6 +300,8 @@ def main():
     bench_p.add_argument("--results-dir", default="benchmarks/academic/results")
     bench_p.add_argument("--llm-model", default=None)
     bench_p.add_argument("--api-key", default=None)
+    bench_p.add_argument("--base-url", default=None,
+                         help="Base URL for LLM API (e.g. https://openrouter.ai/api/v1)")
     bench_p.add_argument("--resume", action="store_true",
                          help="Skip already-answered instances")
     bench_p.add_argument("--judge-model", default=None)
