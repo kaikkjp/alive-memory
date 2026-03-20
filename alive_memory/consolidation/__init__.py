@@ -187,8 +187,13 @@ async def consolidate(
         report.moments_processed += 1
 
     # Step 2c: Medium salience — batched reflection (small groups)
+    # Always write raw content to journal so recall can find it.
     for i in range(0, len(med_moments), med_batch_size):
         batch = med_moments[i:i + med_batch_size]
+        if writer:
+            for moment in batch:
+                writer.append_journal(moment.content, date=moment.timestamp, moment_id=moment.id)
+                report.journal_entries_written += 1
         if llm and writer and reader:
             result = await reflect_on_batch(
                 batch,
@@ -198,22 +203,22 @@ async def consolidate(
                 config=cfg,
                 existing_categories=existing_categories,
             )
-            # Apply batch result to first moment (for hot memory filing)
             await _apply_reflection(
                 batch[0], result, writer, storage, trait_cache,
                 existing_categories, report,
             )
-        elif writer:
-            for moment in batch:
-                writer.append_journal(moment.content, date=moment.timestamp, moment_id=moment.id)
-                report.journal_entries_written += 1
 
         for moment in batch:
             await storage.mark_moment_processed(moment.id, nap=is_nap)
             report.moments_processed += 1
 
     # Step 2d: Low salience — one big batch (minimal LLM cost)
+    # Always write raw content to journal so recall can find it.
     if low_moments:
+        if writer:
+            for moment in low_moments:
+                writer.append_journal(moment.content, date=moment.timestamp, moment_id=moment.id)
+                report.journal_entries_written += 1
         if llm and writer and reader:
             result = await reflect_on_batch(
                 low_moments,
@@ -227,10 +232,6 @@ async def consolidate(
                 low_moments[0], result, writer, storage, trait_cache,
                 existing_categories, report,
             )
-        elif writer:
-            for moment in low_moments:
-                writer.append_journal(moment.content, date=moment.timestamp, moment_id=moment.id)
-                report.journal_entries_written += 1
 
         for moment in low_moments:
             await storage.mark_moment_processed(moment.id, nap=is_nap)
