@@ -13,7 +13,8 @@ from alive_memory.hot.reader import MemoryReader
 from alive_memory.hot.writer import MemoryWriter
 from alive_memory.intake.affect import apply_affect, compute_valence
 from alive_memory.intake.drives import clamp, update_drives, update_mood
-from alive_memory.intake.formation import _compute_salience, _content_richness, _is_duplicate
+from alive_memory.intake.formation import _adjust_salience, _is_duplicate
+from alive_memory.intake.thalamus import _estimate_novelty
 from alive_memory.intake.thalamus import perceive
 from alive_memory.meta.controller import classify_outcome, compute_adaptive_cooldown
 from alive_memory.recall.weighting import decay_strength
@@ -138,10 +139,10 @@ def test_update_mood_homeostatic():
 
 # ── Intake: Formation (salience scoring) ────────────────────────
 
-def test_content_richness():
-    assert _content_richness("") == 0.0
-    assert _content_richness("hi") == 0.02
-    assert _content_richness("This is a longer message with some variety") > 0.05
+def test_estimate_novelty():
+    assert _estimate_novelty("") == 0.0
+    assert _estimate_novelty("hi") == 0.05
+    assert _estimate_novelty("This is a longer message with some variety") > 0.1
 
 
 def test_is_duplicate():
@@ -150,17 +151,18 @@ def test_is_duplicate():
     assert _is_duplicate("hello world", []) is False
 
 
-def test_compute_salience_conversation():
+def test_adjust_salience_uses_perception():
     p = Perception(EventType.CONVERSATION, "Hello friend how are you?", 0.5, datetime.now(UTC))
     mood = MoodState()
     drives = DriveState()
-    s = _compute_salience(p, mood, drives, None)
-    assert s > 0.3  # conversation base is 0.40
+    s = _adjust_salience(p, mood, drives, None)
+    # Should start from perception.salience (0.5) and add small mood boost
+    assert 0.4 < s < 0.7
 
 
-def test_compute_salience_metadata_override():
+def test_adjust_salience_metadata_override():
     p = Perception(EventType.CONVERSATION, "test", 0.5, datetime.now(UTC), metadata={"salience": 0.99})
-    s = _compute_salience(p, MoodState(), DriveState(), None)
+    s = _adjust_salience(p, MoodState(), DriveState(), None)
     assert s == 0.99
 
 

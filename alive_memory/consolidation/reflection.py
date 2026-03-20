@@ -159,6 +159,91 @@ async def reflect_on_moment(
         return ReflectionResult()
 
 
+async def reflect_on_batch(
+    moments: list[DayMoment],
+    *,
+    reader: MemoryReader,
+    storage: BaseStorage,
+    llm: LLMProvider,
+    config: AliveConfig | None = None,
+    existing_categories: list[str] | None = None,
+) -> ReflectionResult:
+    """Reflect on a batch of moments in a single LLM call.
+
+    Used for medium/low salience moments to reduce API calls.
+    Returns a combined ReflectionResult covering all moments in the batch.
+    """
+    if not moments:
+        return ReflectionResult()
+
+    state = await storage.get_cognitive_state()
+
+    # Build batch content
+    batch_text = "\n".join(
+        f"[{i+1}] ({m.event_type.value}, salience={m.salience:.2f}) {m.content[:300]}"
+        for i, m in enumerate(moments)
+    )
+
+    categories_text = ""
+    if existing_categories:
+        cats_list = ", ".join(existing_categories)
+        categories_text = (
+            f'\n4. "categories": array of category names. '
+            f"Existing: {cats_list}. Reuse when they fit.\n"
+        )
+    else:
+        categories_text = (
+            '\n4. "categories": array of category names (lowercase, short).\n'
+        )
+
+    prompt = (
+        f"Process these {len(moments)} moments as a batch. Return a JSON object:\n\n"
+        '1. "reflection": A brief summary (3-6 sentences) covering the key themes '
+        "and notable information across all moments.\n\n"
+        '2. "totems": Array of facts/entities mentioned across ALL moments. Each has:\n'
+        '   - "entity", "weight" (0-1), "context", "category"\n\n'
+        '3. "traits": Array of observations about people across ALL moments. Each has:\n'
+        '   - "trait_category", "trait_key", "trait_value", "confidence" (0-1)\n\n'
+        f"{categories_text}\n"
+        "Extract ALL facts from ALL moments — don't skip any concrete information.\n"
+        "If no facts are found, use empty arrays.\n\n"
+        f"Current mood: {state.mood.word}\n\n"
+        f"Moments:\n{batch_text}\n\n"
+        "Return ONLY valid JSON, no markdown fencing."
+    )
+
+    try:
+        response = await llm.complete(
+            prompt,
+            system=(
+                "You are a reflective mind processing experiences in batch. "
+                "Extract all facts and observations. Return only valid JSON."
+            ),
+            max_tokens=min(1200, 200 + len(moments) * 100),
+            temperature=0.5,
+        )
+        text = response.text.strip()
+        if text.startswith("```"):
+            text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+            if text.endswith("```"):
+                text = text[:-3]
+            text = text.strip()
+
+        data = json.loads(text)
+        return ReflectionResult(
+            text=data.get("reflection", ""),
+            totems=data.get("totems", []),
+            traits=data.get("traits", []),
+            categories=data.get("categories", []),
+        )
+    except json.JSONDecodeError:
+        logger.debug("Batch reflection JSON parse failed, using as plain text")
+        return ReflectionResult(text=response.text.strip())
+    except Exception:
+        logger.warning("Batch reflection failed for %d moments", len(moments), exc_info=True)
+        return ReflectionResult()
+
+
 async def reflect_daily_summary(
     moments: list[DayMoment],
     *,

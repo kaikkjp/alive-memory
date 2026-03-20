@@ -25,7 +25,7 @@ async def find_cold_echoes(
     *,
     limit: int = 3,
     min_score: float = 0.3,
-) -> list[dict]:
+) -> tuple[list[dict], list[float] | None]:
     """Search cold archive for memories that echo a day moment.
 
     Args:
@@ -36,14 +36,15 @@ async def find_cold_echoes(
         min_score: Minimum cosine similarity to qualify as an echo.
 
     Returns:
-        List of cold echo dicts with keys: id, content, score, metadata.
+        Tuple of (echoes, embedding). The embedding is returned so callers
+        can reuse it for cold archive storage without a redundant API call.
     """
     try:
         embed_text = moment.content[:7000] if len(moment.content) > 7000 else moment.content
         embedding = await embedder.embed(embed_text)
     except Exception:
         logger.warning("Failed to embed moment for cold search: %s", moment.id, exc_info=True)
-        return []
+        return [], None
 
     results = await storage.search_cold_memory(
         embedding=embedding, limit=limit, entry_type=ColdEntryType.EVENT,
@@ -51,4 +52,4 @@ async def find_cold_echoes(
 
     # Filter by minimum score (search_cold_memory uses blended score)
     echoes = [r for r in results if r.get("cosine_score", r.get("score", 0)) >= min_score]
-    return echoes
+    return echoes, embedding

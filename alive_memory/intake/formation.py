@@ -36,13 +36,6 @@ DEDUP_WINDOW_MINUTES = 30
 BASE_THRESHOLD = 0.35
 MAX_THRESHOLD = 0.55
 
-# Event type base salience scores
-_EVENT_BASE_SALIENCE: dict[EventType, float] = {
-    EventType.CONVERSATION: 0.40,
-    EventType.ACTION: 0.30,
-    EventType.OBSERVATION: 0.25,
-    EventType.SYSTEM: 0.15,
-}
 
 
 async def form_moment(
@@ -81,8 +74,9 @@ async def form_moment(
     dedup_window = cfg.get("intake.dedup_window_minutes", DEDUP_WINDOW_MINUTES)
     dedup_similarity = cfg.get("intake.dedup_similarity", 0.85)
 
-    # Compute deterministic salience
-    salience = _compute_salience(perception, mood, drives, previous_drives)
+    # Start from perception's salience (computed by thalamus with content
+    # analysis), then layer on drive/mood context signals.
+    salience = _adjust_salience(perception, mood, drives, previous_drives)
 
     # Dynamic threshold: rises from base → max as count → capacity
     current_count = await storage.get_day_memory_count()
@@ -134,24 +128,27 @@ async def form_moment(
     return moment
 
 
-def _compute_salience(
+def _adjust_salience(
     perception: Perception,
     mood: MoodState,
     drives: DriveState,
     previous_drives: DriveState | None,
 ) -> float:
-    """Deterministic salience scoring.
+    """Adjust perception salience with drive/mood context.
 
-    Components:
-      1. Event type base (0.15-0.40)
-      2. Drive delta bonus (0-0.20) — how much drives changed
-      3. Content richness (0-0.20) — word count, uniqueness, questions
-      4. Mood extremes (0-0.15) — extreme moods make things more salient
+    Starts from perception.salience (computed by thalamus with content
+    analysis: stop word ratio, content word length, numbers, etc.)
+    and layers on contextual signals:
+      1. Drive delta bonus (0-0.15) — how much drives changed
+      2. Mood extremes (0-0.10) — extreme moods make things more salient
     """
-    # 1. Event type base
-    base = _EVENT_BASE_SALIENCE.get(perception.event_type, 0.20)
+    # Metadata override
+    if "salience" in perception.metadata:
+        return max(0.0, min(1.0, float(perception.metadata["salience"])))
 
-    # 2. Drive delta bonus
+    base = perception.salience
+
+    # Drive delta bonus
     drive_delta = 0.0
     if previous_drives:
         deltas = [
@@ -160,46 +157,14 @@ def _compute_salience(
             abs(drives.expression - previous_drives.expression),
             abs(drives.rest - previous_drives.rest),
         ]
-        drive_delta = min(0.20, sum(deltas) * 0.5)
+        drive_delta = min(0.15, sum(deltas) * 0.5)
 
-    # 3. Content richness
-    richness = _content_richness(perception.content)
+    # Mood extremes — very positive or very negative moods boost salience
+    mood_boost = min(0.10, abs(mood.valence) * 0.15 + max(0, mood.arousal - 0.6) * 0.10)
 
-    # 4. Mood extremes — very positive or very negative moods boost salience
-    mood_boost = min(0.15, abs(mood.valence) * 0.2 + max(0, mood.arousal - 0.6) * 0.15)
-
-    # Metadata override
-    if "salience" in perception.metadata:
-        return max(0.0, min(1.0, float(perception.metadata["salience"])))
-
-    return max(0.0, min(1.0, base + drive_delta + richness + mood_boost))
+    return max(0.0, min(1.0, base + drive_delta + mood_boost))
 
 
-def _content_richness(content: str) -> float:
-    """Score content richness (0-0.20).
-
-    Factors: word count, word uniqueness, presence of questions.
-    """
-    if not content:
-        return 0.0
-
-    words = content.split()
-    word_count = len(words)
-
-    # Very short = low richness
-    if word_count < 3:
-        return 0.02
-
-    # Word uniqueness
-    unique_ratio = len(set(w.lower() for w in words)) / max(word_count, 1)
-
-    # Length factor (diminishing returns)
-    length_factor = min(0.10, word_count * 0.003)
-
-    # Question bonus
-    question_bonus = 0.03 if "?" in content else 0.0
-
-    return min(0.20, length_factor + unique_ratio * 0.08 + question_bonus)
 
 
 def _is_duplicate(

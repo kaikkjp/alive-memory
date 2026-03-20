@@ -22,16 +22,57 @@ from alive_memory.consolidation.cold_search import find_cold_echoes
 from alive_memory.consolidation.dreaming import dream
 from alive_memory.consolidation.fact_extraction import TraitCache, write_extracted_facts
 from alive_memory.consolidation.memory_updates import apply_reflection_to_hot_memory
-from alive_memory.consolidation.reflection import reflect_daily_summary, reflect_on_moment
+from alive_memory.consolidation.reflection import reflect_daily_summary, reflect_on_batch, reflect_on_moment
 from alive_memory.consolidation.wake import WakeConfig, WakeHooks
 from alive_memory.embeddings.base import EmbeddingProvider
 from alive_memory.hot.reader import MemoryReader
 from alive_memory.hot.writer import MemoryWriter
 from alive_memory.llm.provider import LLMProvider
 from alive_memory.storage.base import BaseStorage
-from alive_memory.types import ColdEntryType, SleepReport
+from alive_memory.types import ColdEntryType, DayMoment, SleepReport
 
 logger = logging.getLogger(__name__)
+
+
+async def _apply_reflection(
+    moment: DayMoment,
+    result,
+    writer: MemoryWriter,
+    storage: BaseStorage,
+    trait_cache: TraitCache,
+    existing_categories: list[str],
+    report: SleepReport,
+) -> None:
+    """Write a reflection result to hot memory and storage."""
+    if result.text:
+        visitor_name = moment.metadata.get("visitor_name")
+        thread_id = moment.metadata.get("thread_id")
+
+        counts = apply_reflection_to_hot_memory(
+            moment, result.text,
+            writer=writer,
+            visitor_name=visitor_name,
+            thread_id=thread_id,
+            categories=result.categories,
+        )
+        report.journal_entries_written += counts.get("journal", 0)
+        report.reflections.append(result.text)
+
+        if result.categories:
+            for cat in result.categories:
+                if cat and cat not in existing_categories:
+                    existing_categories.append(cat)
+
+    if result.totems or result.traits:
+        try:
+            session_id = moment.metadata.get("session_id")
+            await write_extracted_facts(
+                moment, totems=result.totems, traits=result.traits,
+                storage=storage, trait_cache=trait_cache,
+                source_session_id=session_id,
+            )
+        except Exception:
+            logger.debug("Fact writing failed for moment %s", moment.id, exc_info=True)
 
 
 async def consolidate(
@@ -84,80 +125,116 @@ async def consolidate(
 
     all_cold_echoes: list[dict] = []
     trait_cache: TraitCache = {}
+    # Cache embeddings from cold search to reuse in batch embed step
+    moment_embeddings: dict[str, list[float]] = {}
 
     # Get existing hot categories for LLM prompt
     existing_categories = reader.list_subdirs() if reader else []
 
-    # Step 2: Per-moment processing
-    for moment in moments:
-        cold_echoes: list[dict] = []
+    # Salience thresholds for tiered reflection
+    high_threshold = float(cfg.get("consolidation.high_salience_threshold", 0.50))
+    med_threshold = float(cfg.get("consolidation.med_salience_threshold", 0.40))
+    med_batch_size = int(cfg.get("consolidation.med_batch_size", 8))
 
-        # Cold search (full only) — find echoes from older memories
+    # Partition moments into tiers
+    high_moments: list[DayMoment] = []
+    med_moments: list[DayMoment] = []
+    low_moments: list[DayMoment] = []
+    for moment in moments:
+        if moment.salience >= high_threshold:
+            high_moments.append(moment)
+        elif moment.salience >= med_threshold:
+            med_moments.append(moment)
+        else:
+            low_moments.append(moment)
+
+    logger.info(
+        "Consolidation tiers: %d high, %d medium, %d low (of %d total)",
+        len(high_moments), len(med_moments), len(low_moments), len(moments),
+    )
+
+    # Step 2a: Cold search for ALL moments (needed for cold archive embedding)
+    for moment in moments:
         if not is_nap and embedder:
-            cold_echoes = await find_cold_echoes(
+            cold_echoes, embedding = await find_cold_echoes(
                 moment, storage, embedder, limit=3
             )
+            if embedding is not None:
+                moment_embeddings[moment.id] = embedding
             all_cold_echoes.extend(cold_echoes)
             report.cold_echoes_found += len(cold_echoes)
 
-        # LLM reflection + fact extraction (single call)
+    # Step 2b: High salience — individual LLM reflection (full detail)
+    for moment in high_moments:
         if llm and writer and reader:
             result = await reflect_on_moment(
                 moment,
                 reader=reader,
                 storage=storage,
                 llm=llm,
-                cold_echoes=cold_echoes,
                 config=cfg,
                 existing_categories=existing_categories,
             )
-
-            if result.text:
-                # Extract visitor name from metadata if present
-                visitor_name = moment.metadata.get("visitor_name")
-                thread_id = moment.metadata.get("thread_id")
-
-                # Write reflection to hot memory (with dynamic categories)
-                counts = apply_reflection_to_hot_memory(
-                    moment, result.text,
-                    writer=writer,
-                    visitor_name=visitor_name,
-                    thread_id=thread_id,
-                    categories=result.categories,
-                )
-                report.journal_entries_written += counts.get("journal", 0)
-                report.reflections.append(result.text)
-
-                # Update existing categories for subsequent moments
-                if result.categories:
-                    for cat in result.categories:
-                        if cat and cat not in existing_categories:
-                            existing_categories.append(cat)
-
-            # Write extracted facts (totems + traits) to storage
-            if result.totems or result.traits:
-                try:
-                    session_id = moment.metadata.get("session_id")
-                    await write_extracted_facts(
-                        moment, totems=result.totems, traits=result.traits,
-                        storage=storage, trait_cache=trait_cache,
-                        source_session_id=session_id,
-                    )
-                except Exception:
-                    logger.debug("Fact writing failed for moment %s", moment.id, exc_info=True)
-
-        elif writer:
-            # No LLM — write raw moment to journal
-            writer.append_journal(
-                moment.content,
-                date=moment.timestamp,
-                moment_id=moment.id,
+            _apply_reflection(
+                moment, result, writer, storage, trait_cache,
+                existing_categories, report,
             )
+        elif writer:
+            writer.append_journal(moment.content, date=moment.timestamp, moment_id=moment.id)
             report.journal_entries_written += 1
 
-        # Mark processed
         await storage.mark_moment_processed(moment.id, nap=is_nap)
         report.moments_processed += 1
+
+    # Step 2c: Medium salience — batched reflection (small groups)
+    for i in range(0, len(med_moments), med_batch_size):
+        batch = med_moments[i:i + med_batch_size]
+        if llm and writer and reader:
+            result = await reflect_on_batch(
+                batch,
+                reader=reader,
+                storage=storage,
+                llm=llm,
+                config=cfg,
+                existing_categories=existing_categories,
+            )
+            # Apply batch result to first moment (for hot memory filing)
+            _apply_reflection(
+                batch[0], result, writer, storage, trait_cache,
+                existing_categories, report,
+            )
+        elif writer:
+            for moment in batch:
+                writer.append_journal(moment.content, date=moment.timestamp, moment_id=moment.id)
+                report.journal_entries_written += 1
+
+        for moment in batch:
+            await storage.mark_moment_processed(moment.id, nap=is_nap)
+            report.moments_processed += 1
+
+    # Step 2d: Low salience — one big batch (minimal LLM cost)
+    if low_moments:
+        if llm and writer and reader:
+            result = await reflect_on_batch(
+                low_moments,
+                reader=reader,
+                storage=storage,
+                llm=llm,
+                config=cfg,
+                existing_categories=existing_categories,
+            )
+            _apply_reflection(
+                low_moments[0], result, writer, storage, trait_cache,
+                existing_categories, report,
+            )
+        elif writer:
+            for moment in low_moments:
+                writer.append_journal(moment.content, date=moment.timestamp, moment_id=moment.id)
+                report.journal_entries_written += 1
+
+        for moment in low_moments:
+            await storage.mark_moment_processed(moment.id, nap=is_nap)
+            report.moments_processed += 1
 
     # Upsert visitors (full only — nap moments are re-processed during full sleep,
     # so upserting during nap would double-count the visit)
@@ -205,9 +282,11 @@ async def consolidate(
         if embedder:
             for moment in moments:
                 try:
-                    # Truncate to ~7000 chars to stay within embedding model token limits
-                    embed_text = moment.content[:7000] if len(moment.content) > 7000 else moment.content
-                    embedding = await embedder.embed(embed_text)
+                    # Reuse embedding from cold search if available
+                    embedding = moment_embeddings.get(moment.id)
+                    if embedding is None:
+                        embed_text = moment.content[:7000] if len(moment.content) > 7000 else moment.content
+                        embedding = await embedder.embed(embed_text)
                     # Write to unified cold_memory table
                     session_id = moment.metadata.get("session_id")
                     turn_index = moment.metadata.get("turn_index")
