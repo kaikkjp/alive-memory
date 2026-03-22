@@ -31,6 +31,8 @@ async def recall(
     storage: BaseStorage | None = None,
     visitor_id: str | None = None,
     embedder: EmbeddingProvider | None = None,
+    visual_sources: list | None = None,
+    visual_boundary: int | None = None,
 ) -> RecallContext:
     """Retrieve context relevant to a query.
 
@@ -48,6 +50,8 @@ async def recall(
         config: Configuration parameters.
         storage: Storage backend (optional for backward compat).
         visitor_id: Known visitor ID for direct lookups (optional).
+        visual_sources: List of VisualSource objects to search (optional).
+        visual_boundary: Max boundary value for visual search filtering (optional).
 
     Returns:
         RecallContext with categorized results.
@@ -144,6 +148,25 @@ async def recall(
         identity = reader.read_self_knowledge("identity")
         if identity:
             ctx.self_knowledge.append(identity)
+
+    # Step 7: Visual source search (external visual DBs)
+    if visual_sources:
+        try:
+            from alive_memory.visual.search import search_visual
+        except ImportError:
+            logger.debug("Visual search module not available, skipping")
+            visual_sources = None
+
+    if visual_sources:
+        for source in visual_sources:
+            try:
+                matches = await search_visual(
+                    source, query, limit=limit, boundary=visual_boundary,
+                )
+                ctx.visual.extend(matches)
+                ctx.total_hits += len(matches)
+            except Exception:
+                logger.debug("Visual source search failed", exc_info=True)
 
     return ctx
 

@@ -25,6 +25,8 @@ async def find_cold_echoes(
     *,
     limit: int = 3,
     min_score: float = 0.3,
+    visual_sources: list | None = None,
+    visual_boundary: int | None = None,
 ) -> tuple[list[dict], list[float] | None]:
     """Search cold archive for memories that echo a day moment.
 
@@ -34,6 +36,8 @@ async def find_cold_echoes(
         embedder: Embedding provider to vectorize the moment.
         limit: Max echoes to return.
         min_score: Minimum cosine similarity to qualify as an echo.
+        visual_sources: List of VisualSource objects to search (optional).
+        visual_boundary: Max boundary value for visual search filtering (optional).
 
     Returns:
         Tuple of (echoes, embedding). The embedding is returned so callers
@@ -52,4 +56,29 @@ async def find_cold_echoes(
 
     # Filter by minimum score (search_cold_memory uses blended score)
     echoes = [r for r in results if r.get("cosine_score", r.get("score", 0)) >= min_score]
+
+    # Search visual sources for cross-temporal visual connections
+    if visual_sources:
+        try:
+            from alive_memory.visual.search import search_visual
+        except ImportError:
+            logger.debug("Visual search module not available, skipping in cold search")
+            visual_sources = None
+
+    if visual_sources:
+        for source in visual_sources:
+            try:
+                matches = await search_visual(
+                    source, embed_text, limit=limit, boundary=visual_boundary,
+                )
+                for match in matches:
+                    echoes.append({
+                        "content": f"[visual] {match.filepath}",
+                        "cosine_score": match.score,
+                        "entry_type": "visual",
+                        "metadata": match.metadata,
+                    })
+            except Exception:
+                logger.debug("Visual source cold search failed", exc_info=True)
+
     return echoes, embedding

@@ -35,7 +35,7 @@ class OpenRouterProvider:
     def __init__(
         self,
         api_key: str | None = None,
-        model: str = "anthropic/claude-sonnet-4-20250514",
+        model: str = "x-ai/grok-4.1-fast",
         max_retries: int = 3,
         backoff_delays: list[float] | None = None,
     ):

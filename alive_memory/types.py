@@ -134,6 +134,7 @@ class RecallContext:
     reflections: list[str] = field(default_factory=list)
     thread_context: list[str] = field(default_factory=list)
     cold_echoes: list[str] = field(default_factory=list)
+    visual: list = field(default_factory=list)  # list[VisualMatch] from visual sources
     totem_facts: list[str] = field(default_factory=list)
     trait_facts: list[str] = field(default_factory=list)
     extra_context: list[str] = field(default_factory=list)
@@ -193,6 +194,21 @@ class RecallContext:
             if items:
                 body = "\n".join(f"- {item}" for item in items)
                 sections.append(f"### {title}\n{body}")
+        # Visual matches (VisualMatch objects with filepath, score, metadata)
+        if self.visual:
+            lines: list[str] = []
+            for match in self.visual:
+                meta = getattr(match, "metadata", {})
+                parts = [getattr(match, "filepath", str(match))]
+                if meta.get("chapter_num") is not None:
+                    parts.append(f"ch.{meta['chapter_num']}")
+                if meta.get("page_num") is not None:
+                    parts.append(f"p.{meta['page_num']}")
+                score = getattr(match, "score", None)
+                if score is not None:
+                    parts.append(f"score={score:.2f}")
+                lines.append(f"- {' | '.join(parts)}")
+            sections.append(f"### Visual References\n" + "\n".join(lines))
         if not sections:
             return ""
         return "## Relevant Context\n\n" + "\n\n".join(sections)

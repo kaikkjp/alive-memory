@@ -173,6 +173,7 @@ class AliveMemory:
         llm: LLMProvider | str | None = None,
         embedder: EmbeddingProvider | str | None = None,
         clock: Clock | None = None,
+        visual_sources: list | None = None,
     ):
         """Initialize AliveMemory.
 
@@ -192,6 +193,8 @@ class AliveMemory:
                       "openai" — uses OPENAI_API_KEY env var
                       "local" — hash-based (no API, default)
                       Defaults to LocalEmbeddingProvider if not provided.
+            visual_sources: List of VisualSource objects for external visual DBs
+                           (optional). Searched during recall and dreaming.
         """
         # Storage (Tier 1 + Tier 3)
         if isinstance(storage, str):
@@ -229,6 +232,9 @@ class AliveMemory:
 
         # Clock
         self._clock = clock or SystemClock()
+
+        # Visual sources (external visual DBs for recall/dreaming)
+        self._visual_sources = visual_sources or []
 
         # Track previous drives for salience delta calculation
         self._prev_drives: DriveState | None = None
@@ -424,6 +430,7 @@ class AliveMemory:
         *,
         limit: int = 10,
         visitor_id: str | None = None,
+        visual_boundary: int | None = None,
     ) -> RecallContext:
         """Retrieve context relevant to a query from memory.
 
@@ -436,6 +443,9 @@ class AliveMemory:
             limit: Maximum results per category.
             visitor_id: Known visitor ID for direct lookups (optional).
                 If not provided, attempts to identify visitor from query.
+            visual_boundary: Max boundary value for visual search filtering
+                (e.g. current chapter number). Only visual content at or below
+                this boundary is returned. None means no filtering.
 
         Returns:
             RecallContext with categorized results.
@@ -450,6 +460,8 @@ class AliveMemory:
             storage=self._storage,
             visitor_id=visitor_id,
             embedder=self._embedder,
+            visual_sources=self._visual_sources if self._visual_sources else None,
+            visual_boundary=visual_boundary,
         )
 
     # ── Consolidation ────────────────────────────────────────────
