@@ -61,6 +61,7 @@ async def write_extracted_facts(
     storage: BaseStorage,
     trait_cache: TraitCache | None = None,
     source_session_id: str | None = None,
+    event_timestamp: str | None = None,
 ) -> dict[str, int]:
     """Write pre-extracted totems and traits to storage.
 
@@ -100,6 +101,7 @@ async def write_extracted_facts(
                 category=totem_category,
                 source_moment_id=moment.id,
                 source_session_id=source_session_id,
+                event_timestamp=event_timestamp,
             )
             counts["totems"] += 1
         except Exception:
@@ -136,6 +138,7 @@ async def write_extracted_facts(
                 confidence=trait_confidence,
                 source_moment_id=moment.id,
                 source_session_id=source_session_id,
+                event_timestamp=event_timestamp,
             )
             counts["traits"] += 1
         except Exception:

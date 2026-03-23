@@ -123,18 +123,23 @@ async def run_wake_transition(
             for moment in unprocessed:
                 try:
                     embedding = await embedder.embed(moment.content)
+                    event_ts = moment.metadata.get("timestamp")
+                    wake_metadata = {
+                        "event_type": moment.event_type.value,
+                        "valence": moment.valence,
+                        "salience": moment.salience,
+                    }
+                    if event_ts:
+                        wake_metadata["timestamp"] = event_ts
                     await storage.store_cold_memory(
                         content=moment.content,
                         embedding=embedding,
                         entry_type=ColdEntryType.EVENT,
                         raw_content=moment.content,
                         source_moment_id=moment.id,
-                        metadata={
-                            "event_type": moment.event_type.value,
-                            "valence": moment.valence,
-                            "salience": moment.salience,
-                        },
+                        metadata=wake_metadata,
                         session_id=moment.metadata.get("session_id"),
+                        event_timestamp=event_ts,
                     )
                     # Prevent duplicate wake embeddings on subsequent runs.
                     await storage.mark_moment_processed(moment.id)

@@ -227,8 +227,14 @@ class BaseStorage(ABC):
         source_moment_id: str | None = None,
         source_session_id: str | None = None,
         source_turn_id: str | None = None,
+        event_timestamp: str | None = None,
     ) -> str:
-        """Insert a totem (semantic fact). Returns totem ID."""
+        """Insert a totem (semantic fact). Returns totem ID.
+
+        Args:
+            event_timestamp: Original event time (ISO format). Used for
+                first_seen_at/last_seen_at instead of wallclock time.
+        """
         ...
 
     @abstractmethod
@@ -268,8 +274,14 @@ class BaseStorage(ABC):
         source_moment_id: str | None = None,
         source_session_id: str | None = None,
         source_turn_id: str | None = None,
+        event_timestamp: str | None = None,
     ) -> str:
-        """Insert a trait observation. Returns trait ID."""
+        """Insert a trait observation. Returns trait ID.
+
+        Args:
+            event_timestamp: Original event time (ISO format). Used for
+                first_seen_at/last_seen_at instead of wallclock time.
+        """
         ...
 
     @abstractmethod
@@ -309,8 +321,14 @@ class BaseStorage(ABC):
         session_id: str | None = None,
         turn_index: int | None = None,
         role: str | None = None,
+        event_timestamp: str | None = None,
     ) -> str:
-        """Store an entry in the unified cold memory archive. Returns entry ID."""
+        """Store an entry in the unified cold memory archive. Returns entry ID.
+
+        Args:
+            event_timestamp: Original event time (ISO format). Used as created_at
+                instead of wallclock time when provided.
+        """
         ...
 
     @abstractmethod
