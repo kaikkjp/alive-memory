@@ -88,7 +88,7 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 ignore = ["E501"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["alive_memory", "tools"]
+known-first-party = ["alive_memory", "alive_cognition", "tools"]
 
 [tool.mypy]
 python_version = "3.12"
@@ -96,8 +96,11 @@ warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false
 
+[tool.hatch.build.targets.sdist]
+include = ["alive_memory", "alive_cognition"]
+
 [tool.hatch.build.targets.wheel]
-packages = ["alive_memory"]
+packages = ["alive_memory", "alive_cognition"]
 
 [tool.coverage.run]
 source = ["alive_memory"]

@@ -6,6 +6,8 @@ from datetime import UTC, datetime
 
 import pytest
 
+from alive_cognition import Thalamus
+from alive_cognition.types import EventSchema
 from alive_memory import AliveMemory
 from alive_memory.config import AliveConfig
 from alive_memory.consolidation.whisper import translate_whisper
@@ -14,8 +16,6 @@ from alive_memory.hot.writer import MemoryWriter
 from alive_memory.intake.affect import apply_affect, compute_valence
 from alive_memory.intake.drives import clamp, update_drives, update_mood
 from alive_memory.intake.formation import _adjust_salience, _is_duplicate
-from alive_memory.intake.thalamus import _estimate_novelty
-from alive_memory.intake.thalamus import perceive
 from alive_memory.meta.controller import classify_outcome, compute_adaptive_cooldown
 from alive_memory.recall.weighting import decay_strength
 from alive_memory.storage.sqlite import SQLiteStorage
@@ -42,10 +42,12 @@ def tmp_memory_dir():
     d = tempfile.mkdtemp(prefix="alive_test_memory_")
     yield d
     import shutil
+
     shutil.rmtree(d, ignore_errors=True)
 
 
 # ── Config ──────────────────────────────────────────────────────
+
 
 def test_config_defaults():
     cfg = AliveConfig()
@@ -67,24 +69,36 @@ def test_config_set():
 
 # ── Intake: Thalamus ────────────────────────────────────────────
 
+
 def test_perceive_conversation():
-    p = perceive("conversation", "Hello there!")
-    assert p.event_type == EventType.CONVERSATION
+    t = Thalamus()
+    event = EventSchema(event_type=EventType.CONVERSATION, content="Hello there!")
+    p = t.perceive(event)
+    assert p.event.event_type == EventType.CONVERSATION
     assert 0.0 <= p.salience <= 1.0
-    assert p.content == "Hello there!"
+    assert p.event.content == "Hello there!"
 
 
 def test_perceive_with_metadata():
-    p = perceive("observation", "A bird outside", metadata={"salience": 0.95})
+    t = Thalamus()
+    event = EventSchema(
+        event_type=EventType.OBSERVATION,
+        content="A bird outside",
+        metadata={"salience": 0.95},
+    )
+    p = t.perceive(event)
     assert p.salience == 0.95
 
 
 def test_perceive_unknown_type():
-    p = perceive("unknown_event", "something")
-    assert p.event_type == EventType.SYSTEM
+    t = Thalamus()
+    event = EventSchema(event_type=EventType.SYSTEM, content="something")
+    p = t.perceive(event)
+    assert p.event.event_type == EventType.SYSTEM
 
 
 # ── Intake: Affect ──────────────────────────────────────────────
+
 
 def test_compute_valence_positive():
     mood = MoodState(valence=0.0)
@@ -116,6 +130,7 @@ def test_apply_affect_negative_mood():
 
 # ── Intake: Drives ──────────────────────────────────────────────
 
+
 def test_clamp():
     assert clamp(1.5) == 1.0
     assert clamp(-0.5) == 0.0
@@ -139,10 +154,22 @@ def test_update_mood_homeostatic():
 
 # ── Intake: Formation (salience scoring) ────────────────────────
 
-def test_estimate_novelty():
-    assert _estimate_novelty("") == 0.0
-    assert _estimate_novelty("hi") == 0.05
-    assert _estimate_novelty("This is a longer message with some variety") > 0.1
+
+def test_surprise_channel_basic():
+    from alive_cognition.channels import ChannelContext, score_surprise
+
+    ctx = ChannelContext()
+    empty_score, _ = score_surprise(EventSchema(event_type=EventType.SYSTEM, content=""), ctx)
+    assert empty_score <= 0.05  # short/empty content gets minimal baseline
+    short_score, _ = score_surprise(EventSchema(event_type=EventType.SYSTEM, content="hi"), ctx)
+    assert short_score == pytest.approx(0.05)
+    longer_score, _ = score_surprise(
+        EventSchema(
+            event_type=EventType.SYSTEM, content="This is a longer message with some variety"
+        ),
+        ctx,
+    )
+    assert longer_score > 0.1
 
 
 def test_is_duplicate():
@@ -161,12 +188,15 @@ def test_adjust_salience_uses_perception():
 
 
 def test_adjust_salience_metadata_override():
-    p = Perception(EventType.CONVERSATION, "test", 0.5, datetime.now(UTC), metadata={"salience": 0.99})
+    p = Perception(
+        EventType.CONVERSATION, "test", 0.5, datetime.now(UTC), metadata={"salience": 0.99}
+    )
     s = _adjust_salience(p, MoodState(), DriveState(), None)
     assert s == 0.99
 
 
 # ── Recall: Weighting ──────────────────────────────────────────
+
 
 def test_decay_strength():
     s = decay_strength(0.5, age_hours=10)
@@ -181,6 +211,7 @@ def test_classify_outcome():
 
 
 # ── Consolidation: Whisper ──────────────────────────────────────
+
 
 def test_translate_whisper_curiosity():
     d = translate_whisper("drives.curiosity", 0.3, 0.7)
@@ -199,6 +230,7 @@ def test_translate_whisper_unknown():
 
 # ── Meta ────────────────────────────────────────────────────────
 
+
 def test_adaptive_cooldown():
     assert compute_adaptive_cooldown(10, 0.9) == 7
     assert compute_adaptive_cooldown(10, 0.5) == 15
@@ -206,6 +238,7 @@ def test_adaptive_cooldown():
 
 
 # ── Hot Memory: Writer ──────────────────────────────────────────
+
 
 def test_writer_creates_dirs(tmp_memory_dir):
     writer = MemoryWriter(tmp_memory_dir)
@@ -248,6 +281,7 @@ def test_writer_append_reflection(tmp_memory_dir):
 
 
 # ── Hot Memory: Reader ──────────────────────────────────────────
+
 
 def test_reader_grep_memory(tmp_memory_dir):
     writer = MemoryWriter(tmp_memory_dir)
@@ -302,6 +336,7 @@ def test_reader_read_self_knowledge(tmp_memory_dir):
 
 # ── Storage: SQLite (Three-Tier) ────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_sqlite_day_memory(tmp_db):
     storage = SQLiteStorage(tmp_db)
@@ -351,13 +386,21 @@ async def test_sqlite_eviction(tmp_db):
 
     # Add two moments
     m1 = DayMoment(
-        id="m-low", content="Low salience", event_type=EventType.SYSTEM,
-        salience=0.2, valence=0.0, drive_snapshot={},
+        id="m-low",
+        content="Low salience",
+        event_type=EventType.SYSTEM,
+        salience=0.2,
+        valence=0.0,
+        drive_snapshot={},
         timestamp=datetime.now(UTC),
     )
     m2 = DayMoment(
-        id="m-high", content="High salience", event_type=EventType.CONVERSATION,
-        salience=0.9, valence=0.0, drive_snapshot={},
+        id="m-high",
+        content="High salience",
+        event_type=EventType.CONVERSATION,
+        salience=0.9,
+        valence=0.0,
+        drive_snapshot={},
         timestamp=datetime.now(UTC),
     )
     await storage.record_moment(m1)
@@ -410,6 +453,7 @@ async def test_sqlite_self_model(tmp_db):
 
 
 # ── Full Integration ────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_alive_memory_full_cycle(tmp_db, tmp_memory_dir):

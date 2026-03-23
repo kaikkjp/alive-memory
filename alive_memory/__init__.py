@@ -16,7 +16,10 @@ __version__ = "1.0.0a1"
 import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from alive_cognition.types import EventSchema
 
 from alive_memory.clock import Clock, SystemClock
 from alive_memory.config import AliveConfig
@@ -70,6 +73,7 @@ class _CallableLLM:
         import inspect
 
         from alive_memory.llm.provider import LLMResponse
+
         sig = inspect.signature(self._fn)
         params = sig.parameters
         kwargs: dict[str, Any] = {}
@@ -97,15 +101,19 @@ def _resolve_llm(llm) -> LLMProvider | None:
     name = llm.lower()
     if name == "anthropic":
         from alive_memory.llm.anthropic import AnthropicProvider
+
         return AnthropicProvider()
     if name == "openai":
         from alive_memory.llm.openai import OpenAIProvider
+
         return OpenAIProvider()
     if name == "openrouter":
         from alive_memory.llm.openrouter import OpenRouterProvider
+
         return OpenRouterProvider()
     if name == "gemini":
         from alive_memory.llm.gemini import GeminiProvider
+
         return GeminiProvider()
     raise ValueError(
         f"Unknown LLM provider {llm!r}. Use 'anthropic', 'openai', "
@@ -123,12 +131,14 @@ class _SyncRunner:
     def __init__(self):
         import asyncio
         import threading
+
         self._loop = asyncio.new_event_loop()
         self._thread = threading.Thread(target=self._loop.run_forever, daemon=True)
         self._thread.start()
 
     def run(self, coro):
         import asyncio
+
         future = asyncio.run_coroutine_threadsafe(coro, self._loop)
         return future.result()
 
@@ -147,6 +157,7 @@ def _resolve_embedder(
         name = embedder.lower()
         if name == "openai":
             from alive_memory.embeddings.api import OpenAIEmbeddingProvider
+
             return OpenAIEmbeddingProvider()
         raise ValueError(
             f"Unknown embedding provider {embedder!r}. Use 'openai', 'local', "
@@ -200,7 +211,7 @@ class AliveMemory:
         if isinstance(storage, str):
             path = storage
             if path.startswith("sqlite:///"):
-                path = path[len("sqlite:///"):]
+                path = path[len("sqlite:///") :]
             self._storage = SQLiteStorage(path)
         else:
             self._storage = storage  # type: ignore[assignment]
@@ -232,6 +243,11 @@ class AliveMemory:
 
         # Clock
         self._clock = clock or SystemClock()
+
+        # Thalamus (multi-axis salience scorer)
+        from alive_cognition.thalamus import Thalamus
+
+        self._thalamus = Thalamus(config=self._config)
 
         # Visual sources (external visual DBs for recall/dreaming)
         self._visual_sources = visual_sources or []
@@ -298,7 +314,7 @@ class AliveMemory:
     ) -> DayMoment | None:
         """Record an event. Returns a DayMoment if salient enough, None otherwise.
 
-        Pipeline: event → perception → affect → drives → salience gating → DayMoment
+        Pipeline: event → thalamus scoring → affect → drives → salience gating → DayMoment
 
         Args:
             event_type: Type of event (conversation, action, observation, system).
@@ -309,10 +325,28 @@ class AliveMemory:
         Returns:
             DayMoment if the event was salient enough to record, None otherwise.
         """
-        from alive_memory.intake.affect import apply_affect
-        from alive_memory.intake.drives import update_drives, update_mood
+        from alive_cognition.affect import apply_affect
+        from alive_cognition.drives import update_drives, update_mood
+        from alive_cognition.types import EventSchema
         from alive_memory.intake.formation import form_moment
-        from alive_memory.intake.thalamus import perceive
+
+        # Normalize event_type to EventType enum
+        if isinstance(event_type, EventType):
+            et = event_type
+        else:
+            _valid = {e.value for e in EventType}
+            et = EventType(event_type) if event_type in _valid else EventType.SYSTEM
+
+        # Build structured EventSchema — use configured clock if no timestamp
+        ts = timestamp or self._clock.now()
+        event = EventSchema(
+            event_type=et,
+            content=content,
+            source="chat",
+            actor="user",
+            timestamp=ts,
+            metadata=metadata or {},
+        )
 
         # Extract identity keywords from self-model for identity-aware salience
         identity_kws: list[str] | None = None
@@ -323,21 +357,16 @@ class AliveMemory:
         except Exception:
             pass
 
-        # Step 1: Perceive
-        perception = perceive(
-            event_type, content,
-            config=self._config,
-            metadata=metadata,
-            timestamp=timestamp,
-            clock=self._clock,
-            identity_keywords=identity_kws,
-        )
-
-        # Step 2: Affect lens
+        # Update thalamus context with current state
         mood = await self._storage.get_mood_state()
         drives = await self._storage.get_drive_state()
+        self._thalamus.update_context(
+            identity_keywords=identity_kws,
+            current_drives=drives,
+            current_mood=mood,
+        )
 
-        # Save previous drives for salience delta
+        # Save previous drives for salience delta in formation
         self._prev_drives = DriveState(
             curiosity=drives.curiosity,
             social=drives.social,
@@ -345,31 +374,113 @@ class AliveMemory:
             rest=drives.rest,
         )
 
+        # Score with thalamus (multi-axis salience)
+        scored = self._thalamus.perceive(event)
+
+        # Convert to legacy Perception for affect/drives/formation pipeline
+        perception = scored.to_perception()
+
+        # Affect lens
         perception = apply_affect(perception, mood, drives)
 
-        # Step 3: Update drives
+        # Update drives
         new_drives = update_drives(
-            drives, [perception], elapsed_hours=0.0,
+            drives,
+            [perception],
+            elapsed_hours=0.0,
             config=self._config,
         )
         await self._storage.set_drive_state(new_drives)
 
-        # Step 4: Update mood
+        # Update mood
         new_mood = update_mood(
-            mood, new_drives, [perception], elapsed_hours=0.0,
+            mood,
+            new_drives,
+            [perception],
+            elapsed_hours=0.0,
             config=self._config,
         )
         await self._storage.set_mood_state(new_mood)
 
-        # Step 5: Form moment (salience gating)
+        # Form moment — formation applies its own salience gating via
+        # _adjust_salience, so we let it decide even for DROP-band events
+        # (affect and drive deltas can still rescue borderline events).
         moment = await form_moment(
-            perception, new_mood, new_drives, self._storage,
+            perception,
+            new_mood,
+            new_drives,
+            self._storage,
             previous_drives=self._prev_drives,
             config=self._config,
             clock=self._clock,
         )
 
         return moment
+
+    async def intake_event(self, event: EventSchema) -> DayMoment | None:
+        """Intake a structured EventSchema directly.
+
+        Unlike intake(), this preserves all EventSchema fields (source, actor, etc.)
+        for accurate salience scoring.
+        """
+        from alive_cognition.affect import apply_affect
+        from alive_cognition.drives import update_drives, update_mood
+        from alive_cognition.types import EventSchema as _ES  # noqa: F811
+        from alive_memory.intake.formation import form_moment
+
+        # Ensure timestamp uses configured clock
+        if event.timestamp is None:
+            event = _ES(
+                event_type=event.event_type,
+                content=event.content,
+                source=event.source,
+                actor=event.actor,
+                timestamp=self._clock.now(),
+                metadata=event.metadata,
+            )
+
+        # Same pipeline as intake() but with the full EventSchema
+        identity_kws: list[str] | None = None
+        try:
+            self_model = await self._storage.get_self_model()
+            if self_model.traits:
+                identity_kws = list(self_model.traits.keys())[:10]
+        except Exception:
+            pass
+
+        mood = await self._storage.get_mood_state()
+        drives = await self._storage.get_drive_state()
+        self._thalamus.update_context(
+            identity_keywords=identity_kws,
+            current_drives=drives,
+            current_mood=mood,
+        )
+        self._prev_drives = DriveState(
+            curiosity=drives.curiosity,
+            social=drives.social,
+            expression=drives.expression,
+            rest=drives.rest,
+        )
+
+        scored = self._thalamus.perceive(event)
+        perception = scored.to_perception()
+        perception = apply_affect(perception, mood, drives)
+        new_drives = update_drives(drives, [perception], elapsed_hours=0.0, config=self._config)
+        await self._storage.set_drive_state(new_drives)
+        new_mood = update_mood(
+            mood, new_drives, [perception], elapsed_hours=0.0, config=self._config
+        )
+        await self._storage.set_mood_state(new_mood)
+
+        return await form_moment(
+            perception,
+            new_mood,
+            new_drives,
+            self._storage,
+            previous_drives=self._prev_drives,
+            config=self._config,
+            clock=self._clock,
+        )
 
     # ── Media Intake ─────────────────────────────────────────────
 
@@ -454,7 +565,9 @@ class AliveMemory:
 
         state = await self._storage.get_cognitive_state()
         return await _recall(
-            query, self._reader, state,
+            query,
+            self._reader,
+            state,
             limit=limit,
             config=self._config,
             storage=self._storage,
@@ -612,7 +725,7 @@ class AliveMemory:
         targets: list | None = None,
     ) -> list:
         """Run meta-controller for self-tuning parameter adjustment."""
-        from alive_memory.meta.controller import run_meta_controller
+        from alive_cognition.meta.controller import run_meta_controller
 
         return await run_meta_controller(
             self._storage,
@@ -625,12 +738,14 @@ class AliveMemory:
 
     async def detect_drift(self) -> list:
         """Detect behavioral drift in the self-model."""
-        from alive_memory.identity.drift import detect_drift
+        from alive_cognition.identity.drift import detect_drift
+
         return await detect_drift(self._storage, config=self._config)
 
     async def developmental_history(self) -> dict:
         """Get a summary of identity development over time."""
-        from alive_memory.identity.history import summarize_development
+        from alive_cognition.identity.history import summarize_development
+
         return await summarize_development(self._storage)
 
     # ── Sync Wrappers ─────────────────────────────────────────────

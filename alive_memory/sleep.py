@@ -175,7 +175,7 @@ async def sleep_cycle(
     # ── Phase 3: Meta-review ─────────────────────────────────────
     if sc.enable_meta_review and drive_provider:
         try:
-            from alive_memory.meta.review import run_meta_review
+            from alive_cognition.meta.review import run_meta_review
         except ImportError:
             logger.warning("Meta-review module not available, skipping phase")
         else:
@@ -189,7 +189,7 @@ async def sleep_cycle(
     # ── Phase 4: Evaluation + Meta-controller ────────────────────
     if sc.enable_meta_controller and metrics_provider:
         try:
-            from alive_memory.meta.controller import run_meta_controller
+            from alive_cognition.meta.controller import run_meta_controller
         except ImportError:
             logger.warning("Meta-controller module not available, skipping phase")
         else:
@@ -213,8 +213,8 @@ async def sleep_cycle(
     # ── Phase 5: Identity evolution ──────────────────────────────
     if sc.enable_identity_evolution:
         try:
-            from alive_memory.identity.drift import detect_drift
-            from alive_memory.identity.evolution import GuardRailConfig, IdentityEvolution
+            from alive_cognition.identity.drift import detect_drift
+            from alive_cognition.identity.evolution import GuardRailConfig, IdentityEvolution
         except ImportError:
             logger.warning("Identity modules not available, skipping phase")
         else:

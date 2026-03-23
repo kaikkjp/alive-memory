@@ -9,13 +9,23 @@ Extracted from the Shopkeeper engine into a reusable package.
 ## Repository Structure
 
 ```
+alive_cognition/    # Cognitive layer (thalamus, affect, drives, identity, meta)
+  thalamus.py       # Central routing: events → channels → perception
+  channels.py       # Sensory channel registry
+  habituation.py    # Repetition suppression / novelty gating
+  overrides.py      # Manual salience overrides
+  types.py          # Shared types (Perception, SalienceSignal, etc.)
+  affect.py         # Emotional state tracking
+  drives.py         # Motivational drives (curiosity, social, etc.)
+  identity/         # Self-model, drift detection, evolution
+  meta/             # Self-tuning parameter controller
 alive_memory/       # The SDK package (three-tier: day → hot → cold)
-  intake/           # Event → Perception → DayMoment (salience gating)
+  intake/           # Formation, multimodal, file_watcher (thalamus/affect/drives moved to alive_cognition)
   recall/           # Keyword grep over hot memory markdown files
   consolidation/    # Sleep pipeline: moments → journal → cold embeddings
   hot/              # Tier 2: MemoryReader/MemoryWriter for markdown files
-  identity/         # Self-model, drift detection, evolution
-  meta/             # Self-tuning parameter controller
+  identity/         # Deprecation shim → alive_cognition.identity
+  meta/             # Deprecation shim → alive_cognition.meta
   storage/          # SQLite backend (Tier 1 + Tier 3)
   embeddings/       # Vector providers (hash-based local, OpenAI API)
   llm/              # LLM providers (Anthropic, OpenRouter)
@@ -36,7 +46,9 @@ pyproject.toml      # Package config (hatchling)
 
 ## Boundary Rule
 
-`alive_memory/` NEVER imports from application code. It is a standalone library.
+`alive_memory/` NEVER imports from application code or `alive_cognition`. It is a standalone library.
+
+`alive_cognition/` depends on `alive_memory` primitives (storage, embeddings, types) but never on application code. The dependency flows one way: `alive_cognition` → `alive_memory` → nothing.
 
 ## Running Tests
 

@@ -1,44 +1,16 @@
-"""Meta-cognition: self-tuning parameter adjustments."""
+"""Deprecated — use alive_cognition.meta instead."""
+from __future__ import annotations
 
-from alive_memory.meta.controller import (
-    Experiment,
-    HardFloor,
-    MetricTarget,
-    classify_outcome,
-    compute_adaptive_cooldown,
-    request_correction,
-    run_meta_controller,
-)
-from alive_memory.meta.evaluation import (
-    detect_side_effects,
-    evaluate_experiment,
-    evaluate_pending_experiments,
-)
-from alive_memory.meta.protocols import DriveProvider, MetricsProvider
-from alive_memory.meta.review import (
-    ReviewResult,
-    StabilityReport,
-    review_self_modifications,
-    review_trait_stability,
-    run_meta_review,
-)
+import importlib
+import warnings
 
-__all__ = [
-    "run_meta_controller",
-    "classify_outcome",
-    "compute_adaptive_cooldown",
-    "request_correction",
-    "evaluate_experiment",
-    "evaluate_pending_experiments",
-    "detect_side_effects",
-    "run_meta_review",
-    "review_trait_stability",
-    "review_self_modifications",
-    "MetricTarget",
-    "Experiment",
-    "HardFloor",
-    "MetricsProvider",
-    "DriveProvider",
-    "StabilityReport",
-    "ReviewResult",
-]
+warnings.warn(
+    "alive_memory.meta is deprecated, use alive_cognition.meta",
+    DeprecationWarning,
+    stacklevel=2,
+)
+_mod = importlib.import_module("alive_cognition.meta")
+_g = globals()
+for _attr in dir(_mod):
+    _g[_attr] = getattr(_mod, _attr)
+del _mod, _g, _attr

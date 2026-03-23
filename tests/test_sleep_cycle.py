@@ -365,7 +365,7 @@ async def test_correction_provider_is_used_in_identity_phase(storage, writer, re
     correction_provider = _CorrectionProvider()
 
     with patch(
-        "alive_memory.identity.drift.detect_drift",
+        "alive_cognition.identity.drift.detect_drift",
         new_callable=AsyncMock,
         return_value=[drift],
     ):

@@ -19,7 +19,6 @@ from alive_memory.storage.base import BaseStorage
 from alive_memory.types import (
     DayMoment,
     DriveState,
-    EventType,
     MoodState,
     Perception,
 )
