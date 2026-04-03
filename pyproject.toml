@@ -39,6 +39,7 @@ server = [
     "uvicorn[standard]>=0.32.0",
     "pydantic>=2.0",
 ]
+mcp = ["mcp>=1.0.0"]
 langchain = ["langchain-core>=0.3.0"]
 dashboard = ["streamlit>=1.30.0", "requests>=2.31.0"]
 all = [
@@ -49,6 +50,7 @@ all = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
     "pydantic>=2.0",
+    "mcp>=1.0.0",
     "langchain-core>=0.3.0",
     "streamlit>=1.30.0",
     "requests>=2.31.0",
@@ -64,6 +66,7 @@ dev = [
 
 [project.scripts]
 alive-memory-server = "alive_memory.server.app:main"
+alive-memory-mcp = "alive_memory.adapters.mcp:main"
 
 [project.urls]
 Homepage = "https://github.com/TriMinhPham/alive-memory"
