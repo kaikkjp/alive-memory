@@ -133,6 +133,7 @@ async def run_wake_transition(
                             "event_type": moment.event_type.value,
                             "valence": moment.valence,
                             "salience": moment.salience,
+                            "timestamp": moment.metadata.get("timestamp", ""),
                         },
                         session_id=moment.metadata.get("session_id"),
                     )

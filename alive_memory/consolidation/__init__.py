@@ -381,6 +381,7 @@ async def consolidate(
                             "event_type": moment.event_type.value,
                             "valence": moment.valence,
                             "salience": moment.salience,
+                            "timestamp": moment.metadata.get("timestamp", ""),
                         },
                         source_moment_id=moment.id,
                         session_id=session_id,
