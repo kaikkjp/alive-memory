@@ -221,13 +221,24 @@ async def _bench_worker_async(
                     # Grab retrieved session IDs for R@k
                     retrieved_sids = getattr(system, "_last_retrieved_session_ids", [])
                     gt_entry = gt_raw.get(query.query_id, {})
-                    answer_sids = set(gt_entry.get("evidence", []))
-                    # Compute R@k
+                    answer_sids = set(
+                        gt_entry.get("evidence", [])
+                        or (query.metadata or {}).get("answer_session_ids", [])
+                    )
+                    # Session-level R@k (deduplicated)
                     recall_at_5 = float(any(
                         sid in answer_sids for sid in retrieved_sids[:5]
                     )) if answer_sids else None
                     recall_at_10 = float(any(
                         sid in answer_sids for sid in retrieved_sids[:10]
+                    )) if answer_sids else None
+                    # Turn-level R@k (individual turns, not deduplicated)
+                    turn_sids = getattr(system, "_last_turn_session_ids", [])
+                    turn_recall_5 = float(any(
+                        sid in answer_sids for sid in turn_sids[:5]
+                    )) if answer_sids else None
+                    turn_recall_10 = float(any(
+                        sid in answer_sids for sid in turn_sids[:10]
                     )) if answer_sids else None
 
                     # Write result line to JSONL
@@ -239,6 +250,8 @@ async def _bench_worker_async(
                         "retrieved_session_ids": retrieved_sids,
                         "recall_at_5": recall_at_5,
                         "recall_at_10": recall_at_10,
+                        "turn_recall_at_5": turn_recall_5,
+                        "turn_recall_at_10": turn_recall_10,
                         "query_latency_ms": latency_ms,
                         "worker_id": worker_id,
                         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -462,6 +475,8 @@ async def main_bench(args) -> None:
     all_latencies: list[float] = []
     recall_5_scores: list[float] = []
     recall_10_scores: list[float] = []
+    turn_recall_5: list[float] = []
+    turn_recall_10: list[float] = []
     for jsonl_file in run_dir.glob("worker_*.jsonl"):
         with open(jsonl_file) as f:
             for line in f:
@@ -473,6 +488,10 @@ async def main_bench(args) -> None:
                         recall_5_scores.append(entry["recall_at_5"])
                     if entry.get("recall_at_10") is not None:
                         recall_10_scores.append(entry["recall_at_10"])
+                    if entry.get("turn_recall_at_5") is not None:
+                        turn_recall_5.append(entry["turn_recall_at_5"])
+                    if entry.get("turn_recall_at_10") is not None:
+                        turn_recall_10.append(entry["turn_recall_at_10"])
                 except (json.JSONDecodeError, KeyError):
                     continue
     sorted_lat = sorted(all_latencies)
@@ -486,8 +505,13 @@ async def main_bench(args) -> None:
     if recall_5_scores:
         r5 = sum(recall_5_scores) / len(recall_5_scores)
         r10 = sum(recall_10_scores) / len(recall_10_scores) if recall_10_scores else 0
-        print(f"  Retrieval R@5:  {r5:.3f} ({int(sum(recall_5_scores))}/{len(recall_5_scores)})")
-        print(f"  Retrieval R@10: {r10:.3f} ({int(sum(recall_10_scores))}/{len(recall_10_scores)})")
+        print(f"  Session R@5:  {r5:.3f} ({int(sum(recall_5_scores))}/{len(recall_5_scores)})")
+        print(f"  Session R@10: {r10:.3f} ({int(sum(recall_10_scores))}/{len(recall_10_scores)})")
+    if turn_recall_5:
+        tr5 = sum(turn_recall_5) / len(turn_recall_5)
+        tr10 = sum(turn_recall_10) / len(turn_recall_10) if turn_recall_10 else 0
+        print(f"  Turn R@5:     {tr5:.3f} ({int(sum(turn_recall_5))}/{len(turn_recall_5)})")
+        print(f"  Turn R@10:    {tr10:.3f} ({int(sum(turn_recall_10))}/{len(turn_recall_10)})")
     if sorted_lat:
         print(f"  Query latency (median): {sorted_lat[len(sorted_lat)//2]:.1f}ms")
         print(f"  Query latency (p95):    {sorted_lat[int(len(sorted_lat)*0.95)]:.1f}ms")

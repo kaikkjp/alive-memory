@@ -247,6 +247,10 @@ class AliveMemorySystem(MemorySystemAdapter):
 
         # Stash retrieved session IDs for R@k measurement
         self._last_retrieved_session_ids = list(ctx.retrieved_session_ids)
+        # Turn-level: raw session_ids per cold hit (NOT deduplicated)
+        self._last_turn_session_ids = [
+            h.get("session_id") for h in ctx.cold_hits if h.get("session_id")
+        ]
 
         # No backfill — matching turns only. Full sessions dilute context.
         context = _build_session_context(
