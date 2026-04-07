@@ -68,17 +68,17 @@ async def llm_answer(
             f"The relevant conversation sessions are provided below.\n\n"
             f"{context}\n\n"
             f"Question: {question}\n\n"
-            f"First reason through the conversations to find the answer. "
-            f"Then give your final answer after \"ANSWER: \" on its own line.\n"
-            f"The ANSWER line must be ONLY the specific fact — a name, date, "
-            f"place, number, or short phrase. No explanation.\n"
-            f"If the conversations contain no relevant information, write: "
-            f"ANSWER: I don't know"
+            f"Answer the question based on the conversations above. "
+            f"Be specific — include names, dates, and details from the text. "
+            f"Answer concisely in 1-2 sentences. "
+            f"Only say 'I don't know' if the conversations contain absolutely "
+            f"no relevant information."
         )
     else:
         prompt = (
-            f"Question: {question}\n\n"
-            f"ANSWER: I don't know"
+            f"Answer the following question based on your knowledge. "
+            f"If you truly cannot answer, say 'I don't know'.\n\n"
+            f"Question: {question}"
         )
 
     try:
@@ -101,8 +101,6 @@ async def llm_answer(
             tracker.total_calls += 1
             usage = data.get("usage", {})
             tracker.total_tokens += usage.get("total_tokens", 0)
-            raw = data["choices"][0]["message"]["content"].strip()
-            # Extract the ANSWER: line if present (chain-of-thought format)
-            return _extract_answer(raw)
+            return data["choices"][0]["message"]["content"].strip()
     except Exception as e:
         return f"[error: {e}]"
