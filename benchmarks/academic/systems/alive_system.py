@@ -49,6 +49,9 @@ def _build_session_context(
         if score > session_best_score.get(sid, 0.0):
             session_best_score[sid] = score
 
+    # Track session dates from backfill metadata
+    session_dates: dict[str, str] = {}
+
     if backfill_turns:
         # Full sessions from backfill — group by session_id
         sessions: dict[str, list[tuple[int, str]]] = defaultdict(list)
@@ -57,6 +60,13 @@ def _build_session_context(
             turn_idx = turn.get("turn_index") or 0
             content = turn.get("raw_content") or turn.get("content", "")
             sessions[sid].append((turn_idx, content))
+            # Extract date from metadata (set during intake from haystack_dates)
+            meta = turn.get("metadata", {})
+            if sid not in session_dates:
+                ts = meta.get("timestamp") or turn.get("created_at", "")
+                if ts:
+                    # Normalize to just the date part
+                    session_dates[sid] = ts.split("T")[0].split(" ")[0]
     elif ctx.cold_hits:
         # Fallback: regroup retrieved hits only
         sessions = defaultdict(list)
@@ -83,12 +93,14 @@ def _build_session_context(
         reverse=True,
     )
 
-    # Build session blocks (top 5 sessions, full conversation each)
+    # Build session blocks (top 3 sessions — focused but complete)
     blocks: list[str] = []
-    for sid, turns in sorted_sessions[:5]:
+    for sid, turns in sorted_sessions[:3]:
         turns.sort(key=lambda x: x[0])
         turn_lines = [content for _, content in turns]
-        blocks.append(f"Session {sid}:\n" + "\n".join(turn_lines))
+        date_str = session_dates.get(sid, "")
+        header = f"Session (date: {date_str}):" if date_str else f"Session {sid}:"
+        blocks.append(header + "\n" + "\n".join(turn_lines))
 
     context_parts: list[str] = []
     if blocks:
@@ -229,7 +241,7 @@ class AliveMemorySystem(MemorySystemAdapter):
 
         # Backfill: fetch ALL turns from top retrieved sessions
         backfill_turns = None
-        top_sids = ctx.retrieved_session_ids[:5]
+        top_sids = ctx.retrieved_session_ids[:3]
         if top_sids and self._memory._storage is not None:
             try:
                 backfill_turns = await self._memory._storage.get_session_turns(top_sids)

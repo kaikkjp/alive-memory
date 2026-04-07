@@ -761,7 +761,7 @@ class SQLiteStorage(BaseStorage):
         placeholders = ",".join("?" for _ in session_ids)
         cursor = await conn.execute(
             f"SELECT id, content, raw_content, entry_type, session_id, "
-            f"turn_index, role FROM cold_memory "
+            f"turn_index, role, metadata, created_at FROM cold_memory "
             f"WHERE session_id IN ({placeholders}) "
             f"ORDER BY session_id, turn_index",
             session_ids,
@@ -776,6 +776,8 @@ class SQLiteStorage(BaseStorage):
                 "session_id": row["session_id"],
                 "turn_index": row["turn_index"],
                 "role": row["role"],
+                "metadata": json.loads(row["metadata"] or "{}"),
+                "created_at": row["created_at"],
             }
             for row in rows
         ]
