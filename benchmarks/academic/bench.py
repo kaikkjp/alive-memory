@@ -232,7 +232,7 @@ async def _bench_worker_async(
                     recall_at_10 = float(any(
                         sid in answer_sids for sid in retrieved_sids[:10]
                     )) if answer_sids else None
-                    # Turn-level R@k (individual turns, not deduplicated)
+                    # Turn-level R@k (session-granularity — checks session_id match)
                     turn_sids = getattr(system, "_last_turn_session_ids", [])
                     turn_recall_5 = float(any(
                         sid in answer_sids for sid in turn_sids[:5]
@@ -240,6 +240,30 @@ async def _bench_worker_async(
                     turn_recall_10 = float(any(
                         sid in answer_sids for sid in turn_sids[:10]
                     )) if answer_sids else None
+
+                    # True turn-level R@k (content match against has_answer turns)
+                    evidence_contents = config.get("evidence_map", {}).get(
+                        query.query_id, []
+                    )
+                    true_turn_r5 = None
+                    true_turn_r10 = None
+                    if evidence_contents:
+                        cold_hits = getattr(system, "_last_cold_hits", [])
+                        def _hit_matches_evidence(hit, evidence_list):
+                            content = (
+                                hit.get("_content")
+                                or hit.get("raw_content")
+                                or hit.get("content", "")
+                            ).lower()
+                            return any(ev in content for ev in evidence_list)
+                        true_turn_r5 = float(any(
+                            _hit_matches_evidence(h, evidence_contents)
+                            for h in cold_hits[:5]
+                        ))
+                        true_turn_r10 = float(any(
+                            _hit_matches_evidence(h, evidence_contents)
+                            for h in cold_hits[:10]
+                        ))
 
                     # Write result line to JSONL
                     result_line = {
@@ -252,6 +276,8 @@ async def _bench_worker_async(
                         "recall_at_10": recall_at_10,
                         "turn_recall_at_5": turn_recall_5,
                         "turn_recall_at_10": turn_recall_10,
+                        "true_turn_r5": true_turn_r5,
+                        "true_turn_r10": true_turn_r10,
                         "query_latency_ms": latency_ms,
                         "worker_id": worker_id,
                         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -326,6 +352,41 @@ def _build_session_date_map(data_dir: str, benchmark: str) -> dict[str, str]:
     return date_map
 
 
+def _build_evidence_turn_map(
+    data_dir: str, benchmark: str,
+) -> dict[str, list[str]]:
+    """Build question_id → list of evidence turn content prefixes.
+
+    Uses the has_answer field from LongMemEval's haystack_sessions to
+    identify the exact turns that contain the answer. Returns content
+    prefixes (first 80 chars) for matching against retrieved cold_memory.
+    """
+    if benchmark != "longmemeval":
+        return {}
+    data_file = Path(data_dir) / "longmemeval" / "longmemeval_s_cleaned.json"
+    if not data_file.exists():
+        return {}
+    raw = json.loads(data_file.read_text())
+    evidence_map: dict[str, list[str]] = {}
+    total_evidence = 0
+    for item in raw:
+        qid = item["question_id"]
+        evidence_contents: list[str] = []
+        for sess in item.get("haystack_sessions", []):
+            for turn in sess:
+                if turn.get("has_answer"):
+                    # Store enough content to match (first 60 chars)
+                    evidence_contents.append(turn["content"][:60].lower())
+                    total_evidence += 1
+        if evidence_contents:
+            evidence_map[qid] = evidence_contents
+    print(
+        f"  Loaded {total_evidence} evidence turns for {len(evidence_map)} questions",
+        flush=True,
+    )
+    return evidence_map
+
+
 async def main_bench(args) -> None:
     """CLI entry point for bench command."""
     prepared_dir = Path(args.prepared_dir)
@@ -380,6 +441,7 @@ async def main_bench(args) -> None:
 
     # Build session date map from raw dataset (avoids re-prepare)
     session_date_map = _build_session_date_map(args.data_dir, args.benchmark)
+    evidence_map = _build_evidence_turn_map(args.data_dir, args.benchmark)
 
     if not instance_specs:
         print("All instances already answered. Running evaluation only.")
@@ -388,7 +450,11 @@ async def main_bench(args) -> None:
         w = min(args.workers, n)
 
         # Build config
-        config: dict = {"seed": 42, "session_date_map": session_date_map}
+        config: dict = {
+            "seed": 42,
+            "session_date_map": session_date_map,
+            "evidence_map": evidence_map,
+        }
         llm_config: dict = {}
         if args.llm_model:
             config["llm_model"] = args.llm_model
@@ -477,6 +543,8 @@ async def main_bench(args) -> None:
     recall_10_scores: list[float] = []
     turn_recall_5: list[float] = []
     turn_recall_10: list[float] = []
+    true_turn_r5_scores: list[float] = []
+    true_turn_r10_scores: list[float] = []
     for jsonl_file in run_dir.glob("worker_*.jsonl"):
         with open(jsonl_file) as f:
             for line in f:
@@ -492,6 +560,10 @@ async def main_bench(args) -> None:
                         turn_recall_5.append(entry["turn_recall_at_5"])
                     if entry.get("turn_recall_at_10") is not None:
                         turn_recall_10.append(entry["turn_recall_at_10"])
+                    if entry.get("true_turn_r5") is not None:
+                        true_turn_r5_scores.append(entry["true_turn_r5"])
+                    if entry.get("true_turn_r10") is not None:
+                        true_turn_r10_scores.append(entry["true_turn_r10"])
                 except (json.JSONDecodeError, KeyError):
                     continue
     sorted_lat = sorted(all_latencies)
@@ -510,8 +582,13 @@ async def main_bench(args) -> None:
     if turn_recall_5:
         tr5 = sum(turn_recall_5) / len(turn_recall_5)
         tr10 = sum(turn_recall_10) / len(turn_recall_10) if turn_recall_10 else 0
-        print(f"  Turn R@5:     {tr5:.3f} ({int(sum(turn_recall_5))}/{len(turn_recall_5)})")
-        print(f"  Turn R@10:    {tr10:.3f} ({int(sum(turn_recall_10))}/{len(turn_recall_10)})")
+        print(f"  Session-as-turn R@5:  {tr5:.3f} ({int(sum(turn_recall_5))}/{len(turn_recall_5)})")
+        print(f"  Session-as-turn R@10: {tr10:.3f} ({int(sum(turn_recall_10))}/{len(turn_recall_10)})")
+    if true_turn_r5_scores:
+        ttr5 = sum(true_turn_r5_scores) / len(true_turn_r5_scores)
+        ttr10 = sum(true_turn_r10_scores) / len(true_turn_r10_scores) if true_turn_r10_scores else 0
+        print(f"  True Turn R@5:  {ttr5:.3f} ({int(sum(true_turn_r5_scores))}/{len(true_turn_r5_scores)})")
+        print(f"  True Turn R@10: {ttr10:.3f} ({int(sum(true_turn_r10_scores))}/{len(true_turn_r10_scores)})")
     if sorted_lat:
         print(f"  Query latency (median): {sorted_lat[len(sorted_lat)//2]:.1f}ms")
         print(f"  Query latency (p95):    {sorted_lat[int(len(sorted_lat)*0.95)]:.1f}ms")

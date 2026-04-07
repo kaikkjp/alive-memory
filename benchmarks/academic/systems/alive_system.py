@@ -208,6 +208,8 @@ class AliveMemorySystem(MemorySystemAdapter):
         self._last_turn_session_ids = [
             h.get("session_id") for h in ctx.cold_hits if h.get("session_id")
         ]
+        # Raw cold hits for true turn-level R@k content matching
+        self._last_cold_hits = list(ctx.cold_hits)
 
         # Top-K turns only — pure signal, no session noise
         context = _build_topk_context(
