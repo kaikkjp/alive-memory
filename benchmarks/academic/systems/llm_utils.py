@@ -65,20 +65,19 @@ async def llm_answer(
     if context:
         prompt = (
             f"You are answering questions about a user's past conversations. "
-            f"The relevant conversation sessions are provided below.\n\n"
+            f"The relevant excerpts are provided below.\n\n"
             f"{context}\n\n"
             f"Question: {question}\n\n"
-            f"Answer the question based on the conversations above. "
-            f"Be specific — include names, dates, and details from the text. "
-            f"Answer concisely in 1-2 sentences. "
-            f"Only say 'I don't know' if the conversations contain absolutely "
-            f"no relevant information."
+            f"Reason through the excerpts to find the answer. "
+            f"If a fact was updated across conversations, use the MOST RECENT value. "
+            f"Then give your final answer on its own line starting with \"ANSWER: \".\n"
+            f"The ANSWER must be ONLY the specific fact — a name, date, "
+            f"place, number, or short phrase. No explanation after ANSWER.\n"
+            f"If the excerpts contain no relevant information: ANSWER: I don't know"
         )
     else:
         prompt = (
-            f"Answer the following question based on your knowledge. "
-            f"If you truly cannot answer, say 'I don't know'.\n\n"
-            f"Question: {question}"
+            f"Question: {question}\n\nANSWER: I don't know"
         )
 
     try:
@@ -101,6 +100,7 @@ async def llm_answer(
             tracker.total_calls += 1
             usage = data.get("usage", {})
             tracker.total_tokens += usage.get("total_tokens", 0)
-            return data["choices"][0]["message"]["content"].strip()
+            raw = data["choices"][0]["message"]["content"].strip()
+            return _extract_answer(raw)
     except Exception as e:
         return f"[error: {e}]"

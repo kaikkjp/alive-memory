@@ -31,85 +31,42 @@ _ROLE_TO_EVENT = {
 }
 
 
-def _build_session_context(
+def _build_topk_context(
     ctx: RecallContext,
-    backfill_turns: list[dict] | None = None,
+    max_turns: int = 10,
     session_date_map: dict[str, str] | None = None,
 ) -> str:
-    """Build coherent session context for LLM answer generation.
+    """Build context from top-K retrieved turns only.
 
-    If backfill_turns is provided, uses full session turns (all turns
-    from top sessions, not just the ones that matched). Otherwise falls
-    back to regrouping the retrieved cold hits.
-
-    session_date_map: external session_id→date lookup from raw dataset,
-    avoids needing dates in cold_memory (no re-prepare required).
+    No session regrouping, no backfill. Just the highest-scoring
+    individual turns — pure signal, minimal noise.
     """
-    # Determine session ranking from cold hits
-    session_best_score: dict[str, float] = {}
-    for hit in ctx.cold_hits:
-        sid = hit.get("session_id") or "unknown"
-        score = hit.get("cosine_score", 0.0)
-        if score > session_best_score.get(sid, 0.0):
-            session_best_score[sid] = score
-
-    # Session dates: prefer external map, fall back to cold_memory metadata
-    session_dates: dict[str, str] = dict(session_date_map) if session_date_map else {}
-
-    if backfill_turns:
-        # Full sessions from backfill — group by session_id
-        sessions: dict[str, list[tuple[int, str]]] = defaultdict(list)
-        for turn in backfill_turns:
-            sid = turn.get("session_id") or "unknown"
-            turn_idx = turn.get("turn_index") or 0
-            content = turn.get("raw_content") or turn.get("content", "")
-            sessions[sid].append((turn_idx, content))
-            # Extract date from metadata (set during intake from haystack_dates)
-            meta = turn.get("metadata", {})
-            if sid not in session_dates:
-                ts = meta.get("timestamp") or turn.get("created_at", "")
-                if ts:
-                    # Normalize to just the date part
-                    session_dates[sid] = ts.split("T")[0].split(" ")[0]
-    elif ctx.cold_hits:
-        # Fallback: regroup retrieved hits only
-        sessions = defaultdict(list)
-        for hit in ctx.cold_hits:
-            sid = hit.get("session_id") or "unknown"
-            turn_idx = hit.get("turn_index") or 0
-            content = hit.get("_content") or hit.get("raw_content") or hit.get("content", "")
-            sessions[sid].append((turn_idx, content))
-    else:
-        # Last resort: flat context
+    if not ctx.cold_hits:
         parts: list[str] = []
         if ctx.journal_entries:
-            parts.append("Conversation history:\n" + "\n".join(ctx.journal_entries[:10]))
+            parts.append("Conversation history:\n" + "\n".join(ctx.journal_entries[:5]))
         if ctx.totem_facts:
             parts.append("Known facts:\n" + "\n".join(ctx.totem_facts[:10]))
         if ctx.trait_facts:
             parts.append("Traits:\n" + "\n".join(ctx.trait_facts[:10]))
         return "\n\n".join(parts)
 
-    # Sort sessions by best retrieval score
-    sorted_sessions = sorted(
-        sessions.items(),
-        key=lambda x: session_best_score.get(x[0], 0.0),
-        reverse=True,
-    )
+    date_map = session_date_map or {}
 
-    # Build session blocks (top 3 sessions — focused but complete)
-    blocks: list[str] = []
-    for sid, turns in sorted_sessions[:3]:
-        turns.sort(key=lambda x: x[0])
-        turn_lines = [content for _, content in turns]
-        date_str = session_dates.get(sid, "")
-        header = f"Session (date: {date_str}):" if date_str else f"Session {sid}:"
-        blocks.append(header + "\n" + "\n".join(turn_lines))
+    # Take top-K turns by score, add date context
+    lines: list[str] = []
+    for hit in ctx.cold_hits[:max_turns]:
+        content = hit.get("_content") or hit.get("raw_content") or hit.get("content", "")
+        sid = hit.get("session_id") or ""
+        date = date_map.get(sid, "")
+        if date:
+            lines.append(f"[{date}] {content}")
+        else:
+            lines.append(content)
 
     context_parts: list[str] = []
-    if blocks:
-        context_parts.append("\n\n".join(blocks))
-
+    if lines:
+        context_parts.append("Relevant conversation excerpts:\n" + "\n".join(lines))
     if ctx.totem_facts:
         context_parts.append("Known facts:\n" + "\n".join(ctx.totem_facts[:10]))
     if ctx.trait_facts:
@@ -252,10 +209,10 @@ class AliveMemorySystem(MemorySystemAdapter):
             h.get("session_id") for h in ctx.cold_hits if h.get("session_id")
         ]
 
-        # No backfill — matching turns only. Full sessions dilute context.
-        context = _build_session_context(
+        # Top-K turns only — pure signal, no session noise
+        context = _build_topk_context(
             ctx,
-            backfill_turns=None,
+            max_turns=10,
             session_date_map=session_date_map,
         )
 
