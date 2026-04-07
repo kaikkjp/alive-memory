@@ -1,16 +1,17 @@
-"""Memory retrieval: visitor-aware lookup + keyword search + structured facts.
+"""Memory retrieval: semantic search first, grep + structured facts as supplement.
 
 Recall pipeline:
-  1. If visitor_id provided: direct lookup of visitor profile, totems, traits
-  2. If no visitor_id: attempt to identify visitor from query via known names
-  3. Grep hot memory (journal, visitors, self, reflections, threads)
-  4. Search totems and traits tables by keyword (fallback)
-  5. Return RecallContext with aggregated results
+  1. Cold semantic search (primary — vector similarity over all embedded content)
+  2. If visitor_id provided/detected: direct lookup of visitor profile, totems, traits
+  3. Keyword search on totems and traits tables (supplement)
+  4. Grep hot memory for remaining slots (supplement)
+  5. Recency fallback only if cold returned nothing
 """
 
 from __future__ import annotations
 
 import logging
+import re
 
 from alive_memory.config import AliveConfig
 from alive_memory.embeddings.base import EmbeddingProvider
@@ -19,6 +20,63 @@ from alive_memory.storage.base import BaseStorage
 from alive_memory.types import CognitiveState, ColdEntryType, RecallContext
 
 logger = logging.getLogger(__name__)
+
+
+def _keyword_overlap(query: str, doc: str) -> float:
+    """Fraction of query keywords found in doc (case-insensitive).
+
+    Simple reranking signal: boosts results that share literal terms
+    with the query even if embedding similarity is moderate.
+    """
+    _STOP = {
+        "what",
+        "when",
+        "where",
+        "who",
+        "how",
+        "which",
+        "did",
+        "do",
+        "was",
+        "were",
+        "have",
+        "has",
+        "had",
+        "is",
+        "are",
+        "the",
+        "a",
+        "an",
+        "my",
+        "me",
+        "i",
+        "you",
+        "your",
+        "their",
+        "it",
+        "its",
+        "in",
+        "on",
+        "at",
+        "to",
+        "for",
+        "of",
+        "with",
+        "by",
+        "from",
+        "ago",
+        "last",
+        "that",
+        "this",
+        "there",
+        "about",
+    }
+    keywords = [w for w in re.findall(r"\b[a-z]{3,}\b", query.lower()) if w not in _STOP]
+    if not keywords:
+        return 0.0
+    doc_lower = doc.lower()
+    hits = sum(1 for kw in keywords if kw in doc_lower)
+    return hits / len(keywords)
 
 
 async def recall(
@@ -36,66 +94,62 @@ async def recall(
 ) -> RecallContext:
     """Retrieve context relevant to a query.
 
-    When visitor_id is provided (or detected from the query), does direct
-    ID-based lookups for visitor profile, totems, and traits — matching
-    Shopkeeper's thalamus→hippocampus pattern.
-
-    Falls back to keyword grep + search for open-ended queries.
-
-    Args:
-        query: Search query text.
-        reader: MemoryReader for hot memory files.
-        state: Current cognitive state.
-        limit: Maximum results per category.
-        config: Configuration parameters.
-        storage: Storage backend (optional for backward compat).
-        visitor_id: Known visitor ID for direct lookups (optional).
-        visual_sources: List of VisualSource objects to search (optional).
-        visual_boundary: Max boundary value for visual search filtering (optional).
-
-    Returns:
-        RecallContext with categorized results.
+    Semantic cold search is the PRIMARY retrieval path.
+    Grep and structured lookups supplement with what vectors miss.
     """
     ctx = RecallContext(query=query)
+    _seen: set[str] = set()
 
-    # Step 1: Visitor identification — try to detect from query if not provided
+    # ── Step 1: Cold semantic search (PRIMARY) ──────────────────────
+    if embedder is not None and storage is not None:
+        try:
+            query_vec = await embedder.embed(query)
+            cold_hits = await storage.search_cold_memory(
+                query_vec,
+                limit=limit * 2,
+            )
+            # Rerank with keyword overlap boost
+            reranked = []
+            for hit in cold_hits:
+                cosine = hit.get("cosine_score", 0.0)
+                content = hit.get("raw_content") or hit["content"]
+                overlap = _keyword_overlap(query, content)
+                # Up to 30% boost for keyword overlap (same formula as mempalace)
+                fused = cosine * (1.0 + 0.30 * overlap)
+                reranked.append((fused, hit, content))
+            reranked.sort(key=lambda x: x[0], reverse=True)
+
+            for _, hit, content in reranked[:limit]:
+                if content in _seen:
+                    continue
+                _seen.add(content)
+                _merge_cold_hit(hit, ctx, content)
+                ctx.total_hits += 1
+        except Exception:
+            logger.debug("Semantic cold search failed", exc_info=True)
+
+    # ── Step 2: Visitor identification + direct lookups ─────────────
     resolved_visitor_id = visitor_id
     if storage is not None and not resolved_visitor_id:
         resolved_visitor_id = await _identify_visitor(query, storage)
 
-    # Step 2: Direct visitor lookups (like Shopkeeper's hippocampus)
     if storage is not None and resolved_visitor_id:
         await _fetch_visitor_context(
-            resolved_visitor_id, storage, ctx, limit=limit,
+            resolved_visitor_id,
+            storage,
+            ctx,
+            limit=limit,
+            seen=_seen,
         )
 
-    # Step 3: Grep across all hot memory
-    hits = reader.grep_memory(query, limit=limit * 3)
-    ctx.total_hits += len(hits)
-
-    _SUBDIR_MAP = {
-        "journal": "journal_entries",
-        "visitors": "visitor_notes",
-        "self": "self_knowledge",
-        "reflections": "reflections",
-        "threads": "thread_context",
-    }
-
-    for hit in hits:
-        subdir = hit.get("subdir", "")
-        context = hit.get("context", hit.get("match", ""))
-        field_name = _SUBDIR_MAP.get(subdir, "extra_context")
-        target_list = getattr(ctx, field_name)
-        if len(target_list) < limit:
-            target_list.append(context)
-
-    # Step 4: Keyword search on structured facts (catches things not tied to a visitor)
+    # ── Step 3: Keyword search on structured facts (supplement) ─────
     if storage is not None:
         try:
             totems = await storage.search_totems(query, limit=limit)
             for totem in totems:
                 fact = _format_totem(totem)
-                if fact not in ctx.totem_facts:
+                if fact not in _seen:
+                    _seen.add(fact)
                     ctx.totem_facts.append(fact)
                     ctx.total_hits += 1
         except Exception:
@@ -105,42 +159,41 @@ async def recall(
             traits = await storage.search_traits(query, limit=limit)
             for trait in traits:
                 fact = _format_trait(trait)
-                if fact not in ctx.trait_facts:
+                if fact not in _seen:
+                    _seen.add(fact)
                     ctx.trait_facts.append(fact)
                     ctx.total_hits += 1
         except Exception:
             logger.debug("Trait search failed", exc_info=True)
 
-    # Step 5: Semantic cold search (catches what keyword grep misses)
-    if embedder is not None and storage is not None:
-        try:
-            query_vec = await embedder.embed(query)
-            cold_hits = await storage.search_cold_memory(
-                query_vec, limit=limit,
-            )
-            _seen = {e for e in ctx.journal_entries}
-            _seen.update(ctx.visitor_notes)
-            _seen.update(ctx.totem_facts)
-            _seen.update(ctx.trait_facts)
-            min_score = 0.3  # filter out unrelated hits
-            for hit in cold_hits:
-                if hit.get("cosine_score", 0) < min_score:
-                    continue
-                content = hit["content"]
-                if content in _seen:
-                    continue
-                _seen.add(content)
-                _merge_cold_hit(hit, ctx)
-                ctx.total_hits += 1
-        except Exception:
-            logger.debug("Semantic cold search failed", exc_info=True)
+    # ── Step 4: Grep hot memory (fills remaining slots) ─────────────
+    hits = reader.grep_memory(query, limit=limit * 3)
+    _SUBDIR_MAP = {
+        "journal": "journal_entries",
+        "visitors": "visitor_notes",
+        "self": "self_knowledge",
+        "reflections": "reflections",
+        "threads": "thread_context",
+    }
+    for hit in hits:
+        subdir = hit.get("subdir", "")
+        context = hit.get("context", hit.get("match", ""))
+        if context in _seen:
+            continue
+        field_name = _SUBDIR_MAP.get(subdir, "extra_context")
+        target_list = getattr(ctx, field_name)
+        if len(target_list) < limit:
+            _seen.add(context)
+            target_list.append(context)
+            ctx.total_hits += 1
 
-    # Step 6: Fill gaps with recent context
-    if len(ctx.journal_entries) < 3:
+    # ── Step 5: Recency fallback (only if cold returned nothing) ────
+    if len(ctx.journal_entries) < 3 and ctx.total_hits < 3:
         recent = reader.read_recent_journal(days=2, max_entries=3)
         for entry in recent:
-            if entry not in ctx.journal_entries:
+            if entry not in _seen:
                 ctx.journal_entries.append(entry)
+                _seen.add(entry)
                 if len(ctx.journal_entries) >= limit:
                     break
 
@@ -149,7 +202,7 @@ async def recall(
         if identity:
             ctx.self_knowledge.append(identity)
 
-    # Step 7: Visual source search (external visual DBs)
+    # ── Step 6: Visual source search ────────────────────────────────
     if visual_sources:
         try:
             from alive_memory.visual.search import search_visual
@@ -161,7 +214,10 @@ async def recall(
         for source in visual_sources:
             try:
                 matches = await search_visual(
-                    source, query, limit=limit, boundary=visual_boundary,
+                    source,
+                    query,
+                    limit=limit,
+                    boundary=visual_boundary,
                 )
                 ctx.visual.extend(matches)
                 ctx.total_hits += len(matches)
@@ -172,14 +228,8 @@ async def recall(
 
 
 async def _identify_visitor(query: str, storage: BaseStorage) -> str | None:
-    """Try to identify a visitor mentioned in the query by matching known names.
-
-    Tokenizes the query and searches for each word that looks like a proper name
-    (capitalized), since search_visitors() uses LIKE which fails on full sentences.
-    """
+    """Try to identify a visitor mentioned in the query by matching known names."""
     try:
-        # Extract candidate names: capitalized words from the query
-        import re
         words = re.findall(r"[A-Z][a-z]+", query)
         for word in words:
             visitors = await storage.search_visitors(word, limit=3)
@@ -197,9 +247,11 @@ async def _fetch_visitor_context(
     ctx: RecallContext,
     *,
     limit: int = 10,
+    seen: set[str] | None = None,
 ) -> None:
     """Fetch visitor profile, totems, and traits by ID — direct lookup."""
-    # Visitor profile
+    _seen = seen if seen is not None else set()
+
     try:
         visitor = await storage.get_visitor(visitor_id)
         if visitor:
@@ -209,42 +261,46 @@ async def _fetch_visitor_context(
             if visitor.emotional_imprint:
                 parts.append(f"Emotional imprint: {visitor.emotional_imprint}")
             parts.append(f"Trust: {visitor.trust_level}, visits: {visitor.visit_count}")
-            ctx.visitor_notes.append(" | ".join(parts))
-            ctx.total_hits += 1
+            note = " | ".join(parts)
+            if note not in _seen:
+                _seen.add(note)
+                ctx.visitor_notes.append(note)
+                ctx.total_hits += 1
     except Exception:
         logger.debug("Visitor lookup failed for %s", visitor_id, exc_info=True)
 
-    # Totems by visitor ID
     try:
         totems = await storage.get_totems(visitor_id=visitor_id, limit=limit)
         for totem in totems:
-            ctx.totem_facts.append(_format_totem(totem))
-            ctx.total_hits += 1
+            fact = _format_totem(totem)
+            if fact not in _seen:
+                _seen.add(fact)
+                ctx.totem_facts.append(fact)
+                ctx.total_hits += 1
     except Exception:
         logger.debug("Totem lookup failed for %s", visitor_id, exc_info=True)
 
-    # Traits by visitor ID
     try:
         traits = await storage.get_traits(visitor_id=visitor_id, limit=limit)
         for trait in traits:
-            ctx.trait_facts.append(_format_trait(trait))
-            ctx.total_hits += 1
+            fact = _format_trait(trait)
+            if fact not in _seen:
+                _seen.add(fact)
+                ctx.trait_facts.append(fact)
+                ctx.total_hits += 1
     except Exception:
         logger.debug("Trait lookup failed for %s", visitor_id, exc_info=True)
 
 
-def _merge_cold_hit(hit: dict, ctx: RecallContext) -> None:
+def _merge_cold_hit(hit: dict, ctx: RecallContext, content: str) -> None:
     """Route a cold memory hit into the appropriate RecallContext bucket."""
-    content = hit["content"]
     entry_type = hit.get("entry_type", ColdEntryType.EVENT)
     if entry_type == ColdEntryType.TOTEM:
         ctx.totem_facts.append(content)
     elif entry_type == ColdEntryType.TRAIT:
         ctx.trait_facts.append(content)
     elif entry_type == ColdEntryType.EVENT:
-        # Route to journal_entries so events appear in to_prompt() output
         ctx.journal_entries.append(content)
-        # Also keep in cold_echoes for internal tracking
         ctx.cold_echoes.append(content)
     else:
         ctx.extra_context.append(content)

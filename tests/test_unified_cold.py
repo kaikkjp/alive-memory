@@ -137,8 +137,8 @@ async def test_store_and_search_trait(storage: SQLiteStorage) -> None:
 
 
 @pytest.mark.asyncio
-async def test_weight_blending_ranks_high_weight_higher(storage: SQLiteStorage) -> None:
-    """High-weight totem should rank above low-weight at similar cosine distance."""
+async def test_pure_cosine_ranks_closer_vector_higher(storage: SQLiteStorage) -> None:
+    """Closer cosine should rank first — weight does not override relevance."""
     base_vec = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
     # Low weight totem, slightly closer cosine
@@ -158,8 +158,8 @@ async def test_weight_blending_ranks_high_weight_higher(storage: SQLiteStorage) 
 
     results = await storage.search_cold_memory(base_vec, limit=2)
     assert len(results) == 2
-    # High weight should rank first due to weight blending
-    assert results[0]["content"] == "high-weight fact"
+    # Pure cosine: closer vector ranks first regardless of weight
+    assert results[0]["content"] == "low-weight fact"
 
 
 # ── Entry type filtering ─────────────────────────────────────────────

@@ -84,9 +84,7 @@ class SQLiteStorage(BaseStorage):
         self._db_path = db_path
         self._db: aiosqlite.Connection | None = None
         self._write_lock = asyncio.Lock()
-        self._tx_depth: contextvars.ContextVar[int] = contextvars.ContextVar(
-            "_tx_depth", default=0
-        )
+        self._tx_depth: contextvars.ContextVar[int] = contextvars.ContextVar("_tx_depth", default=0)
 
     async def _get_db(self) -> aiosqlite.Connection:
         if self._db is None:
@@ -146,9 +144,7 @@ class SQLiteStorage(BaseStorage):
         rows = await cursor.fetchall()
         return [_row_to_moment(row) for row in rows]
 
-    async def mark_moment_processed(
-        self, moment_id: str, nap: bool = False
-    ) -> None:
+    async def mark_moment_processed(self, moment_id: str, nap: bool = False) -> None:
         if nap:
             await self._exec_write(
                 "UPDATE day_memory SET nap_processed = 1 WHERE id = ?",
@@ -163,9 +159,7 @@ class SQLiteStorage(BaseStorage):
     async def flush_day_memory(self) -> int:
         conn = await self._get_db()
         async with self._write_lock:
-            cursor = await conn.execute(
-                "SELECT COUNT(*) FROM day_memory WHERE processed = 1"
-            )
+            cursor = await conn.execute("SELECT COUNT(*) FROM day_memory WHERE processed = 1")
             row = await cursor.fetchone()
             count = int(row[0]) if row is not None else 0
             await conn.execute("DELETE FROM day_memory WHERE processed = 1")
@@ -191,9 +185,7 @@ class SQLiteStorage(BaseStorage):
 
     async def get_day_memory_count(self) -> int:
         conn = await self._get_db()
-        cursor = await conn.execute(
-            "SELECT COUNT(*) FROM day_memory WHERE processed = 0"
-        )
+        cursor = await conn.execute("SELECT COUNT(*) FROM day_memory WHERE processed = 0")
         row = await cursor.fetchone()
         return int(row[0]) if row is not None else 0
 
@@ -206,9 +198,7 @@ class SQLiteStorage(BaseStorage):
         return _row_to_moment(row) if row else None
 
     async def delete_moment(self, moment_id: str) -> None:
-        await self._exec_write(
-            "DELETE FROM day_memory WHERE id = ?", (moment_id,)
-        )
+        await self._exec_write("DELETE FROM day_memory WHERE id = ?", (moment_id,))
 
     async def get_recent_moment_content(
         self, window_minutes: int = 30, *, reference_time: str | None = None
@@ -257,7 +247,9 @@ class SQLiteStorage(BaseStorage):
     ) -> list[dict[str, Any]]:
         """Deprecated: redirects to search_cold_memory for backward compat."""
         results = await self.search_cold_memory(
-            embedding=embedding, limit=limit, entry_type=ColdEntryType.EVENT,
+            embedding=embedding,
+            limit=limit,
+            entry_type=ColdEntryType.EVENT,
         )
         # Adapt to legacy return format
         return [
@@ -272,9 +264,7 @@ class SQLiteStorage(BaseStorage):
 
     async def count_cold_embeddings(self) -> int:
         conn = await self._get_db()
-        cursor = await conn.execute(
-            "SELECT COUNT(*) FROM cold_memory WHERE entry_type = 'event'"
-        )
+        cursor = await conn.execute("SELECT COUNT(*) FROM cold_memory WHERE entry_type = 'event'")
         row = await cursor.fetchone()
         return int(row[0]) if row is not None else 0
 
@@ -336,9 +326,7 @@ class SQLiteStorage(BaseStorage):
             drives=drives,
             cycle_count=cs_row["cycle_count"],
             last_sleep=(
-                datetime.fromisoformat(cs_row["last_sleep"])
-                if cs_row["last_sleep"]
-                else None
+                datetime.fromisoformat(cs_row["last_sleep"]) if cs_row["last_sleep"] else None
             ),
             memories_total=cs_row["memories_total"],
         )
@@ -372,14 +360,16 @@ class SQLiteStorage(BaseStorage):
             traits=json.loads(row["traits"] or "{}"),
             behavioral_summary=row["behavioral_summary"],
             self_narrative=row["self_narrative"] if "self_narrative" in keys else "",
-            behavioral_signature=json.loads(row["behavioral_signature"] or "{}") if "behavioral_signature" in keys else {},
-            relational_stance=json.loads(row["relational_stance"] or "{}") if "relational_stance" in keys else {},
+            behavioral_signature=json.loads(row["behavioral_signature"] or "{}")
+            if "behavioral_signature" in keys
+            else {},
+            relational_stance=json.loads(row["relational_stance"] or "{}")
+            if "relational_stance" in keys
+            else {},
             drift_history=json.loads(row["drift_history"] or "[]"),
             version=row["version"],
             snapshot_at=(
-                datetime.fromisoformat(row["snapshot_at"])
-                if row["snapshot_at"]
-                else None
+                datetime.fromisoformat(row["snapshot_at"]) if row["snapshot_at"] else None
             ),
             narrative_version=row["narrative_version"] if "narrative_version" in keys else 0,
         )
@@ -481,13 +471,9 @@ class SQLiteStorage(BaseStorage):
         rows = await cursor.fetchall()
         return {row["key"]: row["value"] for row in rows}
 
-    async def set_parameter(
-        self, key: str, value: float, reason: str = ""
-    ) -> None:
+    async def set_parameter(self, key: str, value: float, reason: str = "") -> None:
         conn = await self._get_db()
-        cursor = await conn.execute(
-            "SELECT value FROM parameters WHERE key = ?", (key,)
-        )
+        cursor = await conn.execute("SELECT value FROM parameters WHERE key = ?", (key,))
         row = await cursor.fetchone()
         old_value = row["value"] if row else None
         now = _now_iso()
@@ -547,20 +533,22 @@ class SQLiteStorage(BaseStorage):
         rows = await cursor.fetchall()
         results: list[dict[str, Any]] = []
         for row in rows:
-            results.append({
-                "id": row["id"],
-                "param_key": row["param_key"],
-                "old_value": row["old_value"],
-                "new_value": row["new_value"],
-                "target_metric": row["target_metric"],
-                "metric_at_change": row["metric_at_change"],
-                "outcome": row["outcome"],
-                "confidence": row["confidence"],
-                "side_effects": json.loads(row["side_effects"] or "[]"),
-                "created_at": row["created_at"],
-                "evaluated_at": row["evaluated_at"],
-                "cycle_at_creation": row["cycle_at_creation"],
-            })
+            results.append(
+                {
+                    "id": row["id"],
+                    "param_key": row["param_key"],
+                    "old_value": row["old_value"],
+                    "new_value": row["new_value"],
+                    "target_metric": row["target_metric"],
+                    "metric_at_change": row["metric_at_change"],
+                    "outcome": row["outcome"],
+                    "confidence": row["confidence"],
+                    "side_effects": json.loads(row["side_effects"] or "[]"),
+                    "created_at": row["created_at"],
+                    "evaluated_at": row["evaluated_at"],
+                    "cycle_at_creation": row["cycle_at_creation"],
+                }
+            )
         return results
 
     async def update_experiment(self, experiment_id: str, updates: dict[str, Any]) -> None:
@@ -723,9 +711,7 @@ class SQLiteStorage(BaseStorage):
                 (entry_type,),
             )
         else:
-            cursor = await conn.execute(
-                "SELECT * FROM cold_memory WHERE embedding IS NOT NULL"
-            )
+            cursor = await conn.execute("SELECT * FROM cold_memory WHERE embedding IS NOT NULL")
         rows = await cursor.fetchall()
 
         scored: list[tuple[float, dict[str, Any]]] = []
@@ -735,20 +721,24 @@ class SQLiteStorage(BaseStorage):
                 continue
             cosine = _cosine_similarity(embedding, stored_emb)
             w = row["weight"] if row["weight"] is not None else 1.0
-            # Blend cosine similarity with weight for ranking
-            score = cosine * 0.7 + w * 0.3
-            scored.append((score, {
-                "id": row["id"],
-                "content": row["content"],
-                "raw_content": row["raw_content"],
-                "entry_type": row["entry_type"],
-                "visitor_id": row["visitor_id"],
-                "weight": w,
-                "category": row["category"],
-                "metadata": json.loads(row["metadata"] or "{}"),
-                "score": score,
-                "cosine_score": cosine,
-            }))
+            # Pure cosine ranking — weight available but doesn't dilute relevance
+            scored.append(
+                (
+                    cosine,
+                    {
+                        "id": row["id"],
+                        "content": row["content"],
+                        "raw_content": row["raw_content"],
+                        "entry_type": row["entry_type"],
+                        "visitor_id": row["visitor_id"],
+                        "weight": w,
+                        "category": row["category"],
+                        "metadata": json.loads(row["metadata"] or "{}"),
+                        "score": cosine,
+                        "cosine_score": cosine,
+                    },
+                )
+            )
 
         scored.sort(key=lambda x: x[0], reverse=True)
         return [item for _, item in scored[:limit]]
@@ -775,9 +765,21 @@ class SQLiteStorage(BaseStorage):
                 first_seen, last_referenced, source_moment_id,
                 source_session_id, source_turn_id, first_seen_at, last_seen_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (totem_id, visitor_id, entity, weight, context, category,
-             now, now, source_moment_id,
-             source_session_id, source_turn_id, now, now),
+            (
+                totem_id,
+                visitor_id,
+                entity,
+                weight,
+                context,
+                category,
+                now,
+                now,
+                source_moment_id,
+                source_session_id,
+                source_turn_id,
+                now,
+                now,
+            ),
         )
         return totem_id
 
@@ -808,7 +810,9 @@ class SQLiteStorage(BaseStorage):
 
     async def search_totems(self, query: str, *, limit: int = 10) -> list[Totem]:
         conn = await self._get_db()
-        keywords = [kw for kw in (re.sub(r"[^\w]", "", w).lower() for w in query.split()) if len(kw) >= 2]
+        keywords = [
+            kw for kw in (re.sub(r"[^\w]", "", w).lower() for w in query.split()) if len(kw) >= 2
+        ]
         if not keywords:
             return []
         # Search entity and context fields
@@ -862,9 +866,20 @@ class SQLiteStorage(BaseStorage):
                 confidence, source_moment_id, created_at,
                 source_session_id, source_turn_id, first_seen_at, last_seen_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (trait_id, visitor_id, trait_category, trait_key, trait_value,
-             confidence, source_moment_id, now,
-             source_session_id, source_turn_id, now, now),
+            (
+                trait_id,
+                visitor_id,
+                trait_category,
+                trait_key,
+                trait_value,
+                confidence,
+                source_moment_id,
+                now,
+                source_session_id,
+                source_turn_id,
+                now,
+                now,
+            ),
         )
         return trait_id
 
@@ -891,7 +906,9 @@ class SQLiteStorage(BaseStorage):
 
     async def search_traits(self, query: str, *, limit: int = 10) -> list[VisitorTrait]:
         conn = await self._get_db()
-        keywords = [kw for kw in (re.sub(r"[^\w]", "", w).lower() for w in query.split()) if len(kw) >= 2]
+        keywords = [
+            kw for kw in (re.sub(r"[^\w]", "", w).lower() for w in query.split()) if len(kw) >= 2
+        ]
         if not keywords:
             return []
         conditions = []
@@ -934,9 +951,7 @@ class SQLiteStorage(BaseStorage):
     ) -> None:
         conn = await self._get_db()
         now = _now_iso()
-        cursor = await conn.execute(
-            "SELECT id FROM visitors WHERE id = ?", (visitor_id,)
-        )
+        cursor = await conn.execute("SELECT id FROM visitors WHERE id = ?", (visitor_id,))
         existing = await cursor.fetchone()
         if existing:
             updates = ["last_visit = ?", "visit_count = visit_count + 1"]
@@ -958,15 +973,12 @@ class SQLiteStorage(BaseStorage):
                    (id, name, trust_level, visit_count, first_visit, last_visit,
                     emotional_imprint, summary)
                    VALUES (?, ?, 'stranger', 1, ?, ?, ?, ?)""",
-                (visitor_id, name, now, now,
-                 emotional_imprint or "", summary or ""),
+                (visitor_id, name, now, now, emotional_imprint or "", summary or ""),
             )
 
     async def get_visitor(self, visitor_id: str) -> Visitor | None:
         conn = await self._get_db()
-        cursor = await conn.execute(
-            "SELECT * FROM visitors WHERE id = ?", (visitor_id,)
-        )
+        cursor = await conn.execute("SELECT * FROM visitors WHERE id = ?", (visitor_id,))
         row = await cursor.fetchone()
         return _row_to_visitor(row) if row else None
 
@@ -1030,9 +1042,7 @@ class SQLiteStorage(BaseStorage):
             sql = migration_file.read_text()
             for stmt in sql.split(";"):
                 cleaned = "\n".join(
-                    line
-                    for line in stmt.strip().splitlines()
-                    if not line.strip().startswith("--")
+                    line for line in stmt.strip().splitlines() if not line.strip().startswith("--")
                 ).strip()
                 if cleaned:
                     await conn.execute(cleaned)
@@ -1055,7 +1065,9 @@ def _row_to_totem(row: aiosqlite.Row) -> Totem:
         context=row["context"],
         category=row["category"],
         first_seen=datetime.fromisoformat(row["first_seen"]) if row["first_seen"] else None,
-        last_referenced=datetime.fromisoformat(row["last_referenced"]) if row["last_referenced"] else None,
+        last_referenced=datetime.fromisoformat(row["last_referenced"])
+        if row["last_referenced"]
+        else None,
         source_moment_id=row["source_moment_id"],
     )
 
