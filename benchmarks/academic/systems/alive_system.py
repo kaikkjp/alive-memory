@@ -109,6 +109,15 @@ class AliveMemorySystem(MemorySystemAdapter):
         intake.setdefault("max_salience_threshold", 0.0)
         intake.setdefault("max_day_moments", 999999)
 
+        # Consolidation: batch everything instead of per-turn reflection.
+        # Per-turn reflection is designed for incremental use (few turns/day).
+        # Benchmark dumps ~550 turns at once — batching is 3x faster and gives
+        # better fact extraction (LLM sees session context, not isolated turns).
+        consol = sdk_config.setdefault("consolidation", {})
+        consol.setdefault("high_salience_threshold", 1.0)  # nothing is "high"
+        consol.setdefault("med_salience_threshold", 0.0)   # everything is "medium"
+        consol.setdefault("med_batch_size", 12)             # ~1 session per batch
+
         # Wire up LLM provider for consolidation
         llm = None
         self._llm_calls = 0
