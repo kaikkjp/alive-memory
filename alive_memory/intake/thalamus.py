@@ -110,6 +110,7 @@ def _compute_salience(
         EventType.CONVERSATION: 0.25,
         EventType.ACTION: 0.20,
         EventType.OBSERVATION: 0.15,
+        EventType.SELF_RESPONSE: 0.10,
         EventType.SYSTEM: 0.05,
     }
     base = _event_base.get(event_type, 0.10)

@@ -23,11 +23,11 @@ from benchmarks.academic.systems.llm_utils import LLMTracker, llm_answer
 _ROLE_TO_EVENT = {
     "user": EventType.CONVERSATION,
     "human": EventType.CONVERSATION,
-    # Assistant turns are things WE said — treat as observations, not visitor input.
-    # This prevents consolidation from extracting "facts" from our own responses
-    # (e.g., yoga mat recommendations, BBQ recipes) as if the visitor stated them.
-    "assistant": EventType.OBSERVATION,
-    "ai": EventType.OBSERVATION,
+    # Assistant turns are things WE said — not visitor input.
+    # SELF_RESPONSE prevents consolidation from extracting "facts" from our own
+    # responses (e.g., yoga mat recommendations, BBQ recipes) as visitor facts.
+    "assistant": EventType.SELF_RESPONSE,
+    "ai": EventType.SELF_RESPONSE,
     "system": EventType.SYSTEM,
     "observation": EventType.OBSERVATION,
     "action": EventType.ACTION,

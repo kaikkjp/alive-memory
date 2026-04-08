@@ -17,6 +17,7 @@ class EventType(Enum):
     ACTION = "action"
     OBSERVATION = "observation"
     SYSTEM = "system"
+    SELF_RESPONSE = "self_response"  # agent's own output (not visitor input)
 
 
 class MemoryType(Enum):
