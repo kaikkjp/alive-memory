@@ -49,6 +49,8 @@ def exact_match(prediction: str, reference: str) -> float:
 def substring_match(prediction: str, references: list[str]) -> float:
     """Check if any reference substring appears in prediction (or vice versa)."""
     pred_norm = normalize_text(prediction)
+    if not pred_norm:
+        return 0.0
     for ref in references:
         ref_norm = normalize_text(ref)
         if ref_norm and (ref_norm in pred_norm or pred_norm in ref_norm):
@@ -83,10 +85,14 @@ def _extract_numbers(text: str) -> set[str]:
 
 
 def numeric_match(prediction: str, reference: str) -> float:
-    """Score 1.0 if prediction and reference share a numeric value."""
+    """Score 1.0 if ALL numbers in prediction appear in reference.
+
+    Requires full numeric agreement: "June 14 2021" vs "June 14 2022"
+    would fail because "2021" is not in the reference's number set.
+    """
     pred_nums = _extract_numbers(prediction)
     ref_nums = _extract_numbers(reference)
-    if pred_nums and ref_nums and pred_nums & ref_nums:
+    if pred_nums and ref_nums and pred_nums <= ref_nums:
         return 1.0
     return 0.0
 

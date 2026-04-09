@@ -139,23 +139,20 @@ def _build_session_context(
             parts.append("Traits:\n" + "\n".join(ctx.trait_facts[:10]))
         return "\n\n".join(parts)
 
-    # Sort sessions chronologically when dates available (so LLM sees
-    # temporal order for knowledge-update questions), else by score.
+    # Select top 5 sessions by relevance score, then sort those
+    # chronologically so the LLM sees temporal order for knowledge updates.
+    by_score = sorted(
+        sessions.items(),
+        key=lambda x: session_best_score.get(x[0], 0.0),
+        reverse=True,
+    )
+    top_sessions = by_score[:5]
     if session_dates:
-        sorted_sessions = sorted(
-            sessions.items(),
-            key=lambda x: session_dates.get(x[0], "9999"),
-        )
-    else:
-        sorted_sessions = sorted(
-            sessions.items(),
-            key=lambda x: session_best_score.get(x[0], 0.0),
-            reverse=True,
-        )
+        top_sessions.sort(key=lambda x: session_dates.get(x[0], "9999"))
 
-    # Build session blocks — top 5 sessions, max 8 turns each
+    # Build session blocks — max 8 turns each
     blocks: list[str] = []
-    for sid, turns in sorted_sessions[:5]:
+    for sid, turns in top_sessions:
         turns.sort(key=lambda x: x[0])
         turn_lines = [content for _, content in turns[:8]]
         date_str = session_dates.get(sid, "")

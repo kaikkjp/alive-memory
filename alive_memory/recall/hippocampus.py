@@ -135,6 +135,10 @@ async def recall(
                 reverse=True,
             )
 
+            # Minimum cosine score to include a cold hit. Below this,
+            # the result is likely noise and would suppress better fallbacks.
+            _COSINE_FLOOR = 0.15
+
             diverse: list[tuple] = []
             _round = 0
             while len(diverse) < limit:
@@ -142,8 +146,10 @@ async def recall(
                 for sid in _sorted_sids:
                     bucket = _session_buckets[sid]
                     if _round < len(bucket) and len(diverse) < limit:
-                        diverse.append(bucket[_round])
-                        added = True
+                        score = bucket[_round][0]
+                        if score >= _COSINE_FLOOR:
+                            diverse.append(bucket[_round])
+                            added = True
                 _round += 1
                 if not added:
                     break
