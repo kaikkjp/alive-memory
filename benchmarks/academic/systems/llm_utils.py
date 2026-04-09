@@ -65,13 +65,13 @@ async def llm_answer(
     if context:
         prompt = (
             f"You are answering questions about a user's past conversations. "
-            f"Sessions are listed in CHRONOLOGICAL ORDER (oldest first, most recent last).\n\n"
+            f"The relevant conversation sessions are provided below.\n\n"
             f"{context}\n\n"
             f"Question: {question}\n\n"
             f"Instructions:\n"
             f"1. Search the conversations for the answer.\n"
-            f"2. If the same fact appears in multiple sessions, ALWAYS use the value from the "
-            f"LATEST (last) session — it supersedes all earlier mentions.\n"
+            f"2. If the same fact was updated across sessions, use the MOST RECENT value "
+            f"(check the session dates).\n"
             f"3. If NONE of the conversations discuss the topic asked about, "
             f"write ANSWER: I don't know\n"
             f"4. Write your final answer after \"ANSWER: \" — ONLY the specific fact "
