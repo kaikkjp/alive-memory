@@ -7,7 +7,22 @@ Searches markdown files using simple keyword matching (no vector search).
 from __future__ import annotations
 
 import re
+from collections import defaultdict
 from pathlib import Path
+
+# Common English stopwords that match too broadly in keyword grep
+_STOPWORDS = frozenset({
+    "the", "be", "to", "of", "and", "in", "that", "have", "it",
+    "for", "not", "on", "with", "he", "as", "you", "do", "at",
+    "this", "but", "his", "by", "from", "they", "we", "say", "her",
+    "she", "or", "an", "will", "my", "one", "all", "would", "there",
+    "their", "what", "so", "up", "out", "if", "about", "who", "get",
+    "which", "go", "me", "when", "make", "can", "like", "no", "just",
+    "him", "know", "take", "how", "come", "could", "them", "see",
+    "than", "now", "look", "only", "into", "some", "time", "very",
+    "your", "its", "our", "did", "had", "has", "was", "are", "were",
+    "been", "being", "does", "also", "any", "may", "much",
+})
 
 
 class MemoryReader:
@@ -42,24 +57,28 @@ class MemoryReader:
     ) -> list[dict[str, str]]:
         """Search all hot memory files for keywords.
 
-        Returns matching passages with file context.
-        This is the PRIMARY recall mechanism — markdown-first, not vector search.
+        Returns matching passages ranked by keyword density and spread
+        across source files for multi-session diversity.
 
         Args:
-            query: Search keywords (space-separated, any match).
+            query: Search keywords (space-separated).
             subdirs: Limit search to specific subdirs (e.g., ["journal", "visitors"]).
             limit: Max results to return.
             context_lines: Lines of context around each match.
 
         Returns:
-            List of dicts with keys: file, line_num, match, context, subdir.
+            List of dicts with keys: file, line_num, match, context, subdir, score.
         """
-        keywords = [kw.lower() for kw in query.split() if len(kw) >= 2]
+        keywords = [
+            kw.lower() for kw in query.split()
+            if len(kw) >= 2 and kw.lower() not in _STOPWORDS
+        ]
         if not keywords:
             return []
 
         search_dirs = subdirs or self.list_subdirs()
-        results: list[dict[str, str]] = []
+        candidates: list[dict] = []
+        internal_cap = max(limit * 10, 200)
 
         for subdir in search_dirs:
             dir_path = self._root / subdir
@@ -75,21 +94,62 @@ class MemoryReader:
                 for i, line in enumerate(lines):
                     line_lower = line.lower()
                     if any(kw in line_lower for kw in keywords):
-                        # Gather context
                         start = max(0, i - context_lines)
                         end = min(len(lines), i + context_lines + 1)
                         context = "\n".join(lines[start:end])
+                        context_lower = context.lower()
 
-                        results.append({
-                            "file": str(md_file.relative_to(self._root)),
+                        # Score: fraction of distinct keywords present in context
+                        hits = sum(1 for kw in keywords if kw in context_lower)
+                        score = hits / len(keywords)
+
+                        rel_file = str(md_file.relative_to(self._root))
+                        candidates.append({
+                            "file": rel_file,
                             "line_num": str(i + 1),
                             "match": line.strip(),
                             "context": context,
                             "subdir": subdir,
+                            "score": score,
                         })
 
-                        if len(results) >= limit:
-                            return results
+                        if len(candidates) >= internal_cap:
+                            break
+                if len(candidates) >= internal_cap:
+                    break
+            if len(candidates) >= internal_cap:
+                break
+
+        if not candidates:
+            return []
+
+        # Sort by score descending
+        candidates.sort(key=lambda r: r["score"], reverse=True)
+
+        # Diversity: round-robin across source files so results span sessions
+        by_file: dict[str, list[dict]] = defaultdict(list)
+        for c in candidates:
+            by_file[c["file"]].append(c)
+
+        results: list[dict] = []
+        seen_contexts: set[str] = set()
+        file_keys = list(by_file.keys())
+        idx = 0
+        while len(results) < limit and file_keys:
+            key = file_keys[idx % len(file_keys)]
+            bucket = by_file[key]
+            if bucket:
+                item = bucket.pop(0)
+                # Deduplicate overlapping context windows
+                if item["context"] not in seen_contexts:
+                    seen_contexts.add(item["context"])
+                    results.append(item)
+            if not bucket:
+                file_keys.remove(key)
+                if file_keys:
+                    idx = idx % len(file_keys)
+            else:
+                idx += 1
 
         return results
 

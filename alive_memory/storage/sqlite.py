@@ -690,8 +690,10 @@ class SQLiteStorage(BaseStorage):
         session_id: str | None = None,
         turn_index: int | None = None,
         role: str | None = None,
+        event_timestamp: str | None = None,
     ) -> str:
         entry_id = str(uuid.uuid4())
+        created = event_timestamp or _now_iso()
         await self._exec_write(
             """INSERT INTO cold_memory
                (id, content, raw_content, embedding, entry_type, visitor_id,
@@ -709,7 +711,7 @@ class SQLiteStorage(BaseStorage):
                 category,
                 json.dumps(metadata or {}),
                 source_moment_id,
-                _now_iso(),
+                created,
                 session_id,
                 turn_index,
                 role,
@@ -774,9 +776,11 @@ class SQLiteStorage(BaseStorage):
         source_moment_id: str | None = None,
         source_session_id: str | None = None,
         source_turn_id: str | None = None,
+        event_timestamp: str | None = None,
     ) -> str:
         totem_id = str(uuid.uuid4())
         now = _now_iso()
+        ts = event_timestamp or now
         await self._exec_write(
             """INSERT INTO totems
                (id, visitor_id, entity, weight, context, category,
@@ -784,8 +788,8 @@ class SQLiteStorage(BaseStorage):
                 source_session_id, source_turn_id, first_seen_at, last_seen_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (totem_id, visitor_id, entity, weight, context, category,
-             now, now, source_moment_id,
-             source_session_id, source_turn_id, now, now),
+             ts, now, source_moment_id,
+             source_session_id, source_turn_id, ts, now),
         )
         return totem_id
 
@@ -861,9 +865,11 @@ class SQLiteStorage(BaseStorage):
         source_moment_id: str | None = None,
         source_session_id: str | None = None,
         source_turn_id: str | None = None,
+        event_timestamp: str | None = None,
     ) -> str:
         trait_id = str(uuid.uuid4())
         now = _now_iso()
+        ts = event_timestamp or now
         await self._exec_write(
             """INSERT INTO visitor_traits
                (id, visitor_id, trait_category, trait_key, trait_value,
@@ -871,8 +877,8 @@ class SQLiteStorage(BaseStorage):
                 source_session_id, source_turn_id, first_seen_at, last_seen_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (trait_id, visitor_id, trait_category, trait_key, trait_value,
-             confidence, source_moment_id, now,
-             source_session_id, source_turn_id, now, now),
+             confidence, source_moment_id, ts,
+             source_session_id, source_turn_id, ts, now),
         )
         return trait_id
 

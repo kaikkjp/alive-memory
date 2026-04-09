@@ -66,10 +66,12 @@ async def _apply_reflection(
     if result.totems or result.traits:
         try:
             session_id = moment.metadata.get("session_id")
+            event_ts = moment.metadata.get("timestamp")
             await write_extracted_facts(
                 moment, totems=result.totems, traits=result.traits,
                 storage=storage, trait_cache=trait_cache,
                 source_session_id=session_id,
+                event_timestamp=event_ts,
             )
         except Exception:
             logger.debug("Fact writing failed for moment %s", moment.id, exc_info=True)
@@ -119,6 +121,7 @@ async def _apply_batch_reflection(
                     matched, totems=[totem], traits=[],
                     storage=storage, trait_cache=trait_cache,
                     source_session_id=matched.metadata.get("session_id"),
+                    event_timestamp=matched.metadata.get("timestamp"),
                 )
             except Exception:
                 logger.debug("Batch totem write failed", exc_info=True)
@@ -130,6 +133,7 @@ async def _apply_batch_reflection(
                     matched, totems=[], traits=[trait],
                     storage=storage, trait_cache=trait_cache,
                     source_session_id=matched.metadata.get("session_id"),
+                    event_timestamp=matched.metadata.get("timestamp"),
                 )
             except Exception:
                 logger.debug("Batch trait write failed", exc_info=True)
@@ -372,20 +376,25 @@ async def consolidate(
                     session_id = moment.metadata.get("session_id")
                     turn_index = moment.metadata.get("turn_index")
                     role = moment.metadata.get("role")
+                    event_ts = moment.metadata.get("timestamp")
+                    cold_metadata = {
+                        "event_type": moment.event_type.value,
+                        "valence": moment.valence,
+                        "salience": moment.salience,
+                    }
+                    if event_ts:
+                        cold_metadata["timestamp"] = event_ts
                     await storage.store_cold_memory(
                         content=moment.content,
                         embedding=embedding,
                         entry_type=ColdEntryType.EVENT,
                         raw_content=moment.content,
-                        metadata={
-                            "event_type": moment.event_type.value,
-                            "valence": moment.valence,
-                            "salience": moment.salience,
-                        },
+                        metadata=cold_metadata,
                         source_moment_id=moment.id,
                         session_id=session_id,
                         turn_index=turn_index,
                         role=role,
+                        event_timestamp=event_ts,
                     )
                     embedded += 1
                 except Exception:

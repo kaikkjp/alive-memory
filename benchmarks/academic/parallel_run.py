@@ -164,7 +164,13 @@ def _serialize_instances(instances: list) -> list[dict]:
                 for q in queries
             ],
             "ground_truth": {
-                qid: {"query_id": gt.query_id, "answer": gt.answer, "category": gt.category}
+                qid: {
+                    "query_id": gt.query_id,
+                    "answer": gt.answer,
+                    "category": gt.category,
+                    "evidence": gt.evidence,
+                    "metadata": gt.metadata,
+                }
                 for qid, gt in ground_truth.items()
             },
         })

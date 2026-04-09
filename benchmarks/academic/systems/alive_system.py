@@ -149,25 +149,34 @@ class AliveMemorySystem(MemorySystemAdapter):
             return "[error: memory not initialized]"
 
         # Recall from alive's three-tier memory
-        ctx = await self._memory.recall(query=query.question, limit=10)
+        ctx = await self._memory.recall(query=query.question, limit=20)
 
         # Build context from all tiers
         context_parts: list[str] = []
 
+        # Dump ALL totems — structured facts are the highest-signal source
+        if self._memory._storage is not None:
+            try:
+                from alive_memory.recall.hippocampus import _format_totem
+                all_totems = await self._memory._storage.get_totems(limit=5000)
+                if all_totems:
+                    totem_lines = [_format_totem(t) for t in all_totems]
+                    context_parts.append("All known facts:\n" + "\n".join(totem_lines))
+            except Exception:
+                pass
+
         if ctx.journal_entries:
-            context_parts.append("Journal entries:\n" + "\n".join(ctx.journal_entries[:5]))
+            context_parts.append("Journal entries:\n" + "\n".join(ctx.journal_entries[:10]))
         if ctx.visitor_notes:
-            context_parts.append("Visitor notes:\n" + "\n".join(ctx.visitor_notes[:3]))
+            context_parts.append("Visitor notes:\n" + "\n".join(ctx.visitor_notes[:5]))
         if ctx.self_knowledge:
             context_parts.append("Self-knowledge:\n" + "\n".join(ctx.self_knowledge[:3]))
         if hasattr(ctx, "reflections") and ctx.reflections:
-            context_parts.append("Reflections:\n" + "\n".join(ctx.reflections[:3]))
-        if ctx.totem_facts:
-            context_parts.append("Known facts:\n" + "\n".join(ctx.totem_facts[:10]))
+            context_parts.append("Reflections:\n" + "\n".join(ctx.reflections[:5]))
         if ctx.trait_facts:
             context_parts.append("Traits:\n" + "\n".join(ctx.trait_facts[:10]))
         if hasattr(ctx, "cold_echoes") and ctx.cold_echoes:
-            context_parts.append("Historical echoes:\n" + "\n".join(ctx.cold_echoes[:3]))
+            context_parts.append("Historical echoes:\n" + "\n".join(ctx.cold_echoes[:5]))
 
         context = "\n\n".join(context_parts)
 

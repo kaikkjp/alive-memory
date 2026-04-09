@@ -28,7 +28,7 @@ consolidation:
   cold_embed_limit: 50        # Max embeddings to create per sleep cycle
 
 recall:
-  default_limit: 10
+  default_limit: 20
   context_lines: 3            # Lines of context around grep matches
 
 identity:

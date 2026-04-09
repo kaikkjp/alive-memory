@@ -70,7 +70,7 @@ async def recall(
         )
 
     # Step 3: Grep across all hot memory
-    hits = reader.grep_memory(query, limit=limit * 3)
+    hits = reader.grep_memory(query, limit=limit * 5)
     ctx.total_hits += len(hits)
 
     _SUBDIR_MAP = {
@@ -116,13 +116,13 @@ async def recall(
         try:
             query_vec = await embedder.embed(query)
             cold_hits = await storage.search_cold_memory(
-                query_vec, limit=limit,
+                query_vec, limit=limit * 2,
             )
             _seen = {e for e in ctx.journal_entries}
             _seen.update(ctx.visitor_notes)
             _seen.update(ctx.totem_facts)
             _seen.update(ctx.trait_facts)
-            min_score = 0.3  # filter out unrelated hits
+            min_score = 0.15  # permissive threshold — ranking handles relevance
             for hit in cold_hits:
                 if hit.get("cosine_score", 0) < min_score:
                     continue

@@ -52,7 +52,7 @@ def tmp_memory_dir():
 def test_config_defaults():
     cfg = AliveConfig()
     assert cfg.get("memory.embedding_dimensions") == 384
-    assert cfg.get("recall.default_limit") == 10
+    assert cfg.get("recall.default_limit") == 20
     assert cfg.get("nonexistent", 42) == 42
 
 
