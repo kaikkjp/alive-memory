@@ -318,18 +318,33 @@ async def consolidate(
             report.moments_processed += 1
 
     # Upsert visitors (full only — nap moments are re-processed during full sleep,
-    # so upserting during nap would double-count the visit)
+    # so upserting during nap would double-count the visit).
+    # Mirrors fact_extraction's fallback: visitor_id may be a stable ID
+    # (e.g. tg_12345) without a display name, in which case we use the id as
+    # a placeholder so the visitors row still exists for search_visitors /
+    # reach-out. We collect across all moments first so that any moment in
+    # the batch carrying a real visitor_name promotes the placeholder before
+    # the upsert runs — otherwise an earlier id-only moment would lock in the
+    # placeholder for the whole run.
     if not is_nap:
-        seen_visitors: set[str] = set()
+        visitor_names: dict[str, str] = {}
         for moment in moments:
-            visitor_name = moment.metadata.get("visitor_name")
-            visitor_id = moment.metadata.get("visitor_id") or visitor_name
-            if visitor_id and visitor_name and visitor_id not in seen_visitors:
-                seen_visitors.add(visitor_id)
-                try:
-                    await storage.upsert_visitor(visitor_id, visitor_name)
-                except Exception:
-                    logger.debug("Failed to upsert visitor %s", visitor_id, exc_info=True)
+            vid = (
+                moment.metadata.get("visitor_id")
+                or moment.metadata.get("visitor_name")
+            )
+            if not vid:
+                continue
+            vname = moment.metadata.get("visitor_name") or vid
+            # Prefer a real display name over the id placeholder.
+            existing = visitor_names.get(vid)
+            if existing is None or existing == vid:
+                visitor_names[vid] = vname
+        for vid, vname in visitor_names.items():
+            try:
+                await storage.upsert_visitor(vid, vname)
+            except Exception:
+                logger.debug("Failed to upsert visitor %s", vid, exc_info=True)
 
     # Step 3 (full only): Daily summary + batch embed + flush
     if not is_nap:
