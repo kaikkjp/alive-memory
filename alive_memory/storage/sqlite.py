@@ -998,11 +998,19 @@ class SQLiteStorage(BaseStorage):
     ) -> None:
         conn = await self._get_db()
         now = _now_iso()
-        cursor = await conn.execute("SELECT id FROM visitors WHERE id = ?", (visitor_id,))
+        cursor = await conn.execute(
+            "SELECT name FROM visitors WHERE id = ?", (visitor_id,)
+        )
         existing = await cursor.fetchone()
         if existing:
             updates = ["last_visit = ?", "visit_count = visit_count + 1"]
             params: list[Any] = [now]
+            # Promote a placeholder name (== visitor_id) to a real one as soon
+            # as the caller learns it. Once a real name is in place we leave it
+            # alone so a stray id-only call can't blow it away.
+            if existing["name"] == visitor_id and name != visitor_id:
+                updates.append("name = ?")
+                params.append(name)
             if emotional_imprint is not None:
                 updates.append("emotional_imprint = ?")
                 params.append(emotional_imprint)
@@ -1031,11 +1039,14 @@ class SQLiteStorage(BaseStorage):
 
     async def search_visitors(self, query: str, *, limit: int = 5) -> list[Visitor]:
         conn = await self._get_db()
+        like = f"%{query.lower()}%"
         cursor = await conn.execute(
             """SELECT * FROM visitors
-               WHERE LOWER(name) LIKE ? OR LOWER(summary) LIKE ?
+               WHERE LOWER(name) LIKE ?
+                  OR LOWER(summary) LIKE ?
+                  OR LOWER(id) LIKE ?
                ORDER BY last_visit DESC LIMIT ?""",
-            (f"%{query.lower()}%", f"%{query.lower()}%", limit),
+            (like, like, like, limit),
         )
         rows = await cursor.fetchall()
         return [_row_to_visitor(row) for row in rows]

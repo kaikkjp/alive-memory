@@ -206,6 +206,42 @@ async def test_search_visitors(storage):
     assert results[0].name == "Alice"
 
 
+async def test_upsert_visitor_promotes_placeholder_name(storage):
+    """A visitor first seen by id-only gets a placeholder name (== id).
+    When a later upsert supplies a real display name, the placeholder must
+    be replaced — otherwise tg_12345 sticks forever and search_visitors("Alice")
+    can never find this person."""
+    await storage.upsert_visitor("tg_1", "tg_1")  # placeholder
+    await storage.upsert_visitor("tg_1", "Alice")  # real name learned later
+
+    visitor = await storage.get_visitor("tg_1")
+    assert visitor.name == "Alice"
+    assert visitor.visit_count == 2
+
+    # Once a real name is in place, an accidental id-only call must NOT
+    # blow it away — that would be a regression.
+    await storage.upsert_visitor("tg_1", "tg_1")
+    visitor = await storage.get_visitor("tg_1")
+    assert visitor.name == "Alice"
+    assert visitor.visit_count == 3
+
+
+async def test_search_visitors_by_id(storage):
+    """Stable IDs (e.g. tg_12345) must be searchable so reach-out can find them
+    when only the ID — not a display name — is known."""
+    await storage.upsert_visitor("tg_678830487", "tg_678830487")
+    await storage.upsert_visitor("v2", "Bob")
+
+    results = await storage.search_visitors("tg_678830487")
+    assert len(results) == 1
+    assert results[0].id == "tg_678830487"
+
+    # Partial id match still works
+    results = await storage.search_visitors("678830487")
+    assert len(results) == 1
+    assert results[0].id == "tg_678830487"
+
+
 async def test_get_visitor_not_found(storage):
     result = await storage.get_visitor("nonexistent")
     assert result is None
@@ -226,6 +262,142 @@ async def test_trait_dedup():
     assert _trait_is_duplicate("v1", "personal", "age", "30", cache)
     # Different value should not be duplicate
     assert not _trait_is_duplicate("v1", "personal", "age", "31", cache)
+
+
+async def test_consolidate_upserts_visitor_from_id_only(storage):
+    """If a moment carries only visitor_id (no visitor_name), full sleep
+    consolidation must still create the visitors row so search_visitors and
+    proactive reach-out can find the person. Previously this was gated on
+    both fields being present, leaving orphaned totems pointing at IDs with
+    no visitors row."""
+    from datetime import UTC, datetime
+
+    from alive_memory.consolidation import consolidate
+    from alive_memory.types import DayMoment, EventType
+
+    moment = DayMoment(
+        id="m-id-only",
+        content="Quietly watches the window in the corner.",
+        event_type=EventType.OBSERVATION,
+        salience=0.3,
+        valence=0.0,
+        drive_snapshot={},
+        timestamp=datetime.now(UTC),
+        metadata={"visitor_id": "tg_678830487"},
+    )
+    await storage.record_moment(moment)
+
+    await consolidate(storage)  # full depth, no llm/writer/reader needed
+
+    visitor = await storage.get_visitor("tg_678830487")
+    assert visitor is not None
+    assert visitor.id == "tg_678830487"
+    # No display name was supplied, so the id stands in for the name.
+    assert visitor.name == "tg_678830487"
+
+
+async def test_consolidate_promotes_name_within_batch(storage):
+    """If two moments in the same consolidation batch share a visitor_id but
+    only one carries a real visitor_name, the named moment must win — the
+    earlier id-only moment must not lock in a placeholder for the whole run."""
+    from datetime import UTC, datetime
+
+    from alive_memory.consolidation import consolidate
+    from alive_memory.types import DayMoment, EventType
+
+    # Earlier moment: id only.
+    m1 = DayMoment(
+        id="m-1",
+        content="Quietly watches the window.",
+        event_type=EventType.OBSERVATION,
+        salience=0.3,
+        valence=0.0,
+        drive_snapshot={},
+        timestamp=datetime.now(UTC),
+        metadata={"visitor_id": "tg_42"},
+    )
+    # Later moment in the same batch: id + real name.
+    m2 = DayMoment(
+        id="m-2",
+        content="Says her name is Alice.",
+        event_type=EventType.CONVERSATION,
+        salience=0.4,
+        valence=0.1,
+        drive_snapshot={},
+        timestamp=datetime.now(UTC),
+        metadata={"visitor_id": "tg_42", "visitor_name": "Alice"},
+    )
+    await storage.record_moment(m1)
+    await storage.record_moment(m2)
+
+    await consolidate(storage)
+
+    visitor = await storage.get_visitor("tg_42")
+    assert visitor is not None
+    assert visitor.name == "Alice"
+    # Visit count should bump exactly once per consolidation run, regardless
+    # of how many moments came from this visitor.
+    assert visitor.visit_count == 1
+
+
+async def test_visitor_backfill_from_orphaned_totems(storage):
+    """The 006_visitor_backfill migration must create visitor rows for any
+    visitor_id referenced by totems or visitor_traits but missing from the
+    visitors table, derive first/last_visit from the source records' own
+    timestamps (not migration time), and be idempotent."""
+    await storage.insert_totem(
+        entity="watches the window",
+        visitor_id="tg_orphan_totem",
+        weight=0.4,
+    )
+    await storage.insert_trait(
+        visitor_id="tg_orphan_trait",
+        trait_category="behavior",
+        trait_key="presence",
+        trait_value="quiet",
+    )
+
+    # Capture the source-record timestamps so we can assert the backfill
+    # preserves them rather than stamping "now".
+    conn = await storage._get_db()
+    cursor = await conn.execute(
+        "SELECT first_seen, last_referenced FROM totems WHERE visitor_id = ?",
+        ("tg_orphan_totem",),
+    )
+    totem_first, totem_last = await cursor.fetchone()
+    cursor = await conn.execute(
+        "SELECT created_at FROM visitor_traits WHERE visitor_id = ?",
+        ("tg_orphan_trait",),
+    )
+    (trait_created,) = await cursor.fetchone()
+
+    # Simulate the broken pre-fix DB state: totems/traits exist, visitors empty.
+    await conn.execute("DELETE FROM visitors")
+    await conn.commit()
+    assert await storage.get_visitor("tg_orphan_totem") is None
+    assert await storage.get_visitor("tg_orphan_trait") is None
+
+    # Re-running initialize() re-applies all migrations idempotently, which
+    # in turn runs the backfill INSERT OR IGNORE.
+    await storage.initialize()
+
+    visitor_t = await storage.get_visitor("tg_orphan_totem")
+    visitor_r = await storage.get_visitor("tg_orphan_trait")
+    assert visitor_t is not None and visitor_t.name == "tg_orphan_totem"
+    assert visitor_r is not None and visitor_r.name == "tg_orphan_trait"
+
+    # Recency must come from the totem / trait records, not migration time.
+    from datetime import datetime
+    assert visitor_t.first_visit == datetime.fromisoformat(totem_first)
+    assert visitor_t.last_visit == datetime.fromisoformat(totem_last)
+    assert visitor_r.first_visit == datetime.fromisoformat(trait_created)
+    assert visitor_r.last_visit == datetime.fromisoformat(trait_created)
+
+    # Idempotency: running again must not duplicate or error.
+    await storage.initialize()
+    visitor_t_again = await storage.get_visitor("tg_orphan_totem")
+    assert visitor_t_again is not None
+    assert visitor_t_again.visit_count == 1
 
 
 # ── Recall Integration ────────────────────────────────────────────
