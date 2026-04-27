@@ -14,6 +14,20 @@ from benchmarks.adapters.base import RecallResult
 
 PEOPLE = ("kai", "mira", "noah", "ren", "sana")
 AGENT_NAMES = ("agent", "maru")
+
+_NAME_PATTERNS = {name: re.compile(rf"\b{re.escape(name)}\b") for name in PEOPLE + AGENT_NAMES}
+
+
+def _name_in(name: str, text: str) -> bool:
+    """Match a person/agent name as a whole word, case-insensitive.
+
+    Substring matching wrongly fires on tokens like 'preference', 'current',
+    or 'green' for short names ('ren'), which corrupted boundary-leakage
+    scoring on Track E queries.
+    """
+    return bool(_NAME_PATTERNS[name].search(text.lower()))
+
+
 EMOTIONAL_TERMS = (
     "shaken",
     "surgery",
@@ -112,7 +126,7 @@ def infer_autobiographical_axes(query: dict, ground_truth: dict) -> list[str]:
     if category == "negative_recall" or not ground_truth.get("expected_memories"):
         axes.add("abstention")
 
-    if category == "entity_tracking" or any(person in text for person in PEOPLE):
+    if category == "entity_tracking" or any(_name_in(person, text) for person in PEOPLE):
         axes.update({"person_boundary", "evidence_grounding"})
 
     if _has_any(
@@ -321,9 +335,8 @@ def _trace_rate(results: list[RecallResult], traceability_results: list[dict]) -
 
 
 def _target_people(query_text: str) -> set[str]:
-    text = query_text.lower()
-    targets = {person for person in PEOPLE if person in text}
-    if any(name in text for name in AGENT_NAMES):
+    targets = {person for person in PEOPLE if _name_in(person, query_text)}
+    if any(_name_in(name, query_text) for name in AGENT_NAMES):
         targets.add("agent")
         targets.add("maru")
     return targets
@@ -337,12 +350,13 @@ def _boundary_leakage_rate(query_text: str, results: list[RecallResult]) -> floa
     if not targets:
         return 0.0
 
-    leak_terms = set(PEOPLE) | set(AGENT_NAMES)
-    leak_terms -= targets
+    leak_terms = (set(PEOPLE) | set(AGENT_NAMES)) - targets
+    if not leak_terms:
+        return 0.0
+
     leaked = 0
     for result in results:
-        content = result.content.lower()
-        if any(term in content for term in leak_terms):
+        if any(_name_in(term, result.content) for term in leak_terms):
             leaked += 1
     return leaked / len(results)
 

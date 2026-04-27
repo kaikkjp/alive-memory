@@ -433,9 +433,16 @@ def _answer_aliases(answer, *, task_family: str | None = None) -> list[str]:
         target = answer.get("target_asin")
         if target:
             aliases.append(str(target))
+        # Attributes are properties of the target product, not alternative
+        # correct answers. Adding each as its own alias would let a prediction
+        # like "gluten free" substring-match the alias and score
+        # task-complete without selecting the right product. Combine them into
+        # one full descriptor instead so a partial mention does not match.
         attrs = answer.get("attributes")
-        if isinstance(attrs, list):
-            aliases.extend(str(attr) for attr in attrs)
+        if isinstance(attrs, list) and attrs:
+            full_attrs = " ".join(str(attr) for attr in attrs)
+            if full_attrs:
+                aliases.append(full_attrs)
         aliases.append(json.dumps(answer, sort_keys=True))
         return [a for a in aliases if a]
     if isinstance(answer, list):
