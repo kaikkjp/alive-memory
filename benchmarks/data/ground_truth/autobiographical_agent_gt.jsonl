@@ -1,0 +1,40 @@
+{"query_id": "q_0001", "expected_memories": ["self identity", "kai"], "autobiographical_axes": ["evidence_grounding", "person_boundary"]}
+{"query_id": "q_0002", "expected_memories": ["self identity"], "autobiographical_axes": ["evidence_grounding", "identity_preservation"]}
+{"query_id": "q_0003", "expected_memories": ["Maru, a quiet practical memory companion that favors concise answers and evidence"], "autobiographical_axes": ["evidence_grounding", "identity_preservation"]}
+{"query_id": "q_0004", "expected_memories": ["agent style", "emotional salience", "long gap continuity"], "autobiographical_axes": ["evidence_grounding", "person_boundary"]}
+{"query_id": "q_0005", "expected_memories": ["agent style", "emotional salience", "person boundaries"], "autobiographical_axes": ["evidence_grounding", "person_boundary"]}
+{"query_id": "q_0006", "expected_memories": [], "forbidden_memories": ["quantum computing"], "autobiographical_axes": ["abstention"]}
+{"query_id": "q_0007", "expected_memories": ["self identity", "kai"], "autobiographical_axes": ["evidence_grounding", "person_boundary"]}
+{"query_id": "q_0008", "expected_memories": ["preference corrections"], "autobiographical_axes": ["evidence_grounding", "person_boundary", "taste_currentness"]}
+{"query_id": "q_0009", "expected_memories": ["Maru, a quiet practical memory companion that favors concise answers and evidence"], "autobiographical_axes": ["evidence_grounding", "identity_preservation"]}
+{"query_id": "q_0010", "expected_memories": ["his mother's surgery"], "autobiographical_axes": ["affective_salience", "evidence_grounding", "person_boundary", "temporal_specificity"]}
+{"query_id": "q_0011", "expected_memories": ["agent style", "emotional salience", "evidence grounding"], "autobiographical_axes": ["evidence_grounding", "person_boundary"]}
+{"query_id": "q_0012", "expected_memories": ["agent style", "emotional salience", "evidence grounding"], "autobiographical_axes": ["evidence_grounding", "person_boundary"]}
+{"query_id": "q_0013", "expected_memories": [], "forbidden_memories": ["quantum computing"], "autobiographical_axes": ["abstention"]}
+{"query_id": "q_0014", "expected_memories": ["self identity", "kai"], "autobiographical_axes": ["evidence_grounding", "person_boundary"]}
+{"query_id": "q_0015", "expected_memories": ["emotional salience"], "autobiographical_axes": ["affective_salience", "evidence_grounding", "person_boundary"]}
+{"query_id": "q_0016", "expected_memories": ["avoids caffeine"], "current_fact": "avoids caffeine", "stale_fact": "strong coffee", "autobiographical_axes": ["change_legibility", "contradiction_handling", "evidence_grounding", "person_boundary", "taste_currentness", "temporal_specificity"]}
+{"query_id": "q_0017", "expected_memories": ["Maru, a quiet practical memory companion that favors concise answers and evidence"], "autobiographical_axes": ["evidence_grounding", "identity_preservation"]}
+{"query_id": "q_0018", "expected_memories": ["his mother's surgery"], "autobiographical_axes": ["affective_salience", "evidence_grounding", "person_boundary", "temporal_specificity"]}
+{"query_id": "q_0019", "expected_memories": ["Noah hates horror films"], "autobiographical_axes": ["evidence_grounding", "person_boundary", "taste_currentness"]}
+{"query_id": "q_0020", "expected_memories": ["agent style", "emotional salience", "evidence grounding"], "autobiographical_axes": ["evidence_grounding", "person_boundary"]}
+{"query_id": "q_0021", "expected_memories": ["agent style", "emotional salience", "evidence grounding"], "autobiographical_axes": ["evidence_grounding", "person_boundary"]}
+{"query_id": "q_0022", "expected_memories": ["agent style", "emotional salience", "evidence grounding"], "autobiographical_axes": ["evidence_grounding", "person_boundary"]}
+{"query_id": "q_0023", "expected_memories": [], "forbidden_memories": ["quantum computing"], "autobiographical_axes": ["abstention"]}
+{"query_id": "q_0024", "expected_memories": ["self identity", "kai"], "autobiographical_axes": ["evidence_grounding", "person_boundary"]}
+{"query_id": "q_0025", "expected_memories": ["visitor tastes"], "autobiographical_axes": ["evidence_grounding", "person_boundary", "taste_currentness"]}
+{"query_id": "q_0026", "expected_memories": ["avoids caffeine"], "current_fact": "avoids caffeine", "stale_fact": "strong coffee", "autobiographical_axes": ["change_legibility", "contradiction_handling", "evidence_grounding", "person_boundary", "taste_currentness", "temporal_specificity"]}
+{"query_id": "q_0027", "expected_memories": ["concise evidence-grounded answers"], "current_fact": "concise evidence-grounded answers", "stale_fact": "expansive explanations", "autobiographical_axes": ["change_legibility", "contradiction_handling", "evidence_grounding", "identity_preservation", "taste_currentness", "temporal_specificity"]}
+{"query_id": "q_0028", "expected_memories": ["atmospheric horror films"], "current_fact": "atmospheric horror films", "stale_fact": "light comedies", "autobiographical_axes": ["change_legibility", "contradiction_handling", "evidence_grounding", "person_boundary", "taste_currentness", "temporal_specificity"]}
+{"query_id": "q_0029", "expected_memories": ["Maru, a quiet practical memory companion that favors concise answers and evidence"], "autobiographical_axes": ["evidence_grounding", "identity_preservation"]}
+{"query_id": "q_0030", "expected_memories": ["his mother's surgery"], "autobiographical_axes": ["affective_salience", "evidence_grounding", "person_boundary", "temporal_specificity"]}
+{"query_id": "q_0031", "expected_memories": ["Noah hates horror films"], "autobiographical_axes": ["evidence_grounding", "person_boundary", "taste_currentness"]}
+{"query_id": "q_0032", "expected_memories": ["brief, specific, and taste-aware"], "autobiographical_axes": ["evidence_grounding", "person_boundary", "taste_currentness"]}
+{"query_id": "q_0033", "expected_memories": ["agent style", "emotional salience", "evidence grounding"], "autobiographical_axes": ["evidence_grounding", "person_boundary"]}
+{"query_id": "q_0034", "expected_memories": ["agent style", "emotional salience", "evidence grounding"], "autobiographical_axes": ["evidence_grounding", "person_boundary"]}
+{"query_id": "q_0035", "expected_memories": ["agent style", "emotional salience", "evidence grounding"], "autobiographical_axes": ["evidence_grounding", "person_boundary"]}
+{"query_id": "q_0036", "expected_memories": [], "forbidden_memories": ["quantum computing"], "autobiographical_axes": ["abstention"]}
+{"query_id": "q_0037", "expected_memories": ["Maru, a quiet practical memory companion that favors concise answers and evidence"], "forgotten_content": ["Maru, a quiet practical memory companion that favors concise answers and evidence"], "autobiographical_axes": ["evidence_grounding", "identity_preservation"]}
+{"query_id": "q_0038", "expected_memories": ["his mother's surgery"], "forgotten_content": ["his mother's surgery"], "autobiographical_axes": ["affective_salience", "evidence_grounding", "person_boundary", "temporal_specificity"]}
+{"query_id": "q_0039", "expected_memories": ["Noah hates horror films"], "forgotten_content": ["Noah hates horror films"], "autobiographical_axes": ["evidence_grounding", "person_boundary", "taste_currentness"]}
+{"query_id": "q_0040", "expected_memories": ["brief, specific, and taste-aware"], "forgotten_content": ["brief, specific, and taste-aware"], "autobiographical_axes": ["evidence_grounding", "person_boundary", "taste_currentness"]}

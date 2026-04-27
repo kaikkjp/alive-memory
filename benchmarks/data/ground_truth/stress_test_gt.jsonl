@@ -1,32 +1,32 @@
-{"query_id": "q_0001", "expected_memories": ["distributed training", "alice"]}
+{"query_id": "q_0001", "expected_memories": ["transformer architectures", "alice"]}
 {"query_id": "q_0002", "expected_memories": ["agent memory systems"]}
-{"query_id": "q_0003", "expected_memories": ["AI benchmarks and evaluation", "AI safety and alignment", "attention mechanisms"]}
-{"query_id": "q_0004", "expected_memories": ["agent memory systems", "code generation", "large language models"]}
+{"query_id": "q_0003", "expected_memories": ["AI safety and alignment", "attention mechanisms", "reinforcement learning"]}
+{"query_id": "q_0004", "expected_memories": ["agent memory systems", "attention mechanisms", "multimodal models"]}
 {"query_id": "q_0005", "expected_memories": [], "forbidden_memories": ["quantum computing"]}
-{"query_id": "q_0006", "expected_memories": ["distributed training", "alice"]}
-{"query_id": "q_0007", "expected_memories": ["reinforcement learning"]}
+{"query_id": "q_0006", "expected_memories": ["transformer architectures", "alice"]}
+{"query_id": "q_0007", "expected_memories": ["AI safety and alignment"]}
 {"query_id": "q_0008", "expected_memories": ["Schr\u00f6dinger"]}
-{"query_id": "q_0009", "expected_memories": ["AI benchmarks and evaluation", "AI governance", "AI safety and alignment"]}
-{"query_id": "q_0010", "expected_memories": ["AI benchmarks and evaluation", "AI safety and alignment", "agent memory systems"]}
+{"query_id": "q_0009", "expected_memories": ["AI governance", "AI safety and alignment", "agent memory systems"]}
+{"query_id": "q_0010", "expected_memories": ["AI safety and alignment", "agent memory systems", "attention mechanisms"]}
 {"query_id": "q_0011", "expected_memories": [], "forbidden_memories": ["quantum computing"]}
-{"query_id": "q_0012", "expected_memories": ["distributed training", "alice"]}
-{"query_id": "q_0013", "expected_memories": ["agent memory systems"]}
+{"query_id": "q_0012", "expected_memories": ["transformer architectures", "alice"]}
+{"query_id": "q_0013", "expected_memories": ["transformer architectures"]}
 {"query_id": "q_0014", "expected_memories": ["Schr\u00f6dinger"]}
-{"query_id": "q_0015", "expected_memories": ["AI benchmarks and evaluation", "AI governance", "AI safety and alignment"]}
+{"query_id": "q_0015", "expected_memories": ["AI governance", "AI safety and alignment", "agent memory systems"]}
 {"query_id": "q_0016", "expected_memories": ["AI benchmarks and evaluation", "AI safety and alignment", "agent memory systems"]}
-{"query_id": "q_0017", "expected_memories": ["AI benchmarks and evaluation", "AI governance", "AI safety and alignment"]}
+{"query_id": "q_0017", "expected_memories": ["AI governance", "AI safety and alignment", "agent memory systems"]}
 {"query_id": "q_0018", "expected_memories": [], "forbidden_memories": ["quantum computing"]}
-{"query_id": "q_0019", "expected_memories": ["distributed training", "alice"]}
-{"query_id": "q_0020", "expected_memories": ["attention mechanisms"]}
+{"query_id": "q_0019", "expected_memories": ["transformer architectures", "alice"]}
+{"query_id": "q_0020", "expected_memories": ["transformer architectures"]}
 {"query_id": "q_0021", "expected_memories": ["semantic chunking"], "current_fact": "semantic chunking", "stale_fact": "naive chunking"}
 {"query_id": "q_0022", "expected_memories": ["Schr\u00f6dinger"]}
 {"query_id": "q_0023", "expected_memories": ["AI benchmarks and evaluation", "AI governance", "AI safety and alignment"]}
-{"query_id": "q_0024", "expected_memories": ["AI benchmarks and evaluation", "AI governance", "AI safety and alignment"]}
+{"query_id": "q_0024", "expected_memories": ["AI benchmarks and evaluation", "AI safety and alignment", "agent memory systems"]}
 {"query_id": "q_0025", "expected_memories": ["AI benchmarks and evaluation", "AI governance", "AI safety and alignment"]}
 {"query_id": "q_0026", "expected_memories": [], "forbidden_memories": ["quantum computing"]}
-{"query_id": "q_0027", "expected_memories": ["distributed training", "alice"]}
-{"query_id": "q_0028", "expected_memories": ["attention mechanisms"]}
-{"query_id": "q_0029", "expected_memories": ["distributed training", "alice"]}
+{"query_id": "q_0027", "expected_memories": ["transformer architectures", "alice"]}
+{"query_id": "q_0028", "expected_memories": ["transformer architectures"]}
+{"query_id": "q_0029", "expected_memories": ["transformer architectures", "alice"]}
 {"query_id": "q_0030", "expected_memories": ["Anthropic"], "current_fact": "Anthropic", "stale_fact": "Google"}
 {"query_id": "q_0031", "expected_memories": ["35%"], "current_fact": "35%", "stale_fact": "40%"}
 {"query_id": "q_0032", "expected_memories": ["Stanford"], "current_fact": "Stanford", "stale_fact": "MIT"}
@@ -41,9 +41,9 @@
 {"query_id": "q_0041", "expected_memories": ["AI benchmarks and evaluation", "AI governance", "AI safety and alignment"]}
 {"query_id": "q_0042", "expected_memories": ["AI benchmarks and evaluation", "AI governance", "AI safety and alignment"]}
 {"query_id": "q_0043", "expected_memories": [], "forbidden_memories": ["quantum computing"]}
-{"query_id": "q_0044", "expected_memories": ["distributed training", "alice"]}
-{"query_id": "q_0045", "expected_memories": ["AI safety and alignment"]}
-{"query_id": "q_0046", "expected_memories": ["distributed training", "alice"]}
+{"query_id": "q_0044", "expected_memories": ["transformer architectures", "alice"]}
+{"query_id": "q_0045", "expected_memories": ["transformer architectures"]}
+{"query_id": "q_0046", "expected_memories": ["transformer architectures", "alice"]}
 {"query_id": "q_0047", "expected_memories": ["Anthropic"], "current_fact": "Anthropic", "stale_fact": "Google"}
 {"query_id": "q_0048", "expected_memories": ["35%"], "current_fact": "35%", "stale_fact": "40%"}
 {"query_id": "q_0049", "expected_memories": ["multimodal AI"], "current_fact": "multimodal AI", "stale_fact": "NLP"}

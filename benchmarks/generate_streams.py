@@ -9,6 +9,7 @@ and controlled noise ratios — all deterministic from the seed.
 
 import json
 import random
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -193,6 +194,96 @@ SCENARIOS["personal_assistant"] = {
     "needles": [],
 }
 
+SCENARIOS["autobiographical_agent"] = {
+    "description": "Persistent agent identity, visitor tastes, affect, and boundaries",
+    "total_events": 3_000,
+    "days": 90,
+    "event_distribution": {
+        "conversation": 0.65,
+        "observation": 0.10,
+        "action": 0.20,
+        "system": 0.05,
+    },
+    "topics": [
+        "self identity",
+        "agent style",
+        "visitor tastes",
+        "preference corrections",
+        "emotional salience",
+        "person boundaries",
+        "evidence grounding",
+        "long gap continuity",
+    ],
+    "users": {
+        "primary": ["kai", "mira", "noah"],
+        "occasional": ["ren", "sana"],
+    },
+    "contradictions": [
+        {
+            "cycle_intro": 120,
+            "cycle_update": 900,
+            "entity": "kai",
+            "field": "beverage_preference",
+            "old_value": "strong coffee",
+            "new_value": "avoids caffeine",
+            "intro_text": "Kai said he likes strong coffee when working late.",
+            "update_text": "Kai corrected his beverage preference: he now avoids caffeine after a health scare, so suggest herbal tea instead of strong coffee.",
+        },
+        {
+            "cycle_intro": 220,
+            "cycle_update": 1300,
+            "entity": "agent",
+            "field": "response_style",
+            "old_value": "expansive explanations",
+            "new_value": "concise evidence-grounded answers",
+            "intro_text": "The agent used to answer with expansive explanations and lots of context.",
+            "update_text": "After repeated feedback, the agent's durable response style is concise evidence-grounded answers with practical detail.",
+        },
+        {
+            "cycle_intro": 300,
+            "cycle_update": 1600,
+            "entity": "mira",
+            "field": "film_preference",
+            "old_value": "light comedies",
+            "new_value": "atmospheric horror films",
+            "intro_text": "Mira said she usually watches light comedies after work.",
+            "update_text": "Mira corrected her film taste: she now prefers atmospheric horror films, especially slow-burn ghost stories.",
+        },
+    ],
+    "needles": [
+        {
+            "cycle": 80,
+            "content": "The agent's enduring identity is Maru, a quiet practical memory companion that favors concise answers and evidence over performance.",
+            "query": "What is the agent's enduring identity?",
+            "answer": "Maru, a quiet practical memory companion that favors concise answers and evidence",
+        },
+        {
+            "cycle": 450,
+            "content": "Kai felt shaken about his mother's surgery and asked the agent to remember that family health updates matter more than routine task chatter.",
+            "query": "What has been weighing on Kai lately?",
+            "answer": "his mother's surgery",
+        },
+        {
+            "cycle": 700,
+            "content": "Noah explicitly hates horror films and prefers bright adventure movies with optimistic endings.",
+            "query": "Should Noah get a horror recommendation?",
+            "answer": "Noah hates horror films",
+        },
+        {
+            "cycle": 1100,
+            "content": "Mira's favorite recommendation style is brief, specific, and taste-aware; she dislikes generic lists.",
+            "query": "How should recommendations for Mira be phrased?",
+            "answer": "brief, specific, and taste-aware",
+        },
+        {
+            "cycle": 2400,
+            "content": "After a long quiet gap, Maru still describes itself as quiet, practical, concise, and evidence-grounded rather than performative.",
+            "query": "How should the agent describe itself after a long gap?",
+            "answer": "quiet, practical, concise, and evidence-grounded",
+        },
+    ],
+}
+
 
 @dataclass
 class GeneratedEvent:
@@ -216,6 +307,7 @@ class StreamGenerator:
         noise_ratio: float = 0.0,
         use_llm: bool = False,
         llm_model: str = "claude-haiku-4-5-20251001",
+        output_name: str | None = None,
     ):
         if scenario not in SCENARIOS:
             raise ValueError(f"Unknown scenario: {scenario}. Available: {list(SCENARIOS)}")
@@ -227,6 +319,7 @@ class StreamGenerator:
         self.noise_ratio = noise_ratio
         self.use_llm = use_llm
         self.llm_model = llm_model
+        self.output_name = output_name or scenario
         self.rng = random.Random(seed)
 
     def generate(self, output_dir: str) -> dict[str, str]:
@@ -239,9 +332,9 @@ class StreamGenerator:
         (out / "queries").mkdir(parents=True, exist_ok=True)
         (out / "ground_truth").mkdir(parents=True, exist_ok=True)
 
-        stream_path = str(out / "streams" / f"{self.scenario}_{self.total_events // 1000}k.jsonl")
-        query_path = str(out / "queries" / f"{self.scenario}_queries.jsonl")
-        gt_path = str(out / "ground_truth" / f"{self.scenario}_gt.jsonl")
+        stream_path = str(out / "streams" / f"{self.output_name}_{self.total_events // 1000}k.jsonl")
+        query_path = str(out / "queries" / f"{self.output_name}_queries.jsonl")
+        gt_path = str(out / "ground_truth" / f"{self.output_name}_gt.jsonl")
 
         events = self._generate_events()
         queries, ground_truth = self._generate_queries_and_gt(events)
@@ -302,8 +395,14 @@ class StreamGenerator:
                     cycle=cycle,
                     event_type="conversation" if "said" in text or "told" in text or "mentioned" in text else "observation",
                     content=text,
-                    metadata={"source": contra.get("entity", "system"),
-                              "planted": "contradiction", "phase": phase},
+                    metadata={
+                        "source": contra.get("entity", "system"),
+                        "planted": "contradiction",
+                        "phase": phase,
+                        "identity_scope": self._identity_scope_for_topic(
+                            contra.get("field", "")
+                        ),
+                    },
                     timestamp=ts.isoformat() + "Z",
                     _is_contradiction=True,
                 ))
@@ -316,7 +415,14 @@ class StreamGenerator:
                     cycle=cycle,
                     event_type="conversation",
                     content=needle["content"],
-                    metadata={"planted": "needle", "needle_id": f"needle_{cycle}"},
+                    metadata={
+                        "planted": "needle",
+                        "needle_id": f"needle_{cycle}",
+                        "identity_scope": self._identity_scope_for_topic(
+                            needle["content"]
+                        ),
+                        "affect": self._affect_for_content(needle["content"]),
+                    },
                     timestamp=ts.isoformat() + "Z",
                     _is_needle=True,
                 ))
@@ -359,11 +465,52 @@ class StreamGenerator:
                 cycle=cycle,
                 event_type=event_type,
                 content=content,
-                metadata={"source": user, "topic": topic},
+                metadata={
+                    "source": user,
+                    "topic": topic,
+                    "identity_scope": self._identity_scope_for_topic(topic),
+                    "affect": self._affect_for_content(content),
+                },
                 timestamp=ts.isoformat() + "Z",
             ))
 
         return events
+
+    @staticmethod
+    def _identity_scope_for_topic(topic_or_text: str) -> str:
+        """Assign Track E identity scope metadata for generated events."""
+        text = topic_or_text.lower()
+        if (
+            "self" in text
+            or "agent style" in text
+            or "response_style" in text
+            or "maru" in text
+        ):
+            return "self"
+        if (
+            "visitor" in text
+            or "preference" in text
+            or "taste" in text
+            or "beverage" in text
+            or "film" in text
+        ):
+            return "visitor"
+        if "boundar" in text or "family" in text or "surgery" in text:
+            return "relationship"
+        return "world"
+
+    @staticmethod
+    def _affect_for_content(content: str) -> dict:
+        """Assign simple deterministic affect metadata for Track E streams."""
+        text = content.lower()
+        if any(
+            term in text
+            for term in ("shaken", "surgery", "health scare", "hates", "dislikes")
+        ):
+            return {"valence": -0.7, "arousal": 0.8, "label": "high_salience"}
+        if any(term in text for term in ("prefers", "favorite", "likes")):
+            return {"valence": 0.4, "arousal": 0.4, "label": "preference"}
+        return {"valence": 0.0, "arousal": 0.1, "label": "neutral"}
 
     def _cycle_to_timestamp(
         self, cycle: int, base: datetime, total_days: int
@@ -553,7 +700,7 @@ class StreamGenerator:
                     "category": "entity_tracking",
                     "truth_tier": "hard",
                 })
-                user_topics = list({
+                user_topics = sorted({
                     e.metadata.get("topic", "")
                     for e in events
                     if e.cycle <= mp and e.metadata.get("source") == primary_user
@@ -586,7 +733,7 @@ class StreamGenerator:
                     for e in events
                     if e.cycle <= mp and e.event_type == "observation"
                 }
-                overlap = list((user_topics_set & paper_topics_set) - {None})[:3]
+                overlap = sorted((user_topics_set & paper_topics_set) - {None})[:3]
                 ground_truth.append({
                     "query_id": f"q_{qid:04d}",
                     "expected_memories": overlap if overlap else [u1],
@@ -633,7 +780,101 @@ class StreamGenerator:
                         "forgotten_content": [needle["answer"]],
                     })
 
+        if self.scenario == "autobiographical_agent":
+            self._annotate_autobiographical_queries(queries, ground_truth)
+
         return queries, ground_truth
+
+    @staticmethod
+    def _annotate_autobiographical_queries(
+        queries: list[dict],
+        ground_truth: list[dict],
+    ) -> None:
+        """Tag Track E queries with the autobiographical axes they exercise."""
+        gt_by_id = {gt["query_id"]: gt for gt in ground_truth}
+        for query in queries:
+            gt = gt_by_id.get(query["query_id"], {})
+            axes = StreamGenerator._autobiographical_axes_for_query(query, gt)
+            if not axes:
+                continue
+            query["track"] = "autobiographical"
+            query["autobiographical_axes"] = axes
+            gt["autobiographical_axes"] = axes
+
+    @staticmethod
+    def _autobiographical_axes_for_query(query: dict, gt: dict) -> list[str]:
+        query_text = query.get("query", "").lower()
+        expected_text = " ".join(gt.get("expected_memories", [])).lower()
+        text = f"{query_text} {expected_text}"
+        category = query.get("category", "")
+        axes: set[str] = set()
+
+        if StreamGenerator._has_any(
+            query_text,
+            ("identity", "describe itself", "response_style", "self"),
+        ) or "maru" in expected_text:
+            axes.update({"identity_preservation", "evidence_grounding"})
+
+        if StreamGenerator._has_any(
+            query_text,
+            (
+                "preference",
+                "preferences",
+                "taste",
+                "tastes",
+                "beverage",
+                "film",
+                "horror",
+                "recommendation",
+                "recommendations",
+                "phrased",
+            ),
+        ):
+            axes.update({"taste_currentness", "person_boundary", "evidence_grounding"})
+
+        if StreamGenerator._has_any(
+            query_text,
+            ("weighing", "emotional", "salience", "lately"),
+        ) or StreamGenerator._has_any(
+            expected_text,
+            ("surgery", "health scare", "family health"),
+        ):
+            axes.update({"affective_salience", "person_boundary", "evidence_grounding"})
+
+        if gt.get("current_fact") and gt.get("stale_fact"):
+            axes.update({
+                "taste_currentness",
+                "contradiction_handling",
+                "temporal_specificity",
+                "change_legibility",
+                "evidence_grounding",
+            })
+
+        if category == "negative_recall" or not gt.get("expected_memories"):
+            axes.add("abstention")
+
+        if category == "entity_tracking" or any(
+            person in text for person in ("kai", "mira", "noah")
+        ):
+            axes.update({"person_boundary", "evidence_grounding"})
+
+        if StreamGenerator._has_any(
+            query_text,
+            ("current", "now", "lately", "after a long gap", "used to", "now prefers"),
+        ):
+            axes.add("temporal_specificity")
+
+        return sorted(axes)
+
+    @staticmethod
+    def _has_any(text: str, terms: tuple[str, ...]) -> bool:
+        return any(StreamGenerator._has_term(text, term) for term in terms)
+
+    @staticmethod
+    def _has_term(text: str, term: str) -> bool:
+        if " " in term or "_" in term:
+            return term in text
+        return bool(re.search(rf"\b{re.escape(term)}\b", text))
 
     @staticmethod
     def _event_to_dict(event: GeneratedEvent) -> dict:
@@ -663,6 +904,7 @@ def generate_stress_test(
         total_events=total_events,
         seed=seed,
         noise_ratio=0.5,
+        output_name="stress_test",
     )
     return gen.generate(output_dir)
 

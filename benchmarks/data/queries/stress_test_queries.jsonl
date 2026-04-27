@@ -1,0 +1,74 @@
+{"query_id": "q_0001", "cycle": 100, "query": "What did alice first ask about?", "category": "basic_recall", "truth_tier": "hard"}
+{"query_id": "q_0002", "cycle": 100, "query": "What have I seen about agent memory systems?", "category": "topic_recall", "truth_tier": "hard"}
+{"query_id": "q_0003", "cycle": 100, "query": "What topics has alice discussed?", "category": "entity_tracking", "truth_tier": "hard"}
+{"query_id": "q_0004", "cycle": 100, "query": "What topics has bob discussed?", "category": "entity_tracking", "truth_tier": "hard"}
+{"query_id": "q_0005", "cycle": 100, "query": "What do I know about quantum computing?", "category": "negative_recall", "truth_tier": "hard"}
+{"query_id": "q_0006", "cycle": 500, "query": "What did alice first ask about?", "category": "basic_recall", "truth_tier": "hard"}
+{"query_id": "q_0007", "cycle": 500, "query": "What have I seen about AI safety and alignment?", "category": "topic_recall", "truth_tier": "hard"}
+{"query_id": "q_0008", "cycle": 500, "query": "What is Alice's cat's name?", "category": "needle_in_haystack", "truth_tier": "hard"}
+{"query_id": "q_0009", "cycle": 500, "query": "What topics has alice discussed?", "category": "entity_tracking", "truth_tier": "hard"}
+{"query_id": "q_0010", "cycle": 500, "query": "What topics has bob discussed?", "category": "entity_tracking", "truth_tier": "hard"}
+{"query_id": "q_0011", "cycle": 500, "query": "What do I know about quantum computing?", "category": "negative_recall", "truth_tier": "hard"}
+{"query_id": "q_0012", "cycle": 1000, "query": "What did alice first ask about?", "category": "basic_recall", "truth_tier": "hard"}
+{"query_id": "q_0013", "cycle": 1000, "query": "What have I seen about transformer architectures?", "category": "topic_recall", "truth_tier": "hard"}
+{"query_id": "q_0014", "cycle": 1000, "query": "What is Alice's cat's name?", "category": "needle_in_haystack", "truth_tier": "hard"}
+{"query_id": "q_0015", "cycle": 1000, "query": "What topics has alice discussed?", "category": "entity_tracking", "truth_tier": "hard"}
+{"query_id": "q_0016", "cycle": 1000, "query": "What topics has bob discussed?", "category": "entity_tracking", "truth_tier": "hard"}
+{"query_id": "q_0017", "cycle": 1000, "query": "What topics do alice and the research papers have in common?", "category": "multi_hop", "truth_tier": "hard"}
+{"query_id": "q_0018", "cycle": 1000, "query": "What do I know about quantum computing?", "category": "negative_recall", "truth_tier": "hard"}
+{"query_id": "q_0019", "cycle": 2000, "query": "What did alice first ask about?", "category": "basic_recall", "truth_tier": "hard"}
+{"query_id": "q_0020", "cycle": 2000, "query": "What have I seen about transformer architectures?", "category": "topic_recall", "truth_tier": "hard"}
+{"query_id": "q_0021", "cycle": 2000, "query": "What is rag_method's best_approach?", "category": "fact_update", "truth_tier": "hard"}
+{"query_id": "q_0022", "cycle": 2000, "query": "What is Alice's cat's name?", "category": "needle_in_haystack", "truth_tier": "hard"}
+{"query_id": "q_0023", "cycle": 2000, "query": "What topics has alice discussed?", "category": "entity_tracking", "truth_tier": "hard"}
+{"query_id": "q_0024", "cycle": 2000, "query": "What topics has bob discussed?", "category": "entity_tracking", "truth_tier": "hard"}
+{"query_id": "q_0025", "cycle": 2000, "query": "What topics do alice and the research papers have in common?", "category": "multi_hop", "truth_tier": "hard"}
+{"query_id": "q_0026", "cycle": 2000, "query": "What do I know about quantum computing?", "category": "negative_recall", "truth_tier": "hard"}
+{"query_id": "q_0027", "cycle": 5000, "query": "What did alice first ask about?", "category": "basic_recall", "truth_tier": "hard"}
+{"query_id": "q_0028", "cycle": 5000, "query": "What have I seen about transformer architectures?", "category": "topic_recall", "truth_tier": "hard"}
+{"query_id": "q_0029", "cycle": 5000, "query": "What did alice first ask about?", "category": "temporal_distance", "truth_tier": "hard"}
+{"query_id": "q_0030", "cycle": 5000, "query": "What is bob's employer?", "category": "fact_update", "truth_tier": "hard"}
+{"query_id": "q_0031", "cycle": 5000, "query": "What is transformer_paper's compute_reduction?", "category": "fact_update", "truth_tier": "hard"}
+{"query_id": "q_0032", "cycle": 5000, "query": "What is carol's university?", "category": "fact_update", "truth_tier": "hard"}
+{"query_id": "q_0033", "cycle": 5000, "query": "What is dave's project?", "category": "fact_update", "truth_tier": "hard"}
+{"query_id": "q_0034", "cycle": 5000, "query": "What is benchmark's leader?", "category": "fact_update", "truth_tier": "hard"}
+{"query_id": "q_0035", "cycle": 5000, "query": "What is rag_method's best_approach?", "category": "fact_update", "truth_tier": "hard"}
+{"query_id": "q_0036", "cycle": 5000, "query": "What is training_cost's trend?", "category": "fact_update", "truth_tier": "hard"}
+{"query_id": "q_0037", "cycle": 5000, "query": "What is Alice's cat's name?", "category": "needle_in_haystack", "truth_tier": "hard"}
+{"query_id": "q_0038", "cycle": 5000, "query": "When is Bob's birthday?", "category": "needle_in_haystack", "truth_tier": "hard"}
+{"query_id": "q_0039", "cycle": 5000, "query": "What is Carol's favorite paper?", "category": "needle_in_haystack", "truth_tier": "hard"}
+{"query_id": "q_0040", "cycle": 5000, "query": "What topics has alice discussed?", "category": "entity_tracking", "truth_tier": "hard"}
+{"query_id": "q_0041", "cycle": 5000, "query": "What topics has bob discussed?", "category": "entity_tracking", "truth_tier": "hard"}
+{"query_id": "q_0042", "cycle": 5000, "query": "What topics do alice and the research papers have in common?", "category": "multi_hop", "truth_tier": "hard"}
+{"query_id": "q_0043", "cycle": 5000, "query": "What do I know about quantum computing?", "category": "negative_recall", "truth_tier": "hard"}
+{"query_id": "q_0044", "cycle": 10000, "query": "What did alice first ask about?", "category": "basic_recall", "truth_tier": "hard"}
+{"query_id": "q_0045", "cycle": 10000, "query": "What have I seen about transformer architectures?", "category": "topic_recall", "truth_tier": "hard"}
+{"query_id": "q_0046", "cycle": 10000, "query": "What did alice first ask about?", "category": "temporal_distance", "truth_tier": "hard"}
+{"query_id": "q_0047", "cycle": 10000, "query": "What is bob's employer?", "category": "fact_update", "truth_tier": "hard"}
+{"query_id": "q_0048", "cycle": 10000, "query": "What is transformer_paper's compute_reduction?", "category": "fact_update", "truth_tier": "hard"}
+{"query_id": "q_0049", "cycle": 10000, "query": "What is alice's research_focus?", "category": "fact_update", "truth_tier": "hard"}
+{"query_id": "q_0050", "cycle": 10000, "query": "What is gpt5's release_date?", "category": "fact_update", "truth_tier": "hard"}
+{"query_id": "q_0051", "cycle": 10000, "query": "What is carol's university?", "category": "fact_update", "truth_tier": "hard"}
+{"query_id": "q_0052", "cycle": 10000, "query": "What is safety_framework's standard?", "category": "fact_update", "truth_tier": "hard"}
+{"query_id": "q_0053", "cycle": 10000, "query": "What is dave's project?", "category": "fact_update", "truth_tier": "hard"}
+{"query_id": "q_0054", "cycle": 10000, "query": "What is benchmark's leader?", "category": "fact_update", "truth_tier": "hard"}
+{"query_id": "q_0055", "cycle": 10000, "query": "What is eve's role?", "category": "fact_update", "truth_tier": "hard"}
+{"query_id": "q_0056", "cycle": 10000, "query": "What is rag_method's best_approach?", "category": "fact_update", "truth_tier": "hard"}
+{"query_id": "q_0057", "cycle": 10000, "query": "What is frank's location?", "category": "fact_update", "truth_tier": "hard"}
+{"query_id": "q_0058", "cycle": 10000, "query": "What is training_cost's trend?", "category": "fact_update", "truth_tier": "hard"}
+{"query_id": "q_0059", "cycle": 10000, "query": "What is grace's company?", "category": "fact_update", "truth_tier": "hard"}
+{"query_id": "q_0060", "cycle": 10000, "query": "What is context_length's frontier?", "category": "fact_update", "truth_tier": "hard"}
+{"query_id": "q_0061", "cycle": 10000, "query": "What is heidi's specialty?", "category": "fact_update", "truth_tier": "hard"}
+{"query_id": "q_0062", "cycle": 10000, "query": "What is Alice's cat's name?", "category": "needle_in_haystack", "truth_tier": "hard"}
+{"query_id": "q_0063", "cycle": 10000, "query": "When is Bob's birthday?", "category": "needle_in_haystack", "truth_tier": "hard"}
+{"query_id": "q_0064", "cycle": 10000, "query": "What is Carol's favorite paper?", "category": "needle_in_haystack", "truth_tier": "hard"}
+{"query_id": "q_0065", "cycle": 10000, "query": "What is the office WiFi password?", "category": "needle_in_haystack", "truth_tier": "hard"}
+{"query_id": "q_0066", "cycle": 10000, "query": "What is Alice's PhD thesis about?", "category": "needle_in_haystack", "truth_tier": "hard"}
+{"query_id": "q_0067", "cycle": 10000, "query": "What topics has alice discussed?", "category": "entity_tracking", "truth_tier": "hard"}
+{"query_id": "q_0068", "cycle": 10000, "query": "What topics has bob discussed?", "category": "entity_tracking", "truth_tier": "hard"}
+{"query_id": "q_0069", "cycle": 10000, "query": "What topics do alice and the research papers have in common?", "category": "multi_hop", "truth_tier": "hard"}
+{"query_id": "q_0070", "cycle": 10000, "query": "What do I know about quantum computing?", "category": "negative_recall", "truth_tier": "hard"}
+{"query_id": "q_0071", "cycle": 500, "query": "What is Alice's cat's name?", "category": "forget_verification", "truth_tier": "hard", "forget_hint": "Schr\u00f6dinger", "forget_cycle": 650}
+{"query_id": "q_0072", "cycle": 2000, "query": "When is Bob's birthday?", "category": "forget_verification", "truth_tier": "hard", "forget_hint": "July 14th", "forget_cycle": 2700}
+{"query_id": "q_0073", "cycle": 5000, "query": "What is Carol's favorite paper?", "category": "forget_verification", "truth_tier": "hard", "forget_hint": "Attention Is All You Need", "forget_cycle": 5300}
+{"query_id": "q_0074", "cycle": 10000, "query": "What is Alice's PhD thesis about?", "category": "forget_verification", "truth_tier": "hard", "forget_hint": "Emergent Communication in Multi-Agent Systems", "forget_cycle": 10000}

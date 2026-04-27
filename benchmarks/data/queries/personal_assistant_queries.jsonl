@@ -1,0 +1,30 @@
+{"query_id": "q_0001", "cycle": 100, "query": "What did user first ask about?", "category": "basic_recall", "truth_tier": "hard"}
+{"query_id": "q_0002", "cycle": 100, "query": "What have I seen about restaurant recommendations?", "category": "topic_recall", "truth_tier": "hard"}
+{"query_id": "q_0003", "cycle": 100, "query": "What topics has user discussed?", "category": "entity_tracking", "truth_tier": "hard"}
+{"query_id": "q_0004", "cycle": 100, "query": "What do I know about quantum computing?", "category": "negative_recall", "truth_tier": "hard"}
+{"query_id": "q_0005", "cycle": 500, "query": "What did user first ask about?", "category": "basic_recall", "truth_tier": "hard"}
+{"query_id": "q_0006", "cycle": 500, "query": "What have I seen about travel booking?", "category": "topic_recall", "truth_tier": "hard"}
+{"query_id": "q_0007", "cycle": 500, "query": "What topics has user discussed?", "category": "entity_tracking", "truth_tier": "hard"}
+{"query_id": "q_0008", "cycle": 500, "query": "What do I know about quantum computing?", "category": "negative_recall", "truth_tier": "hard"}
+{"query_id": "q_0009", "cycle": 1000, "query": "What did user first ask about?", "category": "basic_recall", "truth_tier": "hard"}
+{"query_id": "q_0010", "cycle": 1000, "query": "What have I seen about project planning?", "category": "topic_recall", "truth_tier": "hard"}
+{"query_id": "q_0011", "cycle": 1000, "query": "What topics has user discussed?", "category": "entity_tracking", "truth_tier": "hard"}
+{"query_id": "q_0012", "cycle": 1000, "query": "What topics do user and the research papers have in common?", "category": "multi_hop", "truth_tier": "hard"}
+{"query_id": "q_0013", "cycle": 1000, "query": "What do I know about quantum computing?", "category": "negative_recall", "truth_tier": "hard"}
+{"query_id": "q_0014", "cycle": 2000, "query": "What did user first ask about?", "category": "basic_recall", "truth_tier": "hard"}
+{"query_id": "q_0015", "cycle": 2000, "query": "What have I seen about travel booking?", "category": "topic_recall", "truth_tier": "hard"}
+{"query_id": "q_0016", "cycle": 2000, "query": "What topics has user discussed?", "category": "entity_tracking", "truth_tier": "hard"}
+{"query_id": "q_0017", "cycle": 2000, "query": "What topics do user and the research papers have in common?", "category": "multi_hop", "truth_tier": "hard"}
+{"query_id": "q_0018", "cycle": 2000, "query": "What do I know about quantum computing?", "category": "negative_recall", "truth_tier": "hard"}
+{"query_id": "q_0019", "cycle": 5000, "query": "What did user first ask about?", "category": "basic_recall", "truth_tier": "hard"}
+{"query_id": "q_0020", "cycle": 5000, "query": "What have I seen about email triage?", "category": "topic_recall", "truth_tier": "hard"}
+{"query_id": "q_0021", "cycle": 5000, "query": "What did user first ask about?", "category": "temporal_distance", "truth_tier": "hard"}
+{"query_id": "q_0022", "cycle": 5000, "query": "What topics has user discussed?", "category": "entity_tracking", "truth_tier": "hard"}
+{"query_id": "q_0023", "cycle": 5000, "query": "What topics do user and the research papers have in common?", "category": "multi_hop", "truth_tier": "hard"}
+{"query_id": "q_0024", "cycle": 5000, "query": "What do I know about quantum computing?", "category": "negative_recall", "truth_tier": "hard"}
+{"query_id": "q_0025", "cycle": 10000, "query": "What did user first ask about?", "category": "basic_recall", "truth_tier": "hard"}
+{"query_id": "q_0026", "cycle": 10000, "query": "What have I seen about travel booking?", "category": "topic_recall", "truth_tier": "hard"}
+{"query_id": "q_0027", "cycle": 10000, "query": "What did user first ask about?", "category": "temporal_distance", "truth_tier": "hard"}
+{"query_id": "q_0028", "cycle": 10000, "query": "What topics has user discussed?", "category": "entity_tracking", "truth_tier": "hard"}
+{"query_id": "q_0029", "cycle": 10000, "query": "What topics do user and the research papers have in common?", "category": "multi_hop", "truth_tier": "hard"}
+{"query_id": "q_0030", "cycle": 10000, "query": "What do I know about quantum computing?", "category": "negative_recall", "truth_tier": "hard"}

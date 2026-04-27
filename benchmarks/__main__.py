@@ -10,6 +10,7 @@ Usage:
 
 import argparse
 import asyncio
+import re
 import sys
 from pathlib import Path
 
@@ -75,11 +76,7 @@ def _resolve_stream_paths(stream_name: str, data_dir: str) -> dict[str, str]:
 
     # Derive query and ground truth paths from stream name
     # Strip the _Nk suffix to get the base scenario name
-    scenario = stream_file.stem
-    for suffix in ["_10k", "_5k", "_15k", "_50k", "_1k"]:
-        if scenario.endswith(suffix):
-            scenario = scenario[: -len(suffix)]
-            break
+    scenario = re.sub(r"_\d+k$", "", stream_file.stem)
 
     query_file = base / "queries" / f"{scenario}_queries.jsonl"
     gt_file = base / "ground_truth" / f"{scenario}_gt.jsonl"
@@ -336,7 +333,8 @@ def main():
     gen_p = sub.add_parser("generate", help="Generate benchmark data")
     gen_p.add_argument("--scenario", default="research_assistant",
                        choices=["research_assistant", "customer_support",
-                                "personal_assistant", "stress_test"])
+                                "personal_assistant", "autobiographical_agent",
+                                "stress_test"])
     gen_p.add_argument("--seed", type=int, default=42)
     gen_p.add_argument("--events", type=int, default=None)
     gen_p.add_argument("--noise-ratio", type=float, default=0.0)
