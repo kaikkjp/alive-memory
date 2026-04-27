@@ -711,7 +711,7 @@ class StreamGenerator:
         contradictions = config.get("contradictions", [])
         needles = config.get("needles", [])
 
-        measurement_points = [100, 500, 1000, 2000, 5000, 10000]
+        measurement_points = [100, 500, 1000, 2000, 3000, 5000, 10000]
         measurement_points = [p for p in measurement_points if p <= self.total_events]
 
         qid = 0

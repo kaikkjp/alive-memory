@@ -146,6 +146,10 @@ class MemoryArenaDataset(DatasetAdapter):
             questions = row.get("questions") or []
             answers = row.get("answers") or []
             backgrounds = row.get("backgrounds", row.get("background", []))
+            # group_travel_planner stores Jennifer's original trip request and
+            # existing daily plan under `base_person` instead of `backgrounds`.
+            # Without this, subtasks lose the context they need to answer.
+            base_person_text = _base_person_to_text(row.get("base_person"))
 
             for sub_idx, question in enumerate(questions):
                 query_id = f"{task_id}_q{sub_idx:03d}"
@@ -158,6 +162,22 @@ class MemoryArenaDataset(DatasetAdapter):
                 )
 
                 sessions: list[list[ConversationTurn]] = []
+                if base_person_text:
+                    sessions.append(
+                        [
+                            ConversationTurn(
+                                role="system",
+                                content=base_person_text,
+                                turn_id=0,
+                                session_id=f"{task_id}_base_person",
+                                metadata={
+                                    "task_family": task_family,
+                                    "config": config_name,
+                                    "kind": "base_person",
+                                },
+                            )
+                        ]
+                    )
                 if background:
                     sessions.append(
                         [
@@ -178,8 +198,8 @@ class MemoryArenaDataset(DatasetAdapter):
                     sessions.append(prior_turns)
 
                 raw_answer = answers[sub_idx] if sub_idx < len(answers) else ""
-                answer = _answer_to_text(raw_answer)
-                aliases = _answer_aliases(raw_answer)
+                answer = _answer_to_text(raw_answer, task_family=task_family)
+                aliases = _answer_aliases(raw_answer, task_family=task_family)
 
                 query = MemoryQuery(
                     query_id=query_id,
@@ -390,12 +410,20 @@ def _background_for_index(backgrounds, index: int) -> str:
     return str(backgrounds)
 
 
-def _answer_to_text(answer) -> str:
-    aliases = _answer_aliases(answer)
+def _answer_to_text(answer, *, task_family: str | None = None) -> str:
+    aliases = _answer_aliases(answer, task_family=task_family)
     return aliases[0] if aliases else ""
 
 
-def _answer_aliases(answer) -> list[str]:
+def _answer_aliases(answer, *, task_family: str | None = None) -> list[str]:
+    """Return alternative reference strings for `answer`.
+
+    A list of strings is treated as alternatives. A list of dicts (e.g. a
+    multi-day itinerary in group_travel_planner) is a single structured target;
+    flattening per-item would let a prediction containing only one day score as
+    fully correct, so we serialize the whole list as one canonical string and
+    only add per-field aliases that the scorer can substring-match.
+    """
     if answer is None:
         return []
     if isinstance(answer, str):
@@ -411,11 +439,57 @@ def _answer_aliases(answer) -> list[str]:
         aliases.append(json.dumps(answer, sort_keys=True))
         return [a for a in aliases if a]
     if isinstance(answer, list):
-        aliases: list[str] = []
+        if not answer:
+            return []
+        # Heterogeneous list of dicts → single structured target (e.g. a
+        # multi-day itinerary). Treating each element as an alias would let a
+        # prediction containing only one day exact/substring-match the whole
+        # task as correct, so emit the canonical full sequence as the only
+        # reference.
+        if any(isinstance(item, dict) for item in answer):
+            return [json.dumps(answer, sort_keys=True)]
+        # Plain string/scalar list → alternative references.
+        aliases = []
         for item in answer:
-            aliases.extend(_answer_aliases(item))
+            aliases.extend(_answer_aliases(item, task_family=task_family))
         return [a for a in aliases if a]
     return [str(answer)]
+
+
+def _base_person_to_text(base_person) -> str:
+    """Flatten base_person into a system-style background string.
+
+    The HF group_travel_planner schema stores the initial traveler request and
+    pre-existing per-day plan under `base_person` instead of `backgrounds`,
+    leaving the first subtask with no context if we don't surface it.
+    """
+    if not base_person:
+        return ""
+    if isinstance(base_person, str):
+        return base_person
+    if isinstance(base_person, dict):
+        parts: list[str] = []
+        name = base_person.get("name")
+        query = base_person.get("query")
+        if name and query:
+            parts.append(f"{name}: {query}")
+        elif query:
+            parts.append(str(query))
+        elif name:
+            parts.append(f"Traveler: {name}")
+        daily = base_person.get("daily_plans")
+        if daily:
+            parts.append("Existing plan: " + json.dumps(daily, sort_keys=True))
+        # Surface any other top-level scalar fields we did not explicitly
+        # consume so adapter output stays useful as the schema evolves.
+        consumed = {"name", "query", "daily_plans"}
+        for key, value in base_person.items():
+            if key in consumed:
+                continue
+            if isinstance(value, (str, int, float)):
+                parts.append(f"{key}: {value}")
+        return "\n".join(p for p in parts if p)
+    return str(base_person)
 
 
 def _best_token_f1(pred: str, references: list[str]) -> dict[str, float]:
