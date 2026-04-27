@@ -54,6 +54,16 @@ def _aggregate(values: list[float]) -> AggregatedMetric:
     )
 
 
+def _nested_get(data: dict, path: str):
+    """Read a dotted path from a nested dict."""
+    current = data
+    for part in path.split("."):
+        if not isinstance(current, dict) or part not in current:
+            return None
+        current = current[part]
+    return current
+
+
 class ReportGenerator:
     """Generates markdown reports and charts from benchmark results."""
 
@@ -112,6 +122,12 @@ class ReportGenerator:
             lines.extend(self._reliability_section(systems))
             lines.append("")
 
+            # Autobiographical persistent-agent memory
+            autobiographical_section = self._autobiographical_section(systems)
+            if autobiographical_section:
+                lines.extend(autobiographical_section)
+                lines.append("")
+
             # Degradation data
             lines.extend(self._degradation_section(systems))
             lines.append("")
@@ -129,29 +145,31 @@ class ReportGenerator:
                 lines.append("")
 
         # Methodology
-        lines.extend([
-            "## Methodology",
-            "",
-            "- Each system uses its recommended best-practice configuration",
-            "- RAG+ variant gets the same LLM budget as alive for periodic maintenance",
-            "- Hard ground truth: deterministic substring matching",
-            "- Soft ground truth (pattern_recognition, emotional_context): 3 LLM judges, majority vote",
-            "- Identity consistency reported separately (only alive-memory supports it)",
-            "- All competitor versions pinned in requirements.txt",
-            "",
-            "## Reproduction",
-            "",
-            "```bash",
-            "# Generate data",
-            "python -m benchmarks generate --scenario research_assistant",
-            "",
-            "# Run all systems with 5 seeds",
-            "python -m benchmarks run --stream research_assistant_10k --all --seeds 42,123,456,789,1337",
-            "",
-            "# Generate this report",
-            "python -m benchmarks report --results-dir benchmarks/results/",
-            "```",
-        ])
+        lines.extend(
+            [
+                "## Methodology",
+                "",
+                "- Each system uses its recommended best-practice configuration",
+                "- RAG+ variant gets the same LLM budget as alive for periodic maintenance",
+                "- Hard ground truth: deterministic substring matching",
+                "- Soft ground truth (pattern_recognition, emotional_context): 3 LLM judges, majority vote",
+                "- Identity consistency reported separately (only alive-memory supports it)",
+                "- All competitor versions pinned in requirements.txt",
+                "",
+                "## Reproduction",
+                "",
+                "```bash",
+                "# Generate data",
+                "python -m benchmarks generate --scenario research_assistant",
+                "",
+                "# Run all systems with 5 seeds",
+                "python -m benchmarks run --stream research_assistant_10k --all --seeds 42,123,456,789,1337",
+                "",
+                "# Generate this report",
+                "python -m benchmarks report --results-dir benchmarks/results/",
+                "```",
+            ]
+        )
 
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
         Path(output_path).write_text("\n".join(lines))
@@ -275,6 +293,57 @@ class ReportGenerator:
                 cells.append(str(agg))
 
             lines.append(f"| {cat} | " + " | ".join(cells) + " |")
+
+        return lines
+
+    def _autobiographical_section(self, systems: dict[str, list[dict]]) -> list[str]:
+        """Generate Track E autobiographical memory scorecard."""
+        system_ids = sorted(systems.keys())
+        has_data = any(
+            run.get("final_metrics", {}).get("autobiographical_summary")
+            for sys_id in system_ids
+            for run in systems[sys_id]
+        )
+        if not has_data:
+            return []
+
+        lines = ["### Autobiographical Memory", ""]
+
+        axes: set[str] = set()
+        diagnostics: set[str] = set()
+        for sys_id in system_ids:
+            for run in systems[sys_id]:
+                summary = run.get("final_metrics", {}).get("autobiographical_summary", {})
+                axes.update(summary.get("axes", {}).keys())
+                diagnostics.update(summary.get("diagnostics", {}).keys())
+
+        metric_rows = [("overall", "overall")]
+        metric_rows.extend((axis, f"axes.{axis}") for axis in sorted(axes))
+        lower_better = {
+            "boundary_leakage_rate",
+            "emotional_pollution_rate",
+            "stale_preference_rate",
+        }
+        for diagnostic in sorted(diagnostics):
+            label = f"{diagnostic} (lower is better)" if diagnostic in lower_better else diagnostic
+            metric_rows.append((label, f"diagnostics.{diagnostic}"))
+
+        header = "| Metric | " + " | ".join(system_ids) + " |"
+        sep = "|--------|" + "|".join(["--------"] * len(system_ids)) + "|"
+        lines.extend([header, sep])
+
+        for label, path in metric_rows:
+            cells = []
+            for sys_id in system_ids:
+                values = []
+                for run in systems[sys_id]:
+                    summary = run.get("final_metrics", {}).get("autobiographical_summary", {})
+                    value = _nested_get(summary, path)
+                    if value is not None:
+                        values.append(float(value))
+                agg = _aggregate(values) if values else _aggregate([0.0])
+                cells.append(str(agg))
+            lines.append(f"| {label} | " + " | ".join(cells) + " |")
 
         return lines
 
@@ -576,11 +645,13 @@ class ReportGenerator:
                     reports = adapter_data.get("consolidation_reports", [])
 
                     if salience_map or total_dreams or total_reflections:
-                        lines.append(f"- **{sys_id}**: "
-                                     f"{len(salience_map)} events with salience data, "
-                                     f"{total_dreams} dreams, "
-                                     f"{total_reflections} reflections, "
-                                     f"{len(reports)} consolidation reports")
+                        lines.append(
+                            f"- **{sys_id}**: "
+                            f"{len(salience_map)} events with salience data, "
+                            f"{total_dreams} dreams, "
+                            f"{total_reflections} reflections, "
+                            f"{len(reports)} consolidation reports"
+                        )
             lines.append("")
 
         # Tier distribution
@@ -592,7 +663,10 @@ class ReportGenerator:
                     tier_dist = run.get("final_metrics", {}).get("tier_distribution", {})
                     if tier_dist:
                         total = sum(tier_dist.values())
-                        parts = [f"{tier}: {count/total:.0%}" for tier, count in sorted(tier_dist.items())]
+                        parts = [
+                            f"{tier}: {count / total:.0%}"
+                            for tier, count in sorted(tier_dist.items())
+                        ]
                         lines.append(f"- **{sys_id}**: " + ", ".join(parts))
             lines.append("")
 

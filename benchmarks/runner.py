@@ -4,12 +4,23 @@ Processes an event stream through a MemoryAdapter, pausing at measurement
 points to evaluate recall quality, and collecting latency/resource data.
 """
 
+import hashlib
 import json
+import subprocess
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from benchmarks.adapters.base import BenchEvent, MemoryAdapter, SystemStats
+from benchmarks.adapters.base import (
+    BenchEvent,
+    MemoryAdapter,
+    RecallResult,
+    SystemStats,
+)
+from benchmarks.scoring.autobiographical import (
+    aggregate_autobiographical_scores,
+    score_autobiographical_query,
+)
 from benchmarks.scoring.hard_truth import (
     ScoredRecall,
     aggregate_by_category,
@@ -37,6 +48,9 @@ class CycleMetrics:
     traceability_results: list[dict] = field(default_factory=list)
     entity_confusion_results: list[dict] = field(default_factory=list)
     tier_distribution: dict = field(default_factory=dict)
+    autobiographical_scores: list[dict] = field(default_factory=list)
+    autobiographical_summary: dict = field(default_factory=dict)
+    recall_traces: list[dict] = field(default_factory=list)
 
 
 @dataclass
@@ -49,9 +63,14 @@ class BenchmarkResult:
     final_metrics: CycleMetrics | None = None
     metrics_over_time: list[tuple[int, CycleMetrics]] = field(default_factory=list)
     final_stats: SystemStats | None = None
-    latencies: dict = field(default_factory=lambda: {
-        "ingest": [], "recall": [], "consolidate": [],
-    })
+    run_manifest: dict = field(default_factory=dict)
+    latencies: dict = field(
+        default_factory=lambda: {
+            "ingest": [],
+            "recall": [],
+            "consolidate": [],
+        }
+    )
     total_events: int = 0
     wall_time_seconds: float = 0.0
 
@@ -68,6 +87,9 @@ class BenchmarkResult:
         if self.final_stats:
             d["final_stats"] = asdict(self.final_stats)
 
+        if self.run_manifest:
+            d["run_manifest"] = self.run_manifest
+
         if self.final_metrics:
             fm = {
                 "cycle": self.final_metrics.cycle,
@@ -83,6 +105,12 @@ class BenchmarkResult:
                 fm["tier_distribution"] = self.final_metrics.tier_distribution
             if self.final_metrics.adapter_data:
                 fm["adapter_data"] = self.final_metrics.adapter_data
+            if self.final_metrics.autobiographical_summary:
+                fm["autobiographical_summary"] = self.final_metrics.autobiographical_summary
+            if self.final_metrics.autobiographical_scores:
+                fm["autobiographical_scores"] = self.final_metrics.autobiographical_scores
+            if self.final_metrics.recall_traces:
+                fm["recall_traces"] = self.final_metrics.recall_traces
             d["final_metrics"] = fm
 
         d["metrics_over_time"] = []
@@ -95,6 +123,8 @@ class BenchmarkResult:
             }
             if m.tier_distribution:
                 point["tier_distribution"] = m.tier_distribution
+            if m.autobiographical_summary:
+                point["autobiographical_summary"] = m.autobiographical_summary
             d["metrics_over_time"].append(point)
 
         # Latency summaries (not raw arrays — too large)
@@ -141,6 +171,40 @@ def load_ground_truth(path: str) -> dict[str, dict]:
     return {item["query_id"]: item for item in items}
 
 
+def _file_manifest(path: str) -> dict:
+    """Return path/count/hash metadata for a benchmark input file."""
+    p = Path(path)
+    return {
+        "path": str(p),
+        "sha256": _sha256(p),
+        "bytes": p.stat().st_size if p.exists() else 0,
+    }
+
+
+def _sha256(path: Path) -> str:
+    hasher = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            hasher.update(chunk)
+    return hasher.hexdigest()
+
+
+def _git_sha() -> str | None:
+    try:
+        root = Path(__file__).resolve().parents[1]
+        proc = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=root,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError:
+        return None
+    sha = proc.stdout.strip()
+    return sha or None
+
+
 class BenchmarkRunner:
     """Runs a benchmark stream through a memory adapter and collects metrics."""
 
@@ -154,22 +218,47 @@ class BenchmarkRunner:
         max_cycles: int | None = None,
         primary_users: list[str] | None = None,
     ):
+        self.stream_path = str(stream_path)
+        self.query_path = str(query_path)
+        self.ground_truth_path = str(ground_truth_path)
         self.events = load_jsonl(stream_path)
         self.queries = load_jsonl(query_path)
         self.ground_truth = load_ground_truth(ground_truth_path)
         self.consolidation_interval = consolidation_interval
-        self.measurement_points = set(
-            measurement_points or [100, 500, 1000, 2000, 5000, 10000]
-        )
+        self.measurement_points = set(measurement_points or [100, 500, 1000, 2000, 5000, 10000])
         self.max_cycles = max_cycles
         self.primary_users = primary_users or []
         self._content_index: set[str] | None = None
 
         if self.max_cycles:
             self.events = [e for e in self.events if e["cycle"] <= self.max_cycles]
-            self.measurement_points = {
-                p for p in self.measurement_points if p <= self.max_cycles
-            }
+            self.measurement_points = {p for p in self.measurement_points if p <= self.max_cycles}
+
+    def _build_run_manifest(
+        self,
+        system_id: str,
+        seed: int,
+        stream_name: str,
+    ) -> dict:
+        """Build immutable dataset/config metadata for the result file."""
+        return {
+            "system_id": system_id,
+            "stream_name": stream_name,
+            "seed": seed,
+            "git_sha": _git_sha(),
+            "files": {
+                "stream": _file_manifest(self.stream_path),
+                "queries": _file_manifest(self.query_path),
+                "ground_truth": _file_manifest(self.ground_truth_path),
+            },
+            "event_count": len(self.events),
+            "query_count": len(self.queries),
+            "ground_truth_count": len(self.ground_truth),
+            "consolidation_interval": self.consolidation_interval,
+            "measurement_points": sorted(self.measurement_points),
+            "max_cycles": self.max_cycles,
+            "primary_users": self.primary_users,
+        }
 
     async def run(
         self,
@@ -186,6 +275,7 @@ class BenchmarkRunner:
             stream_name=stream_name,
             seed=seed,
             total_events=len(self.events),
+            run_manifest=self._build_run_manifest(system_id, seed, stream_name),
         )
 
         wall_start = time.monotonic()
@@ -212,10 +302,11 @@ class BenchmarkRunner:
 
                 stats = metrics.stats
                 f1 = metrics.recall_summary.get("f1", 0.0)
+                auto = metrics.autobiographical_summary.get("overall")
                 mem_count = stats.memory_count if stats else 0
+                auto_part = f", AutoBio={auto:.3f}" if auto is not None else ""
                 print(
-                    f"  [{system_id}] cycle {cycle}: "
-                    f"{mem_count} memories, F1={f1:.3f}"
+                    f"  [{system_id}] cycle {cycle}: {mem_count} memories, F1={f1:.3f}{auto_part}"
                 )
 
             # Progress indicator for long runs
@@ -231,9 +322,7 @@ class BenchmarkRunner:
         # --- Final measurement ---
         if self.events:
             final_cycle = self.events[-1]["cycle"]
-            result.final_metrics = await self._measure(
-                adapter, final_cycle, result.latencies
-            )
+            result.final_metrics = await self._measure(adapter, final_cycle, result.latencies)
             result.final_stats = await adapter.get_stats()
 
         result.wall_time_seconds = time.monotonic() - wall_start
@@ -245,7 +334,30 @@ class BenchmarkRunner:
     def _get_content_index(self, cycle: int) -> set[str]:
         """Build content index for traceability checks up to given cycle."""
         from benchmarks.scoring.hard_truth import build_content_index
+
         return build_content_index(self.events, cycle)
+
+    @staticmethod
+    def _recall_trace_result(
+        rank: int,
+        result: RecallResult,
+        traceability: dict,
+    ) -> dict:
+        """Serialize a retrieved memory for audit traces."""
+        metadata = result.metadata or {}
+        return {
+            "rank": rank,
+            "score": result.score,
+            "content_snippet": result.content[:500],
+            "formed_at": result.formed_at,
+            "memory_id": metadata.get("memory_id") or metadata.get("id"),
+            "evidence_ids": (metadata.get("evidence_ids") or metadata.get("evidence_id") or []),
+            "timestamp": metadata.get("timestamp") or result.formed_at,
+            "tier": metadata.get("tier"),
+            "identity_scope": metadata.get("identity_scope"),
+            "traceable": traceability.get("traceable", False),
+            "trace_overlap": traceability.get("overlap", 0.0),
+        }
 
     async def _measure(
         self,
@@ -265,6 +377,8 @@ class BenchmarkRunner:
         contradiction_results = []
         traceability_results = []
         entity_confusion_results = []
+        autobiographical_scores = []
+        recall_traces = []
         tier_counts: dict[str, int] = {}
 
         # Build content index for traceability (lazily)
@@ -281,12 +395,33 @@ class BenchmarkRunner:
             latencies.setdefault("recall", []).append(time.perf_counter() - t0)
 
             # Traceability check for each result
+            query_traceability_results = []
+            query_trace = {
+                "query_id": query_id,
+                "query": q["query"],
+                "category": category,
+                "autobiographical_axes": q.get("autobiographical_axes", []),
+                "expected_memories": gt.get("expected_memories", []),
+                "current_fact": gt.get("current_fact"),
+                "stale_fact": gt.get("stale_fact"),
+                "results": [],
+            }
             for r in results:
                 trace = check_traceability(r.content, content_index)
-                traceability_results.append({
+                trace_record = {
                     "query_id": query_id,
                     **trace,
-                })
+                }
+                traceability_results.append(trace_record)
+                query_traceability_results.append(trace_record)
+                query_trace["results"].append(
+                    self._recall_trace_result(
+                        rank=len(query_trace["results"]) + 1,
+                        result=r,
+                        traceability=trace,
+                    )
+                )
+            recall_traces.append(query_trace)
 
             # Tier distribution from result metadata
             for r in results:
@@ -304,7 +439,10 @@ class BenchmarkRunner:
                         break
                 if query_user:
                     confusion = score_entity_confusion(
-                        query_id, query_user, results, self.primary_users,
+                        query_id,
+                        query_user,
+                        results,
+                        self.primary_users,
                     )
                     entity_confusion_results.append(confusion)
 
@@ -326,14 +464,21 @@ class BenchmarkRunner:
                 current = gt.get("current_fact", "")
                 stale = gt.get("stale_fact", "")
                 if current and stale:
-                    contra = score_contradiction(
-                        query_id, results, current, stale
-                    )
+                    contra = score_contradiction(query_id, results, current, stale)
                     contradiction_results.append(contra)
             else:
                 expected = gt.get("expected_memories", q.get("expected_memories", []))
                 scored = score_recall(query_id, category, results, expected)
                 recall_scores.append(scored)
+
+            autobiographical = score_autobiographical_query(
+                q,
+                gt,
+                results,
+                query_traceability_results,
+            )
+            if autobiographical:
+                autobiographical_scores.append(autobiographical.to_dict())
 
         metrics.recall_scores = recall_scores
         metrics.recall_summary = aggregate_scores(recall_scores)
@@ -341,6 +486,11 @@ class BenchmarkRunner:
         metrics.contradiction_results = contradiction_results
         metrics.traceability_results = traceability_results
         metrics.entity_confusion_results = entity_confusion_results
+        metrics.autobiographical_scores = autobiographical_scores
+        metrics.autobiographical_summary = aggregate_autobiographical_scores(
+            autobiographical_scores
+        )
+        metrics.recall_traces = recall_traces
         metrics.tier_distribution = tier_counts
         metrics.stats = await adapter.get_stats()
         metrics.identity_state = await adapter.get_state()

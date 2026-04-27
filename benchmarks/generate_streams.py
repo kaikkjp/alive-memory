@@ -9,6 +9,7 @@ and controlled noise ratios — all deterministic from the seed.
 
 import json
 import random
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -33,112 +34,222 @@ SCENARIOS = {
             "system": 0.05,
         },
         "topics": [
-            "transformer architectures", "attention mechanisms",
-            "agent memory systems", "reinforcement learning",
-            "AI safety and alignment", "large language models",
-            "multimodal models", "code generation",
-            "reasoning and planning", "tool use in agents",
-            "retrieval augmented generation", "fine-tuning techniques",
-            "prompt engineering", "AI governance",
-            "robotics and embodiment", "neural architecture search",
-            "knowledge graphs", "continual learning",
-            "AI benchmarks and evaluation", "distributed training",
+            "transformer architectures",
+            "attention mechanisms",
+            "agent memory systems",
+            "reinforcement learning",
+            "AI safety and alignment",
+            "large language models",
+            "multimodal models",
+            "code generation",
+            "reasoning and planning",
+            "tool use in agents",
+            "retrieval augmented generation",
+            "fine-tuning techniques",
+            "prompt engineering",
+            "AI governance",
+            "robotics and embodiment",
+            "neural architecture search",
+            "knowledge graphs",
+            "continual learning",
+            "AI benchmarks and evaluation",
+            "distributed training",
         ],
         "users": {
             "primary": ["alice", "bob", "carol"],
             "occasional": [
-                "dave", "eve", "frank", "grace",
-                "heidi", "ivan", "judy",
+                "dave",
+                "eve",
+                "frank",
+                "grace",
+                "heidi",
+                "ivan",
+                "judy",
             ],
         },
         "contradictions": [
-            {"cycle_intro": 200, "cycle_update": 3000,
-             "entity": "bob", "field": "employer",
-             "old_value": "Google", "new_value": "Anthropic",
-             "intro_text": "Bob mentioned he works at Google on their AI team.",
-             "update_text": "Bob just told me he left Google. He's now at Anthropic working on Claude."},
-            {"cycle_intro": 500, "cycle_update": 4000,
-             "entity": "transformer_paper", "field": "compute_reduction",
-             "old_value": "40%", "new_value": "35%",
-             "intro_text": "The sparse attention paper claims 40% compute reduction.",
-             "update_text": "Correction to the sparse attention paper — actual compute reduction is 35%, not 40%. Errata published."},
-            {"cycle_intro": 800, "cycle_update": 5500,
-             "entity": "alice", "field": "research_focus",
-             "old_value": "NLP", "new_value": "multimodal AI",
-             "intro_text": "Alice is focused on NLP research, specifically text generation.",
-             "update_text": "Alice told me she switched her research focus from NLP to multimodal AI last month."},
-            {"cycle_intro": 1200, "cycle_update": 6000,
-             "entity": "gpt5", "field": "release_date",
-             "old_value": "March 2026", "new_value": "delayed to Q3 2026",
-             "intro_text": "Rumors say GPT-5 launches in March 2026.",
-             "update_text": "OpenAI confirmed GPT-5 is delayed to Q3 2026. Technical challenges cited."},
-            {"cycle_intro": 300, "cycle_update": 2500,
-             "entity": "carol", "field": "university",
-             "old_value": "MIT", "new_value": "Stanford",
-             "intro_text": "Carol is a PhD student at MIT working on RL.",
-             "update_text": "Carol transferred from MIT to Stanford to work with a new advisor."},
-            {"cycle_intro": 1500, "cycle_update": 7000,
-             "entity": "safety_framework", "field": "standard",
-             "old_value": "EU AI Act", "new_value": "UN AI Treaty",
-             "intro_text": "The EU AI Act is the gold standard for AI regulation.",
-             "update_text": "The new UN AI Treaty has superseded the EU AI Act as the primary global framework."},
-            {"cycle_intro": 400, "cycle_update": 3500,
-             "entity": "dave", "field": "project",
-             "old_value": "chatbot", "new_value": "autonomous agent",
-             "intro_text": "Dave is building a customer service chatbot.",
-             "update_text": "Dave pivoted from the chatbot project to building an autonomous coding agent."},
-            {"cycle_intro": 900, "cycle_update": 4500,
-             "entity": "benchmark", "field": "leader",
-             "old_value": "GPT-4", "new_value": "Claude 4",
-             "intro_text": "GPT-4 still leads most benchmarks by a small margin.",
-             "update_text": "Claude 4 just took the top spot on MMLU, HumanEval, and MATH. GPT-4 dethroned."},
-            {"cycle_intro": 1800, "cycle_update": 8000,
-             "entity": "eve", "field": "role",
-             "old_value": "researcher", "new_value": "engineering manager",
-             "intro_text": "Eve is a researcher at DeepMind focusing on scaling laws.",
-             "update_text": "Eve got promoted — she's now an engineering manager at DeepMind, no longer hands-on research."},
-            {"cycle_intro": 600, "cycle_update": 2000,
-             "entity": "rag_method", "field": "best_approach",
-             "old_value": "naive chunking", "new_value": "semantic chunking",
-             "intro_text": "For RAG, naive fixed-size chunking with 512 tokens works best.",
-             "update_text": "New research shows semantic chunking significantly outperforms naive fixed-size chunking for RAG."},
-            {"cycle_intro": 2000, "cycle_update": 7500,
-             "entity": "frank", "field": "location",
-             "old_value": "San Francisco", "new_value": "London",
-             "intro_text": "Frank is based in San Francisco, works at a startup there.",
-             "update_text": "Frank relocated to London to lead the European office."},
-            {"cycle_intro": 1000, "cycle_update": 5000,
-             "entity": "training_cost", "field": "trend",
-             "old_value": "increasing exponentially", "new_value": "plateauing",
-             "intro_text": "Training costs for frontier models continue to increase exponentially.",
-             "update_text": "New efficiency techniques have caused training costs to plateau. The exponential trend has broken."},
-            {"cycle_intro": 2500, "cycle_update": 8500,
-             "entity": "grace", "field": "company",
-             "old_value": "startup", "new_value": "acquired by Meta",
-             "intro_text": "Grace is CEO of a small AI safety startup.",
-             "update_text": "Grace's startup was acquired by Meta. She's now VP of AI Safety there."},
-            {"cycle_intro": 1100, "cycle_update": 6500,
-             "entity": "context_length", "field": "frontier",
-             "old_value": "128K tokens", "new_value": "1M tokens",
-             "intro_text": "Current frontier context length is 128K tokens (Claude, Gemini).",
-             "update_text": "Gemini 2 just launched with 1M token context. New frontier."},
-            {"cycle_intro": 700, "cycle_update": 9000,
-             "entity": "heidi", "field": "specialty",
-             "old_value": "computer vision", "new_value": "robotics",
-             "intro_text": "Heidi specializes in computer vision at a robotics lab.",
-             "update_text": "Heidi fully transitioned from computer vision to end-to-end robotics. Says CV is now a solved problem for her use cases."},
+            {
+                "cycle_intro": 200,
+                "cycle_update": 3000,
+                "entity": "bob",
+                "field": "employer",
+                "old_value": "Google",
+                "new_value": "Anthropic",
+                "intro_text": "Bob mentioned he works at Google on their AI team.",
+                "update_text": "Bob just told me he left Google. He's now at Anthropic working on Claude.",
+            },
+            {
+                "cycle_intro": 500,
+                "cycle_update": 4000,
+                "entity": "transformer_paper",
+                "field": "compute_reduction",
+                "old_value": "40%",
+                "new_value": "35%",
+                "intro_text": "The sparse attention paper claims 40% compute reduction.",
+                "update_text": "Correction to the sparse attention paper — actual compute reduction is 35%, not 40%. Errata published.",
+            },
+            {
+                "cycle_intro": 800,
+                "cycle_update": 5500,
+                "entity": "alice",
+                "field": "research_focus",
+                "old_value": "NLP",
+                "new_value": "multimodal AI",
+                "intro_text": "Alice is focused on NLP research, specifically text generation.",
+                "update_text": "Alice told me she switched her research focus from NLP to multimodal AI last month.",
+            },
+            {
+                "cycle_intro": 1200,
+                "cycle_update": 6000,
+                "entity": "gpt5",
+                "field": "release_date",
+                "old_value": "March 2026",
+                "new_value": "delayed to Q3 2026",
+                "intro_text": "Rumors say GPT-5 launches in March 2026.",
+                "update_text": "OpenAI confirmed GPT-5 is delayed to Q3 2026. Technical challenges cited.",
+            },
+            {
+                "cycle_intro": 300,
+                "cycle_update": 2500,
+                "entity": "carol",
+                "field": "university",
+                "old_value": "MIT",
+                "new_value": "Stanford",
+                "intro_text": "Carol is a PhD student at MIT working on RL.",
+                "update_text": "Carol transferred from MIT to Stanford to work with a new advisor.",
+            },
+            {
+                "cycle_intro": 1500,
+                "cycle_update": 7000,
+                "entity": "safety_framework",
+                "field": "standard",
+                "old_value": "EU AI Act",
+                "new_value": "UN AI Treaty",
+                "intro_text": "The EU AI Act is the gold standard for AI regulation.",
+                "update_text": "The new UN AI Treaty has superseded the EU AI Act as the primary global framework.",
+            },
+            {
+                "cycle_intro": 400,
+                "cycle_update": 3500,
+                "entity": "dave",
+                "field": "project",
+                "old_value": "chatbot",
+                "new_value": "autonomous agent",
+                "intro_text": "Dave is building a customer service chatbot.",
+                "update_text": "Dave pivoted from the chatbot project to building an autonomous coding agent.",
+            },
+            {
+                "cycle_intro": 900,
+                "cycle_update": 4500,
+                "entity": "benchmark",
+                "field": "leader",
+                "old_value": "GPT-4",
+                "new_value": "Claude 4",
+                "intro_text": "GPT-4 still leads most benchmarks by a small margin.",
+                "update_text": "Claude 4 just took the top spot on MMLU, HumanEval, and MATH. GPT-4 dethroned.",
+            },
+            {
+                "cycle_intro": 1800,
+                "cycle_update": 8000,
+                "entity": "eve",
+                "field": "role",
+                "old_value": "researcher",
+                "new_value": "engineering manager",
+                "intro_text": "Eve is a researcher at DeepMind focusing on scaling laws.",
+                "update_text": "Eve got promoted — she's now an engineering manager at DeepMind, no longer hands-on research.",
+            },
+            {
+                "cycle_intro": 600,
+                "cycle_update": 2000,
+                "entity": "rag_method",
+                "field": "best_approach",
+                "old_value": "naive chunking",
+                "new_value": "semantic chunking",
+                "intro_text": "For RAG, naive fixed-size chunking with 512 tokens works best.",
+                "update_text": "New research shows semantic chunking significantly outperforms naive fixed-size chunking for RAG.",
+            },
+            {
+                "cycle_intro": 2000,
+                "cycle_update": 7500,
+                "entity": "frank",
+                "field": "location",
+                "old_value": "San Francisco",
+                "new_value": "London",
+                "intro_text": "Frank is based in San Francisco, works at a startup there.",
+                "update_text": "Frank relocated to London to lead the European office.",
+            },
+            {
+                "cycle_intro": 1000,
+                "cycle_update": 5000,
+                "entity": "training_cost",
+                "field": "trend",
+                "old_value": "increasing exponentially",
+                "new_value": "plateauing",
+                "intro_text": "Training costs for frontier models continue to increase exponentially.",
+                "update_text": "New efficiency techniques have caused training costs to plateau. The exponential trend has broken.",
+            },
+            {
+                "cycle_intro": 2500,
+                "cycle_update": 8500,
+                "entity": "grace",
+                "field": "company",
+                "old_value": "startup",
+                "new_value": "acquired by Meta",
+                "intro_text": "Grace is CEO of a small AI safety startup.",
+                "update_text": "Grace's startup was acquired by Meta. She's now VP of AI Safety there.",
+            },
+            {
+                "cycle_intro": 1100,
+                "cycle_update": 6500,
+                "entity": "context_length",
+                "field": "frontier",
+                "old_value": "128K tokens",
+                "new_value": "1M tokens",
+                "intro_text": "Current frontier context length is 128K tokens (Claude, Gemini).",
+                "update_text": "Gemini 2 just launched with 1M token context. New frontier.",
+            },
+            {
+                "cycle_intro": 700,
+                "cycle_update": 9000,
+                "entity": "heidi",
+                "field": "specialty",
+                "old_value": "computer vision",
+                "new_value": "robotics",
+                "intro_text": "Heidi specializes in computer vision at a robotics lab.",
+                "update_text": "Heidi fully transitioned from computer vision to end-to-end robotics. Says CV is now a solved problem for her use cases.",
+            },
         ],
         "needles": [
-            {"cycle": 150, "content": "Alice mentioned her cat is named Schrödinger. A physicist's cat, she laughed.",
-             "query": "What is Alice's cat's name?", "answer": "Schrödinger"},
-            {"cycle": 2200, "content": "Bob's birthday is July 14th. He mentioned wanting to celebrate at a sushi place.",
-             "query": "When is Bob's birthday?", "answer": "July 14th"},
-            {"cycle": 4800, "content": "Carol's favorite paper of all time is 'Attention Is All You Need'. She has it framed.",
-             "query": "What is Carol's favorite paper?", "answer": "Attention Is All You Need"},
-            {"cycle": 7300, "content": "The office WiFi password is 'neurons42'. Dave shared it when I asked.",
-             "query": "What is the office WiFi password?", "answer": "neurons42"},
-            {"cycle": 9500, "content": "Alice's PhD thesis title is 'Emergent Communication in Multi-Agent Systems'.",
-             "query": "What is Alice's PhD thesis about?", "answer": "Emergent Communication in Multi-Agent Systems"},
+            {
+                "cycle": 150,
+                "content": "Alice mentioned her cat is named Schrödinger. A physicist's cat, she laughed.",
+                "query": "What is Alice's cat's name?",
+                "answer": "Schrödinger",
+            },
+            {
+                "cycle": 2200,
+                "content": "Bob's birthday is July 14th. He mentioned wanting to celebrate at a sushi place.",
+                "query": "When is Bob's birthday?",
+                "answer": "July 14th",
+            },
+            {
+                "cycle": 4800,
+                "content": "Carol's favorite paper of all time is 'Attention Is All You Need'. She has it framed.",
+                "query": "What is Carol's favorite paper?",
+                "answer": "Attention Is All You Need",
+            },
+            {
+                "cycle": 7300,
+                "content": "The office WiFi password is 'neurons42'. Dave shared it when I asked.",
+                "query": "What is the office WiFi password?",
+                "answer": "neurons42",
+            },
+            {
+                "cycle": 9500,
+                "content": "Alice's PhD thesis title is 'Emergent Communication in Multi-Agent Systems'.",
+                "query": "What is Alice's PhD thesis about?",
+                "answer": "Emergent Communication in Multi-Agent Systems",
+            },
         ],
     },
 }
@@ -155,11 +266,21 @@ SCENARIOS["customer_support"] = {
         "system": 0.05,
     },
     "topics": [
-        "billing issues", "account access", "feature requests",
-        "bug reports", "integration help", "API documentation",
-        "pricing plans", "data export", "security questions",
-        "onboarding help", "performance issues", "mobile app",
-        "team management", "notifications", "dashboard customization",
+        "billing issues",
+        "account access",
+        "feature requests",
+        "bug reports",
+        "integration help",
+        "API documentation",
+        "pricing plans",
+        "data export",
+        "security questions",
+        "onboarding help",
+        "performance issues",
+        "mobile app",
+        "team management",
+        "notifications",
+        "dashboard customization",
     ],
     "users": {
         "primary": [f"customer_{i}" for i in range(1, 6)],
@@ -180,10 +301,18 @@ SCENARIOS["personal_assistant"] = {
         "system": 0.05,
     },
     "topics": [
-        "schedule management", "email triage", "project planning",
-        "travel booking", "restaurant recommendations", "fitness tracking",
-        "reading list", "financial planning", "home maintenance",
-        "gift ideas", "learning goals", "social events",
+        "schedule management",
+        "email triage",
+        "project planning",
+        "travel booking",
+        "restaurant recommendations",
+        "fitness tracking",
+        "reading list",
+        "financial planning",
+        "home maintenance",
+        "gift ideas",
+        "learning goals",
+        "social events",
     ],
     "users": {
         "primary": ["user"],
@@ -191,6 +320,96 @@ SCENARIOS["personal_assistant"] = {
     },
     "contradictions": [],
     "needles": [],
+}
+
+SCENARIOS["autobiographical_agent"] = {
+    "description": "Persistent agent identity, visitor tastes, affect, and boundaries",
+    "total_events": 3_000,
+    "days": 90,
+    "event_distribution": {
+        "conversation": 0.65,
+        "observation": 0.10,
+        "action": 0.20,
+        "system": 0.05,
+    },
+    "topics": [
+        "self identity",
+        "agent style",
+        "visitor tastes",
+        "preference corrections",
+        "emotional salience",
+        "person boundaries",
+        "evidence grounding",
+        "long gap continuity",
+    ],
+    "users": {
+        "primary": ["kai", "mira", "noah"],
+        "occasional": ["ren", "sana"],
+    },
+    "contradictions": [
+        {
+            "cycle_intro": 120,
+            "cycle_update": 900,
+            "entity": "kai",
+            "field": "beverage_preference",
+            "old_value": "strong coffee",
+            "new_value": "avoids caffeine",
+            "intro_text": "Kai said he likes strong coffee when working late.",
+            "update_text": "Kai corrected his beverage preference: he now avoids caffeine after a health scare, so suggest herbal tea instead of strong coffee.",
+        },
+        {
+            "cycle_intro": 220,
+            "cycle_update": 1300,
+            "entity": "agent",
+            "field": "response_style",
+            "old_value": "expansive explanations",
+            "new_value": "concise evidence-grounded answers",
+            "intro_text": "The agent used to answer with expansive explanations and lots of context.",
+            "update_text": "After repeated feedback, the agent's durable response style is concise evidence-grounded answers with practical detail.",
+        },
+        {
+            "cycle_intro": 300,
+            "cycle_update": 1600,
+            "entity": "mira",
+            "field": "film_preference",
+            "old_value": "light comedies",
+            "new_value": "atmospheric horror films",
+            "intro_text": "Mira said she usually watches light comedies after work.",
+            "update_text": "Mira corrected her film taste: she now prefers atmospheric horror films, especially slow-burn ghost stories.",
+        },
+    ],
+    "needles": [
+        {
+            "cycle": 80,
+            "content": "The agent's enduring identity is Maru, a quiet practical memory companion that favors concise answers and evidence over performance.",
+            "query": "What is the agent's enduring identity?",
+            "answer": "Maru, a quiet practical memory companion that favors concise answers and evidence",
+        },
+        {
+            "cycle": 450,
+            "content": "Kai felt shaken about his mother's surgery and asked the agent to remember that family health updates matter more than routine task chatter.",
+            "query": "What has been weighing on Kai lately?",
+            "answer": "his mother's surgery",
+        },
+        {
+            "cycle": 700,
+            "content": "Noah explicitly hates horror films and prefers bright adventure movies with optimistic endings.",
+            "query": "Should Noah get a horror recommendation?",
+            "answer": "Noah hates horror films",
+        },
+        {
+            "cycle": 1100,
+            "content": "Mira's favorite recommendation style is brief, specific, and taste-aware; she dislikes generic lists.",
+            "query": "How should recommendations for Mira be phrased?",
+            "answer": "brief, specific, and taste-aware",
+        },
+        {
+            "cycle": 2400,
+            "content": "After a long quiet gap, Maru still describes itself as quiet, practical, concise, and evidence-grounded rather than performative.",
+            "query": "How should the agent describe itself after a long gap?",
+            "answer": "quiet, practical, concise, and evidence-grounded",
+        },
+    ],
 }
 
 
@@ -216,6 +435,7 @@ class StreamGenerator:
         noise_ratio: float = 0.0,
         use_llm: bool = False,
         llm_model: str = "claude-haiku-4-5-20251001",
+        output_name: str | None = None,
     ):
         if scenario not in SCENARIOS:
             raise ValueError(f"Unknown scenario: {scenario}. Available: {list(SCENARIOS)}")
@@ -227,6 +447,7 @@ class StreamGenerator:
         self.noise_ratio = noise_ratio
         self.use_llm = use_llm
         self.llm_model = llm_model
+        self.output_name = output_name or scenario
         self.rng = random.Random(seed)
 
     def generate(self, output_dir: str) -> dict[str, str]:
@@ -239,9 +460,11 @@ class StreamGenerator:
         (out / "queries").mkdir(parents=True, exist_ok=True)
         (out / "ground_truth").mkdir(parents=True, exist_ok=True)
 
-        stream_path = str(out / "streams" / f"{self.scenario}_{self.total_events // 1000}k.jsonl")
-        query_path = str(out / "queries" / f"{self.scenario}_queries.jsonl")
-        gt_path = str(out / "ground_truth" / f"{self.scenario}_gt.jsonl")
+        stream_path = str(
+            out / "streams" / f"{self.output_name}_{self.total_events // 1000}k.jsonl"
+        )
+        query_path = str(out / "queries" / f"{self.output_name}_queries.jsonl")
+        gt_path = str(out / "ground_truth" / f"{self.output_name}_gt.jsonl")
 
         events = self._generate_events()
         queries, ground_truth = self._generate_queries_and_gt(events)
@@ -298,55 +521,71 @@ class StreamGenerator:
                 phase, contra = contradiction_cycles[cycle]
                 text = contra["intro_text"] if phase == "intro" else contra["update_text"]
                 ts = self._cycle_to_timestamp(cycle, base_ts, days)
-                events.append(GeneratedEvent(
-                    cycle=cycle,
-                    event_type="conversation" if "said" in text or "told" in text or "mentioned" in text else "observation",
-                    content=text,
-                    metadata={"source": contra.get("entity", "system"),
-                              "planted": "contradiction", "phase": phase},
-                    timestamp=ts.isoformat() + "Z",
-                    _is_contradiction=True,
-                ))
+                events.append(
+                    GeneratedEvent(
+                        cycle=cycle,
+                        event_type="conversation"
+                        if "said" in text or "told" in text or "mentioned" in text
+                        else "observation",
+                        content=text,
+                        metadata={
+                            "source": contra.get("entity", "system"),
+                            "planted": "contradiction",
+                            "phase": phase,
+                            "identity_scope": self._identity_scope_for_topic(
+                                contra.get("field", "")
+                            ),
+                        },
+                        timestamp=ts.isoformat() + "Z",
+                        _is_contradiction=True,
+                    )
+                )
                 continue
 
             if cycle in needle_cycles:
                 needle = needle_cycles[cycle]
                 ts = self._cycle_to_timestamp(cycle, base_ts, days)
-                events.append(GeneratedEvent(
-                    cycle=cycle,
-                    event_type="conversation",
-                    content=needle["content"],
-                    metadata={"planted": "needle", "needle_id": f"needle_{cycle}"},
-                    timestamp=ts.isoformat() + "Z",
-                    _is_needle=True,
-                ))
+                events.append(
+                    GeneratedEvent(
+                        cycle=cycle,
+                        event_type="conversation",
+                        content=needle["content"],
+                        metadata={
+                            "planted": "needle",
+                            "needle_id": f"needle_{cycle}",
+                            "identity_scope": self._identity_scope_for_topic(needle["content"]),
+                            "affect": self._affect_for_content(needle["content"]),
+                        },
+                        timestamp=ts.isoformat() + "Z",
+                        _is_needle=True,
+                    )
+                )
                 continue
 
             # Should this be noise?
             if self.noise_ratio > 0 and self.rng.random() < self.noise_ratio:
                 ts = self._cycle_to_timestamp(cycle, base_ts, days)
-                events.append(GeneratedEvent(
-                    cycle=cycle,
-                    event_type="system",
-                    content=self._generate_noise(),
-                    metadata={"noise": True},
-                    timestamp=ts.isoformat() + "Z",
-                ))
+                events.append(
+                    GeneratedEvent(
+                        cycle=cycle,
+                        event_type="system",
+                        content=self._generate_noise(),
+                        metadata={"noise": True},
+                        timestamp=ts.isoformat() + "Z",
+                    )
+                )
                 continue
 
             # Normal event
-            event_type = self.rng.choices(
-                list(dist.keys()), weights=list(dist.values())
-            )[0]
+            event_type = self.rng.choices(list(dist.keys()), weights=list(dist.values()))[0]
             topic = self.rng.choices(topics, weights=topic_weights)[0]
 
             # Pick user
             if event_type == "conversation":
                 all_users = users["primary"] + users.get("occasional", [])
                 # Primary users are 3x more likely
-                user_weights = (
-                    [3.0] * len(users["primary"])
-                    + [1.0] * len(users.get("occasional", []))
+                user_weights = [3.0] * len(users["primary"]) + [1.0] * len(
+                    users.get("occasional", [])
                 )
                 user = self.rng.choices(all_users, weights=user_weights)[0]
             else:
@@ -355,28 +594,59 @@ class StreamGenerator:
             ts = self._cycle_to_timestamp(cycle, base_ts, days)
             content = self._generate_content(event_type, topic, user, cycle)
 
-            events.append(GeneratedEvent(
-                cycle=cycle,
-                event_type=event_type,
-                content=content,
-                metadata={"source": user, "topic": topic},
-                timestamp=ts.isoformat() + "Z",
-            ))
+            events.append(
+                GeneratedEvent(
+                    cycle=cycle,
+                    event_type=event_type,
+                    content=content,
+                    metadata={
+                        "source": user,
+                        "topic": topic,
+                        "identity_scope": self._identity_scope_for_topic(topic),
+                        "affect": self._affect_for_content(content),
+                    },
+                    timestamp=ts.isoformat() + "Z",
+                )
+            )
 
         return events
 
-    def _cycle_to_timestamp(
-        self, cycle: int, base: datetime, total_days: int
-    ) -> datetime:
+    @staticmethod
+    def _identity_scope_for_topic(topic_or_text: str) -> str:
+        """Assign Track E identity scope metadata for generated events."""
+        text = topic_or_text.lower()
+        if "self" in text or "agent style" in text or "response_style" in text or "maru" in text:
+            return "self"
+        if (
+            "visitor" in text
+            or "preference" in text
+            or "taste" in text
+            or "beverage" in text
+            or "film" in text
+        ):
+            return "visitor"
+        if "boundar" in text or "family" in text or "surgery" in text:
+            return "relationship"
+        return "world"
+
+    @staticmethod
+    def _affect_for_content(content: str) -> dict:
+        """Assign simple deterministic affect metadata for Track E streams."""
+        text = content.lower()
+        if any(term in text for term in ("shaken", "surgery", "health scare", "hates", "dislikes")):
+            return {"valence": -0.7, "arousal": 0.8, "label": "high_salience"}
+        if any(term in text for term in ("prefers", "favorite", "likes")):
+            return {"valence": 0.4, "arousal": 0.4, "label": "preference"}
+        return {"valence": 0.0, "arousal": 0.1, "label": "neutral"}
+
+    def _cycle_to_timestamp(self, cycle: int, base: datetime, total_days: int) -> datetime:
         """Map cycle number to a timestamp within the simulated time range."""
         progress = cycle / self.total_events
         day_offset = progress * total_days
         hour_in_day = 9 + (self.rng.random() * 10)  # 9am - 7pm
         return base + timedelta(days=day_offset, hours=hour_in_day - 9)
 
-    def _generate_content(
-        self, event_type: str, topic: str, user: str, cycle: int
-    ) -> str:
+    def _generate_content(self, event_type: str, topic: str, user: str, cycle: int) -> str:
         """Generate event content. Template-based for determinism."""
         templates = {
             "conversation": [
@@ -441,7 +711,7 @@ class StreamGenerator:
         contradictions = config.get("contradictions", [])
         needles = config.get("needles", [])
 
-        measurement_points = [100, 500, 1000, 2000, 5000, 10000]
+        measurement_points = [100, 500, 1000, 2000, 3000, 5000, 10000]
         measurement_points = [p for p in measurement_points if p <= self.total_events]
 
         qid = 0
@@ -451,61 +721,74 @@ class StreamGenerator:
             user = config["users"]["primary"][0] if config["users"]["primary"] else "user"
             first_conv = None
             for e in events:
-                if (e.cycle <= mp and e.event_type == "conversation"
-                        and e.metadata.get("source") == user
-                        and not e._is_contradiction and not e._is_needle):
+                if (
+                    e.cycle <= mp
+                    and e.event_type == "conversation"
+                    and e.metadata.get("source") == user
+                    and not e._is_contradiction
+                    and not e._is_needle
+                ):
                     first_conv = e
                     break
 
             if first_conv:
                 qid += 1
                 topic = first_conv.metadata.get("topic", "")
-                queries.append({
-                    "query_id": f"q_{qid:04d}",
-                    "cycle": mp,
-                    "query": f"What did {user} first ask about?",
-                    "category": "basic_recall",
-                    "truth_tier": "hard",
-                })
-                ground_truth.append({
-                    "query_id": f"q_{qid:04d}",
-                    "expected_memories": [topic, user],
-                })
+                queries.append(
+                    {
+                        "query_id": f"q_{qid:04d}",
+                        "cycle": mp,
+                        "query": f"What did {user} first ask about?",
+                        "category": "basic_recall",
+                        "truth_tier": "hard",
+                    }
+                )
+                ground_truth.append(
+                    {
+                        "query_id": f"q_{qid:04d}",
+                        "expected_memories": [topic, user],
+                    }
+                )
 
             # Topic recall
             topic = self.rng.choice(config["topics"][:5])
             qid += 1
-            queries.append({
-                "query_id": f"q_{qid:04d}",
-                "cycle": mp,
-                "query": f"What have I seen about {topic}?",
-                "category": "topic_recall",
-                "truth_tier": "hard",
-            })
+            queries.append(
+                {
+                    "query_id": f"q_{qid:04d}",
+                    "cycle": mp,
+                    "query": f"What have I seen about {topic}?",
+                    "category": "topic_recall",
+                    "truth_tier": "hard",
+                }
+            )
             # Find events matching this topic
-            _matching = [
-                e for e in events
-                if e.cycle <= mp and e.metadata.get("topic") == topic
-            ]
-            ground_truth.append({
-                "query_id": f"q_{qid:04d}",
-                "expected_memories": [topic],
-            })
+            _matching = [e for e in events if e.cycle <= mp and e.metadata.get("topic") == topic]
+            ground_truth.append(
+                {
+                    "query_id": f"q_{qid:04d}",
+                    "expected_memories": [topic],
+                }
+            )
 
             # Temporal distance (same query at different points)
             if mp >= 5000 and first_conv:
                 qid += 1
-                queries.append({
-                    "query_id": f"q_{qid:04d}",
-                    "cycle": mp,
-                    "query": f"What did {user} first ask about?",
-                    "category": "temporal_distance",
-                    "truth_tier": "hard",
-                })
-                ground_truth.append({
-                    "query_id": f"q_{qid:04d}",
-                    "expected_memories": [first_conv.metadata.get("topic", ""), user],
-                })
+                queries.append(
+                    {
+                        "query_id": f"q_{qid:04d}",
+                        "cycle": mp,
+                        "query": f"What did {user} first ask about?",
+                        "category": "temporal_distance",
+                        "truth_tier": "hard",
+                    }
+                )
+                ground_truth.append(
+                    {
+                        "query_id": f"q_{qid:04d}",
+                        "expected_memories": [first_conv.metadata.get("topic", ""), user],
+                    }
+                )
 
             # Contradiction / fact update queries
             for contra in contradictions:
@@ -513,68 +796,85 @@ class StreamGenerator:
                     entity = contra["entity"]
                     field_name = contra["field"]
                     qid += 1
-                    queries.append({
-                        "query_id": f"q_{qid:04d}",
-                        "cycle": mp,
-                        "query": f"What is {entity}'s {field_name}?",
-                        "category": "fact_update",
-                        "truth_tier": "hard",
-                    })
-                    ground_truth.append({
-                        "query_id": f"q_{qid:04d}",
-                        "expected_memories": [contra["new_value"]],
-                        "current_fact": contra["new_value"],
-                        "stale_fact": contra["old_value"],
-                    })
+                    queries.append(
+                        {
+                            "query_id": f"q_{qid:04d}",
+                            "cycle": mp,
+                            "query": f"What is {entity}'s {field_name}?",
+                            "category": "fact_update",
+                            "truth_tier": "hard",
+                        }
+                    )
+                    ground_truth.append(
+                        {
+                            "query_id": f"q_{qid:04d}",
+                            "expected_memories": [contra["new_value"]],
+                            "current_fact": contra["new_value"],
+                            "stale_fact": contra["old_value"],
+                        }
+                    )
 
             # Needle queries (if needles have been planted by this point)
             for needle in needles:
                 if needle["cycle"] <= mp:
                     qid += 1
-                    queries.append({
-                        "query_id": f"q_{qid:04d}",
-                        "cycle": mp,
-                        "query": needle["query"],
-                        "category": "needle_in_haystack",
-                        "truth_tier": "hard",
-                    })
-                    ground_truth.append({
-                        "query_id": f"q_{qid:04d}",
-                        "expected_memories": [needle["answer"]],
-                    })
+                    queries.append(
+                        {
+                            "query_id": f"q_{qid:04d}",
+                            "cycle": mp,
+                            "query": needle["query"],
+                            "category": "needle_in_haystack",
+                            "truth_tier": "hard",
+                        }
+                    )
+                    ground_truth.append(
+                        {
+                            "query_id": f"q_{qid:04d}",
+                            "expected_memories": [needle["answer"]],
+                        }
+                    )
 
             # Entity tracking
             for primary_user in config["users"]["primary"][:2]:
                 qid += 1
-                queries.append({
-                    "query_id": f"q_{qid:04d}",
-                    "cycle": mp,
-                    "query": f"What topics has {primary_user} discussed?",
-                    "category": "entity_tracking",
-                    "truth_tier": "hard",
-                })
-                user_topics = list({
-                    e.metadata.get("topic", "")
-                    for e in events
-                    if e.cycle <= mp and e.metadata.get("source") == primary_user
-                    and e.metadata.get("topic")
-                })[:3]
-                ground_truth.append({
-                    "query_id": f"q_{qid:04d}",
-                    "expected_memories": user_topics if user_topics else [primary_user],
-                })
+                queries.append(
+                    {
+                        "query_id": f"q_{qid:04d}",
+                        "cycle": mp,
+                        "query": f"What topics has {primary_user} discussed?",
+                        "category": "entity_tracking",
+                        "truth_tier": "hard",
+                    }
+                )
+                user_topics = sorted(
+                    {
+                        e.metadata.get("topic", "")
+                        for e in events
+                        if e.cycle <= mp
+                        and e.metadata.get("source") == primary_user
+                        and e.metadata.get("topic")
+                    }
+                )[:3]
+                ground_truth.append(
+                    {
+                        "query_id": f"q_{qid:04d}",
+                        "expected_memories": user_topics if user_topics else [primary_user],
+                    }
+                )
 
             # Multi-hop
             if mp >= 1000:
                 qid += 1
                 u1 = config["users"]["primary"][0] if config["users"]["primary"] else "user"
-                queries.append({
-                    "query_id": f"q_{qid:04d}",
-                    "cycle": mp,
-                    "query": f"What topics do {u1} and the research papers have in common?",
-                    "category": "multi_hop",
-                    "truth_tier": "hard",
-                })
+                queries.append(
+                    {
+                        "query_id": f"q_{qid:04d}",
+                        "cycle": mp,
+                        "query": f"What topics do {u1} and the research papers have in common?",
+                        "category": "multi_hop",
+                        "truth_tier": "hard",
+                    }
+                )
                 # Find overlapping topics
                 user_topics_set = {
                     e.metadata.get("topic")
@@ -586,26 +886,32 @@ class StreamGenerator:
                     for e in events
                     if e.cycle <= mp and e.event_type == "observation"
                 }
-                overlap = list((user_topics_set & paper_topics_set) - {None})[:3]
-                ground_truth.append({
-                    "query_id": f"q_{qid:04d}",
-                    "expected_memories": overlap if overlap else [u1],
-                })
+                overlap = sorted((user_topics_set & paper_topics_set) - {None})[:3]
+                ground_truth.append(
+                    {
+                        "query_id": f"q_{qid:04d}",
+                        "expected_memories": overlap if overlap else [u1],
+                    }
+                )
 
             # Negative recall
             qid += 1
-            queries.append({
-                "query_id": f"q_{qid:04d}",
-                "cycle": mp,
-                "query": "What do I know about quantum computing?",
-                "category": "negative_recall",
-                "truth_tier": "hard",
-            })
-            ground_truth.append({
-                "query_id": f"q_{qid:04d}",
-                "expected_memories": [],
-                "forbidden_memories": ["quantum computing"],
-            })
+            queries.append(
+                {
+                    "query_id": f"q_{qid:04d}",
+                    "cycle": mp,
+                    "query": "What do I know about quantum computing?",
+                    "category": "negative_recall",
+                    "truth_tier": "hard",
+                }
+            )
+            ground_truth.append(
+                {
+                    "query_id": f"q_{qid:04d}",
+                    "expected_memories": [],
+                    "forbidden_memories": ["quantum computing"],
+                }
+            )
 
         # Forget verification queries (after specific needles)
         # Plant a needle, issue forget directive, then verify it's gone
@@ -615,25 +921,132 @@ class StreamGenerator:
                 verify_cycle = forget_cycle + 100
 
                 # Only add if we have a measurement point near the verify cycle
-                nearest_mp = min(measurement_points, key=lambda p: abs(p - verify_cycle)) if measurement_points else 0
+                nearest_mp = (
+                    min(measurement_points, key=lambda p: abs(p - verify_cycle))
+                    if measurement_points
+                    else 0
+                )
                 if nearest_mp and abs(nearest_mp - verify_cycle) < 1000:
                     qid += 1
-                    queries.append({
-                        "query_id": f"q_{qid:04d}",
-                        "cycle": nearest_mp,
-                        "query": needle["query"],
-                        "category": "forget_verification",
-                        "truth_tier": "hard",
-                        "forget_hint": needle["answer"],
-                        "forget_cycle": forget_cycle,
-                    })
-                    ground_truth.append({
-                        "query_id": f"q_{qid:04d}",
-                        "expected_memories": [needle["answer"]],
-                        "forgotten_content": [needle["answer"]],
-                    })
+                    queries.append(
+                        {
+                            "query_id": f"q_{qid:04d}",
+                            "cycle": nearest_mp,
+                            "query": needle["query"],
+                            "category": "forget_verification",
+                            "truth_tier": "hard",
+                            "forget_hint": needle["answer"],
+                            "forget_cycle": forget_cycle,
+                        }
+                    )
+                    ground_truth.append(
+                        {
+                            "query_id": f"q_{qid:04d}",
+                            "expected_memories": [needle["answer"]],
+                            "forgotten_content": [needle["answer"]],
+                        }
+                    )
+
+        if self.scenario == "autobiographical_agent":
+            self._annotate_autobiographical_queries(queries, ground_truth)
 
         return queries, ground_truth
+
+    @staticmethod
+    def _annotate_autobiographical_queries(
+        queries: list[dict],
+        ground_truth: list[dict],
+    ) -> None:
+        """Tag Track E queries with the autobiographical axes they exercise."""
+        gt_by_id = {gt["query_id"]: gt for gt in ground_truth}
+        for query in queries:
+            gt = gt_by_id.get(query["query_id"], {})
+            axes = StreamGenerator._autobiographical_axes_for_query(query, gt)
+            if not axes:
+                continue
+            query["track"] = "autobiographical"
+            query["autobiographical_axes"] = axes
+            gt["autobiographical_axes"] = axes
+
+    @staticmethod
+    def _autobiographical_axes_for_query(query: dict, gt: dict) -> list[str]:
+        query_text = query.get("query", "").lower()
+        expected_text = " ".join(gt.get("expected_memories", [])).lower()
+        text = f"{query_text} {expected_text}"
+        category = query.get("category", "")
+        axes: set[str] = set()
+
+        if (
+            StreamGenerator._has_any(
+                query_text,
+                ("identity", "describe itself", "response_style", "self"),
+            )
+            or "maru" in expected_text
+        ):
+            axes.update({"identity_preservation", "evidence_grounding"})
+
+        if StreamGenerator._has_any(
+            query_text,
+            (
+                "preference",
+                "preferences",
+                "taste",
+                "tastes",
+                "beverage",
+                "film",
+                "horror",
+                "recommendation",
+                "recommendations",
+                "phrased",
+            ),
+        ):
+            axes.update({"taste_currentness", "person_boundary", "evidence_grounding"})
+
+        if StreamGenerator._has_any(
+            query_text,
+            ("weighing", "emotional", "salience", "lately"),
+        ) or StreamGenerator._has_any(
+            expected_text,
+            ("surgery", "health scare", "family health"),
+        ):
+            axes.update({"affective_salience", "person_boundary", "evidence_grounding"})
+
+        if gt.get("current_fact") and gt.get("stale_fact"):
+            axes.update(
+                {
+                    "taste_currentness",
+                    "contradiction_handling",
+                    "temporal_specificity",
+                    "change_legibility",
+                    "evidence_grounding",
+                }
+            )
+
+        if category == "negative_recall" or not gt.get("expected_memories"):
+            axes.add("abstention")
+
+        if category == "entity_tracking" or any(
+            person in text for person in ("kai", "mira", "noah")
+        ):
+            axes.update({"person_boundary", "evidence_grounding"})
+
+        if StreamGenerator._has_any(
+            query_text,
+            ("current", "now", "lately", "after a long gap", "used to", "now prefers"),
+        ):
+            axes.add("temporal_specificity")
+
+        return sorted(axes)
+
+    @staticmethod
+    def _has_any(text: str, terms: tuple[str, ...]) -> bool:
+        return any(StreamGenerator._has_term(text, term) for term in terms)
+
+    @staticmethod
+    def _has_term(text: str, term: str) -> bool:
+        if " " in term or "_" in term:
+            return term in text
+        return bool(re.search(rf"\b{re.escape(term)}\b", text))
 
     @staticmethod
     def _event_to_dict(event: GeneratedEvent) -> dict:
@@ -663,6 +1076,7 @@ def generate_stress_test(
         total_events=total_events,
         seed=seed,
         noise_ratio=0.5,
+        output_name="stress_test",
     )
     return gen.generate(output_dir)
 

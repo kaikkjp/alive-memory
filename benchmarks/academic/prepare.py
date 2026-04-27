@@ -16,7 +16,6 @@ import os
 import shutil
 import sqlite3
 import sys
-import tempfile
 import time
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
@@ -27,7 +26,6 @@ if _REPO_ROOT not in sys.path:
 
 from benchmarks.academic.__main__ import DATASET_REGISTRY, SYSTEM_REGISTRY, _load_class
 from benchmarks.academic.parallel_run import _serialize_instances
-
 
 # ---------------------------------------------------------------------------
 # Utilities
@@ -178,6 +176,7 @@ async def _prepare_worker_async(
 ) -> dict:
     """Async worker: ingest → consolidate → save for each instance."""
     import importlib
+
     from benchmarks.academic.harness.base import ConversationTurn
 
     skip_set = set(skip_ids)
@@ -349,6 +348,8 @@ async def main_prepare(args) -> None:
         config["llm_model"] = args.llm_model
     if args.api_key:
         config["api_key"] = args.api_key
+    if getattr(args, "base_url", None):
+        config["base_url"] = args.base_url
 
     sys_mod, sys_cls = SYSTEM_REGISTRY[args.system]
 
@@ -403,7 +404,7 @@ async def main_prepare(args) -> None:
     # Summary
     total_prepared = len(skip_ids) + len(all_completed)
     print(f"\n{'=' * 50}")
-    print(f"  PREPARE COMPLETE")
+    print("  PREPARE COMPLETE")
     print(f"{'=' * 50}")
     print(f"  Prepared: {total_prepared}/{n} instances")
     print(f"  New:      {len(all_completed)}")
@@ -413,7 +414,7 @@ async def main_prepare(args) -> None:
     print(f"  Output:   {output_dir}")
 
     if all_errors:
-        print(f"\n  Errors:")
+        print("\n  Errors:")
         for e in all_errors:
             print(f"    {e}")
 

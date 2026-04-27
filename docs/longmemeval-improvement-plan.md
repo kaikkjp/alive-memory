@@ -110,6 +110,109 @@ Option B — **Hybrid recall** (less invasive):
 **Effort**: Low
 **Expected impact**: 3-5x cost reduction, minimal accuracy impact (low-salience moments contribute little to recall)
 
+## Product Gaps for Always-On Human-Like Agents
+
+LongMemEval measures factual recall, but the product goal is broader:
+always-on agents with stable identity and stable tastes. The target class is
+**autobiographical, identity-preserving, emotionally weighted memory for
+persistent agents**. The same work that improves benchmarks must also protect
+those product properties.
+
+LongMemEval should be treated as a factual recall and temporal reasoning
+track, not as the deciding proof for the product. A change that raises
+LongMemEval but weakens self-continuity, visitor taste currentness,
+emotionally weighted recall, or person boundaries is not a win for
+alive-memory.
+
+### Gap 1: Durable Hot Memory Defaults
+
+If `memory_dir` is omitted, hot memory lives in a temporary directory. That is
+acceptable for tests, but unsafe for an always-on agent because journal,
+reflection, visitor, and self-knowledge files can disappear after restart.
+
+**Fix**: derive a durable default `memory_dir` beside the SQLite DB, or make
+the constructor warn loudly when `memory_dir` is omitted outside tests.
+
+### Gap 2: First-Class Identity Metadata
+
+Preference and trait extraction depend on `visitor_id` or `visitor_name`.
+Plain `intake()` does not require stable person/session metadata, so callers
+can accidentally create memories that cannot become structured tastes.
+
+**Fix**: add first-class metadata support for `agent_id`, `visitor_id`,
+`session_id`, `turn_index`, `role`, and timestamp. Treat missing
+`visitor_id` as an integration warning for conversation memory.
+
+### Gap 3: Current Preferences, Not Append-Only Preferences
+
+Contradictions are detected but not resolved into a current-state preference
+model. If a visitor says "I like coffee" and later "I hate coffee", both
+observations can remain live.
+
+**Fix**: add supersession state to traits and totems: `active`,
+`superseded_by`, `valid_from`, `valid_until`, and `evidence_count`. Recall
+should prefer active current facts and surface conflict only when useful.
+
+### Gap 4: Self-Model Is Not Yet Automatic
+
+The self-model API supports trait updates and narrative regeneration, but
+normal sleep does not yet derive stable agent identity, style, or tastes from
+observed behavior.
+
+**Fix**: add a self-model consolidation pass after daily summary. It should
+derive candidate self traits from actions, reflections, and corrections, then
+update the self-model through guard rails and drift checks.
+
+### Gap 5: Scoped Recall and Person Boundaries
+
+Recall can do direct visitor lookup, but it also runs global totem and trait
+search. In multi-person settings, this can leak one person's preferences into
+another person's context.
+
+**Fix**: make scoped recall the default when a `visitor_id` is known. Global
+facts should be opt-in, separately ranked, and labeled.
+
+## Proof Plan
+
+To prove alive-memory is better than other frameworks, run public benchmarks
+and product-specific evals under identical budgets. The comparison should
+include no-memory, full-context, raw-turn vector RAG, summary memory, Mem0,
+Zep, and alive-memory.
+
+### SOTA Competitor Set
+
+Do not compare only against simple baselines. The proof set must include
+systems that represent different current SOTA strategies:
+
+| System | Strategy | Why It Matters |
+|--------|----------|----------------|
+| Mastra Observational Memory | Background Observer/Reflector maintains stable observation context | Strong LongMemEval results and a direct challenge to selective retrieval |
+| EmergenceMem-style RAG | Optimized retrieval over processed conversation history | Shows how far careful RAG can go before adding cognitive machinery |
+| Mem0 | Structured fact/profile extraction with low token and latency overhead | Common production memory baseline for personalization |
+| Zep/Graphiti | Temporal knowledge graph with hybrid semantic, keyword, and graph search | Strong on changing facts, relationship memory, and temporal currentness |
+| Hindsight | Structured memory plus semantic/BM25/graph/temporal/rerank retrieval | Important for BEAM-style scale where context stuffing is impossible |
+| MemMachine | Ground-truth-preserving episodic/profile memory with contextual retrieval | Directly attacks lossy extraction by keeping full conversational episodes |
+| Letta/MemGPT | Agent-managed working + archival memory via tool use | Tests whether self-editing memory beats external background maintenance |
+| LangMem/LangGraph memory | Semantic, episodic, and procedural memory in a common agent stack | Practical baseline for teams already using LangGraph |
+| Full-context/oracle | Put all or known-relevant conversations in context | Establishes the upper bound and detects benchmark weaknesses |
+
+Each competitor must run under matched answer model, ingestion model, embedding
+model, token budget, latency budget, and storage accounting. If a vendor
+reports a result with stronger actor models or hidden preprocessing, record it
+as a reference number, not a direct win/loss comparison.
+
+Required proof:
+
+- alive-memory beats baselines on identity consistency and taste consistency
+- alive-memory beats baselines on autobiographical continuity: grounded self
+  narrative, current visitor model, affective salience, and change legibility
+- alive-memory is competitive on factual recall and cross-session recall
+- alive-memory has lower entity/person confusion than generic RAG
+- alive-memory handles preference corrections better than append-only memory
+- alive-memory reports uncertainty instead of hallucinating when recall is weak
+- gains hold on held-out and production regression cases, not just train cases
+- latency, storage, and LLM cost remain inside product budgets
+
 ## Expected Outcome
 
 | Phase | Category Impact | Estimated New Accuracy |

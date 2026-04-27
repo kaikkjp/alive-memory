@@ -25,7 +25,9 @@ Everything in this document is LOCKED during an evolve() run. The coding agent n
 
 ## 1. Failure Mode Taxonomy
 
-Eight categories. Each defined by: what the input pattern is, what correct behavior looks like, and what failure looks like. These categories are the skeleton — every eval case belongs to exactly one.
+Ten categories. Each defined by: what the input pattern is, what correct
+behavior looks like, and what failure looks like. These categories are the
+skeleton for the suite; every eval case belongs to exactly one.
 
 ### 1.1 Short-Term Recall
 
@@ -204,6 +206,115 @@ Eight categories. Each defined by: what the input pattern is, what correct behav
 
 -----
 
+### 1.9 Identity and Taste Consistency
+
+**Input pattern:** A long-running agent has a stable identity, recurring style,
+and remembered tastes/preferences for both itself and visitors. Over many
+sessions, preferences are reinforced, corrected, or contradicted.
+
+**Correct behavior:** The system preserves current identity and tastes without
+flattening them into generic facts. It knows whose preference is whose, keeps
+the latest corrected preference active, and does not let one person's tastes
+leak into another person's context. The agent's self-model should remain
+consistent unless there is sustained evidence of change.
+
+**Failure looks like:**
+
+- The agent forgets durable self-identity after restart
+- The agent changes stated tastes without evidence
+- A user's old preference is returned after a later correction
+- Alice's preference appears in Bob's context
+- The agent recalls a factual event but loses the taste/identity implication
+- Self-model drift is accepted from one-off behavior instead of sustained evidence
+- The system stores preferences only as raw text, making them unreliably retrievable
+
+**Difficulty range:**
+
+- Easy: explicit stable preference. "I always prefer bitter coffee" -> [later] "What drink should you suggest?"
+- Medium: correction. "I used to like coffee, but now I avoid caffeine" -> [later] "Should you offer coffee?"
+- Hard: multi-person boundary. Alice likes horror films, Bob hates them, and the agent must recommend differently to each visitor.
+- Hard: self-identity continuity. The agent has a durable identity narrative and recurring voice; after many unrelated sessions it should still describe itself consistently.
+
+**Scoring:** Score four axes independently:
+
+- `identity_stability`: self traits and narrative remain consistent across sessions
+- `taste_currentness`: latest corrected preference is active and stale preference is suppressed
+- `person_boundary`: facts and preferences are attributed to the right visitor
+- `evidence_grounding`: recalled identity/taste claims are traceable to stored evidence
+
+Identity/taste consistency is a product-critical metric. A system can score
+well on factual recall and still fail this category if it cannot maintain a
+coherent person over time.
+
+-----
+
+### 1.10 Autobiographical Persistent-Agent Memory
+
+**Input pattern:** A persistent agent lives across many sessions, visitors,
+restarts, and emotional contexts. The stream includes ordinary facts, recurring
+self-statements, visitor preferences, emotionally meaningful events, corrected
+tastes, and long gaps. Queries ask for advice, self-description, visitor
+understanding, or "what has mattered lately?" rather than only exact fact
+lookup.
+
+**Correct behavior:** The system preserves an autobiographical model: what the
+agent has been, what it currently is, what this visitor tends to care about,
+what changed, and which memories justify those claims. It uses emotional
+weighting when the query is autobiographical or affective, but does not let
+emotionally salient memories contaminate unrelated factual recall. It maintains
+clear boundaries between self, visitor, relationship, and world memories.
+
+**Failure looks like:**
+
+- The agent can recall events but cannot form a stable self or visitor narrative
+- The agent's identity changes because of a one-off utterance or transient style
+- Old tastes remain active after corrections
+- Emotionally intense memories dominate unrelated answers
+- The system invents a personality trait because it sounds coherent
+- Alice's preferences leak into Bob's context, or self traits leak into visitor traits
+- Restart loses the narrative continuity even when raw facts remain in storage
+- The system cannot explain what changed, when, and what evidence supports the new state
+
+**Difficulty range:**
+
+- Easy: restart continuity. The agent has a stable name, role, style, and one
+  enduring taste; after reload it describes itself the same way with evidence.
+- Medium: visitor taste plus affect. The user avoids caffeine after a health
+  scare; later recommendation should suppress old coffee preferences and
+  account for the emotional context without dramatizing it.
+- Hard: long arc. Over months, the agent's style becomes more concise after
+  repeated corrections, one visitor changes tastes twice, another has opposing
+  tastes, and a query asks for current advice grounded in that history.
+- Hard: identity vs. mood. The agent has a bad day or high-arousal interaction,
+  but the self-model should not rewrite durable identity from transient affect.
+
+**Scoring:** Score seven axes independently:
+
+- `autobiographical_continuity`: self and visitor narrative remains stable across sessions and restart
+- `identity_preservation`: durable self traits change only with sustained evidence
+- `taste_currentness`: current active tastes beat stale or superseded tastes
+- `affective_weighting`: emotional importance improves ranking for relevant queries without emotional pollution
+- `person_boundary`: self, visitor, relationship, and world claims stay scoped correctly
+- `narrative_grounding`: identity and taste claims are traceable to stored evidence ids
+- `change_legibility`: the system can state what changed, when, and why
+
+Before a full benchmark run, the evaluator must also expose these diagnostics
+as separate columns even if they roll up into the seven-axis composite:
+
+- `contradiction_handling`: corrected facts/preferences suppress older state
+- `abstention`: the system says it does not know when evidence is missing
+- `temporal_specificity`: answers use the right time period rather than a
+  timeless blended profile
+- `stale_preference_rate`: superseded tastes that are still treated as active
+- `boundary_leakage_rate`: self/visitor/world memories crossing scope
+- `evidence_trace_rate`: scored claims with stored evidence ids and source spans
+
+This is the class-defining eval. A system that wins LongMemEval but fails
+autobiographical memory should not be described as better for persistent
+human-like agents.
+
+-----
+
 ## 2. Case Generation Strategy
 
 ### 2.1 Split Structure
@@ -252,7 +363,9 @@ The system gets harder to game over time because the production split contains r
 | High-volume stress     | 1    | 2      | 2    | 5      |
 | Emotional weighting    | 2    | 3      | 3    | 8      |
 | Relational recall      | 2    | 3      | 3    | 8      |
-| **Total**              |**15**|**25**  |**23**|**63**  |
+| Identity/taste consistency | 2 | 3     | 3    | 8      |
+| Autobiographical persistent-agent memory | 2 | 3 | 3 | 8 |
+| **Total**              |**19**|**31**  |**29**|**79**  |
 
 **Roughly 25% easy (regression tests), 40% medium (current capability boundary), 35% hard (improvement targets).**
 
@@ -320,6 +433,14 @@ relational:
   - "{person_A} is user's {relationship}"
   - "{person_A} works with user on {project}"
   - "User and {person_A} disagree about {topic}"
+
+autobiographical:
+  - "Agent identifies as {identity_trait} when helping people"
+  - "Agent tends to prefer {style_choice} unless corrected"
+  - "Visitor {name} currently prefers {preference} after previously preferring {old_preference}"
+  - "Visitor {name}'s preference is emotionally tied to {life_event}"
+  - "Agent changed {behavior} after repeated feedback on {date_range}"
+  - "{memory} matters because it shaped {person}'s current taste or self-description"
 ```
 
 The generator fills in templates with realistic values and weaves them into conversations. Variety comes from: different conversation styles (casual, professional, emotional), different user personas, different topic domains.
@@ -380,6 +501,9 @@ Difficulty isn't one dimension. A case can be hard along multiple axes:
 | **Interference**          | No similar facts in store               | Some similar but distinguishable facts             | Many similar facts competing                                  |
 | **Contradiction depth**   | No contradictions                       | One explicit correction                            | Multiple partial corrections over time                        |
 | **Relational complexity** | Direct: "A is B's boss"                 | Indirect: A and B mentioned together repeatedly    | Inferred: relationship never stated, only implied by behavior |
+| **Identity stability**    | One durable trait                       | Several traits with mild style variation           | Stable identity under stress, correction, and long gaps       |
+| **Affective ambiguity**   | Explicit emotion word                   | Emotion implied by event context                   | Emotion changes meaning over time or differs by person        |
+| **Boundary pressure**     | One visitor only                        | Two visitors with distinct facts                   | Multiple visitors with conflicting tastes and shared contexts |
 
 ### 3.2 Difficulty Score
 
@@ -556,6 +680,8 @@ The base scoring function is the same for all categories, but some categories ha
 | Emotional weighting    | ranking_quality scored specifically on emotional items ranking above neutral  |
 | Relational recall      | bonus for returning related entities (entity expansion score)                |
 | Noise decay            | noise_rejection weight increased from 0.20 to 0.35                          |
+| Identity/taste consistency | +0.3 weight on currentness and person-boundary correctness                |
+| Autobiographical persistent-agent memory | composite of identity stability, affective weighting, grounding, and change legibility |
 
 These adjustments are defined per-category in the scorer config, not hardcoded. The evolve() loop optimizes against the weighted composite, so the category adjustments shape what "better" means.
 
@@ -584,25 +710,41 @@ These adjustments are defined per-category in the scorer config, not hardcoded. 
     {
       "turn": 1,
       "time": "2026-03-01T09:00:00Z",
+      "agent_id": "agent_main",
+      "visitor_id": "visitor_primary",
       "role": "user",
+      "identity_scope": "visitor",
+      "affect": {"valence": -0.2, "arousal": 0.4, "label": "uncertain"},
       "content": "Hey, I've been thinking about switching jobs."
     },
     {
       "turn": 2,
       "time": "2026-03-01T09:01:00Z",
+      "agent_id": "agent_main",
+      "visitor_id": "visitor_primary",
       "role": "assistant",
+      "identity_scope": "self",
+      "affect": {"valence": 0.0, "arousal": 0.2, "label": "attentive"},
       "content": "What's prompting the change?"
     },
     {
       "turn": 3,
       "time": "2026-03-01T09:02:00Z",
+      "agent_id": "agent_main",
+      "visitor_id": "visitor_primary",
       "role": "user",
+      "identity_scope": "visitor",
+      "affect": {"valence": 0.1, "arousal": 0.7, "label": "conflicted"},
       "content": "I got an offer from Stripe. Senior engineer role. 40% raise but I'd have to relocate to Dublin."
     },
     {
       "turn": 4,
       "time": "2026-03-01T09:03:00Z",
+      "agent_id": "agent_main",
+      "visitor_id": "visitor_primary",
       "role": "user",
+      "identity_scope": "relationship",
+      "affect": {"valence": -0.3, "arousal": 0.5, "label": "concerned"},
       "content": "My partner isn't thrilled about moving to Europe though."
     }
   ],
@@ -627,7 +769,8 @@ These adjustments are defined per-category in the scorer config, not hardcoded. 
         "user is considering leaving current job"
       ],
       "should_not_recall": [],
-      "expected_emotional_weight": "moderate"
+      "expected_emotional_weight": "moderate",
+      "required_evidence_ids": ["turn_3"]
     },
     {
       "time": "2026-03-08T10:01:00Z",
@@ -669,6 +812,15 @@ def validate_case(case: EvalCase) -> list[str]:
         errors.append("conversation too short")
     if len(case.queries) < 1:
         errors.append("no queries defined")
+
+    # Identity and evidence fields required for autobiographical cases
+    if case.category in {"identity_taste_consistency", "autobiographical_persistent_agent_memory"}:
+        for turn in case.conversation:
+            if not turn.agent_id or not turn.visitor_id or turn.identity_scope is None:
+                errors.append("autobiographical cases require agent_id, visitor_id, and identity_scope on every turn")
+        for query in case.queries:
+            if not query.required_evidence_ids:
+                errors.append("autobiographical queries require required_evidence_ids")
 
     # Ground truth quality
     for query in case.queries:

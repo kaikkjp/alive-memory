@@ -19,6 +19,35 @@ token overlap misses.
 Our harness (`benchmarks/academic/harness/scoring.py`) supports both metrics.
 Use `--judge-model` flag to enable LLM-as-Judge scoring alongside token F1.
 
+## Product-Class Warning
+
+LoCoMo and LongMemEval scores do not, by themselves, prove the alive-memory
+claim. alive-memory is intended to be autobiographical, identity-preserving,
+emotionally weighted memory for persistent agents. A competitor can win a
+factual recall leaderboard by preserving observations or stuffing context while
+still failing stable self-identity, current visitor tastes, affective salience,
+person-boundary isolation, or evidence-grounded narrative.
+
+Treat public benchmark scores as one axis. The product comparison must also
+run the owned autobiographical track from `docs/BENCHMARK_SPEC.md`.
+
+## Pre-Run SOTA Scope
+
+Before publishing or comparing benchmark results, decide which systems are
+direct in-harness baselines and which are only external reference numbers. The
+minimum SOTA scope for alive-memory's positioning is:
+
+- Mastra Observational Memory or a clearly labeled observation-log equivalent
+- Mem0
+- Zep/Graphiti
+- Letta/MemGPT-style hierarchical memory
+- LangMem/LangGraph memory where practical
+- Vanilla RAG, summary memory, no-memory, and full-context/oracle controls
+
+Do not turn an external vendor number into a win/loss claim unless the same
+dataset split, answer model, judge, prompt, token budget, latency budget, and
+storage accounting are reproduced locally.
+
 ---
 
 ## LoCoMo Benchmark

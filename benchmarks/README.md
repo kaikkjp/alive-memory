@@ -2,6 +2,12 @@
 
 Longitudinal benchmarks comparing agent memory systems over thousands of cycles.
 
+alive-memory should be benchmarked as **autobiographical, identity-preserving,
+emotionally weighted memory for persistent agents**. Generic recall scores are
+required, but they are not sufficient. A run that improves LongMemEval while
+breaking stable self-identity, visitor tastes, affective salience, or
+person-boundary isolation is a product regression.
+
 ## Quick Start
 
 ```bash
@@ -39,6 +45,25 @@ python -m benchmarks.academic bench \
     --prepared-dir benchmarks/academic/prepared/longmemeval/alive \
     --workers 16
 ```
+
+To prepare every academic dataset that is present locally, use:
+
+```bash
+python -m benchmarks.academic prepare-all \
+    --system alive --workers 4 --resume
+```
+
+`prepare-all` skips missing datasets by default and prints the exact download
+or adapter blocker. MemoryAgentBench and MemoryArena now support public
+Hugging Face formats directly through the standard library:
+
+- MemoryAgentBench: `ai-hyz/MemoryAgentBench` via dataset-server row JSON
+- MemoryArena: `ZexueHe/memoryarena` via public JSONL files
+
+For adapter smoke tests, set `ALIVE_BENCH_HF_MAX_ROWS=1`. For
+MemoryAgentBench only, `ALIVE_BENCH_MAX_CONTEXT_CHUNKS=N` can cap context
+chunks so the prepare path can be tested quickly. Do not use that cap for
+publication runs unless the report clearly labels the context budget.
 
 ### Why two phases?
 
@@ -103,7 +128,66 @@ state. Use the two-phase workflow instead for iterative development.
 | `zep` | Zep | Summaries + fact extraction |
 | `rag` | ChromaDB + top-k | Vector similarity baseline |
 | `rag+` | ChromaDB + LLM maintenance | RAG with same LLM budget as alive |
-| `alive` | alive-memory | Three-tier cognitive memory |
+| `alive` | alive-memory | Autobiographical, identity-preserving, emotionally weighted memory |
+
+## Autobiographical Track
+
+Future benchmark work must include an owned persistent-agent eval alongside
+LoCoMo, LongMemEval, MemoryAgentBench, and MemoryArena. This track should test:
+
+- Stable agent identity across sessions, sleep cycles, and process restart
+- Current visitor tastes after reinforcement, correction, and contradiction
+- Emotionally weighted recall for autobiographical queries without emotional pollution
+- Person-boundary protection across multiple visitors with conflicting tastes
+- Evidence-grounded narratives where every identity or taste claim traces to source events
+- Change legibility: what changed, when it changed, and why old beliefs are superseded
+
+Required adapter metadata for this track:
+
+- `agent_id`, `visitor_id`, `session_id`, `turn_index`, and `timestamp`
+- `identity_scope`: `self`, `visitor`, `relationship`, or `world`
+- affect fields: `valence`, `arousal`, and optional label
+- `evidence_ids` on retrieved memories and generated narrative claims
+
+Do not report alive-memory as better for persistent agents unless it wins this
+track against generic RAG, summary memory, profile/fact memory, and comparable
+SOTA systems under matched model, token, latency, and storage budgets.
+
+Current harness support: `autobiographical_agent_3k` queries carry
+`autobiographical_axes`, benchmark result JSON includes
+`autobiographical_summary` and per-query `autobiographical_scores`, and reports
+include an Autobiographical Memory scorecard. Result JSON also includes a
+`run_manifest` with dataset hashes and `recall_traces` with retrieved snippets,
+scores, timestamps, tiers, and evidence ids where adapters provide them.
+
+## Before Full Runs
+
+Run this checklist before starting a long or expensive benchmark:
+
+- Audit the Track E evaluator. `autobiographical_agent_3k` now scores identity
+  consistency, current tastes, emotional salience, preference updates,
+  contradiction handling, abstention, temporal specificity, boundary integrity,
+  and evidence grounding separately from generic F1, but the cases still need
+  human review before publication-grade claims.
+- Decide the competitor set in advance. Include alive-memory, no-memory,
+  full-context/oracle where applicable, summary memory, vector RAG, Mem0,
+  Zep/Graphiti, Mastra Observational Memory or an observation-log equivalent,
+  and MemGPT/Letta-style memory where adapters are available.
+- Extend the generated manifest with model names, prompts, adapter versions,
+  hardware, context budgets, token budgets, latency budgets, and storage
+  budgets. The harness already records dataset paths, counts, hashes, seeds,
+  and git SHA.
+- MemoryArena is prepared for alive-memory. Decide the MemoryAgentBench context
+  budget before making claims that depend on that track. If a track is skipped
+  or capped, state that explicitly in the report.
+- Confirm evidence traces are complete for every adapter. The runner already
+  saves retrieved snippets, scores, timestamps, tiers, and evidence ids where
+  adapters provide them; missing adapter metadata should be treated as a gap.
+- Smoke-test every configured system with a short run before a full run.
+- Track ingest latency, recall latency, consolidation latency, answer latency,
+  tokens, estimated cost, stored-memory count, and disk size.
+- Spot-check synthetic ground truth, especially current vs. superseded
+  preference and emotionally important vs. merely repeated memories.
 
 ## Adding a New System
 
@@ -123,4 +207,5 @@ Register in `benchmarks/__main__.py` `ADAPTER_REGISTRY`.
 
 ## Methodology
 
-See `docs/alive-memory-benchmark-plan.md` for full design rationale.
+See `docs/BENCHMARK_SPEC.md` and `docs/eval-suite-spec.md` for full design
+rationale and the required autobiographical metrics.

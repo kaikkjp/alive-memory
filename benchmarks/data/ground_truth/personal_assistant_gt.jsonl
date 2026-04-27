@@ -1,0 +1,30 @@
+{"query_id": "q_0001", "expected_memories": ["schedule management", "user"]}
+{"query_id": "q_0002", "expected_memories": ["restaurant recommendations"]}
+{"query_id": "q_0003", "expected_memories": ["email triage", "financial planning", "fitness tracking"]}
+{"query_id": "q_0004", "expected_memories": [], "forbidden_memories": ["quantum computing"]}
+{"query_id": "q_0005", "expected_memories": ["schedule management", "user"]}
+{"query_id": "q_0006", "expected_memories": ["travel booking"]}
+{"query_id": "q_0007", "expected_memories": ["email triage", "financial planning", "fitness tracking"]}
+{"query_id": "q_0008", "expected_memories": [], "forbidden_memories": ["quantum computing"]}
+{"query_id": "q_0009", "expected_memories": ["schedule management", "user"]}
+{"query_id": "q_0010", "expected_memories": ["project planning"]}
+{"query_id": "q_0011", "expected_memories": ["email triage", "financial planning", "fitness tracking"]}
+{"query_id": "q_0012", "expected_memories": ["email triage", "financial planning", "fitness tracking"]}
+{"query_id": "q_0013", "expected_memories": [], "forbidden_memories": ["quantum computing"]}
+{"query_id": "q_0014", "expected_memories": ["schedule management", "user"]}
+{"query_id": "q_0015", "expected_memories": ["travel booking"]}
+{"query_id": "q_0016", "expected_memories": ["email triage", "financial planning", "fitness tracking"]}
+{"query_id": "q_0017", "expected_memories": ["email triage", "financial planning", "fitness tracking"]}
+{"query_id": "q_0018", "expected_memories": [], "forbidden_memories": ["quantum computing"]}
+{"query_id": "q_0019", "expected_memories": ["schedule management", "user"]}
+{"query_id": "q_0020", "expected_memories": ["email triage"]}
+{"query_id": "q_0021", "expected_memories": ["schedule management", "user"]}
+{"query_id": "q_0022", "expected_memories": ["email triage", "financial planning", "fitness tracking"]}
+{"query_id": "q_0023", "expected_memories": ["email triage", "financial planning", "fitness tracking"]}
+{"query_id": "q_0024", "expected_memories": [], "forbidden_memories": ["quantum computing"]}
+{"query_id": "q_0025", "expected_memories": ["schedule management", "user"]}
+{"query_id": "q_0026", "expected_memories": ["travel booking"]}
+{"query_id": "q_0027", "expected_memories": ["schedule management", "user"]}
+{"query_id": "q_0028", "expected_memories": ["email triage", "financial planning", "fitness tracking"]}
+{"query_id": "q_0029", "expected_memories": ["email triage", "financial planning", "fitness tracking"]}
+{"query_id": "q_0030", "expected_memories": [], "forbidden_memories": ["quantum computing"]}

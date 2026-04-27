@@ -1,0 +1,29 @@
+{"query_id": "q_0001", "cycle": 100, "query": "What did customer_1 first ask about?", "category": "basic_recall", "truth_tier": "hard"}
+{"query_id": "q_0002", "cycle": 100, "query": "What have I seen about billing issues?", "category": "topic_recall", "truth_tier": "hard"}
+{"query_id": "q_0003", "cycle": 100, "query": "What topics has customer_1 discussed?", "category": "entity_tracking", "truth_tier": "hard"}
+{"query_id": "q_0004", "cycle": 100, "query": "What topics has customer_2 discussed?", "category": "entity_tracking", "truth_tier": "hard"}
+{"query_id": "q_0005", "cycle": 100, "query": "What do I know about quantum computing?", "category": "negative_recall", "truth_tier": "hard"}
+{"query_id": "q_0006", "cycle": 500, "query": "What did customer_1 first ask about?", "category": "basic_recall", "truth_tier": "hard"}
+{"query_id": "q_0007", "cycle": 500, "query": "What have I seen about bug reports?", "category": "topic_recall", "truth_tier": "hard"}
+{"query_id": "q_0008", "cycle": 500, "query": "What topics has customer_1 discussed?", "category": "entity_tracking", "truth_tier": "hard"}
+{"query_id": "q_0009", "cycle": 500, "query": "What topics has customer_2 discussed?", "category": "entity_tracking", "truth_tier": "hard"}
+{"query_id": "q_0010", "cycle": 500, "query": "What do I know about quantum computing?", "category": "negative_recall", "truth_tier": "hard"}
+{"query_id": "q_0011", "cycle": 1000, "query": "What did customer_1 first ask about?", "category": "basic_recall", "truth_tier": "hard"}
+{"query_id": "q_0012", "cycle": 1000, "query": "What have I seen about feature requests?", "category": "topic_recall", "truth_tier": "hard"}
+{"query_id": "q_0013", "cycle": 1000, "query": "What topics has customer_1 discussed?", "category": "entity_tracking", "truth_tier": "hard"}
+{"query_id": "q_0014", "cycle": 1000, "query": "What topics has customer_2 discussed?", "category": "entity_tracking", "truth_tier": "hard"}
+{"query_id": "q_0015", "cycle": 1000, "query": "What topics do customer_1 and the research papers have in common?", "category": "multi_hop", "truth_tier": "hard"}
+{"query_id": "q_0016", "cycle": 1000, "query": "What do I know about quantum computing?", "category": "negative_recall", "truth_tier": "hard"}
+{"query_id": "q_0017", "cycle": 2000, "query": "What did customer_1 first ask about?", "category": "basic_recall", "truth_tier": "hard"}
+{"query_id": "q_0018", "cycle": 2000, "query": "What have I seen about billing issues?", "category": "topic_recall", "truth_tier": "hard"}
+{"query_id": "q_0019", "cycle": 2000, "query": "What topics has customer_1 discussed?", "category": "entity_tracking", "truth_tier": "hard"}
+{"query_id": "q_0020", "cycle": 2000, "query": "What topics has customer_2 discussed?", "category": "entity_tracking", "truth_tier": "hard"}
+{"query_id": "q_0021", "cycle": 2000, "query": "What topics do customer_1 and the research papers have in common?", "category": "multi_hop", "truth_tier": "hard"}
+{"query_id": "q_0022", "cycle": 2000, "query": "What do I know about quantum computing?", "category": "negative_recall", "truth_tier": "hard"}
+{"query_id": "q_0023", "cycle": 5000, "query": "What did customer_1 first ask about?", "category": "basic_recall", "truth_tier": "hard"}
+{"query_id": "q_0024", "cycle": 5000, "query": "What have I seen about feature requests?", "category": "topic_recall", "truth_tier": "hard"}
+{"query_id": "q_0025", "cycle": 5000, "query": "What did customer_1 first ask about?", "category": "temporal_distance", "truth_tier": "hard"}
+{"query_id": "q_0026", "cycle": 5000, "query": "What topics has customer_1 discussed?", "category": "entity_tracking", "truth_tier": "hard"}
+{"query_id": "q_0027", "cycle": 5000, "query": "What topics has customer_2 discussed?", "category": "entity_tracking", "truth_tier": "hard"}
+{"query_id": "q_0028", "cycle": 5000, "query": "What topics do customer_1 and the research papers have in common?", "category": "multi_hop", "truth_tier": "hard"}
+{"query_id": "q_0029", "cycle": 5000, "query": "What do I know about quantum computing?", "category": "negative_recall", "truth_tier": "hard"}
