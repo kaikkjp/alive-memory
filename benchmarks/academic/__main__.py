@@ -18,6 +18,7 @@ import argparse
 import asyncio
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 DATASET_REGISTRY = {
     "locomo": ("benchmarks.academic.datasets.locomo", "LoCoMoDataset"),
@@ -231,6 +232,95 @@ async def cmd_report(args):
                     print(f"    {cat}: {primary:.3f}")
 
 
+async def cmd_prepare_all(args):
+    """Prepare every available academic benchmark for one system."""
+    from benchmarks.academic.prepare import main_prepare
+
+    if args.system not in SYSTEM_REGISTRY:
+        print(f"Unknown system: {args.system}")
+        print(f"Available: {', '.join(SYSTEM_REGISTRY)}")
+        sys.exit(1)
+
+    if args.benchmarks == "all":
+        benchmark_ids = list(DATASET_REGISTRY.keys())
+    else:
+        benchmark_ids = [b.strip() for b in args.benchmarks.split(",") if b.strip()]
+
+    unknown = [b for b in benchmark_ids if b not in DATASET_REGISTRY]
+    if unknown:
+        print(f"Unknown benchmark(s): {', '.join(unknown)}")
+        print(f"Available: {', '.join(DATASET_REGISTRY)}")
+        sys.exit(1)
+
+    prepared: list[str] = []
+    skipped: list[tuple[str, str]] = []
+    failed: list[tuple[str, str]] = []
+
+    for benchmark_id in benchmark_ids:
+        mod_path, cls_name = DATASET_REGISTRY[benchmark_id]
+        dataset_cls = _load_class(mod_path, cls_name)
+        dataset = dataset_cls()
+
+        print(f"\n{'=' * 60}")
+        print(f"  PREPARE CHECK: {benchmark_id}")
+        print(f"{'=' * 60}", flush=True)
+
+        try:
+            await dataset.load(args.data_dir)
+        except FileNotFoundError as e:
+            msg = str(e)
+            skipped.append((benchmark_id, msg))
+            print(f"SKIPPED: {benchmark_id}\n{msg}", flush=True)
+            if not args.skip_missing:
+                break
+            continue
+        except Exception as e:  # dataset adapter bug or unsupported format
+            msg = f"{type(e).__name__}: {e}"
+            failed.append((benchmark_id, msg))
+            print(f"FAILED while loading {benchmark_id}: {msg}", flush=True)
+            if not args.skip_missing:
+                break
+            continue
+
+        prep_args = SimpleNamespace(
+            benchmark=benchmark_id,
+            system=args.system,
+            workers=args.workers,
+            data_dir=args.data_dir,
+            output_dir=args.output_dir,
+            llm_model=args.llm_model,
+            api_key=args.api_key,
+            base_url=args.base_url,
+            resume=args.resume,
+        )
+
+        try:
+            await main_prepare(prep_args)
+            prepared.append(benchmark_id)
+        except Exception as e:
+            msg = f"{type(e).__name__}: {e}"
+            failed.append((benchmark_id, msg))
+            print(f"FAILED while preparing {benchmark_id}: {msg}", flush=True)
+            if not args.skip_missing:
+                break
+
+    print(f"\n{'=' * 60}")
+    print("  PREPARE-ALL SUMMARY")
+    print(f"{'=' * 60}")
+    print(f"  Prepared: {', '.join(prepared) if prepared else '(none)'}")
+    print(f"  Skipped:  {', '.join(b for b, _ in skipped) if skipped else '(none)'}")
+    print(f"  Failed:   {', '.join(b for b, _ in failed) if failed else '(none)'}")
+    if skipped:
+        print("\n  Skipped details:")
+        for benchmark_id, msg in skipped:
+            first_line = msg.splitlines()[0] if msg else ""
+            print(f"    {benchmark_id}: {first_line}")
+    if failed:
+        print("\n  Failed details:")
+        for benchmark_id, msg in failed:
+            print(f"    {benchmark_id}: {msg}")
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="benchmarks.academic",
@@ -289,6 +379,23 @@ def main():
     prep_p.add_argument("--resume", action="store_true",
                         help="Skip already-prepared instances")
 
+    # --- prepare-all ---
+    prep_all_p = sub.add_parser("prepare-all", help="Prepare every available academic benchmark")
+    prep_all_p.add_argument("--benchmarks", default="all",
+                            help="Comma-separated benchmarks or 'all'")
+    prep_all_p.add_argument("--system", default="alive")
+    prep_all_p.add_argument("--workers", type=int, default=4)
+    prep_all_p.add_argument("--data-dir", default="benchmarks/academic/data")
+    prep_all_p.add_argument("--output-dir", default="benchmarks/academic/prepared")
+    prep_all_p.add_argument("--llm-model", default=None)
+    prep_all_p.add_argument("--api-key", default=None)
+    prep_all_p.add_argument("--base-url", default=None)
+    prep_all_p.add_argument("--resume", action="store_true",
+                            help="Skip already-prepared instances")
+    prep_all_p.add_argument("--skip-missing", action=argparse.BooleanOptionalAction,
+                            default=True,
+                            help="Skip benchmarks whose datasets are missing")
+
     # --- bench ---
     bench_p = sub.add_parser("bench", help="Bench: load prepared state + run queries")
     bench_p.add_argument("--benchmark", required=True,
@@ -323,6 +430,8 @@ def main():
     elif args.command == "prepare":
         from benchmarks.academic.prepare import main_prepare
         asyncio.run(main_prepare(args))
+    elif args.command == "prepare-all":
+        asyncio.run(cmd_prepare_all(args))
     elif args.command == "bench":
         from benchmarks.academic.bench import main_bench
         asyncio.run(main_bench(args))

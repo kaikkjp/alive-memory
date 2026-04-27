@@ -349,6 +349,8 @@ async def main_prepare(args) -> None:
         config["llm_model"] = args.llm_model
     if args.api_key:
         config["api_key"] = args.api_key
+    if getattr(args, "base_url", None):
+        config["base_url"] = args.base_url
 
     sys_mod, sys_cls = SYSTEM_REGISTRY[args.system]
 

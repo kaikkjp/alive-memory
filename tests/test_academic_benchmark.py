@@ -256,6 +256,39 @@ class TestMemoryAgentBenchCategories:
         assert _CATEGORY_ALIASES["retrieval"] == "accurate_retrieval"
         assert _CATEGORY_ALIASES["selective_forgetting"] == "conflict_resolution"
 
+    def test_parse_hf_rows_creates_instances(self):
+        from benchmarks.academic.datasets.memoryagentbench import MemoryAgentBenchDataset
+
+        dataset = MemoryAgentBenchDataset()
+        dataset._parse_hf_rows([
+            {
+                "_split": "Accurate_Retrieval",
+                "context": "Document 1:\nNormandy is in France.",
+                "questions": ["Where is Normandy?"],
+                "answers": [["France", "in France"]],
+                "metadata": {
+                    "source": "sample",
+                    "qa_pair_ids": ["qa_1"],
+                    "keypoints": ["Normandy is in France."],
+                },
+            }
+        ])
+
+        assert len(dataset.get_instances()) == 1
+        assert dataset.get_queries()[0].query_id == "qa_1"
+        assert dataset.get_queries()[0].category == "accurate_retrieval"
+        gt = dataset.get_ground_truth()["qa_1"]
+        assert gt.answer == "France"
+        assert "in France" in gt.metadata["answer_aliases"]
+
+    def test_split_context_honors_smoke_chunk_limit(self, monkeypatch):
+        from benchmarks.academic.datasets.memoryagentbench import _split_context
+
+        monkeypatch.setenv("ALIVE_BENCH_MAX_CONTEXT_CHUNKS", "1")
+        chunks = _split_context("Document 1:\na\n\nDocument 2:\nb", max_chars=10)
+
+        assert len(chunks) == 1
+
 
 class TestMemoryArenaDataset:
     def test_benchmark_id(self):
@@ -271,6 +304,28 @@ class TestMemoryArenaDataset:
         assert "preference_planning" in TASK_FAMILIES
         assert "progressive_search" in TASK_FAMILIES
         assert "sequential_reasoning" in TASK_FAMILIES
+
+    def test_parse_public_rows_creates_per_subtask_instances(self):
+        from benchmarks.academic.datasets.memoryarena import MemoryArenaDataset
+
+        dataset = MemoryArenaDataset()
+        dataset._parse_public_rows([
+            {
+                "_config": "progressive_search",
+                "id": 7,
+                "backgrounds": ["Use source A", "Use source B"],
+                "questions": ["Find first clue", "Use first clue to answer"],
+                "answers": ["clue-one", "final-answer"],
+            }
+        ])
+
+        assert len(dataset.get_instances()) == 2
+        assert dataset.get_queries()[0].category == "progressive_search"
+        second_sessions, second_queries, second_gt = dataset.get_instances()[1]
+        assert second_queries[0].query_id.endswith("_q001")
+        assert second_gt[second_queries[0].query_id].answer == "final-answer"
+        prior_text = "\n".join(turn.content for session in second_sessions for turn in session)
+        assert "clue-one" in prior_text
 
 
 class TestLLMJudgePrompts:
