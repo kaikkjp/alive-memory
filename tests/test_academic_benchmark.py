@@ -220,9 +220,11 @@ class TestFullContextSystem:
 
         system = FullContextSystem()
         await system.setup({})
-        await system.add_conversation([
-            ConversationTurn(role="user", content="Hello", turn_id=0),
-        ])
+        await system.add_conversation(
+            [
+                ConversationTurn(role="user", content="Hello", turn_id=0),
+            ]
+        )
         await system.reset()
 
         metrics = await system.get_metrics()
@@ -260,19 +262,21 @@ class TestMemoryAgentBenchCategories:
         from benchmarks.academic.datasets.memoryagentbench import MemoryAgentBenchDataset
 
         dataset = MemoryAgentBenchDataset()
-        dataset._parse_hf_rows([
-            {
-                "_split": "Accurate_Retrieval",
-                "context": "Document 1:\nNormandy is in France.",
-                "questions": ["Where is Normandy?"],
-                "answers": [["France", "in France"]],
-                "metadata": {
-                    "source": "sample",
-                    "qa_pair_ids": ["qa_1"],
-                    "keypoints": ["Normandy is in France."],
-                },
-            }
-        ])
+        dataset._parse_hf_rows(
+            [
+                {
+                    "_split": "Accurate_Retrieval",
+                    "context": "Document 1:\nNormandy is in France.",
+                    "questions": ["Where is Normandy?"],
+                    "answers": [["France", "in France"]],
+                    "metadata": {
+                        "source": "sample",
+                        "qa_pair_ids": ["qa_1"],
+                        "keypoints": ["Normandy is in France."],
+                    },
+                }
+            ]
+        )
 
         assert len(dataset.get_instances()) == 1
         assert dataset.get_queries()[0].query_id == "qa_1"
@@ -309,15 +313,17 @@ class TestMemoryArenaDataset:
         from benchmarks.academic.datasets.memoryarena import MemoryArenaDataset
 
         dataset = MemoryArenaDataset()
-        dataset._parse_public_rows([
-            {
-                "_config": "progressive_search",
-                "id": 7,
-                "backgrounds": ["Use source A", "Use source B"],
-                "questions": ["Find first clue", "Use first clue to answer"],
-                "answers": ["clue-one", "final-answer"],
-            }
-        ])
+        dataset._parse_public_rows(
+            [
+                {
+                    "_config": "progressive_search",
+                    "id": 7,
+                    "backgrounds": ["Use source A", "Use source B"],
+                    "questions": ["Find first clue", "Use first clue to answer"],
+                    "answers": ["clue-one", "final-answer"],
+                }
+            ]
+        )
 
         assert len(dataset.get_instances()) == 2
         assert dataset.get_queries()[0].category == "progressive_search"
@@ -336,9 +342,12 @@ class TestLLMJudgePrompts:
 
     def test_longmemeval_prompts_cover_all_types(self):
         expected = {
-            "single-session-user", "single-session-assistant",
-            "multi-session", "temporal-reasoning",
-            "knowledge-update", "single-session-preference",
+            "single-session-user",
+            "single-session-assistant",
+            "multi-session",
+            "temporal-reasoning",
+            "knowledge-update",
+            "single-session-preference",
             "abstention",
         }
         assert set(_LONGMEMEVAL_JUDGE_PROMPTS.keys()) == expected

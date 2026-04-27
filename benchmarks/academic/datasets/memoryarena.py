@@ -59,7 +59,9 @@ class MemoryArenaDataset(DatasetAdapter):
         self._sessions: list[list[ConversationTurn]] = []
         self._queries: list[MemoryQuery] = []
         self._ground_truth: dict[str, GroundTruth] = {}
-        self._instances: list[tuple[list[list[ConversationTurn]], list[MemoryQuery], dict[str, GroundTruth]]] = []
+        self._instances: list[
+            tuple[list[list[ConversationTurn]], list[MemoryQuery], dict[str, GroundTruth]]
+        ] = []
         self._loaded = False
 
     @property
@@ -96,8 +98,10 @@ class MemoryArenaDataset(DatasetAdapter):
             self._parse_public_rows(rows)
 
         self._loaded = True
-        print(f"  [memoryarena] Loaded {len(self._sessions)} task sessions, "
-              f"{len(self._queries)} queries")
+        print(
+            f"  [memoryarena] Loaded {len(self._sessions)} task sessions, "
+            f"{len(self._queries)} queries"
+        )
 
     def _load_public_jsonl(self, base: Path) -> list[dict]:
         """Load public MemoryArena JSONL rows from cache or Hugging Face."""
@@ -155,19 +159,21 @@ class MemoryArenaDataset(DatasetAdapter):
 
                 sessions: list[list[ConversationTurn]] = []
                 if background:
-                    sessions.append([
-                        ConversationTurn(
-                            role="system",
-                            content=background,
-                            turn_id=0,
-                            session_id=f"{task_id}_background_{sub_idx}",
-                            metadata={
-                                "task_family": task_family,
-                                "config": config_name,
-                                "kind": "background",
-                            },
-                        )
-                    ])
+                    sessions.append(
+                        [
+                            ConversationTurn(
+                                role="system",
+                                content=background,
+                                turn_id=0,
+                                session_id=f"{task_id}_background_{sub_idx}",
+                                metadata={
+                                    "task_family": task_family,
+                                    "config": config_name,
+                                    "kind": "background",
+                                },
+                            )
+                        ]
+                    )
                 if prior_turns:
                     sessions.append(prior_turns)
 
@@ -218,25 +224,30 @@ class MemoryArenaDataset(DatasetAdapter):
         for idx in range(upto):
             if idx >= len(questions):
                 break
-            turns.append(ConversationTurn(
-                role="user",
-                content=str(questions[idx]),
-                turn_id=len(turns),
-                session_id=f"{task_id}_prior",
-                metadata={"subtask_index": idx},
-            ))
-            if idx < len(answers):
-                turns.append(ConversationTurn(
-                    role="assistant",
-                    content=_answer_to_text(answers[idx]),
+            turns.append(
+                ConversationTurn(
+                    role="user",
+                    content=str(questions[idx]),
                     turn_id=len(turns),
                     session_id=f"{task_id}_prior",
                     metadata={"subtask_index": idx},
-                ))
+                )
+            )
+            if idx < len(answers):
+                turns.append(
+                    ConversationTurn(
+                        role="assistant",
+                        content=_answer_to_text(answers[idx]),
+                        turn_id=len(turns),
+                        session_id=f"{task_id}_prior",
+                        metadata={"subtask_index": idx},
+                    )
+                )
         return turns
 
     def _parse_tasks(
-        self, raw: list[dict],
+        self,
+        raw: list[dict],
     ) -> list[list[ConversationTurn]]:
         """Parse agentic task sessions."""
         sessions: list[list[ConversationTurn]] = []
@@ -262,13 +273,15 @@ class MemoryArenaDataset(DatasetAdapter):
                 else:
                     continue
 
-                turns.append(ConversationTurn(
-                    role=role,
-                    content=content,
-                    turn_id=step_idx,
-                    session_id=session_id,
-                    metadata=step if isinstance(step, dict) else {},
-                ))
+                turns.append(
+                    ConversationTurn(
+                        role=role,
+                        content=content,
+                        turn_id=step_idx,
+                        session_id=session_id,
+                        metadata=step if isinstance(step, dict) else {},
+                    )
+                )
 
             if turns:
                 sessions.append(turns)
@@ -276,7 +289,8 @@ class MemoryArenaDataset(DatasetAdapter):
         return sessions
 
     def _parse_queries(
-        self, raw: list[dict],
+        self,
+        raw: list[dict],
     ) -> tuple[list[MemoryQuery], dict[str, GroundTruth]]:
         """Parse evaluation queries by task family."""
         queries: list[MemoryQuery] = []
@@ -288,13 +302,15 @@ class MemoryArenaDataset(DatasetAdapter):
             question = item.get("question", item.get("query", ""))
             answer = item.get("answer", item.get("expected_answer", ""))
 
-            queries.append(MemoryQuery(
-                query_id=str(query_id),
-                question=question,
-                category=category,
-                session_id=item.get("task_id", ""),
-                metadata={"raw": item},
-            ))
+            queries.append(
+                MemoryQuery(
+                    query_id=str(query_id),
+                    question=question,
+                    category=category,
+                    session_id=item.get("task_id", ""),
+                    metadata={"raw": item},
+                )
+            )
 
             gt[str(query_id)] = GroundTruth(
                 query_id=str(query_id),
@@ -347,13 +363,15 @@ class MemoryArenaDataset(DatasetAdapter):
                 "accuracy": task_complete,
             }
 
-            results.append(EvalResult(
-                query_id=query_id,
-                category=gt.category,
-                predicted=pred,
-                expected=gt.answer,
-                scores=scores,
-            ))
+            results.append(
+                EvalResult(
+                    query_id=query_id,
+                    category=gt.category,
+                    predicted=pred,
+                    expected=gt.answer,
+                    scores=scores,
+                )
+            )
 
         return results
 

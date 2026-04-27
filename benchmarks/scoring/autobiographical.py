@@ -12,7 +12,6 @@ from dataclasses import asdict, dataclass, field
 
 from benchmarks.adapters.base import RecallResult
 
-
 PEOPLE = ("kai", "mira", "noah", "ren", "sana")
 AGENT_NAMES = ("agent", "maru")
 EMOTIONAL_TERMS = (
@@ -46,9 +45,7 @@ class AutobiographicalScore:
 
 def infer_autobiographical_axes(query: dict, ground_truth: dict) -> list[str]:
     """Infer Track E axes from explicit metadata or query/ground-truth shape."""
-    explicit = ground_truth.get("autobiographical_axes") or query.get(
-        "autobiographical_axes"
-    )
+    explicit = ground_truth.get("autobiographical_axes") or query.get("autobiographical_axes")
     if explicit:
         return sorted(set(explicit))
 
@@ -58,10 +55,13 @@ def infer_autobiographical_axes(query: dict, ground_truth: dict) -> list[str]:
     category = query.get("category", "")
     axes: set[str] = set()
 
-    if _has_any(
-        query_text,
-        ("identity", "describe itself", "response_style", "self"),
-    ) or "maru" in expected_text:
+    if (
+        _has_any(
+            query_text,
+            ("identity", "describe itself", "response_style", "self"),
+        )
+        or "maru" in expected_text
+    ):
         axes.update({"identity_preservation", "evidence_grounding"})
 
     if _has_any(
@@ -88,13 +88,15 @@ def infer_autobiographical_axes(query: dict, ground_truth: dict) -> list[str]:
         axes.update({"affective_salience", "person_boundary", "evidence_grounding"})
 
     if ground_truth.get("current_fact") and ground_truth.get("stale_fact"):
-        axes.update({
-            "taste_currentness",
-            "contradiction_handling",
-            "temporal_specificity",
-            "change_legibility",
-            "evidence_grounding",
-        })
+        axes.update(
+            {
+                "taste_currentness",
+                "contradiction_handling",
+                "temporal_specificity",
+                "change_legibility",
+                "evidence_grounding",
+            }
+        )
 
     if category == "negative_recall" or not ground_truth.get("expected_memories"):
         axes.add("abstention")
@@ -182,14 +184,9 @@ def score_autobiographical_query(
         axis_scores["evidence_grounding"] = trace_rate
 
     if "change_legibility" in axes:
-        axis_scores["change_legibility"] = _current_without_stale_score(
-            current_found, stale_found
-        )
+        axis_scores["change_legibility"] = _current_without_stale_score(current_found, stale_found)
 
-    overall = (
-        sum(axis_scores.values()) / len(axis_scores)
-        if axis_scores else 0.0
-    )
+    overall = sum(axis_scores.values()) / len(axis_scores) if axis_scores else 0.0
 
     return AutobiographicalScore(
         query_id=query["query_id"],
@@ -218,10 +215,7 @@ def aggregate_autobiographical_scores(scores: list[dict | AutobiographicalScore]
     if not scores:
         return {}
 
-    normalized = [
-        s.to_dict() if isinstance(s, AutobiographicalScore) else s
-        for s in scores
-    ]
+    normalized = [s.to_dict() if isinstance(s, AutobiographicalScore) else s for s in scores]
 
     axis_values: dict[str, list[float]] = {}
     diagnostic_values: dict[str, list[float]] = {}
@@ -232,9 +226,7 @@ def aggregate_autobiographical_scores(scores: list[dict | AutobiographicalScore]
             diagnostic_values.setdefault(key, []).append(float(value))
 
     axes = {
-        axis: sum(values) / len(values)
-        for axis, values in sorted(axis_values.items())
-        if values
+        axis: sum(values) / len(values) for axis, values in sorted(axis_values.items()) if values
     }
     diagnostics = {
         key: sum(values) / len(values)
@@ -295,9 +287,7 @@ def _abstention_score(results: list[RecallResult], forbidden: list[str]) -> floa
     if not forbidden:
         return 0.0
     contaminated = sum(
-        1
-        for result in results
-        if any(item.lower() in result.content.lower() for item in forbidden)
+        1 for result in results if any(item.lower() in result.content.lower() for item in forbidden)
     )
     return 1.0 - (contaminated / len(results))
 
@@ -308,16 +298,12 @@ def _trace_rate(results: list[RecallResult], traceability_results: list[dict]) -
 
     evidence_hits = 0
     for result in results:
-        evidence_ids = result.metadata.get("evidence_ids") or result.metadata.get(
-            "evidence_id"
-        )
+        evidence_ids = result.metadata.get("evidence_ids") or result.metadata.get("evidence_id")
         if evidence_ids:
             evidence_hits += 1
 
     if traceability_results:
-        trace_hits = sum(
-            1 for trace in traceability_results if trace.get("traceable", False)
-        )
+        trace_hits = sum(1 for trace in traceability_results if trace.get("traceable", False))
         return max(evidence_hits, trace_hits) / len(results)
 
     return evidence_hits / len(results)
@@ -354,8 +340,6 @@ def _emotional_pollution_rate(results: list[RecallResult]) -> float:
     if not results:
         return 0.0
     emotional = sum(
-        1
-        for result in results
-        if any(term in result.content.lower() for term in EMOTIONAL_TERMS)
+        1 for result in results if any(term in result.content.lower() for term in EMOTIONAL_TERMS)
     )
     return emotional / len(results)

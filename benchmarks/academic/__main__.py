@@ -23,7 +23,10 @@ from types import SimpleNamespace
 DATASET_REGISTRY = {
     "locomo": ("benchmarks.academic.datasets.locomo", "LoCoMoDataset"),
     "longmemeval": ("benchmarks.academic.datasets.longmemeval", "LongMemEvalDataset"),
-    "memoryagentbench": ("benchmarks.academic.datasets.memoryagentbench", "MemoryAgentBenchDataset"),
+    "memoryagentbench": (
+        "benchmarks.academic.datasets.memoryagentbench",
+        "MemoryAgentBenchDataset",
+    ),
     "memoryarena": ("benchmarks.academic.datasets.memoryarena", "MemoryArenaDataset"),
 }
 
@@ -39,6 +42,7 @@ SYSTEM_REGISTRY = {
 def _load_class(module_path: str, class_name: str):
     """Dynamically load a class from a module path."""
     import importlib
+
     module = importlib.import_module(module_path)
     return getattr(module, class_name)
 
@@ -143,6 +147,7 @@ async def cmd_run(args):
             except Exception as e:
                 print(f"  ERROR: {e}")
                 import traceback
+
                 traceback.print_exc()
                 print()
 
@@ -228,7 +233,9 @@ async def cmd_report(args):
             if by_cat:
                 print(f"  {sid}:")
                 for cat, scores in sorted(by_cat.items()):
-                    primary = scores.get("f1", scores.get("accuracy", scores.get("task_completion", 0.0)))
+                    primary = scores.get(
+                        "f1", scores.get("accuracy", scores.get("task_completion", 0.0))
+                    )
                     print(f"    {cat}: {primary:.3f}")
 
 
@@ -330,33 +337,42 @@ def main():
 
     # --- run ---
     run_p = sub.add_parser("run", help="Run academic benchmarks")
-    run_p.add_argument("--benchmark", required=True,
-                       choices=list(DATASET_REGISTRY.keys()),
-                       help="Benchmark to run")
-    run_p.add_argument("--systems", default="alive,rag",
-                       help="Comma-separated system IDs")
-    run_p.add_argument("--all", action="store_true",
-                       help="Run all systems")
-    run_p.add_argument("--seeds", default="42",
-                       help="Comma-separated seeds")
-    run_p.add_argument("--llm-model", default=None,
-                       help="LLM model for answer generation")
-    run_p.add_argument("--api-key", default=None,
-                       help="API key for LLM provider")
-    run_p.add_argument("--base-url", default=None,
-                       help="Base URL for LLM API (e.g. https://openrouter.ai/api/v1)")
-    run_p.add_argument("--data-dir", default="benchmarks/academic/data",
-                       help="Directory containing benchmark datasets")
-    run_p.add_argument("--results-dir", default="benchmarks/academic/results",
-                       help="Directory to save results")
-    run_p.add_argument("--consolidation-interval", type=int, default=10,
-                       help="Sessions between consolidation calls")
-    run_p.add_argument("--judge-model", default=None,
-                       help="LLM model for LLM-as-Judge scoring (enables judge metric)")
-    run_p.add_argument("--judge-api-key", default=None,
-                       help="API key for judge LLM (defaults to --api-key)")
-    run_p.add_argument("--judge-base-url", default=None,
-                       help="Base URL for judge LLM (defaults to OpenRouter)")
+    run_p.add_argument(
+        "--benchmark", required=True, choices=list(DATASET_REGISTRY.keys()), help="Benchmark to run"
+    )
+    run_p.add_argument("--systems", default="alive,rag", help="Comma-separated system IDs")
+    run_p.add_argument("--all", action="store_true", help="Run all systems")
+    run_p.add_argument("--seeds", default="42", help="Comma-separated seeds")
+    run_p.add_argument("--llm-model", default=None, help="LLM model for answer generation")
+    run_p.add_argument("--api-key", default=None, help="API key for LLM provider")
+    run_p.add_argument(
+        "--base-url", default=None, help="Base URL for LLM API (e.g. https://openrouter.ai/api/v1)"
+    )
+    run_p.add_argument(
+        "--data-dir",
+        default="benchmarks/academic/data",
+        help="Directory containing benchmark datasets",
+    )
+    run_p.add_argument(
+        "--results-dir", default="benchmarks/academic/results", help="Directory to save results"
+    )
+    run_p.add_argument(
+        "--consolidation-interval",
+        type=int,
+        default=10,
+        help="Sessions between consolidation calls",
+    )
+    run_p.add_argument(
+        "--judge-model",
+        default=None,
+        help="LLM model for LLM-as-Judge scoring (enables judge metric)",
+    )
+    run_p.add_argument(
+        "--judge-api-key", default=None, help="API key for judge LLM (defaults to --api-key)"
+    )
+    run_p.add_argument(
+        "--judge-base-url", default=None, help="Base URL for judge LLM (defaults to OpenRouter)"
+    )
 
     # --- list ---
     sub.add_parser("list", help="List available benchmarks and systems")
@@ -367,8 +383,7 @@ def main():
 
     # --- prepare ---
     prep_p = sub.add_parser("prepare", help="Prepare: ingest + consolidate + save state")
-    prep_p.add_argument("--benchmark", required=True,
-                        choices=list(DATASET_REGISTRY.keys()))
+    prep_p.add_argument("--benchmark", required=True, choices=list(DATASET_REGISTRY.keys()))
     prep_p.add_argument("--system", default="alive")
     prep_p.add_argument("--workers", type=int, default=16)
     prep_p.add_argument("--data-dir", default="benchmarks/academic/data")
@@ -376,13 +391,13 @@ def main():
     prep_p.add_argument("--llm-model", default=None)
     prep_p.add_argument("--api-key", default=None)
     prep_p.add_argument("--base-url", default=None)
-    prep_p.add_argument("--resume", action="store_true",
-                        help="Skip already-prepared instances")
+    prep_p.add_argument("--resume", action="store_true", help="Skip already-prepared instances")
 
     # --- prepare-all ---
     prep_all_p = sub.add_parser("prepare-all", help="Prepare every available academic benchmark")
-    prep_all_p.add_argument("--benchmarks", default="all",
-                            help="Comma-separated benchmarks or 'all'")
+    prep_all_p.add_argument(
+        "--benchmarks", default="all", help="Comma-separated benchmarks or 'all'"
+    )
     prep_all_p.add_argument("--system", default="alive")
     prep_all_p.add_argument("--workers", type=int, default=4)
     prep_all_p.add_argument("--data-dir", default="benchmarks/academic/data")
@@ -390,27 +405,27 @@ def main():
     prep_all_p.add_argument("--llm-model", default=None)
     prep_all_p.add_argument("--api-key", default=None)
     prep_all_p.add_argument("--base-url", default=None)
-    prep_all_p.add_argument("--resume", action="store_true",
-                            help="Skip already-prepared instances")
-    prep_all_p.add_argument("--skip-missing", action=argparse.BooleanOptionalAction,
-                            default=True,
-                            help="Skip benchmarks whose datasets are missing")
+    prep_all_p.add_argument("--resume", action="store_true", help="Skip already-prepared instances")
+    prep_all_p.add_argument(
+        "--skip-missing",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Skip benchmarks whose datasets are missing",
+    )
 
     # --- bench ---
     bench_p = sub.add_parser("bench", help="Bench: load prepared state + run queries")
-    bench_p.add_argument("--benchmark", required=True,
-                         choices=list(DATASET_REGISTRY.keys()))
-    bench_p.add_argument("--prepared-dir", required=True,
-                         help="Directory with prepared instances")
+    bench_p.add_argument("--benchmark", required=True, choices=list(DATASET_REGISTRY.keys()))
+    bench_p.add_argument("--prepared-dir", required=True, help="Directory with prepared instances")
     bench_p.add_argument("--workers", type=int, default=16)
     bench_p.add_argument("--data-dir", default="benchmarks/academic/data")
     bench_p.add_argument("--results-dir", default="benchmarks/academic/results")
     bench_p.add_argument("--llm-model", default=None)
     bench_p.add_argument("--api-key", default=None)
-    bench_p.add_argument("--base-url", default=None,
-                         help="Base URL for LLM API (e.g. https://openrouter.ai/api/v1)")
-    bench_p.add_argument("--resume", action="store_true",
-                         help="Skip already-answered instances")
+    bench_p.add_argument(
+        "--base-url", default=None, help="Base URL for LLM API (e.g. https://openrouter.ai/api/v1)"
+    )
+    bench_p.add_argument("--resume", action="store_true", help="Skip already-answered instances")
     bench_p.add_argument("--judge-model", default=None)
     bench_p.add_argument("--judge-api-key", default=None)
     bench_p.add_argument("--judge-base-url", default=None)
@@ -429,11 +444,13 @@ def main():
         asyncio.run(cmd_report(args))
     elif args.command == "prepare":
         from benchmarks.academic.prepare import main_prepare
+
         asyncio.run(main_prepare(args))
     elif args.command == "prepare-all":
         asyncio.run(cmd_prepare_all(args))
     elif args.command == "bench":
         from benchmarks.academic.bench import main_bench
+
         asyncio.run(main_bench(args))
 
 

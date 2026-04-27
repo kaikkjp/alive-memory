@@ -105,20 +105,14 @@ def test_autobiographical_generator_tags_track_e_axes():
     queries, ground_truth = generator._generate_queries_and_gt(events)
 
     tagged_queries = [q for q in queries if q.get("track") == "autobiographical"]
-    tagged_ground_truth = [
-        gt for gt in ground_truth if gt.get("autobiographical_axes")
-    ]
+    tagged_ground_truth = [gt for gt in ground_truth if gt.get("autobiographical_axes")]
 
     assert tagged_queries
     assert len(tagged_queries) == len(tagged_ground_truth)
     assert any(
-        "identity_preservation" in q.get("autobiographical_axes", [])
-        for q in tagged_queries
+        "identity_preservation" in q.get("autobiographical_axes", []) for q in tagged_queries
     )
-    assert any(
-        "taste_currentness" in q.get("autobiographical_axes", [])
-        for q in tagged_queries
-    )
+    assert any("taste_currentness" in q.get("autobiographical_axes", []) for q in tagged_queries)
 
 
 def test_benchmark_result_serializes_autobiographical_audit_fields():

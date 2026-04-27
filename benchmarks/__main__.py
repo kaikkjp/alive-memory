@@ -177,6 +177,7 @@ async def cmd_run(args):
             except Exception as e:
                 print(f"  ERROR: {e}")
                 import traceback
+
                 traceback.print_exc()
 
             print()
@@ -240,13 +241,16 @@ async def cmd_cross_domain(args):
             )
             result_path = str(results_dir / f"{system_id}.json")
             result.save(result_path)
-            print(f"  Transfer F1: {result.transfer_f1:.3f}, "
-                  f"Interference: {result.interference_rate:.3f} → {result_path}")
+            print(
+                f"  Transfer F1: {result.transfer_f1:.3f}, "
+                f"Interference: {result.interference_rate:.3f} → {result_path}"
+            )
         except ImportError as e:
             print(f"  SKIPPED (missing dependency): {e}")
         except Exception as e:
             print(f"  ERROR: {e}")
             import traceback
+
             traceback.print_exc()
         print()
 
@@ -281,14 +285,17 @@ async def cmd_stress(args):
             result = await runner.run(adapter, system_id=system_id)
             result_path = str(results_dir / f"{system_id}.json")
             result.save(result_path)
-            print(f"  Throughput: {result.throughput:.1f} ops/s, "
-                  f"p99: {result.p99_ms:.1f}ms, "
-                  f"degradation: {result.degradation_ratio:.2f}x → {result_path}")
+            print(
+                f"  Throughput: {result.throughput:.1f} ops/s, "
+                f"p99: {result.p99_ms:.1f}ms, "
+                f"degradation: {result.degradation_ratio:.2f}x → {result_path}"
+            )
         except ImportError as e:
             print(f"  SKIPPED (missing dependency): {e}")
         except Exception as e:
             print(f"  ERROR: {e}")
             import traceback
+
             traceback.print_exc()
         print()
 
@@ -331,10 +338,17 @@ def main():
 
     # --- generate ---
     gen_p = sub.add_parser("generate", help="Generate benchmark data")
-    gen_p.add_argument("--scenario", default="research_assistant",
-                       choices=["research_assistant", "customer_support",
-                                "personal_assistant", "autobiographical_agent",
-                                "stress_test"])
+    gen_p.add_argument(
+        "--scenario",
+        default="research_assistant",
+        choices=[
+            "research_assistant",
+            "customer_support",
+            "personal_assistant",
+            "autobiographical_agent",
+            "stress_test",
+        ],
+    )
     gen_p.add_argument("--seed", type=int, default=42)
     gen_p.add_argument("--events", type=int, default=None)
     gen_p.add_argument("--noise-ratio", type=float, default=0.0)

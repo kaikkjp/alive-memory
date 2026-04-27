@@ -64,9 +64,13 @@ class BenchmarkResult:
     metrics_over_time: list[tuple[int, CycleMetrics]] = field(default_factory=list)
     final_stats: SystemStats | None = None
     run_manifest: dict = field(default_factory=dict)
-    latencies: dict = field(default_factory=lambda: {
-        "ingest": [], "recall": [], "consolidate": [],
-    })
+    latencies: dict = field(
+        default_factory=lambda: {
+            "ingest": [],
+            "recall": [],
+            "consolidate": [],
+        }
+    )
     total_events: int = 0
     wall_time_seconds: float = 0.0
 
@@ -102,13 +106,9 @@ class BenchmarkResult:
             if self.final_metrics.adapter_data:
                 fm["adapter_data"] = self.final_metrics.adapter_data
             if self.final_metrics.autobiographical_summary:
-                fm["autobiographical_summary"] = (
-                    self.final_metrics.autobiographical_summary
-                )
+                fm["autobiographical_summary"] = self.final_metrics.autobiographical_summary
             if self.final_metrics.autobiographical_scores:
-                fm["autobiographical_scores"] = (
-                    self.final_metrics.autobiographical_scores
-                )
+                fm["autobiographical_scores"] = self.final_metrics.autobiographical_scores
             if self.final_metrics.recall_traces:
                 fm["recall_traces"] = self.final_metrics.recall_traces
             d["final_metrics"] = fm
@@ -225,18 +225,14 @@ class BenchmarkRunner:
         self.queries = load_jsonl(query_path)
         self.ground_truth = load_ground_truth(ground_truth_path)
         self.consolidation_interval = consolidation_interval
-        self.measurement_points = set(
-            measurement_points or [100, 500, 1000, 2000, 5000, 10000]
-        )
+        self.measurement_points = set(measurement_points or [100, 500, 1000, 2000, 5000, 10000])
         self.max_cycles = max_cycles
         self.primary_users = primary_users or []
         self._content_index: set[str] | None = None
 
         if self.max_cycles:
             self.events = [e for e in self.events if e["cycle"] <= self.max_cycles]
-            self.measurement_points = {
-                p for p in self.measurement_points if p <= self.max_cycles
-            }
+            self.measurement_points = {p for p in self.measurement_points if p <= self.max_cycles}
 
     def _build_run_manifest(
         self,
@@ -310,8 +306,7 @@ class BenchmarkRunner:
                 mem_count = stats.memory_count if stats else 0
                 auto_part = f", AutoBio={auto:.3f}" if auto is not None else ""
                 print(
-                    f"  [{system_id}] cycle {cycle}: "
-                    f"{mem_count} memories, F1={f1:.3f}{auto_part}"
+                    f"  [{system_id}] cycle {cycle}: {mem_count} memories, F1={f1:.3f}{auto_part}"
                 )
 
             # Progress indicator for long runs
@@ -327,9 +322,7 @@ class BenchmarkRunner:
         # --- Final measurement ---
         if self.events:
             final_cycle = self.events[-1]["cycle"]
-            result.final_metrics = await self._measure(
-                adapter, final_cycle, result.latencies
-            )
+            result.final_metrics = await self._measure(adapter, final_cycle, result.latencies)
             result.final_stats = await adapter.get_stats()
 
         result.wall_time_seconds = time.monotonic() - wall_start
@@ -341,6 +334,7 @@ class BenchmarkRunner:
     def _get_content_index(self, cycle: int) -> set[str]:
         """Build content index for traceability checks up to given cycle."""
         from benchmarks.scoring.hard_truth import build_content_index
+
         return build_content_index(self.events, cycle)
 
     @staticmethod
@@ -357,11 +351,7 @@ class BenchmarkRunner:
             "content_snippet": result.content[:500],
             "formed_at": result.formed_at,
             "memory_id": metadata.get("memory_id") or metadata.get("id"),
-            "evidence_ids": (
-                metadata.get("evidence_ids")
-                or metadata.get("evidence_id")
-                or []
-            ),
+            "evidence_ids": (metadata.get("evidence_ids") or metadata.get("evidence_id") or []),
             "timestamp": metadata.get("timestamp") or result.formed_at,
             "tier": metadata.get("tier"),
             "identity_scope": metadata.get("identity_scope"),
@@ -449,7 +439,10 @@ class BenchmarkRunner:
                         break
                 if query_user:
                     confusion = score_entity_confusion(
-                        query_id, query_user, results, self.primary_users,
+                        query_id,
+                        query_user,
+                        results,
+                        self.primary_users,
                     )
                     entity_confusion_results.append(confusion)
 
@@ -471,9 +464,7 @@ class BenchmarkRunner:
                 current = gt.get("current_fact", "")
                 stale = gt.get("stale_fact", "")
                 if current and stale:
-                    contra = score_contradiction(
-                        query_id, results, current, stale
-                    )
+                    contra = score_contradiction(query_id, results, current, stale)
                     contradiction_results.append(contra)
             else:
                 expected = gt.get("expected_memories", q.get("expected_memories", []))

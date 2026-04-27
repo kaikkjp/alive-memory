@@ -61,7 +61,9 @@ class MemoryAgentBenchDataset(DatasetAdapter):
         self._sessions: list[list[ConversationTurn]] = []
         self._queries: list[MemoryQuery] = []
         self._ground_truth: dict[str, GroundTruth] = {}
-        self._instances: list[tuple[list[list[ConversationTurn]], list[MemoryQuery], dict[str, GroundTruth]]] = []
+        self._instances: list[
+            tuple[list[list[ConversationTurn]], list[MemoryQuery], dict[str, GroundTruth]]
+        ] = []
         self._loaded = False
 
     @property
@@ -100,8 +102,10 @@ class MemoryAgentBenchDataset(DatasetAdapter):
             self._parse_hf_rows(rows)
 
         self._loaded = True
-        print(f"  [memoryagentbench] Loaded {len(self._sessions)} episodes, "
-              f"{len(self._queries)} questions")
+        print(
+            f"  [memoryagentbench] Loaded {len(self._sessions)} episodes, "
+            f"{len(self._queries)} questions"
+        )
 
     def _load_hf_rows(self, base: Path) -> list[dict]:
         """Load public MemoryAgentBench rows from cache or Hugging Face API."""
@@ -144,8 +148,8 @@ class MemoryAgentBenchDataset(DatasetAdapter):
         with tmp.open("w") as f:
             offset = 0
             while offset < total:
-                payload = first if offset == 0 else self._fetch_rows(
-                    split_name, offset=offset, length=1
+                payload = (
+                    first if offset == 0 else self._fetch_rows(split_name, offset=offset, length=1)
                 )
                 for item in payload.get("rows", []):
                     row = item.get("row", {})
@@ -156,13 +160,15 @@ class MemoryAgentBenchDataset(DatasetAdapter):
         tmp.rename(cache_file)
 
     def _fetch_rows(self, split_name: str, offset: int, length: int) -> dict:
-        query = urllib.parse.urlencode({
-            "dataset": _HF_DATASET,
-            "config": _HF_CONFIG,
-            "split": split_name,
-            "offset": offset,
-            "length": length,
-        })
+        query = urllib.parse.urlencode(
+            {
+                "dataset": _HF_DATASET,
+                "config": _HF_CONFIG,
+                "split": split_name,
+                "offset": offset,
+                "length": length,
+            }
+        )
         url = f"https://datasets-server.huggingface.co/rows?{query}"
         with urllib.request.urlopen(url, timeout=120) as resp:
             return json.loads(resp.read().decode("utf-8"))
@@ -240,18 +246,20 @@ class MemoryAgentBenchDataset(DatasetAdapter):
             answer = _answer_to_text(raw_answer)
             aliases = _answer_aliases(raw_answer)
 
-            queries.append(MemoryQuery(
-                query_id=query_id,
-                question=str(question),
-                category=category,
-                session_id=row_id,
-                metadata={
-                    "source": metadata.get("source"),
-                    "split": row.get("_split"),
-                    "row_id": row_id,
-                    "answer_aliases": aliases,
-                },
-            ))
+            queries.append(
+                MemoryQuery(
+                    query_id=query_id,
+                    question=str(question),
+                    category=category,
+                    session_id=row_id,
+                    metadata={
+                        "source": metadata.get("source"),
+                        "split": row.get("_split"),
+                        "row_id": row_id,
+                        "answer_aliases": aliases,
+                    },
+                )
+            )
 
             gt[query_id] = GroundTruth(
                 query_id=query_id,
@@ -268,7 +276,8 @@ class MemoryAgentBenchDataset(DatasetAdapter):
         return queries, gt
 
     def _parse_episodes(
-        self, raw: list[dict],
+        self,
+        raw: list[dict],
     ) -> list[list[ConversationTurn]]:
         """Parse agent episodes into conversation turn format."""
         sessions: list[list[ConversationTurn]] = []
@@ -295,13 +304,15 @@ class MemoryAgentBenchDataset(DatasetAdapter):
                 else:
                     continue
 
-                turns.append(ConversationTurn(
-                    role=role,
-                    content=content,
-                    turn_id=step_idx,
-                    session_id=session_id,
-                    metadata=step if isinstance(step, dict) else {},
-                ))
+                turns.append(
+                    ConversationTurn(
+                        role=role,
+                        content=content,
+                        turn_id=step_idx,
+                        session_id=session_id,
+                        metadata=step if isinstance(step, dict) else {},
+                    )
+                )
 
             if turns:
                 sessions.append(turns)
@@ -309,7 +320,8 @@ class MemoryAgentBenchDataset(DatasetAdapter):
         return sessions
 
     def _parse_questions(
-        self, raw: list[dict],
+        self,
+        raw: list[dict],
     ) -> tuple[list[MemoryQuery], dict[str, GroundTruth]]:
         """Parse evaluation queries."""
         queries: list[MemoryQuery] = []
@@ -322,13 +334,15 @@ class MemoryAgentBenchDataset(DatasetAdapter):
             question = item.get("question", item.get("query", ""))
             answer = item.get("answer", item.get("expected_answer", ""))
 
-            queries.append(MemoryQuery(
-                query_id=str(query_id),
-                question=question,
-                category=category,
-                session_id=item.get("episode_id", ""),
-                metadata={"raw": item},
-            ))
+            queries.append(
+                MemoryQuery(
+                    query_id=str(query_id),
+                    question=question,
+                    category=category,
+                    session_id=item.get("episode_id", ""),
+                    metadata={"raw": item},
+                )
+            )
 
             gt[str(query_id)] = GroundTruth(
                 query_id=str(query_id),
@@ -382,13 +396,15 @@ class MemoryAgentBenchDataset(DatasetAdapter):
                 "accuracy": task_complete,
             }
 
-            results.append(EvalResult(
-                query_id=query_id,
-                category=gt.category,
-                predicted=pred,
-                expected=gt.answer,
-                scores=scores,
-            ))
+            results.append(
+                EvalResult(
+                    query_id=query_id,
+                    category=gt.category,
+                    predicted=pred,
+                    expected=gt.answer,
+                    scores=scores,
+                )
+            )
 
         return results
 
@@ -412,7 +428,7 @@ def _split_context(context: str, max_chars: int = 6000) -> list[str]:
                 return chunks
             continue
         for start in range(0, len(part), max_chars):
-            chunks.append(part[start:start + max_chars])
+            chunks.append(part[start : start + max_chars])
             if max_chunks is not None and len(chunks) >= max_chunks:
                 return chunks
     return chunks
